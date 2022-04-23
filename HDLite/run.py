@@ -4,7 +4,6 @@ from hdlite import Signal as sig
 
 from hdlite.Component import *
 
-
 class DFlipFlop(Component):
     def __init__(self, name, clock, resetn, d, q, qn):
         super().__init__(name)
