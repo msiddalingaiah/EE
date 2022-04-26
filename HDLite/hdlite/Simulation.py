@@ -22,9 +22,12 @@ class Simulation(object):
     def addSignal(self, signal):
         self.signals.append(signal)
 
-    def run(self, topComponent):
+    def setTopComponent(self, topComponent):
         topComponent.addComponents()
         topComponent.addSignals()
+
+    def run(self, topComponent):
+        self.setTopComponent(topComponent)
         startTime = time.time()
         self.vcd.addSignals(topComponent)
         self.propagateSignals()
@@ -54,7 +57,11 @@ class Simulation(object):
             print(f'Simulation finished at time {self.time} ns')
             print(f'Real time {endTime-startTime:.3f} s')
         self.vcd.close()
-        
+
+    def runUntilStable(self):
+        while self.runOneCycle():
+            pass
+
     def runOneCycle(self):
         for p in self.components:
             if self.time >= p.nextTime:
@@ -77,4 +84,3 @@ class Simulation(object):
             if iterations > 100:
                 raise Exception('No convergence!')
         return iterations > 0
-
