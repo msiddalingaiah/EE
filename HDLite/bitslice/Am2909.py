@@ -1,5 +1,4 @@
 
-from hashlib import sha3_224
 from hdlite import Signal as sig
 
 from hdlite.Component import *
@@ -63,7 +62,8 @@ class Am2909(Component):
             else:
                 self.stackAddr <<= self.sp
         if self.clock.isRisingEdge():
-            self.pc <<= self.mux + self.cin
+            if self.cin == 1:
+                self.pc <<= self.mux + 1
             if self.re == 0:
                 self.ar <<= self.rin            
             if self.fe == 0:

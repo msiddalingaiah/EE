@@ -50,7 +50,7 @@ $dumpvars'''
         for tag in self.tagMap:
             signal = self.tagMap[tag]
             if len(signal) == 1:
-                self.println('%s%s' % (str(signal.value), tag))
+                self.println('%s%s' % (str(signal.getIntValue()), tag))
             else:
                 self.println('%s %s' % (bin(signal.getIntValue())[1:], tag))
     

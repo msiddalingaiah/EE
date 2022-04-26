@@ -40,8 +40,10 @@ class Counter(Component):
         self.clock = clock
         self.resetn = resetn
         self.out = out
+        self.bit2 = sig.Signal()
 
     def run(self):
+        self.bit2 <<= self.out[2]
         if self.resetn == 0:
             self.out <<= 0
         elif self.clock.isRisingEdge():
@@ -82,6 +84,6 @@ def testBitslice():
     sim.simulation.run(tb)
 
 if __name__ == '__main__':
-    #testDFF()
+    testDFF()
     #testCounter()
     testBitslice()
