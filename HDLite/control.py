@@ -103,9 +103,10 @@ def runBitslice():
     for i in range(len(data)):
         top.rom.memory[i] = data[i]
     sim.simulation.setTopComponent(top)
-    outputs = {'μWord': top.pipeline, 'Address': top.address,
+    outputs = {'μWord': top.pipeline,
         'I/O Write': top.io_write, 'I/O Char': top.io_char}
-    app = App(reset, clock, outputs)
+    internal = {'Address': top.address, 'S0': top.s0, 'S1': top.s1}
+    app = App(reset, clock, internal, outputs)
     app.mainloop()
 
 if __name__ == '__main__':
