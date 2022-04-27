@@ -8,15 +8,15 @@ from hdlite.Component import *
 from hdlite.ControlPanel import *
 
 class Counter(Component):
-    def __init__(self, reset, clock, out):
+    def __init__(self, reset, clock, out, odd):
         super().__init__()
         self.clock = clock
         self.reset = reset
         self.out = out
-        self.bit2 = sig.Signal()
+        self.odd = odd
 
     def run(self):
-        self.bit2 <<= self.out[2]
+        self.odd <<= self.out[0]
         if self.reset == 1:
             self.out <<= 0
         elif self.clock.isRisingEdge():
@@ -28,8 +28,9 @@ def runCounter():
     clock = sig.Signal()
     reset = sig.Signal()
     out = sig.Vector(4)
-    outputs = {'out': out}
-    top = Counter(reset, clock, out)
+    odd = sig.Signal()
+    outputs = {'Out': out, 'Odd': odd}
+    top = Counter(reset, clock, out, odd)
     sim.simulation.setTopComponent(top)
     app = App(reset, clock, outputs)
     app.mainloop()

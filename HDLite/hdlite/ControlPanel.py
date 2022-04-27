@@ -4,6 +4,7 @@ from tkinter import ttk
 import sys
 
 from hdlite import Simulation as sim
+from hdlite import Signal as sig
 
 class ClockFrame(ttk.Frame):
     def __init__(self, container, resetSignal, clockSignal, outFrame):
@@ -34,24 +35,50 @@ class ClockFrame(ttk.Frame):
         sim.simulation.runUntilStable()
         self.outFrame.update()
 
+class SignalIndicator(tk.Canvas):
+    def __init__(self, container, signal, w=15, h=15):
+        super().__init__(container, width=w, height=h)
+        self.signal = signal
+
+    def update(self):
+        w = self.winfo_width()-3
+        h = self.winfo_height()-3
+        if self.signal.getIntValue():
+            self.create_oval(2, 2, w, h, fill='#0f0', outline='#000')
+        else:
+            self.create_oval(2, 2, w, h, fill='#fff', outline='#000')
+
+class VectorIndicator(tk.Label):
+    def __init__(self, container, signal):
+        fontValue = ('Digital-7 Mono', 20)
+        super().__init__(container, text='', font=fontValue, fg='#f00')
+        self.signal = signal
+
+    def update(self):
+        self.config(text = f'{self.signal.getIntValue()}')
+
 class OutputFrame(ttk.Frame):
     def __init__(self, container, outputs):
         super().__init__(container)
         self.outputs = outputs
-        self.labels = {}
+        self.indicators = {}
+        fontName = ('Consolas', 16)
+        # TTF font from https://www.fontspace.com/digital-7-font-f7087
         row = 0
         for name, signal in outputs.items():
-            ttk.Label(self, text=name).grid(column=0, row=row, sticky=tk.E)
-            label = ttk.Label(self, text='')
-            label.grid(column=1, row=row, sticky=tk.E)
-            self.labels[name] = label
+            tk.Label(self, text=name, font=fontName).grid(column=0, row=row, sticky=tk.E)
+            ind = None
+            if isinstance(signal, sig.Vector):
+                ind = self.indicators[name] = VectorIndicator(self, signal)
+            elif isinstance(signal, sig.Signal):
+                ind = self.indicators[name] = SignalIndicator(self, signal)
+            ind.grid(column=1, row=row, sticky=tk.E)
             row += 1
         self.update()
 
     def update(self):
         for name, signal in self.outputs.items():
-            label = self.labels[name]
-            label.config(text = f'{signal.getIntValue()}')
+            self.indicators[name].update()
 
 class App(tk.Tk):
     def __init__(self, resetSignal, clockSignal, outputs):
@@ -60,7 +87,7 @@ class App(tk.Tk):
         self.geometry('400x150')
         self.resizable(0, 0)
         # windows only (remove the minimize/maximize button)
-        #self.attributes('-toolwindow', True)
+        self.attributes('-toolwindow', True)
         self.columnconfigure(0, weight=1)
         self.columnconfigure(1, weight=2)
         self.columnconfigure(2, weight=2)
