@@ -1,14 +1,12 @@
 
 import tkinter as tk
 from tkinter import ttk
-import sys
 
 from hdlite import Simulation as sim
-from hdlite import Signal as sig
 
-class ClockFrame(ttk.Frame):
+class ClockFrame(ttk.LabelFrame):
     def __init__(self, container, resetSignal, clockSignal, sigframes):
-        super().__init__(container)
+        super().__init__(container, text='Reset/Clock')
         self.resetSignal = resetSignal
         self.clockSignal = clockSignal
         self.sigFrames = sigframes
@@ -19,7 +17,7 @@ class ClockFrame(ttk.Frame):
         ttk.Button(self, text='Step #').grid(column=0, row=4, padx=5, pady=2)
         nClocks = ttk.Entry(self, width=5)
         nClocks.focus()
-        nClocks.grid(column=1, row=4, sticky=tk.W)
+        nClocks.grid(column=1, row=4, padx=5, pady=2, sticky=tk.W)
 
     def updateAll(self):
         for f in self.sigFrames:
@@ -63,9 +61,9 @@ class VectorIndicator(tk.Label):
     def doUpdate(self):
         self.config(text = self.format % self.signal.getIntValue())
 
-class OutputFrame(ttk.Frame):
-    def __init__(self, container, outputs):
-        super().__init__(container)
+class OutputFrame(ttk.LabelFrame):
+    def __init__(self, container, title, outputs):
+        super().__init__(container, text=title)
         self.outputs = outputs
         self.indicators = {}
         fontName = ('Consolas', 14)
@@ -97,11 +95,11 @@ class App(tk.Tk):
         self.columnconfigure(0, weight=1)
         self.columnconfigure(1, weight=2)
         self.columnconfigure(2, weight=2)
-        ifr = OutputFrame(self, internal)
-        of = OutputFrame(self, outputs)
+        ifr = OutputFrame(self, 'Internal Signals', internal)
+        of = OutputFrame(self, 'Output Signals', outputs)
         cf = ClockFrame(self, resetSignal, clockSignal, [ifr, of])
-        cf.grid(column=0, row=0)
-        ifr.grid(column=1, row=0, sticky=tk.W)
-        of.grid(column=2, row=0, sticky=tk.W)
+        cf.grid(column=0, row=0, padx=2, pady=2)
+        ifr.grid(column=1, row=0, padx=2, pady=2, sticky=tk.N)
+        of.grid(column=2, row=0, padx=2, pady=2, sticky=tk.N)
         # Assert reset after 500 ms
         self.after(500, cf.reset)
