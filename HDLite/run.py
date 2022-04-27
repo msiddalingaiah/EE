@@ -84,6 +84,6 @@ def testBitslice():
     sim.simulation.run(tb)
 
 if __name__ == '__main__':
-    testDFF()
+    #testDFF()
     #testCounter()
     testBitslice()

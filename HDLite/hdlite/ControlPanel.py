@@ -53,9 +53,11 @@ class VectorIndicator(tk.Label):
         fontValue = ('Digital-7 Mono', 20)
         super().__init__(container, text='', font=fontValue, fg='#f00')
         self.signal = signal
+        digits = (len(signal)+3) >> 2
+        self.format = f'%0{digits}X'
 
     def update(self):
-        self.config(text = f'{self.signal.getIntValue()}')
+        self.config(text = self.format % self.signal.getIntValue())
 
 class OutputFrame(ttk.Frame):
     def __init__(self, container, outputs):
@@ -72,7 +74,7 @@ class OutputFrame(ttk.Frame):
                 ind = self.indicators[name] = VectorIndicator(self, signal)
             elif isinstance(signal, sig.Signal):
                 ind = self.indicators[name] = SignalIndicator(self, signal)
-            ind.grid(column=1, row=row, sticky=tk.E)
+            ind.grid(column=1, row=row, sticky=tk.W)
             row += 1
         self.update()
 
@@ -84,7 +86,7 @@ class App(tk.Tk):
     def __init__(self, resetSignal, clockSignal, outputs):
         super().__init__()
         self.title('Control Panel')
-        self.geometry('400x150')
+        self.geometry('500x150')
         self.resizable(0, 0)
         # windows only (remove the minimize/maximize button)
         self.attributes('-toolwindow', True)
