@@ -2,6 +2,7 @@
 import tkinter as tk
 from tkinter import ttk
 from tkinter import messagebox
+from tkinter import IntVar
 
 from hdlite import Simulation as sim
 
@@ -13,7 +14,7 @@ class ClockFrame(ttk.LabelFrame):
         self.resetSignal = resetSignal
         self.clockSignal = clockSignal
         self.sigFrames = sigframes
-        self.clockCount = 0
+        self.running = False
         ttk.Button(self, text='Reset', command=self.reset).grid(column=0, row=0, padx=5, pady=2)
         self.startBtn = ttk.Button(self, text='Start', command=self.start)
         self.startBtn.grid(column=0, row=1, padx=5, pady=2)
@@ -24,13 +25,13 @@ class ClockFrame(ttk.LabelFrame):
         self.stepNBtn = ttk.Button(self, text='Step #', command=self.stepn)
         self.stepNBtn.grid(column=0, row=4, padx=5, pady=2)
         self.nClocks = ttk.Entry(self, width=5)
+        self.nClocks.insert(0, '1')
         self.nClocks.focus()
         self.nClocks.grid(column=1, row=4, padx=5, pady=2, sticky=tk.W)
 
     def timer(self):
         self.winfo_toplevel().after(TIMER_TICK_MS, self.timer)
-        if self.clockCount > 0:
-            self.clockCount -= 1
+        if self.running:
             self.step()
         else:
             self.stepBtn.configure(state='normal')
@@ -51,7 +52,7 @@ class ClockFrame(ttk.LabelFrame):
         self.updateAll()
 
     def start(self):
-        self.clockCount = 100000
+        self.running = True
         self.stepBtn.configure(state='disabled')
         self.stepNBtn.configure(state='disabled')
         self.startBtn.configure(state='disabled')
@@ -59,7 +60,7 @@ class ClockFrame(ttk.LabelFrame):
         self.nClocks.configure(state='disabled')
 
     def stop(self):
-        self.clockCount = 0
+        self.running = False
 
     def step(self):
         self.clockSignal <<= 1
@@ -97,6 +98,7 @@ class SignalIndicator(tk.Canvas):
 
 class VectorIndicator(tk.Label):
     def __init__(self, container, signal):
+        # TrueType font from https://www.fontspace.com/digital-7-font-f7087
         fontValue = ('Digital-7 Mono', 20)
         super().__init__(container, text='', font=fontValue, fg='#f00')
         self.signal = signal
@@ -109,28 +111,80 @@ class VectorIndicator(tk.Label):
 class OutputFrame(ttk.LabelFrame):
     def __init__(self, container, title, outputs):
         super().__init__(container, text=title)
-        self.outputs = outputs
-        self.indicators = {}
+        self.indicators = []
         fontName = ('Consolas', 14)
-        # TTF font from https://www.fontspace.com/digital-7-font-f7087
         row = 0
         for name, signal in outputs.items():
             tk.Label(self, text=name, font=fontName).grid(column=0, row=row, sticky=tk.E)
             ind = None
             if len(signal) == 1:
-                ind = self.indicators[name] = SignalIndicator(self, signal)
+                ind = SignalIndicator(self, signal)
             else:
-                ind = self.indicators[name] = VectorIndicator(self, signal)
+                ind = VectorIndicator(self, signal)
+            self.indicators.append(ind)
             ind.grid(column=1, row=row, sticky=tk.W)
             row += 1
         self.doUpdate()
 
     def doUpdate(self):
-        for name, signal in self.outputs.items():
-            self.indicators[name].doUpdate()
+        for ind in self.indicators:
+            ind.doUpdate()
+
+class SignalControl(tk.Checkbutton):
+    def __init__(self, container, signal):
+        self.value = IntVar()
+        super().__init__(container, variable=self.value, onvalue=1,offvalue=0, command=self.action)
+        self.signal = signal
+        self.deselect()
+        self.container = container
+
+    def action(self):
+        self.container.doUpdate()
+
+    def doUpdate(self):
+        self.signal <<= self.value.get()
+
+class VectorControl(ttk.Entry):
+    def __init__(self, container, signal):
+        super().__init__(container, width=len(signal)>>2)
+        self.signal = signal
+        self.container = container
+        self.insert(0, '0')
+        self.bind('<Return>', self.action)
+
+    def action(self, event):
+        self.container.doUpdate()
+
+    def doUpdate(self):
+        try:
+            self.signal <<= int(self.get(), 16)
+        except ValueError as e:
+            msg = f'Value is not an int: {self.get()}'
+            messagebox.showwarning(title='Input Error', message=msg)
+
+class InputFrame(ttk.LabelFrame):
+    def __init__(self, container, inputs):
+        super().__init__(container, text="Input Signals")
+        self.controls = []
+        fontName = ('Consolas', 14)
+        row = 0
+        for name, signal in inputs.items():
+            tk.Label(self, text=name, font=fontName).grid(column=0, row=row, sticky=tk.E)
+            control = None
+            if len(signal) == 1:
+                control = SignalControl(self, signal)
+            else:
+                control = VectorControl(self, signal)
+            self.controls.append(control)
+            control.grid(column=1, row=row, sticky=tk.W)
+            row += 1
+
+    def doUpdate(self):
+        for ind in self.controls:
+            ind.doUpdate()
 
 class App(tk.Tk):
-    def __init__(self, resetSignal, clockSignal, internal, outputs):
+    def __init__(self, resetSignal, clockSignal, inputs, internal, outputs):
         super().__init__()
         self.title('Control Panel')
         #self.geometry('500x200')
@@ -140,12 +194,15 @@ class App(tk.Tk):
         self.columnconfigure(0, weight=1)
         self.columnconfigure(1, weight=2)
         self.columnconfigure(2, weight=2)
-        ifr = OutputFrame(self, 'Internal Signals', internal)
-        of = OutputFrame(self, 'Output Signals', outputs)
-        cf = ClockFrame(self, resetSignal, clockSignal, [ifr, of])
-        cf.grid(column=0, row=0, padx=2, pady=2)
-        ifr.grid(column=1, row=0, padx=2, pady=2, sticky=tk.N)
-        of.grid(column=2, row=0, padx=2, pady=2, sticky=tk.N)
+        self.columnconfigure(3, weight=2)
+        inputFrame = InputFrame(self, inputs)
+        internFrame = OutputFrame(self, 'Internal Signals', internal)
+        outputFrame = OutputFrame(self, 'Output Signals', outputs)
+        clockFrame = ClockFrame(self, resetSignal, clockSignal, [internFrame, outputFrame])
+        clockFrame.grid(column=0, row=0, padx=2, pady=2)
+        inputFrame.grid(column=1, row=0, padx=2, pady=2, sticky=tk.N)
+        internFrame.grid(column=2, row=0, padx=2, pady=2, sticky=tk.N)
+        outputFrame.grid(column=3, row=0, padx=3, pady=2, sticky=tk.N)
         # Assert reset after 500 ms
-        self.after(500, cf.reset)
-        self.after(TIMER_TICK_MS, cf.timer)
+        self.after(500, clockFrame.reset)
+        self.after(TIMER_TICK_MS, clockFrame.timer)

@@ -236,12 +236,13 @@ class Vector(object):
 
     # x <<= y (assignment)
     def __ilshift__(self, other):
+        mask = ~(-1 << self.size)
         if isinstance(other, (Vector, Signal, VectorSlice)):
             if len(self) != len(other):
                 raise Exception(f'Size mismatch: {len(self)} != {len(other)}')
-            self.futureValue = other.getIntValue()
+            self.futureValue = other.getIntValue() & mask
         else:
-            self.futureValue = other
+            self.futureValue = other & mask
         return self
 
     def __getitem__(self, index):

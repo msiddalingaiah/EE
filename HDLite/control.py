@@ -1,5 +1,4 @@
 
-from cgitb import reset
 from hdlite import Simulation as sim
 from hdlite import Signal as sig
 import bitslice.bitslice_tb as bit
@@ -10,22 +9,6 @@ from bitslice.Am2909 import *
 from bitslice.ROM import *
 from bitslice.IO import *
 
-
-class Counter(Component):
-    def __init__(self, reset, clock, out, odd):
-        super().__init__()
-        self.clock = clock
-        self.reset = reset
-        self.out = out
-        self.odd = odd
-
-    def run(self):
-        self.odd <<= self.out[0]
-        if self.reset == 1:
-            self.out <<= 0
-        elif self.clock.isRisingEdge():
-            if self.out < 10:
-                self.out <<= self.out + 1
 
 class BitsliceTB(Component):
     def __init__(self, reset, clock):
@@ -71,18 +54,6 @@ class BitsliceTB(Component):
         if self.clock.isRisingEdge():
             self.pipeline <<= self.data
 
-def runCounter():
-    sim.simulation = sim.Simulation()
-    clock = sig.Signal()
-    reset = sig.Signal()
-    out = sig.Vector(4)
-    odd = sig.Signal()
-    outputs = {'Out': out, 'Odd': odd}
-    top = Counter(reset, clock, out, odd)
-    sim.simulation.setTopComponent(top)
-    app = App(reset, clock, outputs)
-    app.mainloop()
-
 def io_write(c):
     return (1 << 17) | (ord(c) << 8)
 
@@ -106,9 +77,9 @@ def runBitslice():
     outputs = {'μWord': top.pipeline,
         'I/O Write': top.io_write, 'I/O Char': top.io_char}
     internal = {'Address': top.address, 'S0': top.s0, 'S1': top.s1}
-    app = App(reset, clock, internal, outputs)
+    inputs = {}
+    app = App(reset, clock, inputs, internal, outputs)
     app.mainloop()
 
 if __name__ == '__main__':
-    #runCounter()
     runBitslice()
