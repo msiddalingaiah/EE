@@ -1,8 +1,11 @@
 
 import tkinter as tk
 from tkinter import ttk
+from tkinter import messagebox
 
 from hdlite import Simulation as sim
+
+TIMER_TICK_MS = 500
 
 class ClockFrame(ttk.LabelFrame):
     def __init__(self, container, resetSignal, clockSignal, sigframes):
@@ -10,14 +13,31 @@ class ClockFrame(ttk.LabelFrame):
         self.resetSignal = resetSignal
         self.clockSignal = clockSignal
         self.sigFrames = sigframes
+        self.clockCount = 0
         ttk.Button(self, text='Reset', command=self.reset).grid(column=0, row=0, padx=5, pady=2)
-        ttk.Button(self, text='Start').grid(column=0, row=1, padx=5, pady=2)
-        ttk.Button(self, text='Stop').grid(column=0, row=2, padx=5, pady=2)
-        ttk.Button(self, text='Step', command=self.step).grid(column=0, row=3, padx=5, pady=2)
-        ttk.Button(self, text='Step #').grid(column=0, row=4, padx=5, pady=2)
-        nClocks = ttk.Entry(self, width=5)
-        nClocks.focus()
-        nClocks.grid(column=1, row=4, padx=5, pady=2, sticky=tk.W)
+        self.startBtn = ttk.Button(self, text='Start', command=self.start)
+        self.startBtn.grid(column=0, row=1, padx=5, pady=2)
+        self.stopBtn = ttk.Button(self, text='Stop', command=self.stop, state='disabled')
+        self.stopBtn.grid(column=0, row=2, padx=5, pady=2)
+        self.stepBtn = ttk.Button(self, text='Step', command=self.step)
+        self.stepBtn.grid(column=0, row=3, padx=5, pady=2)
+        self.stepNBtn = ttk.Button(self, text='Step #', command=self.stepn)
+        self.stepNBtn.grid(column=0, row=4, padx=5, pady=2)
+        self.nClocks = ttk.Entry(self, width=5)
+        self.nClocks.focus()
+        self.nClocks.grid(column=1, row=4, padx=5, pady=2, sticky=tk.W)
+
+    def timer(self):
+        self.winfo_toplevel().after(TIMER_TICK_MS, self.timer)
+        if self.clockCount > 0:
+            self.clockCount -= 1
+            self.step()
+        else:
+            self.stepBtn.configure(state='normal')
+            self.stepNBtn.configure(state='normal')
+            self.startBtn.configure(state='normal')
+            self.stopBtn.configure(state='disabled')
+            self.nClocks.configure(state='normal')
 
     def updateAll(self):
         for f in self.sigFrames:
@@ -30,12 +50,37 @@ class ClockFrame(ttk.LabelFrame):
         sim.simulation.runUntilStable()
         self.updateAll()
 
+    def start(self):
+        self.clockCount = 100000
+        self.stepBtn.configure(state='disabled')
+        self.stepNBtn.configure(state='disabled')
+        self.startBtn.configure(state='disabled')
+        self.stopBtn.configure(state='normal')
+        self.nClocks.configure(state='disabled')
+
+    def stop(self):
+        self.clockCount = 0
+
     def step(self):
         self.clockSignal <<= 1
         sim.simulation.runUntilStable()
         self.clockSignal <<= 0
         sim.simulation.runUntilStable()
         self.updateAll()
+
+    def stepn(self):
+        try:
+            n = int(self.nClocks.get())
+            while n > 0:
+                self.clockSignal <<= 1
+                sim.simulation.runUntilStable()
+                self.clockSignal <<= 0
+                sim.simulation.runUntilStable()
+                n -= 1
+            self.updateAll()
+        except ValueError as e:
+            msg = f'Count is not an int: {self.nClocks.get()}'
+            messagebox.showwarning(title='Input Error', message=msg)
 
 class SignalIndicator(tk.Canvas):
     def __init__(self, container, signal, w=15, h=15):
@@ -103,3 +148,4 @@ class App(tk.Tk):
         of.grid(column=2, row=0, padx=2, pady=2, sticky=tk.N)
         # Assert reset after 500 ms
         self.after(500, cf.reset)
+        self.after(TIMER_TICK_MS, cf.timer)
