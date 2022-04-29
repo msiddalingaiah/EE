@@ -150,5 +150,25 @@ class TestSignals(unittest.TestCase):
         sim.simulation.run(tb)
         self.assertEqual(tb.out, 10)
 
+    def testAnd(self):
+        x = sig.Vector(8)
+        y = sig.Vector(8)
+        x <<= 0xac
+        x.propagate()
+        y <<= x & 0xf
+        self.assertEqual(y.getIntValue(), 0)
+        y.propagate()
+        self.assertEqual(y.getIntValue(), 0xc)
+
+    def testInvert(self):
+        x = sig.Vector(8)
+        y = sig.Vector(8)
+        x <<= 0xac
+        x.propagate()
+        y <<= ~x
+        self.assertEqual(y.getIntValue(), 0)
+        y.propagate()
+        self.assertEqual(y.getIntValue(), 0x53)
+
 if __name__ == '__main__':
     unittest.main()

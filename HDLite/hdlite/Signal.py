@@ -9,18 +9,12 @@ class Signal(object):
         self.value = futureValue
         sim.simulation.addSignal(self)
 
-    def assign(self, other):
-        self.futureValue = other
-        return self
-
     def __len__(self):
         return 1
 
     def rhs(self, other):
         if isinstance(other, int):
-            if other == 0 or other == 1:
-                return other
-            raise Exception(f'Unexpected type value {other}')
+            return other & 1
         if isinstance(other, (Signal, Vector, VectorSlice)):
             if len(other) != 1:
                 raise Exception(f'Sizes do not match {len(self)} != {len(other)}')
@@ -79,17 +73,18 @@ class Signal(object):
 class AbstractVector(object):
     def __init__(self, size):
         self.size = size
+        self.mask = ~(-1 << size)
 
     def __len__(self):
         return self.size
 
     def rhs(self, other):
+        if isinstance(other, int):
+            return other & self.mask
         if isinstance(other, (Signal, Vector, VectorSlice)):
             if len(self) != len(other):
                 raise Exception(f'Sizes do not match {len(self)} != {len(other)}')
             return other.getIntValue()
-        elif isinstance(other, int):
-            return other
         raise Exception(f'Unexpected type {type(other)}')
 
     def __and__(self, other):
@@ -128,15 +123,19 @@ class AbstractVector(object):
     def __gt__(self, other):
         return self.getIntValue() > self.rhs(other)
     
+    # ~ (not)
+    def __invert__(self):
+        return (~self.value) & self.mask
+
     def __str__(self):
         return bin(self.getIntValue())
 
 class VectorSlice(AbstractVector):
-    def __init__(self, vector, start, size, mask):
+    def __init__(self, vector, start, size):
         super().__init__(size)
+        # Don't add this to simulation, composed vector was already added
         self.vector = vector
         self.start = start
-        self.mask = mask
 
     def getIntValue(self):
         value = (self.vector.getIntValue() >> self.start) & self.mask
@@ -149,19 +148,11 @@ class VectorSlice(AbstractVector):
     def __setitem__(self, index, value):
         pass
 
-    def assign(self, value):
-        fv = self.vector.futureValue
-        self.vector.futureValue = (fv & ~self.mask) | (value << self.start)
-
     # x <<= y (assignment)
     def __ilshift__(self, other):
-        if isinstance(other, (Vector, Signal, VectorSlice)):
-            if len(self) != len(other):
-                raise Exception(f'Size mismatch: {len(self)} != {len(other)}')
-            self.assign(other.getIntValue())
-        else:
-            mask = ~(-1 << self.size)
-            self.assign(other & mask)
+        value = self.rhs(other)
+        fv = self.vector.futureValue
+        self.vector.futureValue = (fv & ~self.mask) | (value << self.start)
         return self
 
 class Vector(AbstractVector):
@@ -190,13 +181,7 @@ class Vector(AbstractVector):
 
     # x <<= y (assignment)
     def __ilshift__(self, other):
-        mask = ~(-1 << self.size)
-        if isinstance(other, (Vector, Signal, VectorSlice)):
-            if len(self) != len(other):
-                raise Exception(f'Size mismatch: {len(self)} != {len(other)}')
-            self.futureValue = other.getIntValue() & mask
-        else:
-            self.futureValue = other & mask
+        self.futureValue = self.rhs(other)
         return self
 
     def __getitem__(self, index):
@@ -205,10 +190,8 @@ class Vector(AbstractVector):
             stop = index.stop
             if start >= stop:
                 raise Exception(f'Bit range must be greather than zero: {start}:{stop}')
-            size = stop - start
-            mask = ~(-1 << size)
-            return VectorSlice(self, start, size, mask)
-        return VectorSlice(self, index, 1, 1)
+            return VectorSlice(self, start, stop - start)
+        return VectorSlice(self, index, 1)
 
     # This must be defined, but don't do anything
     def __setitem__(self, index, value):
