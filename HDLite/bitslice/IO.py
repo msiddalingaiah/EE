@@ -1,4 +1,6 @@
 
+import sys
+
 from hdlite import Signal as sig
 
 from hdlite.Component import *
@@ -17,6 +19,7 @@ class IO(Component):
                 value = self.char.getIntValue()
                 c = chr(value)
                 if c.isprintable() or c == '\n':
-                    print(c, end='')
+                    sys.stdout.write(c)
+                    sys.stdout.flush()
                 else:
                     print(f'({value})', end='')

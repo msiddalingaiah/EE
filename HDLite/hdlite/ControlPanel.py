@@ -146,7 +146,7 @@ class SignalControl(tk.Checkbutton):
 
 class VectorControl(ttk.Entry):
     def __init__(self, container, signal):
-        super().__init__(container, width=len(signal)>>2)
+        super().__init__(container, width=(len(signal)+7)>>2)
         self.signal = signal
         self.container = container
         self.insert(0, '0')
@@ -163,9 +163,10 @@ class VectorControl(ttk.Entry):
             messagebox.showwarning(title='Input Error', message=msg)
 
 class InputFrame(ttk.LabelFrame):
-    def __init__(self, container, inputs):
+    def __init__(self, container, inputs, sigframes):
         super().__init__(container, text="Input Signals")
         self.controls = []
+        self.sigFrames = sigframes
         fontName = ('Consolas', 14)
         row = 0
         for name, signal in inputs.items():
@@ -182,6 +183,9 @@ class InputFrame(ttk.LabelFrame):
     def doUpdate(self):
         for ind in self.controls:
             ind.doUpdate()
+        sim.simulation.runUntilStable()
+        for f in self.sigFrames:
+            f.doUpdate()
 
 class App(tk.Tk):
     def __init__(self, resetSignal, clockSignal, inputs, internal, outputs):
@@ -195,9 +199,9 @@ class App(tk.Tk):
         self.columnconfigure(1, weight=2)
         self.columnconfigure(2, weight=2)
         self.columnconfigure(3, weight=2)
-        inputFrame = InputFrame(self, inputs)
         internFrame = OutputFrame(self, 'Internal Signals', internal)
         outputFrame = OutputFrame(self, 'Output Signals', outputs)
+        inputFrame = InputFrame(self, inputs, [internFrame, outputFrame])
         clockFrame = ClockFrame(self, resetSignal, clockSignal, [internFrame, outputFrame])
         clockFrame.grid(column=0, row=0, padx=2, pady=2)
         inputFrame.grid(column=1, row=0, padx=2, pady=2, sticky=tk.N)

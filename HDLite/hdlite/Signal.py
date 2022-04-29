@@ -19,7 +19,7 @@ class Signal(object):
     def rhs(self, other):
         if isinstance(other, int):
             if other == 0 or other == 1:
-                return
+                return other
             raise Exception(f'Unexpected type value {other}')
         if isinstance(other, (Signal, Vector, VectorSlice)):
             if len(other) != 1:
@@ -42,10 +42,7 @@ class Signal(object):
 
     # x <<= y (assignment)
     def __ilshift__(self, other):
-        if isinstance(other, (Signal, Vector, VectorSlice)):
-            self.futureValue = other.getIntValue() & 1
-        else:
-            self.futureValue = other & 1
+        self.futureValue = self.rhs(other)
         return self
 
     def getIntValue(self):
@@ -72,10 +69,7 @@ class Signal(object):
         return self.isChanged() and self.value == 0
 
     def __eq__(self, other):
-        if isinstance(other, Signal):
-            return self.value == other.getIntValue()
-        else:
-            return self.value == other
+        return self.value == self.rhs(other)
     
     def __str__(self):
         return str(self.value)
