@@ -5,6 +5,17 @@ from hdlite import Signal as sig
 from bitslice.Am2901 import *
 from hdlite.ControlPanel import *
 
+class MemoryCellVector(object):
+    def __init__(self, regs, addr):
+        self.regs = regs
+        self.addr = addr
+
+    def __len__(self):
+        return 4
+
+    def getIntValue(self):
+        return self.regs[self.addr]
+
 if __name__ == '__main__':
     sim.simulation = sim.Simulation()
     reset = sig.Signal()
@@ -23,6 +34,9 @@ if __name__ == '__main__':
     inputs = {'Din': din, 'aSel': aSel, 'bSel': bSel, 'aluSrc': aluSrc, 'aluOp': aluOp,
         'aluDest': aluDest, 'Carry In': cin}
     internal = {'Q': alu.q}
+    for addr in range(16):
+        internal[f'r{addr}'] = MemoryCellVector(alu.regs, addr)
+
     outputs = {'Y': yout, 'Carry Out':cout}
     app = App(reset, clock, inputs, internal, outputs)
     app.mainloop()

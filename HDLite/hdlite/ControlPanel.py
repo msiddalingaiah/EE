@@ -9,10 +9,11 @@ from hdlite import Simulation as sim
 TIMER_TICK_MS = 500
 
 class ClockFrame(ttk.LabelFrame):
-    def __init__(self, container, resetSignal, clockSignal, sigframes):
+    def __init__(self, container, resetSignal, clockSignal, inputFrame, sigframes):
         super().__init__(container, text='Reset/Clock')
         self.resetSignal = resetSignal
         self.clockSignal = clockSignal
+        self.inputFrame = inputFrame
         self.sigFrames = sigframes
         self.running = False
         ttk.Button(self, text='Reset', command=self.reset).grid(column=0, row=0, padx=5, pady=2)
@@ -45,6 +46,7 @@ class ClockFrame(ttk.LabelFrame):
             f.doUpdate()
 
     def reset(self):
+        self.inputFrame.setValues()
         self.resetSignal <<= 1
         sim.simulation.runUntilStable()
         self.resetSignal <<= 0
@@ -52,6 +54,7 @@ class ClockFrame(ttk.LabelFrame):
         self.updateAll()
 
     def start(self):
+        self.inputFrame.setValues()
         self.running = True
         self.stepBtn.configure(state='disabled')
         self.stepNBtn.configure(state='disabled')
@@ -63,6 +66,7 @@ class ClockFrame(ttk.LabelFrame):
         self.running = False
 
     def step(self):
+        self.inputFrame.setValues()
         self.clockSignal <<= 1
         sim.simulation.runUntilStable()
         self.clockSignal <<= 0
@@ -71,6 +75,7 @@ class ClockFrame(ttk.LabelFrame):
 
     def stepn(self):
         try:
+            self.inputFrame.setValues()
             n = int(self.nClocks.get())
             while n > 0:
                 self.clockSignal <<= 1
@@ -141,7 +146,7 @@ class SignalControl(tk.Checkbutton):
     def action(self):
         self.container.doUpdate()
 
-    def doUpdate(self):
+    def setValue(self):
         self.signal <<= self.value.get()
 
 class VectorControl(ttk.Entry):
@@ -155,7 +160,7 @@ class VectorControl(ttk.Entry):
     def action(self, event):
         self.container.doUpdate()
 
-    def doUpdate(self):
+    def setValue(self):
         try:
             self.signal <<= int(self.get(), 16)
         except ValueError as e:
@@ -180,9 +185,12 @@ class InputFrame(ttk.LabelFrame):
             control.grid(column=1, row=row, sticky=tk.W)
             row += 1
 
-    def doUpdate(self):
+    def setValues(self):
         for ind in self.controls:
-            ind.doUpdate()
+            ind.setValue()
+
+    def doUpdate(self):
+        self.setValues()
         sim.simulation.runUntilStable()
         for f in self.sigFrames:
             f.doUpdate()
@@ -202,7 +210,7 @@ class App(tk.Tk):
         internFrame = OutputFrame(self, 'Internal Signals', internal)
         outputFrame = OutputFrame(self, 'Output Signals', outputs)
         inputFrame = InputFrame(self, inputs, [internFrame, outputFrame])
-        clockFrame = ClockFrame(self, resetSignal, clockSignal, [internFrame, outputFrame])
+        clockFrame = ClockFrame(self, resetSignal, clockSignal, inputFrame, [internFrame, outputFrame])
         clockFrame.grid(column=0, row=0, padx=2, pady=2)
         inputFrame.grid(column=1, row=0, padx=2, pady=2, sticky=tk.N)
         internFrame.grid(column=2, row=0, padx=2, pady=2, sticky=tk.N)
