@@ -65,6 +65,8 @@ class Am2911(Component):
         if self.clock.isRisingEdge():
             if self.cin == 1:
                 self.pc <<= self.yout + 1
+            else:
+                self.pc <<= self.yout
             if self.re == 0:
                 self.ar <<= self.din
             if self.fe == 0:

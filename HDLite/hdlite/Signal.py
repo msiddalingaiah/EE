@@ -125,7 +125,7 @@ class AbstractVector(object):
     
     # ~ (not)
     def __invert__(self):
-        return (~self.value) & self.mask
+        return (~self.getIntValue()) & self.mask
 
     def __str__(self):
         return bin(self.getIntValue())
@@ -151,8 +151,10 @@ class VectorSlice(AbstractVector):
     # x <<= y (assignment)
     def __ilshift__(self, other):
         value = self.rhs(other)
+        mask = self.mask << self.start
         fv = self.vector.futureValue
-        self.vector.futureValue = (fv & ~self.mask) | (value << self.start)
+        fv = (fv & ~mask) | ((value & self.mask) << self.start)
+        self.vector.futureValue = fv
         return self
 
 class Vector(AbstractVector):

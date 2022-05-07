@@ -1,0 +1,90 @@
+
+from hdlite import Simulation as sim
+from hdlite import Signal as sig
+
+from hdlite.Component import *
+from hdlite.ControlPanel import *
+from Centurion.CPU6 import *
+
+class CPU6TB(Component):
+    def __init__(self):
+        super().__init__()
+        self.reset = Reset()
+        self.clock = Clock(20)
+        self.state = 0
+        # Improved logical bit order
+        romMap = [4, 1, 2, 5, 6, 3, 0]
+        # Board order
+        #romMap = [0, 1, 2, 3, 4, 5, 6]
+        uc_roms = []
+        for i in romMap:
+            with open(f'Centurion/roms/CPU-AM27S191-L{i+1}.circ', 'rb') as f:
+                uc_roms.append(f.read())
+
+        self.zero = sig.Signal()
+        self.cpu6 = CPU6(self.reset.reset, self.clock.clock, self.zero)
+        ucode = []
+        for i in range(2048):
+            word = 0
+            for rom in uc_roms:
+                word <<= 8
+                word |= rom[i]
+            ucode.append(word)
+        self.cpu6.uc_rom.memory = ucode
+
+    def run(self):
+        if self.state == 0:
+            self.zero <<= 1
+            self.state += 1
+            self.wait(2)
+        elif self.state == 1:
+            self.zero <<= 0
+            self.state += 1
+            self.wait(7)
+        else:
+            self.zero <<= 1
+
+
+def simCPU6():
+    sim.simulation = sim.Simulation('vcd/cpu6.vcd')
+    sim.simulation.run(CPU6TB())
+
+def runCPU6():
+    # Improved logical bit order
+    romMap = [4, 1, 2, 5, 6, 3, 0]
+    # Board order
+    #romMap = [0, 1, 2, 3, 4, 5, 6]
+    uc_roms = []
+    for i in romMap:
+        with open(f'Centurion/roms/CPU-AM27S191-L{i+1}.circ', 'rb') as f:
+            uc_roms.append(f.read())
+
+    sim.simulation = sim.Simulation()
+    reset = sig.Signal()
+    clock = sig.Signal()
+    zero = sig.Signal()
+    top = CPU6(reset, clock, zero)
+
+    ucode = []
+    for i in range(2048):
+        word = 0
+        for rom in uc_roms:
+            word <<= 8
+            word |= rom[i]
+        ucode.append(word)
+
+    top.uc_rom.memory = ucode
+
+    sim.simulation.setTopComponent(top)
+    outputs = {'μWord': top.pipeline, 'ROM Address': top.uc_rom_address, 'ROM data': top.uc_rom_data}
+    internal = {'0:S0': top.seq0.s0, '0:S1': top.seq0.s1,
+        '1:S0': top.seq1.s0, '1:S1': top.seq1.s1,
+        '2:S0': top.seq2.s0, '2:S1': top.seq2.s1}
+    inputs = {'Zero': zero}
+    app = App(reset, clock, inputs, internal, outputs)
+    app.mainloop()
+
+if __name__ == '__main__':
+    #runCPU6()
+    simCPU6()
+

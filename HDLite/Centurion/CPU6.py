@@ -9,10 +9,11 @@ from bitslice.ROM import *
 from bitslice.IO import *
 
 class CPU6(Component):
-    def __init__(self, reset, clock):
+    def __init__(self, reset, clock, zero):
         super().__init__()
         self.reset = reset
         self.clock = clock
+        self.zero = zero
 
         # 6309 ROM
         self.map_rom_address = sig.Vector(8)
@@ -102,40 +103,59 @@ class CPU6(Component):
         if self.reset == 1:
             pass
 
-        self.seq0_din <<= self.pipeline[0:4]
+        self.seq0_din <<= self.pipeline[16:20]
         self.seq0_rin <<= self.map_rom_data[0:4]
         self.seq0_orin <<= 0
         self.seq0_s0 <<= ~self.pipeline[29]
         self.seq0_s1 <<= ~self.pipeline[30]
-        self.seq0_zero <<= 1
+        self.seq0_zero <<= self.zero
         self.seq0_cin <<= 1
         self.seq0_re <<= 1
         self.seq0_fe <<= self.pipeline[27]
         self.seq0_pup <<= self.pipeline[28]
-        self.uc_rom_address[0:4] <<= self.seq0_yout
+        self.uc_rom_address[0:4] <<= self.seq0_yout[0:4]
 
-        self.seq1_din <<= self.pipeline[4:8]
+        self.seq1_din <<= self.pipeline[20:24]
         self.seq1_rin <<= self.map_rom_data[4:8]
         self.seq1_orin <<= 0
         self.seq1_s0 <<= ~self.pipeline[31]
-        self.seq1_s1 <<= (~self.pipeline[32]) & self.pipeline[54]
-        self.seq1_zero <<= 1
+        if self.pipeline[54] == 0:
+            self.seq1_s1 <<= 0
+        else:
+            self.seq1_s1 <<= ~self.pipeline[32]
+        self.seq1_zero <<= self.zero
         self.seq1_cin <<= self.seq0_cout
         self.seq1_re <<= 1
         self.seq1_fe <<= self.pipeline[27]
         self.seq1_pup <<= self.pipeline[28]
-        self.uc_rom_address[4:8] <<= self.seq1_yout
+        self.uc_rom_address[4:8] <<= self.seq1_yout[0:4]
 
-        self.seq2_din <<= self.pipeline[8:12]
+        self.seq2_din[0:3] <<= self.pipeline[24:27]
         self.seq2_orin <<= 0
         self.seq2_s0 <<= ~self.pipeline[31]
         self.seq2_s1 <<= ~self.pipeline[32]
-        self.seq2_zero <<= 1
+        self.seq2_zero <<= self.zero
         self.seq2_cin <<= self.seq1_cout
         self.seq2_re <<= 1
         self.seq2_fe <<= self.pipeline[27]
         self.seq2_pup <<= self.pipeline[28]
-        self.uc_rom_address[8:12] <<= self.seq2_yout
+        self.uc_rom_address[8:11] <<= self.seq2_yout[0:3]
+
+        self.alu0_din <<= 0
+        self.alu0_a <<= self.pipeline[47:51]
+        self.alu0_b <<= self.pipeline[43:47]
+        self.alu0_src <<= self.pipeline[34:37]
+        self.alu0_op <<= self.pipeline[37:40]
+        self.alu0_dest <<= self.pipeline[40:43]
+        self.alu0_cin <<= 0
+
+        self.alu1_din <<= 0
+        self.alu1_a <<= self.pipeline[47:51]
+        self.alu1_b <<= self.pipeline[43:47]
+        self.alu1_src <<= self.pipeline[34:37]
+        self.alu1_op <<= self.pipeline[37:40]
+        self.alu1_dest <<= self.pipeline[40:43]
+        self.alu1_cin <<= self.alu0_cout
 
         if self.clock.isRisingEdge():
             self.pipeline <<= self.uc_rom_data
