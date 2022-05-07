@@ -5,12 +5,11 @@ from hdlite.Component import *
 
 from bitslice.Memory import *
 
-class Am2909(Component):
-    def __init__(self, reset, clock, din, rin, orin, s0, s1, zero, cin, re, fe, pup, yout, cout):
+class Am2911(Component):
+    def __init__(self, reset, clock, din, orin, s0, s1, zero, cin, re, fe, pup, yout, cout):
         super().__init__()
         self.clock = clock
         self.din = din
-        self.rin = rin
         self.orin = orin
         self.s0 = s0
         self.s1 = s1
@@ -67,7 +66,7 @@ class Am2909(Component):
             if self.cin == 1:
                 self.pc <<= self.yout + 1
             if self.re == 0:
-                self.ar <<= self.rin            
+                self.ar <<= self.din
             if self.fe == 0:
                 if self.pup == 1:
                     self.sp <<= self.sp + 1

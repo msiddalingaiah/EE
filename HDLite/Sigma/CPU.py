@@ -221,7 +221,7 @@ class Sigma7CPU(Component):
         self.FAIO <<= (self.OU4 & self.O4 & self.O5) | (self.OU6 & self.OLE)
         self.FAMDSF <<= self.FAMUL | self.FADIV | self.FASH | self.FAFL | self.SDIS
         self.FAMDSF_D <<= self.FADIV | self.FAFLD
-        self.FAMUL <<= (self.OU5 & self.OL7) | (self.OU3 & self.OLT) | (self.OU2 & self.OL3)
+        self.FAMUL <<= (self.OU5 & self.OL7) | (self.OU3 & self.OL7) | (self.OU2 & self.OL3)
         self.FANIMP <<= (self.NO1 & self.O3 & self.O4 & self.O5 & self.NFPOPTION) | (self.OU7 & self.O4 & self.NDEOPTION) | (self.OU7 & self.NO4 & self.O5 & self.O6 & self.NDEOPTION) | (self.FUEBS & self.NIA & self.NDEOPTION)
         self.FAPRIV <<= (self.NO3 & self.O4 & self.O5)
         self.FAPSD <<= (self.OU0 & self.O4 & self.O5 & self.O6)
@@ -229,7 +229,7 @@ class Sigma7CPU(Component):
         self.FAS1 <<= (self.NO1 & self.O3 & self.OL5)
         self.FAS2 <<= (self.OU1 & self.OL8) | (self.OU1 & self.OL1)
         self.FAS3 <<= (self.OU1 & self.NO5 & self.NO6 & self.NO7)
-        self.FAS6 <<= (self.OU4 & self.NO4 & self.O5 & self.O7) | (self.OUH & self.OLA)
+        self.FAS6 <<= (self.OU4 & self.NO4 & self.O5 & self.O7) | (self.OU4 & self.OLA)
         self.FAS7 <<= (self.O2 & self.O3 & self.OL3) | (self.O1 & self.O3 & self.OL3)
         self.FAS8 <<= (self.OU3 & self.OL3) | (self.OU6 & self.OL6)
         self.FAS9 <<= (self.OU4 & self.OL6) | (self.OU4 & self.O4 & self.NO5 & self.NO6) | (self.OU4 & self.O4 & self.NO5 & self.O7)
