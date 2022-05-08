@@ -17,8 +17,8 @@ class ClockFrame(ttk.LabelFrame):
         self.sigFrames = sigframes
         self.running = False
         ttk.Button(self, text='Reset', command=self.reset).grid(column=0, row=0, padx=5, pady=2)
-        self.startBtn = ttk.Button(self, text='Start', command=self.start)
-        self.startBtn.grid(column=0, row=1, padx=5, pady=2)
+        self.runBtn = ttk.Button(self, text='Run', command=self.run)
+        self.runBtn.grid(column=0, row=1, padx=5, pady=2)
         self.stopBtn = ttk.Button(self, text='Stop', command=self.stop, state='disabled')
         self.stopBtn.grid(column=0, row=2, padx=5, pady=2)
         self.stepBtn = ttk.Button(self, text='Step', command=self.step)
@@ -37,7 +37,7 @@ class ClockFrame(ttk.LabelFrame):
         else:
             self.stepBtn.configure(state='normal')
             self.stepNBtn.configure(state='normal')
-            self.startBtn.configure(state='normal')
+            self.runBtn.configure(state='normal')
             self.stopBtn.configure(state='disabled')
             self.nClocks.configure(state='normal')
 
@@ -53,12 +53,12 @@ class ClockFrame(ttk.LabelFrame):
         sim.simulation.runUntilStable()
         self.updateAll()
 
-    def start(self):
+    def run(self):
         self.inputFrame.setValues()
         self.running = True
         self.stepBtn.configure(state='disabled')
         self.stepNBtn.configure(state='disabled')
-        self.startBtn.configure(state='disabled')
+        self.runBtn.configure(state='disabled')
         self.stopBtn.configure(state='normal')
         self.nClocks.configure(state='disabled')
 
@@ -117,7 +117,7 @@ class OutputFrame(ttk.LabelFrame):
     def __init__(self, container, title, outputs):
         super().__init__(container, text=title)
         self.indicators = []
-        fontName = ('Consolas', 14)
+        fontName = ('Consolas', 12)
         row = 0
         for name, signal in outputs.items():
             tk.Label(self, text=name, font=fontName).grid(column=0, row=row, sticky=tk.E)

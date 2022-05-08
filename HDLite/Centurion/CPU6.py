@@ -9,7 +9,7 @@ from bitslice.ROM import *
 from bitslice.IO import *
 
 class CPU6(Component):
-    def __init__(self, reset, clock, zero):
+    def __init__(self, reset, clock, zero, dataBus, addressBus):
         super().__init__()
         self.reset = reset
         self.clock = clock
@@ -84,8 +84,12 @@ class CPU6(Component):
         self.alu0_cin = sig.Signal()
         self.alu0_yout = sig.Vector(4)
         self.alu0_cout = sig.Signal()
+        self.alu0_f0 = sig.Signal()
+        self.alu0_f3 = sig.Signal()
+        self.alu0_ovr = sig.Signal()
         self.alu0 = Am2901(clock, self.alu0_din, self.alu0_a, self.alu0_b, self.alu0_src,
-            self.alu0_op, self.alu0_dest, self.alu0_cin, self.alu0_yout, self.alu0_cout)
+            self.alu0_op, self.alu0_dest, self.alu0_cin, self.alu0_yout, self.alu0_cout,
+            self.alu0_f0, self.alu0_f3, self.alu0_ovr)
 
         self.alu1_din = sig.Vector(4)
         self.alu1_a = sig.Vector(4)
@@ -96,16 +100,46 @@ class CPU6(Component):
         self.alu1_cin = sig.Signal()
         self.alu1_yout = sig.Vector(4)
         self.alu1_cout = sig.Signal()
+        self.alu1_f0 = sig.Signal()
+        self.alu1_f3 = sig.Signal()
+        self.alu1_ovr = sig.Signal()
         self.alu1 = Am2901(clock, self.alu1_din, self.alu1_a, self.alu1_b, self.alu1_src,
-            self.alu1_op, self.alu1_dest, self.alu1_cin, self.alu1_yout, self.alu1_cout)
+            self.alu1_op, self.alu1_dest, self.alu1_cin, self.alu1_yout, self.alu1_cout,
+            self.alu1_f0, self.alu1_f3, self.alu1_ovr)
+
+        # ALU flags
+        self.alu_zero = sig.Signal()
+
+        # Busses
+        self.iDBus = sig.Vector(8)
+        self.FBus = sig.Vector(8)
+        self.dataBus = dataBus
+        self.addressBus = addressBus
+
+        # Constant (immediate data)
+        self.constant = sig.Vector(8)
+
+        # Enables
+        self.d2d3 = sig.Vector(4)
+        self.e7 = sig.Vector(2)
+        self.h11 = sig.Vector(3)
+        self.k11 = sig.Vector(3)
+        self.e6 = sig.Vector(3)
+
+        # Shift/carry select
+        self.shift_carry = sig.Vector(2)
 
     def run(self):
         if self.reset == 1:
             pass
 
+        # Sequencer 0
         self.seq0_din <<= self.pipeline[16:20]
         self.seq0_rin <<= self.map_rom_data[0:4]
         self.seq0_orin <<= 0
+        # Case control
+        if self.pipeline[33] == 0:
+            self.seq0_orin[1] <<= self.alu_zero
         self.seq0_s0 <<= ~self.pipeline[29]
         self.seq0_s1 <<= ~self.pipeline[30]
         self.seq0_zero <<= self.zero
@@ -115,6 +149,7 @@ class CPU6(Component):
         self.seq0_pup <<= self.pipeline[28]
         self.uc_rom_address[0:4] <<= self.seq0_yout[0:4]
 
+        # Sequencer 1
         self.seq1_din <<= self.pipeline[20:24]
         self.seq1_rin <<= self.map_rom_data[4:8]
         self.seq1_orin <<= 0
@@ -130,6 +165,7 @@ class CPU6(Component):
         self.seq1_pup <<= self.pipeline[28]
         self.uc_rom_address[4:8] <<= self.seq1_yout[0:4]
 
+        # Sequencer 2
         self.seq2_din[0:3] <<= self.pipeline[24:27]
         self.seq2_orin <<= 0
         self.seq2_s0 <<= ~self.pipeline[31]
@@ -141,15 +177,25 @@ class CPU6(Component):
         self.seq2_pup <<= self.pipeline[28]
         self.uc_rom_address[8:11] <<= self.seq2_yout[0:3]
 
-        self.alu0_din <<= 0
+        # ALU 0
+        self.alu0_din <<= self.iDBus[0:4]
         self.alu0_a <<= self.pipeline[47:51]
         self.alu0_b <<= self.pipeline[43:47]
         self.alu0_src <<= self.pipeline[34:37]
         self.alu0_op <<= self.pipeline[37:40]
         self.alu0_dest <<= self.pipeline[40:43]
         self.alu0_cin <<= 0
+        if self.shift_carry == 0:
+            self.alu0_cin <<= 0
+        elif self.shift_carry == 1:
+            self.alu0_cin <<= 1
+        elif self.shift_carry == 2:
+            self.alu0_cin <<= self.alu1_cout
+        elif self.shift_carry == 3:
+            self.alu0_cin <<= 0
 
-        self.alu1_din <<= 0
+        # ALU 1
+        self.alu1_din <<= self.iDBus[4:8]
         self.alu1_a <<= self.pipeline[47:51]
         self.alu1_b <<= self.pipeline[43:47]
         self.alu1_src <<= self.pipeline[34:37]
@@ -157,5 +203,33 @@ class CPU6(Component):
         self.alu1_dest <<= self.pipeline[40:43]
         self.alu1_cin <<= self.alu0_cout
 
+        # Shift/carry select
+        self.shift_carry <<= self.pipeline[51:51+2]
+
+        # Constant (immediate data)
+        self.constant <<= ~self.pipeline[16:16+8]
+
+        # Enables
+        # d2d3 is decoded before pipeline?
+        self.d2d3 <<= self.pipeline[0:4]
+        self.e6 <<= self.pipeline[4:4+3]
+        self.k11 <<= self.pipeline[7:7+3]
+        self.h11 <<= self.pipeline[10:10+3]
+        self.e7 <<= self.pipeline[13:13+2]
+
+        # Datapath
+        self.iDBus <<= 0
+        self.FBus <<= 0
+
+        if self.d2d3 == 13:
+            self.iDBus <<= self.constant
+        elif self.d2d3 == 10:
+            self.iDBus <<= self.dataBus
+            # force NOP for testing
+            self.iDBus <<= 0x01
+
         if self.clock.isRisingEdge():
             self.pipeline <<= self.uc_rom_data
+            self.alu_zero <<= self.alu0_f0 & self.alu1_f0
+            #r7 = (self.alu1.regs[7] << 4) | self.alu0.regs[7]
+            #print(f'r7 = {r7}')

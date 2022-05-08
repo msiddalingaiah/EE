@@ -29,7 +29,10 @@ if __name__ == '__main__':
     cin = sig.Signal()
     yout = sig.Vector(4)
     cout = sig.Signal()
-    alu = Am2901(clock, din, aSel, bSel, aluSrc, aluOp, aluDest, cin, yout, cout)
+    f0 = sig.Signal()
+    f3 = sig.Signal()
+    ovr = sig.Signal()
+    alu = Am2901(clock, din, aSel, bSel, aluSrc, aluOp, aluDest, cin, yout, cout, f0, f3, ovr)
     sim.simulation.setTopComponent(alu)
     inputs = {'Din': din, 'aSel': aSel, 'bSel': bSel, 'aluSrc': aluSrc, 'aluOp': aluOp,
         'aluDest': aluDest, 'Carry In': cin}

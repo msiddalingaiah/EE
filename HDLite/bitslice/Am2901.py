@@ -4,7 +4,7 @@ from hdlite import Signal as sig
 from hdlite.Component import *
 
 class Am2901(Component):
-    def __init__(self, clock, din, aSel, bSel, aluSrc, aluOp, aluDest, cin, yout, cout):
+    def __init__(self, clock, din, aSel, bSel, aluSrc, aluOp, aluDest, cin, yout, cout, f0, f3, ovr):
         super().__init__()
         self.clock = clock
         self.din = din
@@ -16,6 +16,9 @@ class Am2901(Component):
         self.cin = cin
         self.yout = yout
         self.cout = cout
+        self.f0 = f0
+        self.f3 = f3
+        self.ovr = ovr
         self.regs = [0]*16
         self.q = sig.Vector(4)
 
@@ -53,9 +56,9 @@ class Am2901(Component):
         if self.aluOp == 0:
             f = r + s + self.cin.getIntValue()
         elif self.aluOp == 1:
-            f = s - r + self.cin.getIntValue()
+            f = s + ((~r) & 0xf) + self.cin.getIntValue()
         elif self.aluOp == 2:
-            f = r - s + self.cin.getIntValue()
+            f = r + ((~s) & 0xf) + self.cin.getIntValue()
         elif self.aluOp == 3:
             f = r | s
         elif self.aluOp == 4:
@@ -67,6 +70,15 @@ class Am2901(Component):
         elif self.aluOp == 7:
             f = ~(r ^ s)
 
+        self.cout <<= (f >> 4) & 1
+        f &= 0xf
+        self.f0 <<= 0
+        if f == 0:
+            self.f0 <<= 1
+        self.f3 <<= (f >> 3) & 1
+
+        # TODO: compute self.ovr
+        
         qv = 0
         bv = 0
         if self.aluDest == 0:
@@ -95,7 +107,6 @@ class Am2901(Component):
             self.yout <<= f
             bv = f << 1
 
-        self.cout <<= (f >> 4) & 1
         if self.clock.isRisingEdge():
             self.q <<= qv
             self.regs[self.bSel.getIntValue()] = bv
