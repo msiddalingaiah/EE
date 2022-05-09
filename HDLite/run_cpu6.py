@@ -34,7 +34,7 @@ class CPU6TB(Component):
     def __init__(self):
         super().__init__()
         self.reset = Reset()
-        self.clock = Clock(200)
+        self.clock = Clock(250)
         self.dataBus = sig.Vector(8)
         self.addressBus = sig.Vector(16)
         self.state = 0

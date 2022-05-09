@@ -129,6 +129,10 @@ class CPU6(Component):
         # Shift/carry select
         self.shift_carry = sig.Vector(2)
 
+        # Trace signals
+        self.aluR0 = sig.Vector(8)
+        self.case = sig.Signal()
+
     def run(self):
         if self.reset == 1:
             pass
@@ -138,6 +142,7 @@ class CPU6(Component):
         self.seq0_rin <<= self.map_rom_data[0:4]
         self.seq0_orin <<= 0
         # Case control
+        self.case <<= self.pipeline[33]
         if self.pipeline[33] == 0:
             self.seq0_orin[1] <<= self.alu_zero
         self.seq0_s0 <<= ~self.pipeline[29]
@@ -210,7 +215,7 @@ class CPU6(Component):
         self.constant <<= ~self.pipeline[16:16+8]
 
         # Enables
-        # d2d3 is decoded before pipeline?
+        # d2d3 is decoded before pipeline, but outputs are registered.
         self.d2d3 <<= self.pipeline[0:4]
         self.e6 <<= self.pipeline[4:4+3]
         self.k11 <<= self.pipeline[7:7+3]
@@ -225,8 +230,11 @@ class CPU6(Component):
             self.iDBus <<= self.constant
         elif self.d2d3 == 10:
             self.iDBus <<= self.dataBus
-            # force NOP for testing
+            # force instruction for testing
             self.iDBus <<= 0x01
+
+        # ALU trace
+        self.aluR0 <<= (self.alu1.regs[0] << 4) | self.alu0.regs[0]
 
         if self.clock.isRisingEdge():
             self.pipeline <<= self.uc_rom_data
