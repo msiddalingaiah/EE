@@ -60,7 +60,6 @@ class CPU6(Component):
             self.seq1_pup, self.seq1_yout, self.seq1_cout)
 
         self.seq2_din = sig.Vector(4)
-        self.seq2_orin = sig.Vector(4)
         self.seq2_s0 = sig.Signal()
         self.seq2_s1 = sig.Signal()
         self.seq2_zero = sig.Signal()
@@ -70,7 +69,7 @@ class CPU6(Component):
         self.seq2_pup = sig.Signal()
         self.seq2_yout = sig.Vector(4)
         self.seq2_cout = sig.Signal()
-        self.seq2 = Am2911(self.reset, self.clock, self.seq2_din, self.seq2_orin,
+        self.seq2 = Am2911(self.reset, self.clock, self.seq2_din,
             self.seq2_s0, self.seq2_s1, self.seq2_zero, self.seq2_cin, self.seq2_re, self.seq2_fe,
             self.seq2_pup, self.seq2_yout, self.seq2_cout)
 
@@ -111,7 +110,7 @@ class CPU6(Component):
         self.alu_zero = sig.Signal()
 
         # Busses
-        self.iDBus = sig.Vector(8)
+        self.DPBus = sig.Vector(8)
         self.FBus = sig.Vector(8)
         self.dataBus = dataBus
         self.addressBus = addressBus
@@ -125,6 +124,7 @@ class CPU6(Component):
         self.h11 = sig.Vector(3)
         self.k11 = sig.Vector(3)
         self.e6 = sig.Vector(3)
+        self.j13 = sig.Vector(2)
 
         # Shift/carry select
         self.shift_carry = sig.Vector(2)
@@ -139,11 +139,11 @@ class CPU6(Component):
 
         # Sequencer 0
         self.seq0_din <<= self.pipeline[16:20]
-        self.seq0_rin <<= self.map_rom_data[0:4]
+        self.seq0_rin <<= self.FBus[0:4]
         self.seq0_orin <<= 0
         # Case control
         self.case <<= self.pipeline[33]
-        if self.pipeline[33] == 0:
+        if (self.case == 0) & (self.j13 == 0):
             self.seq0_orin[1] <<= self.alu_zero
         self.seq0_s0 <<= ~self.pipeline[29]
         self.seq0_s1 <<= ~self.pipeline[30]
@@ -156,7 +156,7 @@ class CPU6(Component):
 
         # Sequencer 1
         self.seq1_din <<= self.pipeline[20:24]
-        self.seq1_rin <<= self.map_rom_data[4:8]
+        self.seq1_rin <<= self.FBus[4:8]
         self.seq1_orin <<= 0
         self.seq1_s0 <<= ~self.pipeline[31]
         if self.pipeline[54] == 0:
@@ -172,7 +172,6 @@ class CPU6(Component):
 
         # Sequencer 2
         self.seq2_din[0:3] <<= self.pipeline[24:27]
-        self.seq2_orin <<= 0
         self.seq2_s0 <<= ~self.pipeline[31]
         self.seq2_s1 <<= ~self.pipeline[32]
         self.seq2_zero <<= self.zero
@@ -182,8 +181,12 @@ class CPU6(Component):
         self.seq2_pup <<= self.pipeline[28]
         self.uc_rom_address[8:11] <<= self.seq2_yout[0:3]
 
+        if self.e6 == 6:
+            self.seq0_re <<= 0
+            self.seq1_re <<= 0
+
         # ALU 0
-        self.alu0_din <<= self.iDBus[0:4]
+        self.alu0_din <<= self.DPBus[0:4]
         self.alu0_a <<= self.pipeline[47:51]
         self.alu0_b <<= self.pipeline[43:47]
         self.alu0_src <<= self.pipeline[34:37]
@@ -200,7 +203,7 @@ class CPU6(Component):
             self.alu0_cin <<= 0
 
         # ALU 1
-        self.alu1_din <<= self.iDBus[4:8]
+        self.alu1_din <<= self.DPBus[4:8]
         self.alu1_a <<= self.pipeline[47:51]
         self.alu1_b <<= self.pipeline[43:47]
         self.alu1_src <<= self.pipeline[34:37]
@@ -221,17 +224,25 @@ class CPU6(Component):
         self.k11 <<= self.pipeline[7:7+3]
         self.h11 <<= self.pipeline[10:10+3]
         self.e7 <<= self.pipeline[13:13+2]
+        self.j13 <<= self.pipeline[4:6]
 
         # Datapath
-        self.iDBus <<= 0
+        self.DPBus <<= 0
         self.FBus <<= 0
 
         if self.d2d3 == 13:
-            self.iDBus <<= self.constant
+            self.DPBus <<= self.constant
         elif self.d2d3 == 10:
-            self.iDBus <<= self.dataBus
+            self.DPBus <<= self.dataBus
             # force instruction for testing
-            self.iDBus <<= 0x01
+            self.DPBus <<= 0x04
+
+        self.map_rom_address <<= self.DPBus
+
+        self.FBus[0:4] <<= self.alu0_yout
+        self.FBus[4:8] <<= self.alu1_yout
+        if self.h11 == 6:
+            self.FBus <<= self.map_rom_data
 
         # ALU trace
         self.aluR0 <<= (self.alu1.regs[0] << 4) | self.alu0.regs[0]

@@ -51,18 +51,18 @@ class Am2909(Component):
         else:
             self.yout <<= self.mux | self.orin
         self.cout <<= 0
-        if self.yout == 0xf:
+        if self.yout == 0xf and self.cin == 1:
             self.cout <<= 1
         
         self.stackIn <<= self.pc
         self.stackWr <<= 0
+        self.stackAddr <<= self.sp
         if self.fe == 0:
             if self.pup == 1:
                 self.stackWr <<= 1
                 # Lookahead to pre-increment stack pointer
                 self.stackAddr <<= self.sp + 1
-            else:
-                self.stackAddr <<= self.sp
+
         if self.clock.isRisingEdge():
             if self.cin == 1:
                 self.pc <<= self.yout + 1

@@ -6,11 +6,10 @@ from hdlite.Component import *
 from bitslice.Memory import *
 
 class Am2911(Component):
-    def __init__(self, reset, clock, din, orin, s0, s1, zero, cin, re, fe, pup, yout, cout):
+    def __init__(self, reset, clock, din, s0, s1, zero, cin, re, fe, pup, yout, cout):
         super().__init__()
         self.clock = clock
         self.din = din
-        self.orin = orin
         self.s0 = s0
         self.s1 = s1
         self.zero = zero
@@ -48,20 +47,20 @@ class Am2911(Component):
         if self.zero == 0:
             self.yout <<= 0
         else:
-            self.yout <<= self.mux | self.orin
+            self.yout <<= self.mux
         self.cout <<= 0
-        if self.yout == 0xf:
+        if self.yout == 0xf and self.cin == 1:
             self.cout <<= 1
         
         self.stackIn <<= self.pc
         self.stackWr <<= 0
+        self.stackAddr <<= self.sp
         if self.fe == 0:
             if self.pup == 1:
                 self.stackWr <<= 1
                 # Lookahead to pre-increment stack pointer
                 self.stackAddr <<= self.sp + 1
-            else:
-                self.stackAddr <<= self.sp
+
         if self.clock.isRisingEdge():
             if self.cin == 1:
                 self.pc <<= self.yout + 1
