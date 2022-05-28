@@ -8,7 +8,7 @@ module Traffic(input clock, output LED2, output LED3, output LED4, output LED5);
 		reset = 1;
     end
 
-	// [19:16 LEDs] | [13:12 loadc, cmux] | [11:8 fe, pup, s1, s0] | [7:0 Di/constant]
+	// [19:16 LEDs] | [12:12 loadc] | [11:8 fe, pup, s1, s0] | [7:0 Di/constant]
 	reg [19:0] pipeline;
 	reg [24:0] counter;
 	reg reset;
@@ -34,7 +34,7 @@ module Traffic(input clock, output LED2, output LED3, output LED4, output LED5);
 	wire count_zero = counter == 0;
 	wire cin = 1;
 
-	parameter PRE_SCALE = 2;
+	parameter PRE_SCALE = 19;
 
 	always @(*) begin
 		s0 = p_s0;
