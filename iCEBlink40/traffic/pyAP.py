@@ -241,15 +241,63 @@ def eval(symbols, tree):
         return eval(symbols, tree[0]) ^ eval(symbols, tree[1])
 
 class PrintDRV(object):
-    def exec(self, symbols, drv):
+    def exec(self, symbols):
+        drv = symbols['CURRENT_DRV']
         result = []
         for tree in drv.af:
             result.append(str(eval(symbols, tree)))
         print(','.join(result))
 
 class SetDRV(object):
-    def exec(self, symbols, drv):
+    def exec(self, symbols):
+        drv = symbols['CURRENT_DRV']
         symbols['VARS'][drv.lf[0].value.value] = eval(symbols, drv.af[0])
+
+class ComDRV(object):
+    def exec(self, symbols):
+        drv = symbols['CURRENT_DRV']
+        name = drv.lf[0].value.value
+        bitfields = [eval(symbols, e) for e in drv.cf.children[1:]]
+        symbols['DRVS'][name] = ComInstDRV(name, bitfields, drv.af)
+
+class ComInstDRV(object):
+    def __init__(self, name, bitfields, com_af):
+        self.name = name
+        self.bitfields = bitfields
+        self.com_af = com_af
+
+    def exec(self, symbols):
+        drv = symbols['CURRENT_DRV']
+        result = 0
+        fieldwidth = 0
+        for i, bitfield in enumerate(self.bitfields):
+            result <<= bitfield
+            value = eval(symbols, self.com_af[i])
+            mask = ~(-1<<bitfield)
+            result |= value & mask
+            fieldwidth += bitfield
+        if len(drv.lf) > 0:
+            symbols['VARS'][drv.lf[0].value.value] = symbols['VARS']['PC']
+        symbols['VARS']['PC'] += 1
+        fieldwidth = int((fieldwidth+1)/4)
+        format = f'%0{fieldwidth}x'
+        print(format % result)
+
+class LFFunc(object):
+    def eval(self, symbols, args):
+        drv = symbols['CURRENT_DRV']
+        result = drv.lf
+        for arg in args:
+            result = result[arg]
+        return eval(symbols, result)
+
+class CFFunc(object):
+    def eval(self, symbols, args):
+        drv = symbols['CURRENT_DRV']
+        result = drv.cf
+        for arg in args:
+            result = result[arg]
+        return eval(symbols, result)
 
 class AFFunc(object):
     def eval(self, symbols, args):
@@ -265,15 +313,29 @@ if __name__ == '__main__':
     symbols = defaultdict(dict)
     symbols['DRVS']['print'] = PrintDRV()
     symbols['DRVS']['set'] = SetDRV()
+    symbols['DRVS']['com'] = ComDRV()
     symbols['FUNC']['af'] = AFFunc()
+    symbols['VARS']['PC'] = 0
     drvs = []
-    drvs.append(Directive(p, 'x set 6-3'))
-    drvs.append(Directive(p, ' print af(2,1),2,(x,4)'))
+    drvs.append(Directive(p, 'LED5 set 1'))
+    drvs.append(Directive(p, 'green set 2'))
+    drvs.append(Directive(p, 'yellow set 4'))
+    drvs.append(Directive(p, 'red set 8'))
+    drvs.append(Directive(p, 'loadc com,4,3,1,1,1,1,1,8 0,0,1,1,0,0,0,af(0)'))
+    drvs.append(Directive(p, 'wait com,4,3,1,1,1,1,1,8 af(0),0,0,1,0,0,0,PC'))
+    drvs.append(Directive(p, 'jump com,4,3,1,1,1,1,1,8 0,0,1,1,0,1,1,af(0)'))
+    drvs.append(Directive(p, 'top loadc 8'))
+    drvs.append(Directive(p, ' wait green'))
+    drvs.append(Directive(p, ' loadc 4'))
+    drvs.append(Directive(p, ' wait yellow'))
+    drvs.append(Directive(p, ' loadc 8'))
+    drvs.append(Directive(p, ' wait red'))
+    drvs.append(Directive(p, ' jump top'))
     for drv in drvs:
         symbols['CURRENT_DRV'] = drv
         ds = drv.cf[0].value.value
         drv_syms = symbols['DRVS']
         if ds in drv_syms:
-            drv_syms[ds].exec(symbols, drv)
+            drv_syms[ds].exec(symbols)
         else:
             raise Exception(f'No such directive {ds}')
