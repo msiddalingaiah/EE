@@ -158,24 +158,24 @@ class ComInstDRV(object):
         print(format % result)
 
 class Do1DRV(object):
-    def __init__(self):
-        self.index = 0
-
     def exec(self, symbols):
         do1 = symbols['CURRENT_DRV']
         drv = do1.next
+
         symbols['CURRENT_DRV'] = drv
+        ds = drv.cf[0].value.value
+        drv_syms = symbols['DRVS']
+        if ds not in drv_syms:
+            raise Exception(f'No such directive {ds}')
+        op = drv_syms[ds]
+
+        index = 0
         end = eval(symbols, do1.af[0])
-        while self.index < end:
+        while index < end:
             if len(drv.lf) > 0:
-                symbols['VARS'][do1.lf[0].value.value] = self.index
-            ds = drv.cf[0].value.value
-            drv_syms = symbols['DRVS']
-            if ds in drv_syms:
-                drv_syms[ds].exec(symbols)
-            else:
-                raise Exception(f'No such directive {ds}')
-            self.index += 1
+                symbols['VARS'][do1.lf[0].value.value] = index
+            op.exec(symbols)
+            index += 1
 
 class LFFunc(object):
     def eval(self, symbols, args):
