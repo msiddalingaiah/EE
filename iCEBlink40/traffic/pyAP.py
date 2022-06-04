@@ -317,20 +317,13 @@ if __name__ == '__main__':
     symbols['FUNC']['af'] = AFFunc()
     symbols['VARS']['PC'] = 0
     drvs = []
-    drvs.append(Directive(p, 'LED5 set 1'))
-    drvs.append(Directive(p, 'green set 2'))
-    drvs.append(Directive(p, 'yellow set 4'))
-    drvs.append(Directive(p, 'red set 8'))
-    drvs.append(Directive(p, 'loadc com,4,3,1,1,1,1,1,8 0,0,1,1,0,0,0,af(0)'))
-    drvs.append(Directive(p, 'wait com,4,3,1,1,1,1,1,8 af(0),0,0,1,0,0,0,PC'))
-    drvs.append(Directive(p, 'jump com,4,3,1,1,1,1,1,8 0,0,1,1,0,1,1,af(0)'))
-    drvs.append(Directive(p, 'top loadc 8'))
-    drvs.append(Directive(p, ' wait green'))
-    drvs.append(Directive(p, ' loadc 4'))
-    drvs.append(Directive(p, ' wait yellow'))
-    drvs.append(Directive(p, ' loadc 8'))
-    drvs.append(Directive(p, ' wait red'))
-    drvs.append(Directive(p, ' jump top'))
+    with open('traffic.ap') as f:
+        lines = f.readlines()
+    
+    for line in lines:
+        drv = Directive(p, line)
+        if not drv.isBlank():
+            drvs.append(drv)
     for drv in drvs:
         symbols['CURRENT_DRV'] = drv
         ds = drv.cf[0].value.value

@@ -1,0 +1,24 @@
+
+;
+; Traffic light microcode
+;
+
+; Constant definitions
+LED5 set 1
+green set 2
+yellow set 4
+red set 8
+
+; Instruction definitions
+loadc com,4,3,1,1,1,1,1,8 0,0,1,1,0,0,0,af(0)
+wait com,4,3,1,1,1,1,1,8 af(0),0,0,1,0,0,0,PC
+jump com,4,3,1,1,1,1,1,8 0,0,1,1,0,1,1,af(0)
+
+; Code
+top     loadc   8
+        wait    green
+        loadc   4
+        wait    yellow
+        loadc   8
+        wait    red
+        jump    top
