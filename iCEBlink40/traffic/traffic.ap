@@ -10,6 +10,9 @@ yellow set 4
 red set 8
 
 ; Instruction definitions
+
+; Fields [19:16 LEDs] | [12:12 loadc] | [11:8 fe, pup, s1, s0] | [7:0 Di/constant]
+
 loadc com,4,3,1,1,1,1,1,8 0,0,1,1,0,0,0,af(0)
 wait com,4,3,1,1,1,1,1,8 af(0),0,0,1,0,0,0,PC
 jump com,4,3,1,1,1,1,1,8 0,0,1,1,0,1,1,af(0)
@@ -21,4 +24,5 @@ top     loadc   8
         wait    yellow
         loadc   8
         wait    red
+        do1     16-PC
         jump    top
