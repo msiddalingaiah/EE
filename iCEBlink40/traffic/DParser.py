@@ -50,17 +50,20 @@ class DParser(object):
         tree = Tree()
         while not self.sc.atEnd():
             if self.sc.matches('do1'):
-                drv = Do1DRV(self.sc.terminal, self.sc.expect('*'))
-            elif self.sc.matches('set'):
-                drv = SetDRV(self.sc.terminal)
-            elif self.sc.matches('com'):
-                drv = ComDRV(self.sc.terminal)
-            elif self.sc.matches('print'):
-                drv = PrintDRV(self.sc.terminal)
+                drv = Do1DRV(self.sc.terminal, self.getDRV())
             else:
-                drv = self.sc.expect('*')
+                drv = self.getDRV()
             tree.add(drv)
         return tree
+
+    def getDRV(self):
+        if self.sc.matches('set'):
+            return SetDRV(self.sc.terminal)
+        elif self.sc.matches('com'):
+            return ComDRV(self.sc.terminal)
+        elif self.sc.matches('print'):
+            return PrintDRV(self.sc.terminal)
+        return self.sc.expect('*')
 
 class Directive(object):
     def __init__(self, parser, line):
@@ -173,11 +176,14 @@ class Do1DRV(object):
     def exec(self, symbols):
         drv = self.next
         symbols.drv = drv
+        varName = None
+        if len(self.drv.lf) > 0:
+            varName = self.drv.lf[0].value.value
         index = 0
         end = symbols.eval(self.drv.af[0])
         while index < end:
-            if len(drv.lf) > 0:
-                symbols.variables[self.drv.lf[0].value.value] = index
+            if varName != None:
+                symbols.variables[varName] = index
             drv.exec(symbols)
             index += 1
 
