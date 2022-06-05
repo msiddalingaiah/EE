@@ -50,8 +50,13 @@ class DParser(object):
         tree = Tree()
         while not self.sc.atEnd():
             if self.sc.matches('do1'):
-                drv = self.sc.terminal
-                drv.next = self.sc.expect('*')
+                drv = Do1DRV(self.sc.terminal, self.sc.expect('*'))
+            elif self.sc.matches('set'):
+                drv = SetDRV(self.sc.terminal)
+            elif self.sc.matches('com'):
+                drv = ComDRV(self.sc.terminal)
+            elif self.sc.matches('print'):
+                drv = PrintDRV(self.sc.terminal)
             else:
                 drv = self.sc.expect('*')
             tree.add(drv)
@@ -70,6 +75,13 @@ class Directive(object):
 
     def getCF0(self):
         return self.cf[0].value.value
+
+    def exec(self, symbols):
+        name = self.getCF0()
+        if name in symbols.directives:
+            symbols.directives[name].exec(symbols)
+        else:
+            raise Exception(f'No such directive {name}')
 
     def parse(self, line):
         if ';' in line:
@@ -97,6 +109,9 @@ class Directive(object):
             raise Exception(f'Too many fields: {line}')
 
 class PrintDRV(object):
+    def __init__(self, drv):
+        self.lf, self.cf, self.af = drv.lf, drv.cf, drv.af
+
     def exec(self, symbols):
         af = symbols.drv.af
         result = []
@@ -105,16 +120,27 @@ class PrintDRV(object):
         print(','.join(result))
 
 class SetDRV(object):
+    def __init__(self, drv):
+        self.lf, self.cf, self.af = drv.lf, drv.cf, drv.af
+
     def exec(self, symbols):
-        drv = symbols.drv
-        symbols.variables[drv.lf[0].value.value] = symbols.eval(drv.af[0])
+        if len(self.af) == 1:
+            symbols.variables[self.lf[0].value.value] = symbols.eval(self.af[0])
+        else:
+            symbols.variables[self.lf[0].value.value] = self.af
 
 class ComDRV(object):
+    def __init__(self, drv):
+        self.lf, self.cf, self.af = drv.lf, drv.cf, drv.af
+
     def exec(self, symbols):
-        drv = symbols.drv
-        name = drv.lf[0].value.value
-        bitfields = [symbols.eval(e) for e in drv.cf.children[1:]]
-        symbols.directives[name] = ComInstDRV(name, bitfields, drv.af)
+        name = self.lf[0].value.value
+        varname = self.cf[1].value.value
+        bitlist = self.cf.children[1:]
+        if len(self.cf) == 2 and varname in symbols.variables:
+            bitlist = symbols.variables[varname]
+        bitfields = [symbols.eval(e) for e in bitlist]
+        symbols.directives[name] = ComInstDRV(name, bitfields, self.af)
 
 class ComInstDRV(object):
     def __init__(self, name, bitfields, com_af):
@@ -140,17 +166,19 @@ class ComInstDRV(object):
         print(format % result)
 
 class Do1DRV(object):
-    def exec(self, symbols):
-        do1 = symbols.drv
-        drv = do1.next
+    def __init__(self, drv, next):
+        self.drv = drv
+        self.next = next
 
+    def exec(self, symbols):
+        drv = self.next
         symbols.drv = drv
         index = 0
-        end = symbols.eval(do1.af[0])
+        end = symbols.eval(self.drv.af[0])
         while index < end:
             if len(drv.lf) > 0:
-                symbols.variables[do1.lf[0].value.value] = index
-            symbols.exec(drv.getCF0())
+                symbols.variables[self.drv.lf[0].value.value] = index
+            drv.exec(symbols)
             index += 1
 
 class LFFunc(object):
@@ -178,10 +206,6 @@ class Symbols(object):
     def __init__(self):
         self.drv = None
         self.directives = {}
-        self.directives['print'] = PrintDRV()
-        self.directives['set'] = SetDRV()
-        self.directives['com'] = ComDRV()
-        self.directives['do1'] = Do1DRV()
         self.functions = {}
         self.functions['lf'] = LFFunc()
         self.functions['cf'] = CFFunc()
@@ -194,7 +218,10 @@ class Symbols(object):
         if op == 'INT':
             return int(tree.value.value)
         if op == 'ID':
-            return self.variables[tree.value.value]
+            value = self.variables[tree.value.value]
+            if isinstance(value, int):
+                return value
+            raise Exception(f'Cannot evaluate list {tree.value.value}')
         if op == 'call':
             func = self.functions[tree.value.value]
             args = [self.eval(e) for e in tree.children]
@@ -210,12 +237,6 @@ class Symbols(object):
         if op == '^':
             return self.eval(tree[0]) ^ self.eval(tree[1])
 
-    def exec(self, dir_name):
-        if dir_name in self.directives:
-            self.directives[dir_name].exec(symbols)
-        else:
-            raise Exception(f'No such directive {dir_name}')
-
 if __name__ == '__main__':
     p = Parser()
     symbols = Symbols()
@@ -227,4 +248,4 @@ if __name__ == '__main__':
     for t in tree.children:
         drv = t.value
         symbols.drv = drv
-        symbols.exec(drv.getCF0())
+        drv.exec(symbols)
