@@ -6,18 +6,45 @@ class DScanner(object):
         self.input = input
         self.index = 0
         self.terminal = None
+        self.parser = Parser()
         self.lookAhead = self.next()
 
     def next(self):
         drv = None
         while self.index < len(self.input):
-            drv = Directive(p, self.input[self.index])
+            drv = self.parseDirective(self.input[self.index])
             self.index += 1
             if not drv.isBlank():
                 break
-        #print(drv.cf[0].value.value)
         return drv
-        
+
+    def parseDirective(self, line):
+        if ';' in line:
+            semi = line.index(';')
+            line = line[0:semi]
+        lf = cf = af = Tree()
+        if len(line) == 0:
+            return Directive(lf, cf, af)
+        if line[0].isspace():
+            fields = line.split()
+            if len(fields) > 0:
+                cf = self.parser.parse(fields[0])
+            if len(fields) > 1:
+                af = self.parser.parse(fields[1])
+            if len(fields) > 2:
+                raise Exception(f'Too many fields: {line}')
+            return Directive(lf, cf, af)
+        fields = line.split()
+        if len(fields) > 0:
+            lf = self.parser.parse(fields[0])
+        if len(fields) > 1:
+            cf = self.parser.parse(fields[1])
+        if len(fields) > 2:
+            af = self.parser.parse(fields[2])
+        if len(fields) > 3:
+            raise Exception(f'Too many fields: {line}')
+        return Directive(lf, cf, af)
+
     def matches(self, *types):
         if self.lookAhead == None:
             return False
@@ -66,12 +93,11 @@ class DParser(object):
         return self.sc.expect('*')
 
 class Directive(object):
-    def __init__(self, parser, line):
-        self.parser = parser
-        self.lf = Tree()
-        self.cf = Tree()
-        self.af = Tree()
-        self.parse(line)
+    def __init__(self, lf, cf, af):
+        self.lf = lf
+        self.cf = cf
+        self.af = af
+        self.fieldMap = {'lf':lf, 'cf':cf, 'af':af}
 
     def isBlank(self):
         return self.cf.isLeaf()
@@ -82,59 +108,71 @@ class Directive(object):
     def exec(self, symbols):
         name = self.getCF0()
         if name in symbols.directives:
-            symbols.directives[name].exec(symbols)
+            drv = symbols.directives[name]
+            drv.drv = self
+            drv.exec(symbols)
         else:
             raise Exception(f'No such directive {name}')
 
-    def parse(self, line):
-        if ';' in line:
-            semi = line.index(';')
-            line = line[0:semi]
-        if len(line) == 0:
-            return
-        if line[0].isspace():
-            fields = line.split()
-            if len(fields) > 0:
-                self.cf = self.parser.parse(fields[0])
-            if len(fields) > 1:
-                self.af = self.parser.parse(fields[1])
-            if len(fields) > 2:
-                raise Exception(f'Too many fields: {line}')
-            return
-        fields = line.split()
-        if len(fields) > 0:
-            self.lf = self.parser.parse(fields[0])
-        if len(fields) > 1:
-            self.cf = self.parser.parse(fields[1])
-        if len(fields) > 2:
-            self.af = self.parser.parse(fields[2])
-        if len(fields) > 3:
-            raise Exception(f'Too many fields: {line}')
+    def eval(self, symbols, tree):
+        op = tree.value.name
+        if op == 'INT':
+            return int(tree.value.value)
+        if op == 'ID':
+            value = symbols.variables[tree.value.value]
+            if isinstance(value, int):
+                return value
+            raise Exception(f'Cannot evaluate list {tree.value.value}')
+        if op == 'call':
+            fname = tree.value.value
+            args = [self.eval(symbols, e) for e in tree.children]
+            if fname in self.fieldMap:
+                result = self.fieldMap[fname]
+                for arg in args:
+                    result = result[arg]
+                return self.eval(symbols, result)
+            func = symbols.functions[fname]
+            return func.eval(self, symbols, args)
+        if op == '+':
+            return self.eval(symbols, tree[0]) + self.eval(symbols, tree[1])
+        if op == '-':
+            return self.eval(symbols, tree[0]) - self.eval(symbols, tree[1])
+        if op == '&':
+            return self.eval(symbols, tree[0]) & self.eval(symbols, tree[1])
+        if op == '|':
+            return self.eval(symbols, tree[0]) | self.eval(symbols, tree[1])
+        if op == '^':
+            return self.eval(symbols, tree[0]) ^ self.eval(symbols, tree[1])
+
+    def __str__(self):
+        return f'{self.cf[0].value.value}'
 
 class PrintDRV(object):
     def __init__(self, drv):
         self.lf, self.cf, self.af = drv.lf, drv.cf, drv.af
+        self.drv = drv
 
     def exec(self, symbols):
-        af = symbols.drv.af
         result = []
-        for tree in af:
-            result.append(str(symbols.eval(tree)))
+        for tree in self.af:
+            result.append(str(self.drv.eval(symbols, tree)))
         print(','.join(result))
 
 class SetDRV(object):
     def __init__(self, drv):
         self.lf, self.cf, self.af = drv.lf, drv.cf, drv.af
+        self.drv = drv
 
     def exec(self, symbols):
         if len(self.af) == 1:
-            symbols.variables[self.lf[0].value.value] = symbols.eval(self.af[0])
+            symbols.variables[self.lf[0].value.value] = self.drv.eval(symbols, self.af[0])
         else:
             symbols.variables[self.lf[0].value.value] = self.af
 
 class ComDRV(object):
     def __init__(self, drv):
         self.lf, self.cf, self.af = drv.lf, drv.cf, drv.af
+        self.drv = drv
 
     def exec(self, symbols):
         name = self.lf[0].value.value
@@ -142,7 +180,7 @@ class ComDRV(object):
         bitlist = self.cf.children[1:]
         if len(self.cf) == 2 and varname in symbols.variables:
             bitlist = symbols.variables[varname]
-        bitfields = [symbols.eval(e) for e in bitlist]
+        bitfields = [self.drv.eval(symbols, e) for e in bitlist]
         symbols.directives[name] = ComInstDRV(name, bitfields, self.af)
 
 class ComInstDRV(object):
@@ -150,19 +188,19 @@ class ComInstDRV(object):
         self.name = name
         self.bitfields = bitfields
         self.com_af = com_af
+        self.drv = None
 
     def exec(self, symbols):
-        drv = symbols.drv
         result = 0
         fieldwidth = 0
         for i, bitfield in enumerate(self.bitfields):
             result <<= bitfield
-            value = symbols.eval(self.com_af[i])
+            value = self.drv.eval(symbols, self.com_af[i])
             mask = ~(-1<<bitfield)
             result |= value & mask
             fieldwidth += bitfield
-        if len(drv.lf) > 0:
-            symbols.variables[drv.lf[0].value.value] = symbols.variables['PC']
+        if len(self.drv.lf) > 0:
+            symbols.variables[self.drv.lf[0].value.value] = symbols.variables['PC']
         symbols.variables['PC'] += 1
         fieldwidth = int((fieldwidth+1)/4)
         format = f'%0{fieldwidth}x'
@@ -174,77 +212,26 @@ class Do1DRV(object):
         self.next = next
 
     def exec(self, symbols):
-        drv = self.next
-        symbols.drv = drv
         varName = None
         if len(self.drv.lf) > 0:
             varName = self.drv.lf[0].value.value
         index = 0
-        end = symbols.eval(self.drv.af[0])
+        end = self.drv.eval(symbols, self.drv.af[0])
         while index < end:
             if varName != None:
                 symbols.variables[varName] = index
-            drv.exec(symbols)
+            self.next.exec(symbols)
             index += 1
-
-class LFFunc(object):
-    def eval(self, symbols, args):
-        result = symbols.drv.lf
-        for arg in args:
-            result = result[arg]
-        return symbols.eval(result)
-
-class CFFunc(object):
-    def eval(self, symbols, args):
-        result = symbols.drv.cf
-        for arg in args:
-            result = result[arg]
-        return symbols.eval(result)
-
-class AFFunc(object):
-    def eval(self, symbols, args):
-        result = symbols.drv.af
-        for arg in args:
-            result = result[arg]
-        return symbols.eval(result)
 
 class Symbols(object):
     def __init__(self):
         self.drv = None
         self.directives = {}
         self.functions = {}
-        self.functions['lf'] = LFFunc()
-        self.functions['cf'] = CFFunc()
-        self.functions['af'] = AFFunc()
         self.variables = {}
         self.variables['PC'] = 0
 
-    def eval(self, tree):
-        op = tree.value.name
-        if op == 'INT':
-            return int(tree.value.value)
-        if op == 'ID':
-            value = self.variables[tree.value.value]
-            if isinstance(value, int):
-                return value
-            raise Exception(f'Cannot evaluate list {tree.value.value}')
-        if op == 'call':
-            func = self.functions[tree.value.value]
-            args = [self.eval(e) for e in tree.children]
-            return func.eval(self, args)
-        if op == '+':
-            return self.eval(tree[0]) + self.eval(tree[1])
-        if op == '-':
-            return self.eval(tree[0]) - self.eval(tree[1])
-        if op == '&':
-            return self.eval(tree[0]) & self.eval(tree[1])
-        if op == '|':
-            return self.eval(tree[0]) | self.eval(tree[1])
-        if op == '^':
-            return self.eval(tree[0]) ^ self.eval(tree[1])
-
 if __name__ == '__main__':
-    p = Parser()
     symbols = Symbols()
     with open('traffic.ap') as f:
         lines = f.readlines()
@@ -252,6 +239,4 @@ if __name__ == '__main__':
     parser = DParser(DScanner(lines))
     tree = parser.parse()
     for t in tree.children:
-        drv = t.value
-        symbols.drv = drv
-        drv.exec(symbols)
+        t.value.exec(symbols)

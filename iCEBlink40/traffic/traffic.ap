@@ -8,17 +8,19 @@ LED5 set 1
 green set 2
 yellow set 4
 red set 8
+seq_next set 8
+seq_jump set 11
 
 ; Fields [19:16 LEDs] | [12:12 loadc] | [11:8 fe, pup, s1, s0] | [7:0 Di/constant]
 
-bitlist set 4,3,1,1,1,1,1,8
+bitlist set 4,3,1,4,8
 
 ; Instruction definitions
 ; com directive can be defined with bitlist variable or literal list
 
-loadc   com,bitlist     0,0,1,1,0,0,0,af(0)
-wait    com,bitlist     af(0),0,0,1,0,0,0,PC
-jump    com,bitlist     0,0,1,1,0,1,1,af(0)
+loadc   com,bitlist     0,0,1,seq_next,af(0)
+wait    com,bitlist     af(0),0,0,seq_next,PC
+jump    com,bitlist     0,0,1,seq_jump,af(0)
 
 ; Code
 
