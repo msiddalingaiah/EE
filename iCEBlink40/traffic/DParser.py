@@ -147,32 +147,29 @@ class Directive(object):
     def __str__(self):
         return f'{self.cf[0].value.value}'
 
-class PrintDRV(object):
+class PrintDRV(Directive):
     def __init__(self, drv):
-        self.lf, self.cf, self.af = drv.lf, drv.cf, drv.af
-        self.drv = drv
+        super().__init__(drv.lf, drv.cf, drv.af)
 
     def exec(self, symbols):
         result = []
         for tree in self.af:
-            result.append(str(self.drv.eval(symbols, tree)))
+            result.append(str(self.eval(symbols, tree)))
         print(','.join(result))
 
-class SetDRV(object):
+class SetDRV(Directive):
     def __init__(self, drv):
-        self.lf, self.cf, self.af = drv.lf, drv.cf, drv.af
-        self.drv = drv
+        super().__init__(drv.lf, drv.cf, drv.af)
 
     def exec(self, symbols):
         if len(self.af) == 1:
-            symbols.variables[self.lf[0].value.value] = self.drv.eval(symbols, self.af[0])
+            symbols.variables[self.lf[0].value.value] = self.eval(symbols, self.af[0])
         else:
             symbols.variables[self.lf[0].value.value] = self.af
 
-class ComDRV(object):
+class ComDRV(Directive):
     def __init__(self, drv):
-        self.lf, self.cf, self.af = drv.lf, drv.cf, drv.af
-        self.drv = drv
+        super().__init__(drv.lf, drv.cf, drv.af)
 
     def exec(self, symbols):
         name = self.lf[0].value.value
@@ -180,7 +177,7 @@ class ComDRV(object):
         bitlist = self.cf.children[1:]
         if len(self.cf) == 2 and varname in symbols.variables:
             bitlist = symbols.variables[varname]
-        bitfields = [self.drv.eval(symbols, e) for e in bitlist]
+        bitfields = [self.eval(symbols, e) for e in bitlist]
         symbols.directives[name] = ComInstDRV(name, bitfields, self.af)
 
 class ComInstDRV(object):
@@ -206,17 +203,17 @@ class ComInstDRV(object):
         format = f'%0{fieldwidth}x'
         print(format % result)
 
-class Do1DRV(object):
+class Do1DRV(Directive):
     def __init__(self, drv, next):
-        self.drv = drv
+        super().__init__(drv.lf, drv.cf, drv.af)
         self.next = next
 
     def exec(self, symbols):
         varName = None
-        if len(self.drv.lf) > 0:
-            varName = self.drv.lf[0].value.value
+        if len(self.lf) > 0:
+            varName = self.lf[0].value.value
         index = 0
-        end = self.drv.eval(symbols, self.drv.af[0])
+        end = self.eval(symbols, self.af[0])
         while index < end:
             if varName != None:
                 symbols.variables[varName] = index
