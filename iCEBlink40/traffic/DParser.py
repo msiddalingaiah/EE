@@ -119,7 +119,11 @@ class Directive(object):
         if op == 'INT':
             return int(tree.value.value)
         if op == 'ID':
-            value = symbols.variables[tree.value.value]
+            name = tree.value.value
+            # Forward reference hack
+            if name not in symbols.variables:
+                symbols.variables[name] = 0
+            value = symbols.variables[name]
             if isinstance(value, int):
                 return value
             raise Exception(f'Cannot evaluate list {tree.value.value}')
@@ -145,7 +149,7 @@ class Directive(object):
             return self.eval(symbols, tree[0]) ^ self.eval(symbols, tree[1])
 
     def __str__(self):
-        return f'{self.cf[0].value.value}'
+        return f'{self.getCF0()}'
 
 class PrintDRV(Directive):
     def __init__(self, drv):
@@ -201,7 +205,8 @@ class ComInstDRV(object):
         symbols.variables['PC'] += 1
         fieldwidth = int((fieldwidth+1)/4)
         format = f'%0{fieldwidth}x'
-        print(format % result)
+        if symbols.object_code != None:
+            symbols.object_code.append(format % result)
 
 class Do1DRV(Directive):
     def __init__(self, drv, next):
@@ -222,7 +227,7 @@ class Do1DRV(Directive):
 
 class Symbols(object):
     def __init__(self):
-        self.drv = None
+        self.object_code = None
         self.directives = {}
         self.functions = {}
         self.variables = {}
@@ -237,3 +242,12 @@ if __name__ == '__main__':
     tree = parser.parse()
     for t in tree.children:
         t.value.exec(symbols)
+
+    # Second pass to resolve forward references
+    symbols.variables['PC'] = 0
+    symbols.object_code = []
+    for t in tree.children:
+        t.value.exec(symbols)
+
+    with open('roms/traffic_rom.txt', 'wt') as f:
+        f.write('\n'.join(symbols.object_code) + '\n')
