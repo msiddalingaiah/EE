@@ -54,7 +54,7 @@ class Tree(object):
             result = '%s %s' % (result, c)
         return '%s)' % result
 
-class Scanner(object):
+class CScanner(object):
     def __init__(self, patterns):
         self.patterns = patterns
 
@@ -94,7 +94,7 @@ class Scanner(object):
     def atEnd(self):
         return self.lookAhead == None
 
-class Parser(object):
+class CParser(object):
     def __init__(self):
         patterns = []
         patterns.append(Pattern('INT', r'[0-9]+'))
@@ -122,7 +122,7 @@ class Parser(object):
         patterns.append(Pattern('>', r'\>'))
         patterns.append(Pattern('%', r'\%'))
         patterns.append(Pattern(',', r'\,'))
-        self.sc = Scanner(patterns)
+        self.sc = CScanner(patterns)
         self.prec = [('&','|','^'), ('==','!=','>','<','>=','<='), ('+','-'), ('*','/','%')]
 
     def parse(self, input):

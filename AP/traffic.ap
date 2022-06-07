@@ -22,6 +22,11 @@ loadc   com,bitlist     0,0,1,seq_next,af(0)
 wait    com,bitlist     af(0),0,0,seq_next,PC
 jump    com,bitlist     0,0,1,seq_jump,af(0)
 
+light   cname
+        loadc   af(1)
+        wait    af(0)
+        end
+
 ; Code
 
 top     loadc   8

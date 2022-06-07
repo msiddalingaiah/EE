@@ -1,12 +1,12 @@
 
-from pyAP import *
+from CParser import *
 
 class DScanner(object):
     def __init__(self, input):
         self.input = input
         self.index = 0
         self.terminal = None
-        self.parser = Parser()
+        self.parser = CParser()
         self.lookAhead = self.next()
 
     def next(self):
@@ -45,14 +45,19 @@ class DScanner(object):
             raise Exception(f'Too many fields: {line}')
         return Directive(lf, cf, af)
 
-    def matches(self, *types):
+    def peek(self, *types):
         if self.lookAhead == None:
             return False
         for t in types:
             if t == '*' or t == self.lookAhead.getCF0():
-                self.terminal = self.lookAhead
-                self.lookAhead = self.next()
                 return True
+        return False
+
+    def matches(self, *types):
+        if self.peek(*types):
+            self.terminal = self.lookAhead
+            self.lookAhead = self.next()
+            return True
         return False
 
     def expect(self, *types):
@@ -76,8 +81,18 @@ class DParser(object):
     def parseList(self):
         tree = Tree()
         while not self.sc.atEnd():
+            if self.sc.peek('end'):
+                return tree
             if self.sc.matches('do1'):
                 drv = Do1DRV(self.sc.terminal, self.getDRV())
+            elif self.sc.matches('cname'):
+                drv = CNameDRV(self.sc.terminal)
+                while True:
+                    if self.sc.atEnd():
+                        raise Exception('Missing END directive')
+                    if self.sc.matches('end'):
+                        break
+                    drv.add(self.parseList())
             else:
                 drv = self.getDRV()
             tree.add(drv)
@@ -90,6 +105,8 @@ class DParser(object):
             return ComDRV(self.sc.terminal)
         elif self.sc.matches('print'):
             return PrintDRV(self.sc.terminal)
+        elif self.sc.matches('gen'):
+            return GenDRV(self.sc.terminal)
         return self.sc.expect('*')
 
 class Directive(object):
@@ -225,6 +242,56 @@ class Do1DRV(Directive):
             self.next.exec(symbols)
             index += 1
 
+class GenDRV(Directive):
+    def __init__(self, drv):
+        super().__init__(drv.lf, drv.cf, drv.af)
+
+    def exec(self, symbols):
+        varname = self.cf[1].value.value
+        bitlist = self.cf.children[1:]
+        if len(self.cf) == 2 and varname in symbols.variables:
+            bitlist = symbols.variables[varname]
+        bitfields = [self.eval(symbols, e) for e in bitlist]
+        result = 0
+        fieldwidth = 0
+        for i, bitfield in enumerate(bitfields):
+            result <<= bitfield
+            value = self.eval(symbols, self.af[i])
+            mask = ~(-1<<bitfield)
+            result |= value & mask
+            fieldwidth += bitfield
+        if len(self.lf) > 0:
+            symbols.variables[self.drv.lf[0].value.value] = symbols.variables['PC']
+        symbols.variables['PC'] += 1
+        fieldwidth = int((fieldwidth+1)/4)
+        format = f'%0{fieldwidth}x'
+        if symbols.object_code != None:
+            symbols.object_code.append(format % result)
+
+class CNameDRV(Directive):
+    def __init__(self, drv):
+        super().__init__(drv.lf, drv.cf, drv.af)
+        self.drvs = []
+
+    def add(self, drv):
+        self.drvs.append(drv)
+
+    def exec(self, symbols):
+        name = self.lf[0].value.value
+        symbols.directives[name] = CNameInstDRV(name, self.drvs)
+
+class CNameInstDRV(object):
+    def __init__(self, name, drvs):
+        self.name = name
+        self.drvs = drvs
+
+    def exec(self, symbols):
+        for tree in self.drvs:
+            for t in tree.children:
+                drv = t.value
+                print(f'exec {type(drv)} {drv} {len(drv.af)}')
+                drv.exec(symbols)
+
 class Symbols(object):
     def __init__(self):
         self.object_code = None
@@ -232,22 +299,3 @@ class Symbols(object):
         self.functions = {}
         self.variables = {}
         self.variables['PC'] = 0
-
-if __name__ == '__main__':
-    symbols = Symbols()
-    with open('traffic.ap') as f:
-        lines = f.readlines()
-    
-    parser = DParser(DScanner(lines))
-    tree = parser.parse()
-    for t in tree.children:
-        t.value.exec(symbols)
-
-    # Second pass to resolve forward references
-    symbols.variables['PC'] = 0
-    symbols.object_code = []
-    for t in tree.children:
-        t.value.exec(symbols)
-
-    with open('roms/traffic_rom.txt', 'wt') as f:
-        f.write('\n'.join(symbols.object_code) + '\n')
