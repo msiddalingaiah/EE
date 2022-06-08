@@ -22,6 +22,10 @@ loadc   com,bitlist     0,0,1,seq_next,af(0)
 wait    com,bitlist     af(0),0,0,seq_next,PC
 jump    com,bitlist     0,0,1,seq_jump,af(0)
 
+print12  cname
+        print   af(1),af(0)
+        end
+
 light   cname
         loadc   af(1)
         wait    af(0)
@@ -29,11 +33,8 @@ light   cname
 
 ; Code
 
-top     loadc   8
-        wait    green
-        loadc   4
-        wait    yellow
-        loadc   8
-        wait    red
+top     light   green,8
+        light   yellow,4
+        light   red,8
         do1     16-PC
         jump    top

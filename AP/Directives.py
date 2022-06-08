@@ -126,13 +126,15 @@ class Directive(object):
         name = self.getCF0()
         if name in symbols.directives:
             drv = symbols.directives[name]
-            drv.drv = self
+            drv.target = self
             drv.exec(symbols)
         else:
             raise Exception(f'No such directive {name}')
 
     def eval(self, symbols, tree):
         op = tree.value.name
+        if op == 'INTI':
+            return tree.value.value
         if op == 'INT':
             return int(tree.value.value)
         if op == 'ID':
@@ -206,19 +208,19 @@ class ComInstDRV(object):
         self.name = name
         self.bitfields = bitfields
         self.com_af = com_af
-        self.drv = None
+        self.target = None
 
     def exec(self, symbols):
         result = 0
         fieldwidth = 0
         for i, bitfield in enumerate(self.bitfields):
             result <<= bitfield
-            value = self.drv.eval(symbols, self.com_af[i])
+            value = self.target.eval(symbols, self.com_af[i])
             mask = ~(-1<<bitfield)
             result |= value & mask
             fieldwidth += bitfield
-        if len(self.drv.lf) > 0:
-            symbols.variables[self.drv.lf[0].value.value] = symbols.variables['PC']
+        if len(self.target.lf) > 0:
+            symbols.variables[self.target.lf[0].value.value] = symbols.variables['PC']
         symbols.variables['PC'] += 1
         fieldwidth = int((fieldwidth+1)/4)
         format = f'%0{fieldwidth}x'
@@ -273,8 +275,10 @@ class CNameDRV(Directive):
         super().__init__(drv.lf, drv.cf, drv.af)
         self.drvs = []
 
-    def add(self, drv):
-        self.drvs.append(drv)
+    def add(self, tree):
+        for t in tree.children:
+            drv = t.value
+            self.drvs.append(drv)
 
     def exec(self, symbols):
         name = self.lf[0].value.value
@@ -284,13 +288,22 @@ class CNameInstDRV(object):
     def __init__(self, name, drvs):
         self.name = name
         self.drvs = drvs
+        self.target = None
 
     def exec(self, symbols):
-        for tree in self.drvs:
-            for t in tree.children:
-                drv = t.value
-                print(f'exec {type(drv)} {drv} {len(drv.af)}')
+        for drv in self.drvs:
+            taf = drv.af
+            af = Tree(Terminal('(', '('))
+            for i in range(len(taf)):
+                value = self.target.eval(symbols, taf[i])
+                af.add(Terminal('INTI', value))
+            if drv.getCF0() in symbols.directives:
+                d = Directive(drv.lf, drv.cf, af)
+                d.exec(symbols)
+            else:
+                drv.af = af
                 drv.exec(symbols)
+                drv.af = taf
 
 class Symbols(object):
     def __init__(self):
