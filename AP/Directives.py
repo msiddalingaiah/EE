@@ -81,6 +81,42 @@ class DParser(object):
     def parseList(self):
         result = []
         while not self.sc.atEnd():
+            if self.sc.matches('cname'):
+                result.append(self.parseCName(CNameDEFDRV(self.sc.terminal)))
+            else:
+                result.append(self.parsePrim())
+        return result
+
+    def parseCName(self, cname):
+        while True:
+            if self.sc.matches('end'):
+                break
+            if self.sc.atEnd():
+                raise Exception('Missing END directive')
+            cname.add(self.parsePrim())
+        return cname
+
+    def parsePrim(self):
+        if self.sc.matches('do1'):
+            do1 = self.sc.terminal
+            next = self.parsePrim0()
+            return Do1DRV(do1, next)
+        return self.parsePrim0()
+
+    def parsePrim0(self):
+        if self.sc.matches('set'):
+            return SetDRV(self.sc.terminal)
+        elif self.sc.matches('com'):
+            return ComDEFDRV(self.sc.terminal)
+        elif self.sc.matches('print'):
+            return PrintDRV(self.sc.terminal)
+        elif self.sc.matches('gen'):
+            return GenDRV(self.sc.terminal)
+        return self.sc.expect('*')
+
+    def parseListX(self):
+        result = []
+        while not self.sc.atEnd():
             if self.sc.peek('end'):
                 return result
             if self.sc.matches('do1'):
@@ -97,17 +133,6 @@ class DParser(object):
                 drv = self.getDRV()
             result.append(drv)
         return result
-
-    def getDRV(self):
-        if self.sc.matches('set'):
-            return SetDRV(self.sc.terminal)
-        elif self.sc.matches('com'):
-            return ComDEFDRV(self.sc.terminal)
-        elif self.sc.matches('print'):
-            return PrintDRV(self.sc.terminal)
-        elif self.sc.matches('gen'):
-            return GenDRV(self.sc.terminal)
-        return self.sc.expect('*')
 
 class Directive(object):
     def __init__(self, lf, cf, af):
@@ -273,9 +298,8 @@ class CNameDEFDRV(Directive):
         super().__init__(drv.lf, drv.cf, drv.af)
         self.drvs = []
 
-    def add(self, drvs):
-        for drv in drvs:
-            self.drvs.append(drv)
+    def add(self, drv):
+        self.drvs.append(drv)
 
     def exec(self, symbols):
         name = self.lf[0].value.value
