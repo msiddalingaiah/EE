@@ -79,14 +79,14 @@ class DParser(object):
         return tree
 
     def parseList(self):
-        tree = Tree()
+        result = []
         while not self.sc.atEnd():
             if self.sc.peek('end'):
-                return tree
+                return result
             if self.sc.matches('do1'):
                 drv = Do1DRV(self.sc.terminal, self.getDRV())
             elif self.sc.matches('cname'):
-                drv = CNameDRV(self.sc.terminal)
+                drv = CNameDEFDRV(self.sc.terminal)
                 while True:
                     if self.sc.atEnd():
                         raise Exception('Missing END directive')
@@ -95,14 +95,14 @@ class DParser(object):
                     drv.add(self.parseList())
             else:
                 drv = self.getDRV()
-            tree.add(drv)
-        return tree
+            result.append(drv)
+        return result
 
     def getDRV(self):
         if self.sc.matches('set'):
             return SetDRV(self.sc.terminal)
         elif self.sc.matches('com'):
-            return ComDRV(self.sc.terminal)
+            return ComDEFDRV(self.sc.terminal)
         elif self.sc.matches('print'):
             return PrintDRV(self.sc.terminal)
         elif self.sc.matches('gen'):
@@ -126,8 +126,7 @@ class Directive(object):
         name = self.getCF0()
         if name in symbols.directives:
             drv = symbols.directives[name]
-            drv.target = self
-            drv.exec(symbols)
+            drv.exec(symbols, self)
         else:
             raise Exception(f'No such directive {name}')
 
@@ -190,7 +189,7 @@ class SetDRV(Directive):
         else:
             symbols.variables[self.lf[0].value.value] = self.af
 
-class ComDRV(Directive):
+class ComDEFDRV(Directive):
     def __init__(self, drv):
         super().__init__(drv.lf, drv.cf, drv.af)
 
@@ -201,26 +200,25 @@ class ComDRV(Directive):
         if len(self.cf) == 2 and varname in symbols.variables:
             bitlist = symbols.variables[varname]
         bitfields = [self.eval(symbols, e) for e in bitlist]
-        symbols.directives[name] = ComInstDRV(name, bitfields, self.af)
+        symbols.directives[name] = ComREFDRV(name, bitfields, self.af)
 
-class ComInstDRV(object):
+class ComREFDRV(object):
     def __init__(self, name, bitfields, com_af):
         self.name = name
         self.bitfields = bitfields
         self.com_af = com_af
-        self.target = None
 
-    def exec(self, symbols):
+    def exec(self, symbols, ref):
         result = 0
         fieldwidth = 0
         for i, bitfield in enumerate(self.bitfields):
             result <<= bitfield
-            value = self.target.eval(symbols, self.com_af[i])
+            value = ref.eval(symbols, self.com_af[i])
             mask = ~(-1<<bitfield)
             result |= value & mask
             fieldwidth += bitfield
-        if len(self.target.lf) > 0:
-            symbols.variables[self.target.lf[0].value.value] = symbols.variables['PC']
+        if len(ref.lf) > 0:
+            symbols.variables[ref.lf[0].value.value] = symbols.variables['PC']
         symbols.variables['PC'] += 1
         fieldwidth = int((fieldwidth+1)/4)
         format = f'%0{fieldwidth}x'
@@ -270,32 +268,30 @@ class GenDRV(Directive):
         if symbols.object_code != None:
             symbols.object_code.append(format % result)
 
-class CNameDRV(Directive):
+class CNameDEFDRV(Directive):
     def __init__(self, drv):
         super().__init__(drv.lf, drv.cf, drv.af)
         self.drvs = []
 
-    def add(self, tree):
-        for t in tree.children:
-            drv = t.value
+    def add(self, drvs):
+        for drv in drvs:
             self.drvs.append(drv)
 
     def exec(self, symbols):
         name = self.lf[0].value.value
-        symbols.directives[name] = CNameInstDRV(name, self.drvs)
+        symbols.directives[name] = CNameREFDRV(name, self.drvs)
 
-class CNameInstDRV(object):
+class CNameREFDRV(object):
     def __init__(self, name, drvs):
         self.name = name
         self.drvs = drvs
-        self.target = None
 
-    def exec(self, symbols):
+    def exec(self, symbols, ref):
         for drv in self.drvs:
             taf = drv.af
             af = Tree(Terminal('(', '('))
             for i in range(len(taf)):
-                value = self.target.eval(symbols, taf[i])
+                value = ref.eval(symbols, taf[i])
                 af.add(Terminal('INTI', value))
             if drv.getCF0() in symbols.directives:
                 d = Directive(drv.lf, drv.cf, af)
