@@ -16,6 +16,8 @@ class DScanner(object):
             self.index += 1
             if not drv.isBlank():
                 break
+        if drv and drv.isBlank():
+            return None
         return drv
 
     def parseDirective(self, line):
@@ -84,7 +86,7 @@ class DParser(object):
             if self.sc.matches('cname'):
                 result.append(self.parseCName(CNameDEFDRV(self.sc.terminal)))
             else:
-                result.append(self.parsePrim())
+                result.append(self.parseDo())
         return result
 
     def parseCName(self, cname):
@@ -93,12 +95,34 @@ class DParser(object):
                 break
             if self.sc.atEnd():
                 raise Exception('Missing END directive')
-            cname.add(self.parsePrim())
+            cname.add(self.parseDo())
         return cname
+
+    def parseDo(self):
+        if self.sc.matches('do'):
+            do = DoDRV(self.sc.terminal)
+            inElse = False
+            while True:
+                if self.sc.matches('else'):
+                    if inElse:
+                        raise Exception('ELSE not allowed here')
+                    inElse = True
+                if self.sc.matches('fin'):
+                    break
+                if self.sc.atEnd():
+                    raise Exception('Missing FIN directive')
+                if inElse:
+                    do.addElse(self.parseDo())
+                else:
+                    do.add(self.parseDo())
+            return do
+        return self.parsePrim()
 
     def parsePrim(self):
         if self.sc.matches('do1'):
             do1 = self.sc.terminal
+            if self.sc.atEnd():
+                raise Exception('Missing directive after do1')
             next = self.parsePrim0()
             return Do1DRV(do1, next)
         return self.parsePrim0()
@@ -106,33 +130,16 @@ class DParser(object):
     def parsePrim0(self):
         if self.sc.matches('set'):
             return SetDRV(self.sc.terminal)
-        elif self.sc.matches('com'):
+        if self.sc.matches('com'):
             return ComDEFDRV(self.sc.terminal)
-        elif self.sc.matches('print'):
+        if self.sc.matches('print'):
             return PrintDRV(self.sc.terminal)
-        elif self.sc.matches('gen'):
+        if self.sc.matches('gen'):
             return GenDRV(self.sc.terminal)
+        if self.sc.matches('do', 'do1', 'else', 'fin', 'cname'):
+            name = self.sc.terminal.getCF0()
+            raise Exception(f'{name} not allowed here')
         return self.sc.expect('*')
-
-    def parseListX(self):
-        result = []
-        while not self.sc.atEnd():
-            if self.sc.peek('end'):
-                return result
-            if self.sc.matches('do1'):
-                drv = Do1DRV(self.sc.terminal, self.getDRV())
-            elif self.sc.matches('cname'):
-                drv = CNameDEFDRV(self.sc.terminal)
-                while True:
-                    if self.sc.atEnd():
-                        raise Exception('Missing END directive')
-                    if self.sc.matches('end'):
-                        break
-                    drv.add(self.parseList())
-            else:
-                drv = self.getDRV()
-            result.append(drv)
-        return result
 
 class Directive(object):
     def __init__(self, lf, cf, af):
@@ -265,6 +272,37 @@ class Do1DRV(Directive):
             if varName != None:
                 symbols.variables[varName] = index
             self.next.exec(symbols)
+            index += 1
+
+class DoDRV(Directive):
+    def __init__(self, drv):
+        super().__init__(drv.lf, drv.cf, drv.af)
+        self.doList = []
+        self.elseList = []
+
+    def add(self, drv):
+        self.doList.append(drv)
+
+    def addElse(self, drv):
+        self.elseList.append(drv)
+
+    def exec(self, symbols):
+        varName = None
+        if len(self.lf) > 0:
+            varName = self.lf[0].value.value
+        index = 0
+        end = self.eval(symbols, self.af[0])
+        if index >= end:
+            if varName != None:
+                symbols.variables[varName] = index
+            for drv in self.elseList:
+                drv.exec(symbols)
+            return
+        while index < end:
+            if varName != None:
+                symbols.variables[varName] = index
+            for drv in self.doList:
+                drv.exec(symbols)
             index += 1
 
 class GenDRV(Directive):
