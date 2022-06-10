@@ -168,7 +168,7 @@ class CParser(object):
             self.sc.expect(')')
             return tree
         if self.sc.matches('-'):
-            return Tree(self.sc.terminal, self.parsePrim())
+            return Tree(Terminal('NEG', '-'), self.parsePrim())
         if self.sc.matches('INT'):
             return Tree(self.sc.terminal)
         id = self.sc.expect('ID')

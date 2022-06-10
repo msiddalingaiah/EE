@@ -187,16 +187,34 @@ class Directive(object):
                 return self.eval(symbols, result)
             func = symbols.functions[fname]
             return func.eval(self, symbols, args)
+        if op == 'NEG':
+            return -self.eval(symbols, tree[0])
         if op == '+':
             return self.eval(symbols, tree[0]) + self.eval(symbols, tree[1])
         if op == '-':
             return self.eval(symbols, tree[0]) - self.eval(symbols, tree[1])
+        if op == '*':
+            return self.eval(symbols, tree[0]) * self.eval(symbols, tree[1])
+        if op == '/':
+            return int(self.eval(symbols, tree[0]) / self.eval(symbols, tree[1]))
+        if op == '%':
+            return self.eval(symbols, tree[0]) % self.eval(symbols, tree[1])
         if op == '&':
             return self.eval(symbols, tree[0]) & self.eval(symbols, tree[1])
         if op == '|':
             return self.eval(symbols, tree[0]) | self.eval(symbols, tree[1])
         if op == '^':
             return self.eval(symbols, tree[0]) ^ self.eval(symbols, tree[1])
+        if op == '<':
+            return int(self.eval(symbols, tree[0]) < self.eval(symbols, tree[1]))
+        if op == '<=':
+            return int(self.eval(symbols, tree[0]) <= self.eval(symbols, tree[1]))
+        if op == '==':
+            return int(self.eval(symbols, tree[0]) == self.eval(symbols, tree[1]))
+        if op == '>=':
+            return int(self.eval(symbols, tree[0]) >= self.eval(symbols, tree[1]))
+        if op == '>':
+            return int(self.eval(symbols, tree[0]) > self.eval(symbols, tree[1]))
 
     def __str__(self):
         return f'{self.getCF0()}'
