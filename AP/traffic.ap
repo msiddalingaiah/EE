@@ -23,13 +23,16 @@ wait    com,bitlist     af(0),0,0,seq_next,PC
 jump    com,bitlist     0,0,1,seq_jump,af(0)
 
 print12  cname
+print21  cname
+        proc
         print   af(1),af(0)
-        end
+        pend
 
 light   cname
+        proc
         loadc   af(1)
         wait    af(0)
-        end
+        pend
 
 ; Code
 

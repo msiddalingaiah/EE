@@ -84,19 +84,29 @@ class DParser(object):
         result = []
         while not self.sc.atEnd():
             if self.sc.matches('cname'):
-                result.append(self.parseCName(CNameDEFDRV(self.sc.terminal)))
+                self.parseCName(result, CNameDEFDRV(self.sc.terminal))
             else:
                 result.append(self.parseDo())
         return result
 
-    def parseCName(self, cname):
+    def parseCName(self, result, cname):
+        cnames = []
+        cnames.append(cname)
+        result.append(cname)
+        while self.sc.matches('cname'):
+            cname = CNameDEFDRV(self.sc.terminal)
+            cnames.append(cname)
+            result.append(cname)
+        body = []
+        self.sc.expect('proc')
         while True:
-            if self.sc.matches('end'):
+            if self.sc.matches('pend'):
                 break
             if self.sc.atEnd():
-                raise Exception('Missing END directive')
-            cname.add(self.parseDo())
-        return cname
+                raise Exception('Missing PEND directive')
+            body.append(self.parseDo())
+        for cname in cnames:
+            cname.body = body
 
     def parseDo(self):
         if self.sc.matches('do'):
@@ -352,14 +362,11 @@ class GenDRV(Directive):
 class CNameDEFDRV(Directive):
     def __init__(self, drv):
         super().__init__(drv.lf, drv.cf, drv.af)
-        self.drvs = []
-
-    def add(self, drv):
-        self.drvs.append(drv)
+        self.body = None
 
     def exec(self, symbols):
         name = self.lf[0].value.value
-        symbols.directives[name] = CNameREFDRV(name, self.drvs)
+        symbols.directives[name] = CNameREFDRV(name, self.body)
 
 class CNameREFDRV(object):
     def __init__(self, name, drvs):
