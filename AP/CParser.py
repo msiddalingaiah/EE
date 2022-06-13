@@ -97,8 +97,8 @@ class CScanner(object):
 class CParser(object):
     def __init__(self):
         patterns = []
-        patterns.append(Pattern('INT', r'[0-9]+'))
         patterns.append(Pattern('ID', r'[a-zA-Z][a-zA-Z0-9_]*'))
+        patterns.append(Pattern('INT', r'(0x)?[0-9a-fA-F]+'))
         patterns.append(Pattern(';', r'\;'))
         patterns.append(Pattern('{', r'\{'))
         patterns.append(Pattern('}', r'\}'))
@@ -110,6 +110,8 @@ class CParser(object):
         patterns.append(Pattern('-', r'\-'))
         patterns.append(Pattern('*', r'\*'))
         patterns.append(Pattern('/', r'\/'))
+        patterns.append(Pattern('<<', r'\<\<'))
+        patterns.append(Pattern('>>', r'\>\>'))
         patterns.append(Pattern('<=', r'\<\='))
         patterns.append(Pattern('>=', r'\>\='))
         patterns.append(Pattern('==', r'\=\='))
@@ -122,8 +124,9 @@ class CParser(object):
         patterns.append(Pattern('>', r'\>'))
         patterns.append(Pattern('%', r'\%'))
         patterns.append(Pattern(',', r'\,'))
+        patterns.append(Pattern("'", r"'(?:[^'\\]|\\.)'"))
         self.sc = CScanner(patterns)
-        self.prec = [('&','|','^'), ('==','!=','>','<','>=','<='), ('+','-'), ('*','/','%')]
+        self.prec = [('&','|','^'), ('>>', '<<'), ('==','!=','>','<','>=','<='), ('+','-'), ('*','/','%')]
 
     def parse(self, input):
         self.sc.setInput(input)
@@ -170,7 +173,20 @@ class CParser(object):
         if self.sc.matches('-'):
             return Tree(Terminal('NEG', '-'), self.parsePrim())
         if self.sc.matches('INT'):
-            return Tree(self.sc.terminal)
+            t = self.sc.terminal
+            if t.value.startswith('0x'):
+                t.value = int(t.value[2:], 16)
+            else:
+                t.value = int(t.value)
+            return Tree(t)
+        if self.sc.matches("'"):
+            t = self.sc.terminal
+            t.name = 'INT'
+            if t.value[1] == '\\':
+                t.value = ord(t.value[2])
+            else:
+                t.value = ord(t.value[1])
+            return Tree(t)
         id = self.sc.expect('ID')
         if self.sc.matches('('):
             tree = Tree(Terminal('call', id.value))

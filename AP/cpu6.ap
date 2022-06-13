@@ -1,0 +1,55 @@
+
+nop     com,8   0x01
+
+ldal    cname
+        proc
+        gen,8   0x80
+        gen,8   af(0)
+        pend
+
+inr     cname
+        proc
+        gen,8   0x20
+        gen,8   af(0)
+        pend
+
+bnz     cname
+        proc
+        gen,8   0x15
+        gen,8   af(0)-3
+        pend
+
+jump    cname
+        proc
+        gen,8   0x71
+        gen,8   af(0)>>8
+        gen,8   af(0)&0xff
+        pend
+
+stal    cname
+        proc
+        gen,8   0xa1
+        gen,8   af(0)>>8
+        gen,8   af(0)&0xff
+        pend
+
+outc    cname
+        proc
+        ldal    af(0)
+        stal    0x5a00
+        pend
+
+PC      set     0xff00
+        nop
+        nop
+        ldal    0xff
+        nop
+more    inr     0
+        bnz     done
+        jump    more
+done    outc    'P'
+        outc    'A'
+        outc    'S'
+        outc    'S'
+        do1     0x10000-PC
+        nop

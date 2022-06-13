@@ -1,6 +1,27 @@
 
 from CParser import *
 
+class AP(object):
+    def __init__(self, srcFile):
+        self.symbols = Symbols()
+        with open(srcFile) as f:
+            lines = f.readlines()
+        
+        parser = DParser(DScanner(lines))
+        drvs = parser.parse()
+        for t in drvs:
+            t.exec(self.symbols)
+
+        # Second pass to resolve forward references
+        self.symbols.variables['PC'] = 0
+        self.symbols.object_code = []
+        for t in drvs:
+            t.exec(self.symbols)
+
+    def save(self, destFile):
+        with open(destFile, 'wt') as f:
+            f.write('\n'.join(self.symbols.object_code) + '\n')
+
 class DScanner(object):
     def __init__(self, input):
         self.input = input
@@ -177,7 +198,7 @@ class Directive(object):
         if op == 'INTI':
             return tree.value.value
         if op == 'INT':
-            return int(tree.value.value)
+            return tree.value.value
         if op == 'ID':
             name = tree.value.value
             # Forward reference hack
@@ -225,6 +246,11 @@ class Directive(object):
             return int(self.eval(symbols, tree[0]) >= self.eval(symbols, tree[1]))
         if op == '>':
             return int(self.eval(symbols, tree[0]) > self.eval(symbols, tree[1]))
+        if op == '>>':
+            return int(self.eval(symbols, tree[0]) >> self.eval(symbols, tree[1]))
+        if op == '<<':
+            return int(self.eval(symbols, tree[0]) << self.eval(symbols, tree[1]))
+        raise Exception(f'Unexpected operator {op}')
 
     def __str__(self):
         return f'{self.getCF0()}'
@@ -345,6 +371,8 @@ class GenDRV(Directive):
         bitfields = [self.eval(symbols, e) for e in bitlist]
         result = 0
         fieldwidth = 0
+        if len(self.lf) > 0:
+            symbols.variables[self.lf[0].value.value] = symbols.variables['PC']
         for i, bitfield in enumerate(bitfields):
             result <<= bitfield
             value = self.eval(symbols, self.af[i])
@@ -374,6 +402,8 @@ class CNameREFDRV(object):
         self.drvs = drvs
 
     def exec(self, symbols, ref):
+        if len(ref.lf) > 0:
+            symbols.variables[ref.lf[0].value.value] = symbols.variables['PC']
         for drv in self.drvs:
             taf = drv.af
             af = Tree(Terminal('(', '('))
