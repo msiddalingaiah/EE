@@ -2,6 +2,12 @@
 from collections import defaultdict
 import re
 
+class APError(Exception):
+    def __init__(self, message, lineNumber):
+        super().__init__(message)
+        # 1-based line number
+        self.lineNumber = lineNumber
+
 class Pattern(object):
     def __init__(self, name, regex):
         self.name = name

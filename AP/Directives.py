@@ -7,16 +7,19 @@ class AP(object):
         with open(srcFile) as f:
             lines = f.readlines()
         
-        parser = DParser(DScanner(lines))
-        drvs = parser.parse()
-        for t in drvs:
-            t.exec(self.symbols)
+            try:
+                parser = DParser(DScanner(lines))
+                drvs = parser.parse()
+                for t in drvs:
+                    t.exec(self.symbols)
 
-        # Second pass to resolve forward references
-        self.symbols.variables['PC'] = 0
-        self.symbols.object_code = []
-        for t in drvs:
-            t.exec(self.symbols)
+                # Second pass to resolve forward references
+                self.symbols.variables['PC'] = 0
+                self.symbols.object_code = []
+                for t in drvs:
+                    t.exec(self.symbols)
+            except APError as e:
+                raise Exception(f'File {srcFile}, line {e.lineNumber}: {e}')
 
     def save(self, destFile):
         with open(destFile, 'wt') as f:
@@ -47,7 +50,7 @@ class DScanner(object):
             line = line[0:semi]
         lf = cf = af = Tree()
         if len(line) == 0:
-            return Directive(lf, cf, af)
+            return Directive(lf, cf, af, self.index)
         if line[0].isspace():
             fields = line.split()
             if len(fields) > 0:
@@ -55,8 +58,8 @@ class DScanner(object):
             if len(fields) > 1:
                 af = self.parser.parse(fields[1])
             if len(fields) > 2:
-                raise Exception(f'Too many fields: {line}')
-            return Directive(lf, cf, af)
+                raise APError(f'Too many fields', self.index)
+            return Directive(lf, cf, af, self.index+1)
         fields = line.split()
         if len(fields) > 0:
             lf = self.parser.parse(fields[0])
@@ -65,8 +68,8 @@ class DScanner(object):
         if len(fields) > 2:
             af = self.parser.parse(fields[2])
         if len(fields) > 3:
-            raise Exception(f'Too many fields: {line}')
-        return Directive(lf, cf, af)
+            raise APError(f'Too many fields', self.index)
+        return Directive(lf, cf, af, self.index)
 
     def peek(self, *types):
         if self.lookAhead == None:
@@ -86,7 +89,7 @@ class DScanner(object):
     def expect(self, *types):
         if self.matches(*types):
             return self.terminal
-        raise Exception('Expected %s, found %s' % (','.join(types), self.lookAhead))
+        raise APError('Expected %s, found %s' % (','.join(types), self.lookAhead), self.index)
 
     def atEnd(self):
         return self.lookAhead == None
@@ -98,14 +101,14 @@ class DParser(object):
     def parse(self):
         tree = self.parseList()
         if not self.sc.atEnd():
-            raise Exception('Unexpected input: %s' % self.sc.terminal)
+            raise APError('Unexpected input: %s' % self.sc.terminal, self.sc.index)
         return tree
 
     def parseList(self):
         result = []
         while not self.sc.atEnd():
             if self.sc.matches('cname'):
-                self.parseCName(result, CNameDEFDRV(self.sc.terminal))
+                self.parseCName(result, CNameDEFDRV(self.sc.terminal, self.sc.index))
             else:
                 result.append(self.parseDo())
         return result
@@ -115,7 +118,7 @@ class DParser(object):
         cnames.append(cname)
         result.append(cname)
         while self.sc.matches('cname'):
-            cname = CNameDEFDRV(self.sc.terminal)
+            cname = CNameDEFDRV(self.sc.terminal, self.sc.index)
             cnames.append(cname)
             result.append(cname)
         body = []
@@ -124,24 +127,24 @@ class DParser(object):
             if self.sc.matches('pend'):
                 break
             if self.sc.atEnd():
-                raise Exception('Missing PEND directive')
+                raise APError('Missing PEND directive', self.sc.index)
             body.append(self.parseDo())
         for cname in cnames:
             cname.body = body
 
     def parseDo(self):
         if self.sc.matches('do'):
-            do = DoDRV(self.sc.terminal)
+            do = DoDRV(self.sc.terminal, self.sc.index)
             inElse = False
             while True:
                 if self.sc.matches('else'):
                     if inElse:
-                        raise Exception('ELSE not allowed here')
+                        raise APError('ELSE not allowed here', self.sc.index)
                     inElse = True
                 if self.sc.matches('fin'):
                     break
                 if self.sc.atEnd():
-                    raise Exception('Missing FIN directive')
+                    raise APError('Missing FIN directive', self.sc.index)
                 if inElse:
                     do.addElse(self.parseDo())
                 else:
@@ -153,31 +156,32 @@ class DParser(object):
         if self.sc.matches('do1'):
             do1 = self.sc.terminal
             if self.sc.atEnd():
-                raise Exception('Missing directive after do1')
+                raise APError('Missing directive after do1', self.sc.index)
             next = self.parsePrim0()
-            return Do1DRV(do1, next)
+            return Do1DRV(do1, next, self.sc.index)
         return self.parsePrim0()
 
     def parsePrim0(self):
         if self.sc.matches('set'):
-            return SetDRV(self.sc.terminal)
+            return SetDRV(self.sc.terminal, self.sc.index)
         if self.sc.matches('com'):
-            return ComDEFDRV(self.sc.terminal)
+            return ComDEFDRV(self.sc.terminal, self.sc.index)
         if self.sc.matches('print'):
-            return PrintDRV(self.sc.terminal)
+            return PrintDRV(self.sc.terminal, self.sc.index)
         if self.sc.matches('gen'):
-            return GenDRV(self.sc.terminal)
+            return GenDRV(self.sc.terminal, self.sc.index)
         if self.sc.matches('do', 'do1', 'else', 'fin', 'cname'):
             name = self.sc.terminal.getCF0()
-            raise Exception(f'{name} not allowed here')
+            raise APError(f'{name} not allowed here', self.sc.index)
         return self.sc.expect('*')
 
 class Directive(object):
-    def __init__(self, lf, cf, af):
+    def __init__(self, lf, cf, af, lineNumber):
         self.lf = lf
         self.cf = cf
         self.af = af
         self.fieldMap = {'lf':lf, 'cf':cf, 'af':af}
+        self.lineNumber = lineNumber
 
     def isBlank(self):
         return self.cf.isLeaf()
@@ -191,12 +195,10 @@ class Directive(object):
             drv = symbols.directives[name]
             drv.exec(symbols, self)
         else:
-            raise Exception(f'No such directive {name}')
+            raise APError(f'No such directive {name}', self.lineNumber)
 
     def eval(self, symbols, tree):
         op = tree.value.name
-        if op == 'INTI':
-            return tree.value.value
         if op == 'INT':
             return tree.value.value
         if op == 'ID':
@@ -207,7 +209,7 @@ class Directive(object):
             value = symbols.variables[name]
             if isinstance(value, int):
                 return value
-            raise Exception(f'Cannot evaluate list {tree.value.value}')
+            raise APError(f'Cannot evaluate list {tree.value.value}', self.lineNumber)
         if op == 'call':
             fname = tree.value.value
             args = [self.eval(symbols, e) for e in tree.children]
@@ -250,14 +252,15 @@ class Directive(object):
             return int(self.eval(symbols, tree[0]) >> self.eval(symbols, tree[1]))
         if op == '<<':
             return int(self.eval(symbols, tree[0]) << self.eval(symbols, tree[1]))
-        raise Exception(f'Unexpected operator {op}')
+        raise APError(f'Unexpected operator {op}', self.lineNumber)
 
     def __str__(self):
         return f'{self.getCF0()}'
 
 class PrintDRV(Directive):
-    def __init__(self, drv):
-        super().__init__(drv.lf, drv.cf, drv.af)
+    def __init__(self, drv, lineNumber):
+        super().__init__(drv.lf, drv.cf, drv.af, lineNumber)
+        self.lineNumber = lineNumber
 
     def exec(self, symbols):
         result = []
@@ -266,8 +269,9 @@ class PrintDRV(Directive):
         print(','.join(result))
 
 class SetDRV(Directive):
-    def __init__(self, drv):
-        super().__init__(drv.lf, drv.cf, drv.af)
+    def __init__(self, drv, lineNumber):
+        super().__init__(drv.lf, drv.cf, drv.af, lineNumber)
+        self.lineNumber = lineNumber
 
     def exec(self, symbols):
         if len(self.af) == 1:
@@ -276,8 +280,9 @@ class SetDRV(Directive):
             symbols.variables[self.lf[0].value.value] = self.af
 
 class ComDEFDRV(Directive):
-    def __init__(self, drv):
-        super().__init__(drv.lf, drv.cf, drv.af)
+    def __init__(self, drv, lineNumber):
+        super().__init__(drv.lf, drv.cf, drv.af, lineNumber)
+        self.lineNumber = lineNumber
 
     def exec(self, symbols):
         name = self.lf[0].value.value
@@ -312,9 +317,10 @@ class ComREFDRV(object):
             symbols.object_code.append(format % result)
 
 class Do1DRV(Directive):
-    def __init__(self, drv, next):
-        super().__init__(drv.lf, drv.cf, drv.af)
+    def __init__(self, drv, next, lineNumber):
+        super().__init__(drv.lf, drv.cf, drv.af, lineNumber)
         self.next = next
+        self.lineNumber = lineNumber
 
     def exec(self, symbols):
         varName = None
@@ -329,10 +335,11 @@ class Do1DRV(Directive):
             index += 1
 
 class DoDRV(Directive):
-    def __init__(self, drv):
-        super().__init__(drv.lf, drv.cf, drv.af)
+    def __init__(self, drv, lineNumber):
+        super().__init__(drv.lf, drv.cf, drv.af, lineNumber)
         self.doList = []
         self.elseList = []
+        self.lineNumber = lineNumber
 
     def add(self, drv):
         self.doList.append(drv)
@@ -360,8 +367,9 @@ class DoDRV(Directive):
             index += 1
 
 class GenDRV(Directive):
-    def __init__(self, drv):
-        super().__init__(drv.lf, drv.cf, drv.af)
+    def __init__(self, drv, lineNumber):
+        super().__init__(drv.lf, drv.cf, drv.af, lineNumber)
+        self.lineNumber = lineNumber
 
     def exec(self, symbols):
         varname = self.cf[1].value.value
@@ -388,9 +396,10 @@ class GenDRV(Directive):
             symbols.object_code.append(format % result)
 
 class CNameDEFDRV(Directive):
-    def __init__(self, drv):
-        super().__init__(drv.lf, drv.cf, drv.af)
+    def __init__(self, drv, lineNumber):
+        super().__init__(drv.lf, drv.cf, drv.af, lineNumber)
         self.body = None
+        self.lineNumber = lineNumber
 
     def exec(self, symbols):
         name = self.lf[0].value.value
@@ -409,9 +418,9 @@ class CNameREFDRV(object):
             af = Tree(Terminal('(', '('))
             for i in range(len(taf)):
                 value = ref.eval(symbols, taf[i])
-                af.add(Terminal('INTI', value))
+                af.add(Terminal('INT', value))
             if drv.getCF0() in symbols.directives:
-                d = Directive(drv.lf, drv.cf, af)
+                d = Directive(drv.lf, drv.cf, af, ref.lineNumber)
                 d.exec(symbols)
             else:
                 drv.af = af
