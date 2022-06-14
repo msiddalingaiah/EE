@@ -36,7 +36,7 @@ light   cname
 
 ; Code
 
-top     light   green,8
+top     light   ((green)),8
         light   yellow,'\''-'\''+4
         light   red,8
         do1     0x10-PC

@@ -1,4 +1,5 @@
 
+from logging import raiseExceptions
 from CParser import *
 
 class AP(object):
@@ -198,6 +199,18 @@ class Directive(object):
             raise APError(f'No such directive {name}', self.lineNumber)
 
     def eval(self, symbols, tree):
+        if isinstance(tree, int):
+            return tree
+        if tree.value.name == '(':
+            result = [self.eval(symbols, x) for x in tree.children]
+            tree.children = result
+            result = tree
+            while isinstance(result, Tree) and len(result) == 1:
+                result = result[0]
+            return result
+        return self.evalPrim(symbols, tree)
+    
+    def evalPrim(self, symbols, tree):
         op = tree.value.name
         if op == 'INT':
             return tree.value.value
@@ -221,38 +234,39 @@ class Directive(object):
             func = symbols.functions[fname]
             return func.eval(self, symbols, args)
         if op == 'NEG':
-            return -self.eval(symbols, tree[0])
+            return -self.evalPrim(symbols, tree[0])
         if op == '+':
-            return self.eval(symbols, tree[0]) + self.eval(symbols, tree[1])
+            return self.evalPrim(symbols, tree[0]) + self.evalPrim(symbols, tree[1])
         if op == '-':
-            return self.eval(symbols, tree[0]) - self.eval(symbols, tree[1])
+            return self.evalPrim(symbols, tree[0]) - self.evalPrim(symbols, tree[1])
         if op == '*':
-            return self.eval(symbols, tree[0]) * self.eval(symbols, tree[1])
+            return self.evalPrim(symbols, tree[0]) * self.evalPrim(symbols, tree[1])
         if op == '/':
-            return int(self.eval(symbols, tree[0]) / self.eval(symbols, tree[1]))
+            return int(self.evalPrim(symbols, tree[0]) / self.evalPrim(symbols, tree[1]))
         if op == '%':
-            return self.eval(symbols, tree[0]) % self.eval(symbols, tree[1])
+            return self.evalPrim(symbols, tree[0]) % self.evalPrim(symbols, tree[1])
         if op == '&':
-            return self.eval(symbols, tree[0]) & self.eval(symbols, tree[1])
+            return self.evalPrim(symbols, tree[0]) & self.evalPrim(symbols, tree[1])
         if op == '|':
-            return self.eval(symbols, tree[0]) | self.eval(symbols, tree[1])
+            return self.evalPrim(symbols, tree[0]) | self.evalPrim(symbols, tree[1])
         if op == '^':
-            return self.eval(symbols, tree[0]) ^ self.eval(symbols, tree[1])
+            return self.evalPrim(symbols, tree[0]) ^ self.evalPrim(symbols, tree[1])
         if op == '<':
-            return int(self.eval(symbols, tree[0]) < self.eval(symbols, tree[1]))
+            return int(self.evalPrim(symbols, tree[0]) < self.evalPrim(symbols, tree[1]))
         if op == '<=':
-            return int(self.eval(symbols, tree[0]) <= self.eval(symbols, tree[1]))
+            return int(self.evalPrim(symbols, tree[0]) <= self.evalPrim(symbols, tree[1]))
         if op == '==':
-            return int(self.eval(symbols, tree[0]) == self.eval(symbols, tree[1]))
+            return int(self.evalPrim(symbols, tree[0]) == self.evalPrim(symbols, tree[1]))
         if op == '>=':
-            return int(self.eval(symbols, tree[0]) >= self.eval(symbols, tree[1]))
+            return int(self.evalPrim(symbols, tree[0]) >= self.evalPrim(symbols, tree[1]))
         if op == '>':
-            return int(self.eval(symbols, tree[0]) > self.eval(symbols, tree[1]))
+            return int(self.evalPrim(symbols, tree[0]) > self.evalPrim(symbols, tree[1]))
         if op == '>>':
-            return int(self.eval(symbols, tree[0]) >> self.eval(symbols, tree[1]))
+            return int(self.evalPrim(symbols, tree[0]) >> self.evalPrim(symbols, tree[1]))
         if op == '<<':
-            return int(self.eval(symbols, tree[0]) << self.eval(symbols, tree[1]))
-        raise APError(f'Unexpected operator {op}', self.lineNumber)
+            return int(self.evalPrim(symbols, tree[0]) << self.evalPrim(symbols, tree[1]))
+        #raise APError(f'Unexpected operator {op}', self.lineNumber)
+        raise Exception(f'Unexpected operator {op}')
 
     def __str__(self):
         return f'{self.getCF0()}'
@@ -427,10 +441,17 @@ class CNameREFDRV(object):
                 drv.exec(symbols)
                 drv.af = taf
 
+class NumFunc(object):
+    def __init__(self):
+        self.name = 'num'
+
+    def eval(self, ref, symbols, args):
+        return len(args[0])
+
 class Symbols(object):
     def __init__(self):
         self.object_code = None
         self.directives = {}
-        self.functions = {}
+        self.functions = {'num':NumFunc()}
         self.variables = {}
         self.variables['PC'] = 0

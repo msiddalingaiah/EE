@@ -131,6 +131,7 @@ class CParser(object):
         patterns.append(Pattern('%', r'\%'))
         patterns.append(Pattern(',', r'\,'))
         patterns.append(Pattern("'", r"'(?:[^'\\]|\\.)'"))
+        patterns.append(Pattern('"', r'"(?:[^"\\]|\\.)*"'))
         self.sc = CScanner(patterns)
         self.prec = [('&','|','^'), ('>>', '<<'), ('==','!=','>','<','>=','<='), ('+','-'), ('*','/','%')]
 
@@ -193,6 +194,14 @@ class CParser(object):
             else:
                 t.value = ord(t.value[1])
             return Tree(t)
+        if self.sc.matches('"'):
+            t = self.sc.terminal
+            string = t.value
+            t.name = '('
+            result = Tree(t)
+            for c in string[1:-1]:
+                result.add(Terminal('INT', ord(c)))
+            return result
         id = self.sc.expect('ID')
         if self.sc.matches('('):
             tree = Tree(Terminal('call', id.value))

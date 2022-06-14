@@ -40,6 +40,7 @@ outc    cname
         pend
 
 PC      set     0xff00
+
         nop
         nop
         ldal    0xff
@@ -53,3 +54,14 @@ done    outc    'P'
         outc    'S'
         do1     0x10000-PC
         nop
+
+dump    cname
+        proc
+        print   num(af(0))
+i       do      num(af(0))
+        ; Results is stack overflow
+        ;print   af(0)
+        fin
+        pend
+
+        dump    "Hellorld!"
