@@ -76,7 +76,7 @@ class DScanner(object):
         if self.lookAhead == None:
             return False
         for t in types:
-            if t == '*' or t == self.lookAhead.getCF0():
+            if t == '*' or t == self.lookAhead.name:
                 return True
         return False
 
@@ -172,7 +172,7 @@ class DParser(object):
         if self.sc.matches('gen'):
             return GenDRV(self.sc.terminal, self.sc.index)
         if self.sc.matches('do', 'do1', 'else', 'fin', 'cname'):
-            name = self.sc.terminal.getCF0()
+            name = self.sc.terminal.name
             raise APError(f'{name} not allowed here', self.sc.index)
         return self.sc.expect('*')
 
@@ -181,95 +181,24 @@ class Directive(object):
         self.lf = lf
         self.cf = cf
         self.af = af
-        self.fieldMap = {'lf':lf, 'cf':cf, 'af':af}
         self.lineNumber = lineNumber
+        self.name = ''
+        if len(cf) > 0:
+            self.name = cf[0].value.value
 
     def isBlank(self):
-        return self.cf.isLeaf()
-
-    def getCF0(self):
-        return self.cf[0].value.value
+        return self.name == ''
 
     def exec(self, symbols):
-        name = self.getCF0()
-        if name in symbols.directives:
-            drv = symbols.directives[name]
+        symbols.setLineNumber(self.lineNumber)
+        if self.name in symbols.directives:
+            drv = symbols.directives[self.name]
             drv.exec(symbols, self)
         else:
-            raise APError(f'No such directive {name}', self.lineNumber)
-
-    def eval(self, symbols, tree):
-        if isinstance(tree, int):
-            return tree
-        if tree.value.name == '(':
-            result = [self.eval(symbols, x) for x in tree.children]
-            tree.children = result
-            result = tree
-            while isinstance(result, Tree) and len(result) == 1:
-                result = result[0]
-            return result
-        return self.evalPrim(symbols, tree)
-    
-    def evalPrim(self, symbols, tree):
-        op = tree.value.name
-        if op == 'INT':
-            return tree.value.value
-        if op == 'ID':
-            name = tree.value.value
-            # Forward reference hack
-            if name not in symbols.variables:
-                symbols.variables[name] = 0
-            value = symbols.variables[name]
-            if isinstance(value, int):
-                return value
-            raise APError(f'Cannot evaluate list {tree.value.value}', self.lineNumber)
-        if op == 'call':
-            fname = tree.value.value
-            args = [self.eval(symbols, e) for e in tree.children]
-            if fname in self.fieldMap:
-                result = self.fieldMap[fname]
-                for arg in args:
-                    result = result[arg]
-                return self.eval(symbols, result)
-            func = symbols.functions[fname]
-            return func.eval(self, symbols, args)
-        if op == 'NEG':
-            return -self.evalPrim(symbols, tree[0])
-        if op == '+':
-            return self.evalPrim(symbols, tree[0]) + self.evalPrim(symbols, tree[1])
-        if op == '-':
-            return self.evalPrim(symbols, tree[0]) - self.evalPrim(symbols, tree[1])
-        if op == '*':
-            return self.evalPrim(symbols, tree[0]) * self.evalPrim(symbols, tree[1])
-        if op == '/':
-            return int(self.evalPrim(symbols, tree[0]) / self.evalPrim(symbols, tree[1]))
-        if op == '%':
-            return self.evalPrim(symbols, tree[0]) % self.evalPrim(symbols, tree[1])
-        if op == '&':
-            return self.evalPrim(symbols, tree[0]) & self.evalPrim(symbols, tree[1])
-        if op == '|':
-            return self.evalPrim(symbols, tree[0]) | self.evalPrim(symbols, tree[1])
-        if op == '^':
-            return self.evalPrim(symbols, tree[0]) ^ self.evalPrim(symbols, tree[1])
-        if op == '<':
-            return int(self.evalPrim(symbols, tree[0]) < self.evalPrim(symbols, tree[1]))
-        if op == '<=':
-            return int(self.evalPrim(symbols, tree[0]) <= self.evalPrim(symbols, tree[1]))
-        if op == '==':
-            return int(self.evalPrim(symbols, tree[0]) == self.evalPrim(symbols, tree[1]))
-        if op == '>=':
-            return int(self.evalPrim(symbols, tree[0]) >= self.evalPrim(symbols, tree[1]))
-        if op == '>':
-            return int(self.evalPrim(symbols, tree[0]) > self.evalPrim(symbols, tree[1]))
-        if op == '>>':
-            return int(self.evalPrim(symbols, tree[0]) >> self.evalPrim(symbols, tree[1]))
-        if op == '<<':
-            return int(self.evalPrim(symbols, tree[0]) << self.evalPrim(symbols, tree[1]))
-        #raise APError(f'Unexpected operator {op}', self.lineNumber)
-        raise Exception(f'Unexpected operator {op}')
+            raise APError(f'No such directive {self.name}', self.lineNumber)
 
     def __str__(self):
-        return f'{self.getCF0()}'
+        return f'{self.name}'
 
 class PrintDRV(Directive):
     def __init__(self, drv, lineNumber):
@@ -277,9 +206,10 @@ class PrintDRV(Directive):
         self.lineNumber = lineNumber
 
     def exec(self, symbols):
+        symbols.setLineNumber(self.lineNumber)
         result = []
         for tree in self.af:
-            result.append(str(self.eval(symbols, tree)))
+            result.append(str(symbols.eval(tree)))
         print(','.join(result))
 
 class SetDRV(Directive):
@@ -288,8 +218,9 @@ class SetDRV(Directive):
         self.lineNumber = lineNumber
 
     def exec(self, symbols):
+        symbols.setLineNumber(self.lineNumber)
         if len(self.af) == 1:
-            symbols.variables[self.lf[0].value.value] = self.eval(symbols, self.af[0])
+            symbols.variables[self.lf[0].value.value] = symbols.eval(self.af[0])
         else:
             symbols.variables[self.lf[0].value.value] = self.af
 
@@ -299,12 +230,13 @@ class ComDEFDRV(Directive):
         self.lineNumber = lineNumber
 
     def exec(self, symbols):
+        symbols.setLineNumber(self.lineNumber)
         name = self.lf[0].value.value
         varname = self.cf[1].value.value
         bitlist = self.cf.children[1:]
         if len(self.cf) == 2 and varname in symbols.variables:
             bitlist = symbols.variables[varname]
-        bitfields = [self.eval(symbols, e) for e in bitlist]
+        bitfields = [symbols.eval(e) for e in bitlist]
         symbols.directives[name] = ComREFDRV(name, bitfields, self.af)
 
 class ComREFDRV(object):
@@ -314,11 +246,13 @@ class ComREFDRV(object):
         self.com_af = com_af
 
     def exec(self, symbols, ref):
+        symbols.setLineNumber(ref.lineNumber)
+        symbols.pushFields(ref.cf, ref.af)
         result = 0
         fieldwidth = 0
         for i, bitfield in enumerate(self.bitfields):
             result <<= bitfield
-            value = ref.eval(symbols, self.com_af[i])
+            value = symbols.eval(self.com_af[i])
             mask = ~(-1<<bitfield)
             result |= value & mask
             fieldwidth += bitfield
@@ -329,6 +263,7 @@ class ComREFDRV(object):
         format = f'%0{fieldwidth}x'
         if symbols.object_code != None:
             symbols.object_code.append(format % result)
+        symbols.popFields()
 
 class Do1DRV(Directive):
     def __init__(self, drv, next, lineNumber):
@@ -337,11 +272,12 @@ class Do1DRV(Directive):
         self.lineNumber = lineNumber
 
     def exec(self, symbols):
+        symbols.setLineNumber(self.lineNumber)
         varName = None
         if len(self.lf) > 0:
             varName = self.lf[0].value.value
         index = 0
-        end = self.eval(symbols, self.af[0])
+        end = symbols.eval(self.af[0])
         while index < end:
             if varName != None:
                 symbols.variables[varName] = index
@@ -362,11 +298,12 @@ class DoDRV(Directive):
         self.elseList.append(drv)
 
     def exec(self, symbols):
+        symbols.setLineNumber(self.lineNumber)
         varName = None
         if len(self.lf) > 0:
             varName = self.lf[0].value.value
         index = 0
-        end = self.eval(symbols, self.af[0])
+        end = symbols.eval(self.af[0])
         if index >= end:
             if varName != None:
                 symbols.variables[varName] = index
@@ -386,18 +323,19 @@ class GenDRV(Directive):
         self.lineNumber = lineNumber
 
     def exec(self, symbols):
+        symbols.setLineNumber(self.lineNumber)
         varname = self.cf[1].value.value
         bitlist = self.cf.children[1:]
         if len(self.cf) == 2 and varname in symbols.variables:
             bitlist = symbols.variables[varname]
-        bitfields = [self.eval(symbols, e) for e in bitlist]
+        bitfields = [symbols.eval(e) for e in bitlist]
         result = 0
         fieldwidth = 0
         if len(self.lf) > 0:
             symbols.variables[self.lf[0].value.value] = symbols.variables['PC']
         for i, bitfield in enumerate(bitfields):
             result <<= bitfield
-            value = self.eval(symbols, self.af[i])
+            value = symbols.eval(self.af[i])
             mask = ~(-1<<bitfield)
             result |= value & mask
             fieldwidth += bitfield
@@ -416,6 +354,7 @@ class CNameDEFDRV(Directive):
         self.lineNumber = lineNumber
 
     def exec(self, symbols):
+        symbols.setLineNumber(self.lineNumber)
         name = self.lf[0].value.value
         symbols.directives[name] = CNameREFDRV(name, self.body)
 
@@ -425,27 +364,24 @@ class CNameREFDRV(object):
         self.drvs = drvs
 
     def exec(self, symbols, ref):
+        symbols.setLineNumber(ref.lineNumber)
         if len(ref.lf) > 0:
             symbols.variables[ref.lf[0].value.value] = symbols.variables['PC']
+        symbols.pushFields(ref.cf, ref.af)
         for drv in self.drvs:
-            taf = drv.af
-            af = Tree(Terminal('(', '('))
-            for i in range(len(taf)):
-                value = ref.eval(symbols, taf[i])
-                af.add(Terminal('INT', value))
-            if drv.getCF0() in symbols.directives:
+            if drv.name in symbols.directives:
+                af = symbols.eval(drv.af)
                 d = Directive(drv.lf, drv.cf, af, ref.lineNumber)
                 d.exec(symbols)
             else:
-                drv.af = af
                 drv.exec(symbols)
-                drv.af = taf
+        symbols.popFields()
 
 class NumFunc(object):
     def __init__(self):
         self.name = 'num'
 
-    def eval(self, ref, symbols, args):
+    def eval(self, symbols, args):
         return len(args[0])
 
 class Symbols(object):
@@ -455,3 +391,105 @@ class Symbols(object):
         self.functions = {'num':NumFunc()}
         self.variables = {}
         self.variables['PC'] = 0
+        self.stack = []
+        self.fieldMap = {'lf':None, 'cf':None, 'af':None}
+    
+    def setLineNumber(self, lineNumber):
+        self.variables['lineNumber'] = lineNumber
+
+    def setAF(self, af):
+        if isinstance(af, int):
+            taf = Tree(Terminal('(', '('))
+            taf.add(af)
+            af = taf
+        self.fieldMap['af'] = af
+
+    def pushFields(self, cf, af):
+        ecf = self.eval(cf)
+        eaf = self.eval(af)
+        self.stack.append(self.fieldMap['cf'])
+        self.stack.append(self.fieldMap['af'])
+        self.fieldMap['cf'] = ecf
+        self.fieldMap['af'] = eaf
+        self.variables['cf'] = ecf
+        self.variables['af'] = eaf
+
+    def popFields(self):
+        af = self.stack.pop()
+        cf = self.stack.pop()
+        self.fieldMap['af'] = af
+        self.fieldMap['cf'] = cf
+        self.variables['cf'] = cf
+        self.variables['af'] = af
+
+    def eval(self, tree):
+        if isinstance(tree, int):
+            return tree
+        if isinstance(tree.value, int):
+            return tree.value
+        if tree.value == None:
+            return None
+        if tree.value.name == '"':
+            return tree
+        if tree.value.name == '(':
+            result = Tree(Terminal('(', '('))
+            result.children = [self.eval(x) for x in tree.children]
+            while isinstance(result, Tree) and len(result) == 1:
+                result = result[0]
+            return result
+        return self.evalPrim(tree)
+    
+    def evalPrim(self, tree):
+        op = tree.value.name
+        if op == 'INT':
+            return tree.value.value
+        if op == 'ID':
+            name = tree.value.value
+            # Forward reference hack
+            if name not in self.variables:
+                self.variables[name] = 0
+            return self.variables[name]
+        if op == 'call':
+            fname = tree.value.value
+            args = [self.eval(e) for e in tree.children]
+            if fname in self.fieldMap:
+                result = self.fieldMap[fname]
+                for arg in args:
+                    result = result[arg]
+                x = self.eval(result)
+                return x
+            func = self.functions[fname]
+            return func.eval(self, args)
+        if op == 'NEG':
+            return -self.evalPrim(tree[0])
+        if op == '+':
+            return self.evalPrim(tree[0]) + self.evalPrim(tree[1])
+        if op == '-':
+            return self.evalPrim(tree[0]) - self.evalPrim(tree[1])
+        if op == '*':
+            return self.evalPrim(tree[0]) * self.evalPrim(tree[1])
+        if op == '/':
+            return int(self.evalPrim(tree[0]) / self.evalPrim(tree[1]))
+        if op == '%':
+            return self.evalPrim(tree[0]) % self.evalPrim(tree[1])
+        if op == '&':
+            return self.evalPrim(tree[0]) & self.evalPrim(tree[1])
+        if op == '|':
+            return self.evalPrim(tree[0]) | self.evalPrim(tree[1])
+        if op == '^':
+            return self.evalPrim(tree[0]) ^ self.evalPrim(tree[1])
+        if op == '<':
+            return int(self.evalPrim(tree[0]) < self.evalPrim(tree[1]))
+        if op == '<=':
+            return int(self.evalPrim(tree[0]) <= self.evalPrim(tree[1]))
+        if op == '==':
+            return int(self.evalPrim(tree[0]) == self.evalPrim(tree[1]))
+        if op == '>=':
+            return int(self.evalPrim(tree[0]) >= self.evalPrim(tree[1]))
+        if op == '>':
+            return int(self.evalPrim(tree[0]) > self.evalPrim(tree[1]))
+        if op == '>>':
+            return int(self.evalPrim(tree[0]) >> self.evalPrim(tree[1]))
+        if op == '<<':
+            return int(self.evalPrim(tree[0]) << self.evalPrim(tree[1]))
+        raise APError(f'Unexpected operator {op}', self.variables['lineNumber'])

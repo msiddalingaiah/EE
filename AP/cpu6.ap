@@ -4,39 +4,53 @@ nop     com,8   0x01
 ldal    cname
         proc
         gen,8   0x80
-        gen,8   af(0)
+        gen,8   af
         pend
 
 inr     cname
         proc
         gen,8   0x20
-        gen,8   af(0)
+        gen,8   af
         pend
 
 bnz     cname
         proc
         gen,8   0x15
-        gen,8   af(0)-3
+        gen,8   af-PC-1
         pend
 
 jump    cname
         proc
         gen,8   0x71
-        gen,8   af(0)>>8
-        gen,8   af(0)&0xff
+        gen,8   af>>8
+        gen,8   af&0xff
         pend
 
 stal    cname
         proc
         gen,8   0xa1
-        gen,8   af(0)>>8
-        gen,8   af(0)&0xff
+        gen,8   af>>8
+        gen,8   af&0xff
+        pend
+
+stop    cname
+        proc
+        ldal    0x5a
+        stal    0x5b00
         pend
 
 outc    cname
         proc
-        ldal    af(0)
+        ldal    af
         stal    0x5a00
+        pend
+
+outs    cname
+        proc
+i       do      num(af)
+        ldal    af(i)
+        stal    0x5a00
+        fin
         pend
 
 PC      set     0xff00
@@ -48,20 +62,16 @@ PC      set     0xff00
 more    inr     0
         bnz     done
         jump    more
-done    outc    'P'
-        outc    'A'
-        outc    'S'
-        outc    'S'
+done    outs    "PASS\n"
+        stop
         do1     0x10000-PC
         nop
 
 dump    cname
         proc
-        print   num(af(0))
-i       do      num(af(0))
-        ; Results is stack overflow
-        ;print   af(0)
+i       do      num(af)
+        print   af(i)
         fin
         pend
 
-        dump    "Hellorld!"
+        ; dump    "Hellorld!"

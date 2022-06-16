@@ -100,6 +100,8 @@ class CScanner(object):
     def atEnd(self):
         return self.lookAhead == None
 
+ESCAPE_CHARS = {'n': '\n', 'r': '\r', 't': '\t', 'f': '\f'}
+
 class CParser(object):
     def __init__(self):
         patterns = []
@@ -172,6 +174,19 @@ class CParser(object):
             return self.parsePrim()
         return self.parseHead(index + 1)
 
+    def escape(self, string):
+        result = ''
+        esc = False
+        for c in string:
+            if esc:
+                result += ESCAPE_CHARS.get(c, c)
+                esc = False
+            elif c == '\\':
+                esc = True
+            else:
+                result += c
+        return result
+
     def parsePrim(self):
         if self.sc.matches('('):
             tree = self.parseExp()
@@ -189,18 +204,15 @@ class CParser(object):
         if self.sc.matches("'"):
             t = self.sc.terminal
             t.name = 'INT'
-            if t.value[1] == '\\':
-                t.value = ord(t.value[2])
-            else:
-                t.value = ord(t.value[1])
+            t.value = ord(self.escape(t.value[1:-1]))
             return Tree(t)
         if self.sc.matches('"'):
             t = self.sc.terminal
-            string = t.value
-            t.name = '('
+            string = self.escape(t.value[1:-1])
+            t.value = ''
             result = Tree(t)
-            for c in string[1:-1]:
-                result.add(Terminal('INT', ord(c)))
+            for c in string:
+                result.add(ord(c))
             return result
         id = self.sc.expect('ID')
         if self.sc.matches('('):
@@ -213,3 +225,7 @@ class CParser(object):
             self.sc.expect(')')
             return tree
         return Tree(id)
+
+if __name__ == '__main__':
+    cp = CParser()
+    print(cp.parse('af(0, 1)'))

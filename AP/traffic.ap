@@ -18,9 +18,9 @@ bitlist set 4,3,1,4,8
 ; Instruction definitions
 ; com directive can be defined with bitlist variable or literal list
 
-loadc   com,bitlist     0,0,1,seq_next,af(0)
-wait    com,bitlist     af(0),0,0,seq_next,PC
-jump    com,bitlist     0,0,1,seq_jump,af(0)
+loadc   com,bitlist     0,0,1,seq_next,af
+wait    com,bitlist     af,0,0,seq_next,PC
+jump    com,bitlist     0,0,1,seq_jump,af
 
 print12  cname
 print21  cname
@@ -33,6 +33,11 @@ light   cname
         loadc   af(1)
         wait    af(0)
         pend
+
+;        print12 9,3
+;        print12 4,2
+;        light   green,8
+;        light   yellow,4
 
 ; Code
 
