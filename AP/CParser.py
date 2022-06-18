@@ -65,6 +65,7 @@ class CScanner(object):
         self.patterns = patterns
 
     def setInput(self, input):
+        self.lineNumber = 1
         self.input = input
         self.index = 0
         self.terminal = None

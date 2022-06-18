@@ -32,11 +32,16 @@ class DScanner(object):
         self.index = 0
         self.terminal = None
         self.parser = CParser()
+        self.lineNumber = 1
         self.lookAhead = self.next()
+
+    def getLineNumber(self):
+        return self.lineNumber
 
     def next(self):
         drv = None
         while self.index < len(self.input):
+            self.lineNumber = self.index + 1
             drv = self.parseDirective(self.input[self.index])
             self.index += 1
             if not drv.isBlank():
@@ -51,7 +56,7 @@ class DScanner(object):
             line = line[0:semi]
         lf = cf = af = Tree()
         if len(line) == 0:
-            return Directive(lf, cf, af, self.index)
+            return Directive(lf, cf, af, self.getLineNumber())
         if line[0].isspace():
             fields = line.split()
             if len(fields) > 0:
@@ -59,8 +64,8 @@ class DScanner(object):
             if len(fields) > 1:
                 af = self.parser.parse(fields[1])
             if len(fields) > 2:
-                raise APError(f'Too many fields', self.index)
-            return Directive(lf, cf, af, self.index+1)
+                raise APError(f'Too many fields', self.getLineNumber())
+            return Directive(lf, cf, af, self.getLineNumber())
         fields = line.split()
         if len(fields) > 0:
             lf = self.parser.parse(fields[0])
@@ -69,8 +74,8 @@ class DScanner(object):
         if len(fields) > 2:
             af = self.parser.parse(fields[2])
         if len(fields) > 3:
-            raise APError(f'Too many fields', self.index)
-        return Directive(lf, cf, af, self.index)
+            raise APError(f'Too many fields', self.getLineNumber())
+        return Directive(lf, cf, af, self.getLineNumber())
 
     def peek(self, *types):
         if self.lookAhead == None:
@@ -90,7 +95,7 @@ class DScanner(object):
     def expect(self, *types):
         if self.matches(*types):
             return self.terminal
-        raise APError('Expected %s, found %s' % (','.join(types), self.lookAhead), self.index)
+        raise APError('Expected %s, found %s' % (','.join(types), self.lookAhead), self.getLineNumber)
 
     def atEnd(self):
         return self.lookAhead == None
@@ -99,17 +104,20 @@ class DParser(object):
     def __init__(self, scanner):
         self.sc = scanner
 
+    def getLineNumber(self):
+        return self.sc.getLineNumber()
+
     def parse(self):
         tree = self.parseList()
         if not self.sc.atEnd():
-            raise APError('Unexpected input: %s' % self.sc.terminal, self.sc.index)
+            raise APError('Unexpected input: %s' % self.sc.terminal, self.getLineNumber())
         return tree
 
     def parseList(self):
         result = []
         while not self.sc.atEnd():
             if self.sc.matches('cname'):
-                self.parseCName(result, CNameDEFDRV(self.sc.terminal, self.sc.index))
+                self.parseCName(result, CNameDEFDRV(self.sc.terminal))
             else:
                 result.append(self.parseDo())
         return result
@@ -119,7 +127,7 @@ class DParser(object):
         cnames.append(cname)
         result.append(cname)
         while self.sc.matches('cname'):
-            cname = CNameDEFDRV(self.sc.terminal, self.sc.index)
+            cname = CNameDEFDRV(self.sc.terminal)
             cnames.append(cname)
             result.append(cname)
         body = []
@@ -128,24 +136,24 @@ class DParser(object):
             if self.sc.matches('pend'):
                 break
             if self.sc.atEnd():
-                raise APError('Missing PEND directive', self.sc.index)
+                raise APError('Missing PEND directive', self.getLineNumber())
             body.append(self.parseDo())
         for cname in cnames:
             cname.body = body
 
     def parseDo(self):
         if self.sc.matches('do'):
-            do = DoDRV(self.sc.terminal, self.sc.index)
+            do = DoDRV(self.sc.terminal)
             inElse = False
             while True:
                 if self.sc.matches('else'):
                     if inElse:
-                        raise APError('ELSE not allowed here', self.sc.index)
+                        raise APError('ELSE not allowed here', self.getLineNumber())
                     inElse = True
                 if self.sc.matches('fin'):
                     break
                 if self.sc.atEnd():
-                    raise APError('Missing FIN directive', self.sc.index)
+                    raise APError('Missing FIN directive', self.getLineNumber())
                 if inElse:
                     do.addElse(self.parseDo())
                 else:
@@ -157,23 +165,23 @@ class DParser(object):
         if self.sc.matches('do1'):
             do1 = self.sc.terminal
             if self.sc.atEnd():
-                raise APError('Missing directive after do1', self.sc.index)
+                raise APError('Missing directive after do1', self.getLineNumber())
             next = self.parsePrim0()
-            return Do1DRV(do1, next, self.sc.index)
+            return Do1DRV(do1, next)
         return self.parsePrim0()
 
     def parsePrim0(self):
         if self.sc.matches('set'):
-            return SetDRV(self.sc.terminal, self.sc.index)
+            return SetDRV(self.sc.terminal)
         if self.sc.matches('com'):
-            return ComDEFDRV(self.sc.terminal, self.sc.index)
+            return ComDEFDRV(self.sc.terminal)
         if self.sc.matches('print'):
-            return PrintDRV(self.sc.terminal, self.sc.index)
+            return PrintDRV(self.sc.terminal)
         if self.sc.matches('gen'):
-            return GenDRV(self.sc.terminal, self.sc.index)
+            return GenDRV(self.sc.terminal)
         if self.sc.matches('do', 'do1', 'else', 'fin', 'cname'):
             name = self.sc.terminal.name
-            raise APError(f'{name} not allowed here', self.sc.index)
+            raise APError(f'{name} not allowed here', self.getLineNumber())
         return self.sc.expect('*')
 
 class Directive(object):
@@ -201,21 +209,28 @@ class Directive(object):
         return f'{self.name}'
 
 class PrintDRV(Directive):
-    def __init__(self, drv, lineNumber):
-        super().__init__(drv.lf, drv.cf, drv.af, lineNumber)
-        self.lineNumber = lineNumber
+    def __init__(self, drv):
+        super().__init__(drv.lf, drv.cf, drv.af, drv.lineNumber)
 
     def exec(self, symbols):
         symbols.setLineNumber(self.lineNumber)
+        tree = symbols.eval(self.af)
+        if isinstance(tree, int):
+            print(tree)
+            return
         result = []
+        if tree.value.name == '"':
+            for i in range(len(tree)):
+                result.append(chr(tree[i].value))
+            print(''.join(result))
+            return
         for tree in self.af:
-            result.append(str(symbols.eval(tree)))
+            result.append(str(tree))
         print(','.join(result))
 
 class SetDRV(Directive):
-    def __init__(self, drv, lineNumber):
-        super().__init__(drv.lf, drv.cf, drv.af, lineNumber)
-        self.lineNumber = lineNumber
+    def __init__(self, drv):
+        super().__init__(drv.lf, drv.cf, drv.af, drv.lineNumber)
 
     def exec(self, symbols):
         symbols.setLineNumber(self.lineNumber)
@@ -225,9 +240,8 @@ class SetDRV(Directive):
             symbols.variables[self.lf[0].value.value] = self.af
 
 class ComDEFDRV(Directive):
-    def __init__(self, drv, lineNumber):
-        super().__init__(drv.lf, drv.cf, drv.af, lineNumber)
-        self.lineNumber = lineNumber
+    def __init__(self, drv):
+        super().__init__(drv.lf, drv.cf, drv.af, drv.lineNumber)
 
     def exec(self, symbols):
         symbols.setLineNumber(self.lineNumber)
@@ -266,10 +280,9 @@ class ComREFDRV(object):
         symbols.popFields()
 
 class Do1DRV(Directive):
-    def __init__(self, drv, next, lineNumber):
-        super().__init__(drv.lf, drv.cf, drv.af, lineNumber)
+    def __init__(self, drv, next):
+        super().__init__(drv.lf, drv.cf, drv.af, drv.lineNumber)
         self.next = next
-        self.lineNumber = lineNumber
 
     def exec(self, symbols):
         symbols.setLineNumber(self.lineNumber)
@@ -285,11 +298,10 @@ class Do1DRV(Directive):
             index += 1
 
 class DoDRV(Directive):
-    def __init__(self, drv, lineNumber):
-        super().__init__(drv.lf, drv.cf, drv.af, lineNumber)
+    def __init__(self, drv):
+        super().__init__(drv.lf, drv.cf, drv.af, drv.lineNumber)
         self.doList = []
         self.elseList = []
-        self.lineNumber = lineNumber
 
     def add(self, drv):
         self.doList.append(drv)
@@ -318,9 +330,8 @@ class DoDRV(Directive):
             index += 1
 
 class GenDRV(Directive):
-    def __init__(self, drv, lineNumber):
-        super().__init__(drv.lf, drv.cf, drv.af, lineNumber)
-        self.lineNumber = lineNumber
+    def __init__(self, drv):
+        super().__init__(drv.lf, drv.cf, drv.af, drv.lineNumber)
 
     def exec(self, symbols):
         symbols.setLineNumber(self.lineNumber)
@@ -348,10 +359,9 @@ class GenDRV(Directive):
             symbols.object_code.append(format % result)
 
 class CNameDEFDRV(Directive):
-    def __init__(self, drv, lineNumber):
-        super().__init__(drv.lf, drv.cf, drv.af, lineNumber)
+    def __init__(self, drv):
+        super().__init__(drv.lf, drv.cf, drv.af, drv.lineNumber)
         self.body = None
-        self.lineNumber = lineNumber
 
     def exec(self, symbols):
         symbols.setLineNumber(self.lineNumber)
@@ -392,33 +402,21 @@ class Symbols(object):
         self.variables = {}
         self.variables['PC'] = 0
         self.stack = []
-        self.fieldMap = {'lf':None, 'cf':None, 'af':None}
     
     def setLineNumber(self, lineNumber):
         self.variables['lineNumber'] = lineNumber
 
-    def setAF(self, af):
-        if isinstance(af, int):
-            taf = Tree(Terminal('(', '('))
-            taf.add(af)
-            af = taf
-        self.fieldMap['af'] = af
-
     def pushFields(self, cf, af):
         ecf = self.eval(cf)
         eaf = self.eval(af)
-        self.stack.append(self.fieldMap['cf'])
-        self.stack.append(self.fieldMap['af'])
-        self.fieldMap['cf'] = ecf
-        self.fieldMap['af'] = eaf
+        self.stack.append(self.variables.get('cf', None))
+        self.stack.append(self.variables.get('af', None))
         self.variables['cf'] = ecf
         self.variables['af'] = eaf
 
     def popFields(self):
         af = self.stack.pop()
         cf = self.stack.pop()
-        self.fieldMap['af'] = af
-        self.fieldMap['cf'] = cf
         self.variables['cf'] = cf
         self.variables['af'] = af
 
@@ -452,14 +450,16 @@ class Symbols(object):
         if op == 'call':
             fname = tree.value.value
             args = [self.eval(e) for e in tree.children]
-            if fname in self.fieldMap:
-                result = self.fieldMap[fname]
+            if fname in self.functions:
+                func = self.functions[fname]
+                return func.eval(self, args)
+            if fname in self.variables:
+                result = self.variables[fname]
                 for arg in args:
                     result = result[arg]
                 x = self.eval(result)
                 return x
-            func = self.functions[fname]
-            return func.eval(self, args)
+            raise APError(f'No such function or variable {fname}', self.variables['lineNumber'])
         if op == 'NEG':
             return -self.evalPrim(tree[0])
         if op == '+':
