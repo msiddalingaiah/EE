@@ -179,6 +179,8 @@ class DParser(object):
             return PrintDRV(self.sc.terminal)
         if self.sc.matches('gen'):
             return GenDRV(self.sc.terminal)
+        if self.sc.matches('bound'):
+            return BoundDRV(self.sc.terminal)
         if self.sc.matches('do', 'do1', 'else', 'fin', 'cname'):
             name = self.sc.terminal.name
             raise APError(f'{name} not allowed here', self.getLineNumber())
@@ -386,6 +388,30 @@ class CNameREFDRV(object):
             else:
                 drv.exec(symbols)
         symbols.popFields()
+
+class BoundDRV(Directive):
+    def __init__(self, drv):
+        super().__init__(drv.lf, drv.cf, drv.af, drv.lineNumber)
+
+    def exec(self, symbols):
+        symbols.setLineNumber(self.lineNumber)
+        value = symbols.eval(self.af)
+        if not isinstance(value, int):
+            raise APError(f'Bound argument is not an integer', self.lineNumber)
+        fieldwidth = symbols.eval(self.cf[1])
+        if not isinstance(fieldwidth, int):
+            raise APError(f'Bound argument is not an integer', self.lineNumber)
+        mask = ~(-1 << value)
+        boundary = 1 << value
+        pc = symbols.variables['PC']
+        n = boundary - (pc & mask)
+        n &= mask
+        fieldwidth = int((fieldwidth+1)/4)
+        format = f'%0{fieldwidth}x'
+        while n > 0:
+            if symbols.object_code != None:
+                symbols.object_code.append(format % 0)
+            n -= 1
 
 class NumFunc(object):
     def __init__(self):

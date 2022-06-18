@@ -41,6 +41,7 @@ light   cname
 
 ; Code
 
+        bound,20 0
 top     light   ((green)),8
         light   yellow,'\''-'\''+4
         light   red,8
