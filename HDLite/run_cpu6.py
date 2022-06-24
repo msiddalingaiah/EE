@@ -65,14 +65,16 @@ def runCPU6():
     reset = sig.Signal()
     clock = sig.Signal()
     zero = sig.Signal()
-    dataBus = sig.Vector(8)
+    dataInBus = sig.Vector(8)
+    writeEnBus = sig.Signal()
     addressBus = sig.Vector(16)
-    top = CPU6(reset, clock, zero, dataBus, addressBus)
+    dataOutBus = sig.Vector(8)
+    top = CPU6(reset, clock, zero, dataInBus, writeEnBus, addressBus, dataOutBus)
     top.uc_rom.memory = read_ucode()
     top.map_rom.memory = read_map_rom()
 
     sim.simulation.setTopComponent(top)
-    outputs = {'Databus':dataBus, 'Addressbus':addressBus}
+    outputs = {'Databus':dataInBus, 'Addressbus':addressBus}
     internal = {'0:S0': top.seq0.s0, '0:S1': top.seq0.s1,
         '1:S0': top.seq1.s0, '1:S1': top.seq1.s1,
         '2:S0': top.seq2.s0, '2:S1': top.seq2.s1,
@@ -82,6 +84,6 @@ def runCPU6():
     app.mainloop()
 
 if __name__ == '__main__':
-    #runCPU6()
-    simCPU6()
+    runCPU6()
+    #simCPU6()
 

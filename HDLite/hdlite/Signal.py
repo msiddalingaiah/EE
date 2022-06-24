@@ -30,6 +30,9 @@ class Signal(object):
     def __xor__(self, other):
         return self.value ^ self.rhs(other)
 
+    def __lshift__(self, other):
+        return self.value << self.rhs(other)
+    
     # ~ (not)
     def __invert__(self):
         return 1 - self.value

@@ -3,16 +3,15 @@ from hdlite import Signal as sig
 
 from hdlite.Component import *
 
-class Memory(Component):
-    def __init__(self, reset, clock, din, write, address, out):
+class RegisterRAM(Component):
+    def __init__(self, clock, write_en, address, data_in, data_out):
         super().__init__()
-        self.reset = reset
         self.clock = clock
-        self.din = din
-        self.write = write
+        self.din = data_in
+        self.write = write_en
         self.address = address
-        self.out = out
-        self.memory = [0]*2048
+        self.out = data_out
+        self.memory = [0xf5]*256
     
     def run(self):
         self.out <<= self.memory[self.address.getIntValue()]
