@@ -172,6 +172,8 @@ class CPU6(Component):
         if self.reset == 1:
             pass
 
+        self.addressBus <<= self.memory_address
+
         self.bit53 <<= self.pipeline[53]
         self.reg_low_select <<= self.bit53
         # High/low register select, D10 74LS02 NOR gate
@@ -266,7 +268,7 @@ class CPU6(Component):
         self.jsr_ <<= 1
         if self.pipeline[15] == 0:
             if self.k9 == 2:
-                self.jsr_ = ~self.register_index[0];
+                self.jsr_ <<= ~self.register_index[0]
 
         self.alu0_cin <<= 0
         if self.shift_carry == 0:
@@ -283,6 +285,7 @@ class CPU6(Component):
             if self.j13 == 0:
                 self.seq0_orin[0] <<= self.flags_register[1]
                 self.seq0_orin[1] <<= self.flags_register[0]
+                pass
 
         self.seq1_orin <<= 0
 
@@ -376,7 +379,7 @@ class CPU6(Component):
             if self.e7 == 2:
                 hi_n = (self.flags_register[0] << 5) | (self.alu0_cout << 4)
                 lo_n = (self.alu1_cout << 3) | (self.alu1_ovr << 2) | (self.alu1_f3 << 1) | (self.alu0_f0 & self.alu1_f0)
-                self.flags_register <<= hi_n | lo_n
+                self.flags_register <<= (hi_n << 4) | lo_n
             if self.e7 == 3:
                 self.bus_read <<= self.dataInBus
 

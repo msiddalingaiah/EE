@@ -5,6 +5,7 @@ from hdlite import Signal as sig
 from hdlite.Component import *
 from hdlite.ControlPanel import *
 from Centurion.CPU6 import *
+from bitslice.Memory import *
 
 def read_ucode():
     # Improved logical bit order
@@ -40,9 +41,9 @@ class CPU6TB(Component):
         self.state = 0
 
         self.zero = sig.Signal()
-        self.cpu6 = CPU6(self.reset.reset, self.clock.clock, self.zero, self.dataBus, self.addressBus)
-        self.cpu6.uc_rom.memory = read_ucode()
-        self.cpu6.map_rom.memory = read_map_rom()
+        self.cpu = CPU6(self.reset.reset, self.clock.clock, self.zero, self.dataBus, self.addressBus)
+        self.cpu.uc_rom.memory = read_ucode()
+        self.cpu.map_rom.memory = read_map_rom()
 
     def run(self):
         if self.state == 0:
@@ -60,6 +61,31 @@ def simCPU6():
     sim.simulation = sim.Simulation('vcd/cpu6.vcd')
     sim.simulation.run(CPU6TB())
 
+class CPU6TBPanel(Component):
+    def __init__(self, reset, clock, zero, dataInBus, writeEnBus, addressBus, dataOutBus):
+        super().__init__()
+        self.reset = reset
+        self.clock = clock
+        self.zero = zero
+        self.dataInBus = dataInBus
+        self.writeEnBus = writeEnBus
+        self.addressBus = addressBus
+        self.dataOutBus = dataOutBus
+        self.cpu = CPU6(self.reset, self.clock, self.zero, self.dataInBus, self.writeEnBus, self.addressBus, self.dataOutBus)
+        self.memory = Memory(self.reset, self.clock, self.dataOutBus, self.writeEnBus, self.addressBus, self.dataInBus)
+        self.memory.read('Centurion/programs/hellorld.txt')
+        self.cpu.uc_rom.memory = read_ucode()
+        self.cpu.map_rom.memory = read_map_rom()
+
+    def run(self):
+        if self.writeEnBus == 1:
+            # Pretend there's a UART here :-)
+            if self.addressBus == 0x5a00:
+                print(chr(self.dataOutBus), end='')
+            # A hack to stop simulation
+            #if (addressBus == 16'h5b00 && data_c2r == 8'h5a) begin
+            #    sim_end <= 1;
+
 def runCPU6():
     sim.simulation = sim.Simulation()
     reset = sig.Signal()
@@ -69,16 +95,13 @@ def runCPU6():
     writeEnBus = sig.Signal()
     addressBus = sig.Vector(16)
     dataOutBus = sig.Vector(8)
-    top = CPU6(reset, clock, zero, dataInBus, writeEnBus, addressBus, dataOutBus)
-    top.uc_rom.memory = read_ucode()
-    top.map_rom.memory = read_map_rom()
+    top = CPU6TBPanel(reset, clock, zero, dataInBus, writeEnBus, addressBus, dataOutBus)
 
     sim.simulation.setTopComponent(top)
-    outputs = {'Databus':dataInBus, 'Addressbus':addressBus}
-    internal = {'0:S0': top.seq0.s0, '0:S1': top.seq0.s1,
-        '1:S0': top.seq1.s0, '1:S1': top.seq1.s1,
-        '2:S0': top.seq2.s0, '2:S1': top.seq2.s1,
-        'μWord': top.pipeline, 'ROM Address': top.uc_rom_address, 'ROM data': top.uc_rom_data}
+    outputs = {'DataInbus':dataInBus, 'Addressbus':addressBus, 'DataOutbus':dataOutBus}
+    internal = { 'μWord': top.cpu.pipeline, 'ROM Address': top.cpu.uc_rom_address,
+        'DBus': top.cpu.DPBus, 'FBus': top.cpu.FBus, 'Result': top.cpu.result_register,
+        'Flags': top.cpu.flags_register }
     inputs = {'Zero': zero}
     app = App(reset, clock, inputs, internal, outputs)
     app.mainloop()
