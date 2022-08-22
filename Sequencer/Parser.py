@@ -61,8 +61,10 @@ class Tree(object):
         return '%s)' % result
 
 class CScanner(object):
-    def __init__(self, patterns):
+    def __init__(self, patterns, keywordName, keywordList):
         self.patterns = patterns
+        self.keywordName = keywordName
+        self.keywordList = keywordList
 
     def setInput(self, input):
         self.lineNumber = 1
@@ -73,15 +75,27 @@ class CScanner(object):
 
     def next(self):
         while self.index < len(self.input) and self.input[self.index].isspace():
+            if self.input[self.index] == '\n':
+                self.lineNumber += 1
             self.index += 1
+        if self.index >= len(self.input):
+            return None
+        if self.input[self.index] == '#':
+            while self.index < len(self.input) and self.input[self.index] != '\n':
+                self.index += 1
+            self.index += 1
+            self.lineNumber += 1
         if self.index >= len(self.input):
             return None
         for p in self.patterns:
             match = p.match(self.input, self.index)
             if match:
                 self.index = match.end()
-                return Terminal(p.name, match.group())
-        raise Exception('Unrecognized input: %s' % (self.input[self.index]))
+                name, value = p.name, match.group()
+                if name == self.keywordName and value in self.keywordList:
+                    name = value
+                return Terminal(name, value)
+        raise Exception(f'{self.lineNumber}: Unrecognized input: {self.input[self.index]}')
         
     def matches(self, *types):
         if self.lookAhead == None:
@@ -96,7 +110,8 @@ class CScanner(object):
     def expect(self, *types):
         if self.matches(*types):
             return self.terminal
-        raise Exception('Expected %s, found %s' % (','.join(types), self.lookAhead))
+        expected = ','.join(types)
+        raise Exception(f'{self.lineNumber}: Expected {expected}, found {self.lookAhead}')
 
     def atEnd(self):
         return self.lookAhead == None
@@ -106,12 +121,6 @@ ESCAPE_CHARS = {'n': '\n', 'r': '\r', 't': '\t', 'f': '\f'}
 class Parser(object):
     def __init__(self):
         patterns = []
-        patterns.append(Pattern('define', r'define'))
-        patterns.append(Pattern('field', r'field'))
-        patterns.append(Pattern('if', r'if'))
-        patterns.append(Pattern('else', r'else'))
-        patterns.append(Pattern('do', r'do'))
-        patterns.append(Pattern('while', r'while'))
         patterns.append(Pattern('ID', r'[a-zA-Z][a-zA-Z0-9_]*'))
         patterns.append(Pattern('INT', r'(0x)?[0-9a-fA-F]+'))
         patterns.append(Pattern(';', r'\;'))
@@ -142,7 +151,8 @@ class Parser(object):
         patterns.append(Pattern(',', r'\,'))
         patterns.append(Pattern("'", r"'(?:[^'\\]|\\.)'"))
         patterns.append(Pattern('"', r'"(?:[^"\\]|\\.)*"'))
-        self.sc = CScanner(patterns)
+        keywords = ['const', 'condition', 'field', 'if', 'else', 'do', 'while', 'def', 'return', 'call']
+        self.sc = CScanner(patterns, 'ID', keywords)
         self.prec = [('&','|','^'), ('>>', '<<'), ('==','!=','>','<','>=','<='), ('+','-'), ('*','/','%')]
 
     def parse(self, input):
@@ -155,19 +165,35 @@ class Parser(object):
     def parseProgram(self):
         tree = Tree(Terminal('program', 'program'))
         while not self.sc.atEnd():
-            if self.sc.matches('define'):
-                tree.add(self.parseDefine())
+            if self.sc.matches('const'):
+                tree.add(self.parseConst())
+            elif self.sc.matches('condition'):
+                tree.add(self.parseCondField())
             elif self.sc.matches('field'):
                 tree.add(self.parseField())
+            elif self.sc.matches('def'):
+                tree.add(self.parseDef())
             else:
                 tree.add(self.parseStatement())
         return tree
 
-    # define ID = EXP ;
-    def parseDefine(self):
+    # const ID = EXP ;
+    def parseConst(self):
         tree = Tree(self.sc.terminal)
         tree.add(self.sc.expect('ID'))
         self.sc.expect('=')
+        tree.add(self.parseExp())
+        self.sc.expect(';')
+        return tree
+
+    # condition field ID = EXP : EXP ;
+    def parseCondField(self):
+        tree = Tree(self.sc.terminal)
+        self.sc.expect('field')
+        tree.add(self.sc.expect('ID'))
+        self.sc.expect('=')
+        tree.add(self.parseExp())
+        self.sc.expect(':')
         tree.add(self.parseExp())
         self.sc.expect(';')
         return tree
@@ -183,13 +209,29 @@ class Parser(object):
         self.sc.expect(';')
         return tree
 
-    # # if | do | ID = EXP [, ID = EXP]* ;
+    # def ID { }
+    def parseDef(self):
+        tree = Tree(self.sc.terminal)
+        tree.add(self.sc.expect('ID'))
+        tree.add(self.parseStatlist())
+        return tree
+
+    # # if | do | return | call | ID = EXP [, ID = EXP]* ;
     def parseStatement(self):
         if self.sc.matches('if'):
             return self.parseIf()
         if self.sc.matches('do'):
             return self.parseDo()
-        tree = Tree(Terminal(',', ','))
+        if self.sc.matches('return'):
+            tree = Tree(self.sc.terminal)
+            self.sc.expect(';')
+            return tree
+        if self.sc.matches('call'):
+            tree = Tree(self.sc.terminal)
+            tree.add(self.sc.expect('ID'))
+            self.sc.expect(';')
+            return tree
+        tree = Tree(Terminal('assign', 'assign'))
         while True:
             eq = Tree(Terminal('=', '='))
             eq.add(self.sc.expect('ID'))
@@ -281,32 +323,94 @@ class Parser(object):
             return Tree(t)
         return Tree(self.sc.expect('ID'))
 
-grammar = '''
-CODE -> DEFLIST STATLIST
-DEFLIST -> DEF+ | FIELD+
-DEF -> 'def' ID = EXP ;
-FIELD -> 'field' ID = EXP : EXP ;
-STATLIST -> STAT+
-STAT -> MULTI_ASSIGN | IF | SWITCH | { STAT+ }
-MULTI_ASSIGN -> ASSIGN [, ASSIGN]+ ;
-ASSIGN -> ID = EXP
-IF -> 'if' ( ASSIGN ) STAT [ 'else' STAT]
-'''
-
 input = '''
-define x = 1;
-field constant = 7:0;
-field alu_op = 10:8;
-x = 1, y = 2;
-if (mux = foo) {
-    x = 2, y = 3;
-} else {
-    x = 3, y = 4;
-}
-x = 1, y = 2;
+# d2d3 DPBus selects
+const dp_sel_swap_register = 0;
+const dp_sel_reg_ram_data_out = 1;
+const dp_sel_mem_addr_hi = 2;
+const dp_sel_mem_addr_lo = 3;
+const dp_sel_cc = 9;
+const dp_sel_bus_read = 10;
+const dp_sel_ilr = 11;
+const dp_sel_constant = 13;
+
+# FBus selects
+const f_sel_map_rom = 6;
+
+# e6
+const e6_wr_result_register = 1;
+const e6_wr_register_index = 2;
+const e6_wr_interrupt_level = 3;
+const e6_wr_page_table_base = 4;
+const e6_wr_memory_address = 5;
+const e6_wr_condition_codes = 7;
+
+const e7_wr_flags_register = 2;
+const e7_wr_bus_read = 3;
+
+const h11_wr_work_address_hi = 3;
+const h11_inc_work_address = 4;
+const h11_inc_memory_address = 5;
+const h11_wr_swap_register = 7;
+
+const k11_wr_work_address_lo = 6;
+
+const branch_always = 3;
+
+const alu_src_aq = 0;
+const alu_src_ab = 1;
+const alu_src_zq = 2;
+const alu_src_zb = 3;
+const alu_src_za = 4;
+const alu_src_da = 5;
+const alu_src_dq = 6;
+const alu_src_dz = 7;
+
+const alu_op_add = 0;
+const alu_op_subr = 1;
+const alu_op_subs = 2;
+const alu_op_or = 3;
+const alu_op_and = 4;
+const alu_op_notrs = 5;
+const alu_op_xor = 6;
+const alu_op_xnor = 7;
+
+field d2d3_dp_sel = 3:0;
+field e6 = 6:4;
+field k11 = 9:7;
+field h11 = 12:10;
+field e7 = 14:13;
+field k9_enable = 15:15;
+
+field j12 = 17:16;
+field k9 = 18:16;
+field constant = 23:16;
+field seq_din = 26:16;
+field j11_enable = 18:18;
+field j13 = 21:20;
+field branch_mux = 21:20;
+field j10_enable = 21:21;
+field k13 = 23:22;
+field j10 = 24:22;
+
+field alu_src = 36:34;
+field alu_op = 39:37;
+field alu_dest = 42:40;
+field alu_b = 46:43;
+field alu_a = 50:47;
+field f6h6 = 52:51;
+
+call reset;
+
 do {
-    z = 1, a = 2;
-} while (mux = bar);
+    
+} while (branch_mux = branch_always);
+
+def reset {
+    constant = 0, d2d3_dp_sel = dp_sel_constant, alu_src = alu_src_dz, e6 = e6_wr_result_register;
+    constant = 0xf8, d2d3_dp_sel = dp_sel_constant, alu_src = alu_src_dz, e6 = e6_wr_result_register; k11 = k11_wr_work_address_lo;
+    h11 = h11_wr_work_address_hi;
+}
 '''
 
 if __name__ == '__main__':
