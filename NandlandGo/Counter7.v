@@ -47,7 +47,6 @@ module Counter7(
   always @(posedge clock) begin
     sense1 <= w_switch1;
     sense2 <= w_switch2;
-    // Increment Count when switch is pushed down
     if (w_switch1 == 1'b1 && sense1 == 1'b0) begin
       if (digitCount1 == 15)
         digitCount1 <= 0;
