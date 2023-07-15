@@ -55,7 +55,7 @@ class CPU6(Component):
 
         self.seq_fe = sig.Signal() # pipeline[27] & jsr_;
         self.seq_pup = sig.Signal() # pipeline[28];
-        self.seq_zero = sig.Signal() # !reset;
+        self.seq_zero = sig.Signal()
 
         # Am2909/2911 Microsequencers
 
@@ -170,7 +170,17 @@ class CPU6(Component):
 
     def run(self):
         if self.reset == 1:
-            pass
+            self.work_address <<= 0;
+            self.memory_address <<= 0;
+            self.register_index <<= 0;
+            self.result_register <<= 0;
+            self.swap_register <<= 0;
+            self.condition_codes <<= 0;
+            self.flags_register <<= 0;
+            self.writeEnBus <<= 0
+            #self.pipeline <<= 0x42abc618b781c0 # First microcode word. Synth prefers it this way.
+
+        self.seq_zero <<= self.zero
 
         self.addressBus <<= self.memory_address
 

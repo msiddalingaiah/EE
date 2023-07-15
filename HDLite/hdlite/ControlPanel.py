@@ -147,7 +147,7 @@ class SignalControl(tk.Checkbutton):
         self.container.doUpdate()
 
     def setValue(self):
-        self.signal <<= self.value.get()
+        self.signal <<= int(self.value.get())
 
 class VectorControl(ttk.Entry):
     def __init__(self, container, signal):

@@ -36,9 +36,8 @@ module SequencerTB;
     Clock cg0(clock);
     wire [1:0] seq_op;
     wire [11:0] seq_din = pipeline[11:0];
-    wire [11:0] seq_offset;
     wire [11:0] seq_yout;
-    Sequencer seq0(reset, clock, seq_op, seq_din, seq_offset, seq_yout);
+    Sequencer seq0(reset, clock, seq_op, seq_din, seq_yout);
 
     wire [55:0] uc_rom_data;
     CodeROM uc_rom(seq_yout, uc_rom_data);

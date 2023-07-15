@@ -400,7 +400,7 @@ class BoundDRV(Directive):
             raise APError(f'Bound argument is not an integer', self.lineNumber)
         fieldwidth = symbols.eval(self.cf[1])
         if not isinstance(fieldwidth, int):
-            raise APError(f'Bound argument is not an integer', self.lineNumber)
+            raise APError(f'Bound field width is not an integer', self.lineNumber)
         mask = ~(-1 << value)
         boundary = 1 << value
         pc = symbols.variables['PC']

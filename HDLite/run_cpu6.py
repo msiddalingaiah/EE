@@ -62,15 +62,16 @@ def simCPU6():
     sim.simulation.run(CPU6TB())
 
 class CPU6TBPanel(Component):
-    def __init__(self, reset, clock, zero, dataInBus, writeEnBus, addressBus, dataOutBus):
+    def __init__(self):
         super().__init__()
-        self.reset = reset
-        self.clock = clock
-        self.zero = zero
-        self.dataInBus = dataInBus
-        self.writeEnBus = writeEnBus
-        self.addressBus = addressBus
-        self.dataOutBus = dataOutBus
+        self.reset = sig.Signal()
+        self.clock = sig.Signal()
+        self.zero = sig.Signal()
+        self.dataInBus = sig.Vector(8)
+        self.writeEnBus = sig.Signal()
+        self.addressBus = sig.Vector(16)
+        self.dataOutBus = sig.Vector(8)
+
         self.cpu = CPU6(self.reset, self.clock, self.zero, self.dataInBus, self.writeEnBus, self.addressBus, self.dataOutBus)
         self.memory = Memory(self.reset, self.clock, self.dataOutBus, self.writeEnBus, self.addressBus, self.dataInBus)
         self.memory.read('Centurion/programs/hellorld.txt')
@@ -88,22 +89,15 @@ class CPU6TBPanel(Component):
 
 def runCPU6():
     sim.simulation = sim.Simulation()
-    reset = sig.Signal()
-    clock = sig.Signal()
-    zero = sig.Signal()
-    dataInBus = sig.Vector(8)
-    writeEnBus = sig.Signal()
-    addressBus = sig.Vector(16)
-    dataOutBus = sig.Vector(8)
-    top = CPU6TBPanel(reset, clock, zero, dataInBus, writeEnBus, addressBus, dataOutBus)
+    top = CPU6TBPanel()
 
     sim.simulation.setTopComponent(top)
-    outputs = {'DataInbus':dataInBus, 'Addressbus':addressBus, 'DataOutbus':dataOutBus}
+    outputs = {'DataInbus':top.dataInBus, 'Addressbus':top.addressBus, 'DataOutbus':top.dataOutBus}
     internal = { 'μWord': top.cpu.pipeline, 'ROM Address': top.cpu.uc_rom_address,
         'DBus': top.cpu.DPBus, 'FBus': top.cpu.FBus, 'Result': top.cpu.result_register,
         'Flags': top.cpu.flags_register }
-    inputs = {'Zero': zero}
-    app = App(reset, clock, inputs, internal, outputs)
+    inputs = {'Zero': top.zero}
+    app = App(top.reset, top.clock, inputs, internal, outputs)
     app.mainloop()
 
 if __name__ == '__main__':
