@@ -14,8 +14,6 @@ module BinaryTo7Segment
  
   reg [6:0]    r_Hex_Encoding = 7'h00;
    
-  // Purpose: Creates a case statement for all possible input binary numbers.
-  // Drives r_Hex_Encoding appropriately for each input combination.
   always @(posedge i_Clk)
     begin
       case (i_Binary_Num)
@@ -36,9 +34,8 @@ module BinaryTo7Segment
         4'b1110 : r_Hex_Encoding <= 7'h4F;
         4'b1111 : r_Hex_Encoding <= 7'h47;
       endcase
-    end // always @ (posedge i_Clk)
+    end
  
-  // r_Hex_Encoding[7] is unused
   assign o_Segment_A = r_Hex_Encoding[6];
   assign o_Segment_B = r_Hex_Encoding[5];
   assign o_Segment_C = r_Hex_Encoding[4];
