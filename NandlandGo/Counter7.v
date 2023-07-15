@@ -3,81 +3,44 @@
 `include "DebounceSwitch.v"
 
 module Counter7
-  (input  i_Clk,      // Main Clock (25 MHz)
-   input  i_Switch_1, 
-   output o_Segment2_A,
-   output o_Segment2_B,
-   output o_Segment2_C,
-   output o_Segment2_D,
-   output o_Segment2_E,
-   output o_Segment2_F,
-   output o_Segment2_G,
-   output o_LED_1,
-   output o_LED_2,
-   output o_LED_3,
-   output o_LED_4
+  (input  clock,      // Main Clock (25 MHz)
+   input  Switch_1, 
+   output Segment2_A,
+   output Segment2_B,
+   output Segment2_C,
+   output Segment2_D,
+   output Segment2_E,
+   output Segment2_F,
+   output Segment2_G,
+   output LED_1,
+   output LED_2,
+   output LED_3,
+   output LED_4
    );
  
   wire w_Switch_1;
   reg  r_Switch_1 = 1'b0;
   reg [3:0] r_Count = 4'b0000;
   reg [23:0] led_count = 0;
+  wire [6:0] digit2;
 
-  assign o_LED_1 = led_count[23];
-  assign o_LED_2 = led_count[22];
-  assign o_LED_3 = led_count[21];
-  assign o_LED_4 = led_count[20];
+  assign { LED_1, LED_2, LED_3, LED_4 } = led_count[23:20];
+  assign { Segment2_A, Segment2_B, Segment2_C, Segment2_D, Segment2_E, Segment2_F, Segment2_G } = ~digit2;
  
-  wire w_Segment2_A;
-  wire w_Segment2_B;
-  wire w_Segment2_C;
-  wire w_Segment2_D;
-  wire w_Segment2_E;
-  wire w_Segment2_F;
-  wire w_Segment2_G;
- 
-  // Instantiate Debounce Filter
-  DebounceSwitch Debounce_Switch_Inst
-    (.i_Clk(i_Clk),
-     .i_Switch(i_Switch_1),
-     .o_Switch(w_Switch_1));
-       
-  // Purpose: When Switch is pressed, increment counter.
-  // When counter gets to 9, start it back at 0 again.
-  always @(posedge i_Clk)
-  begin
+  DebounceSwitch db1(.clock(clock), .i_Switch(Switch_1), .o_Switch(w_Switch_1));
+  BinaryTo7Segment inst(.clock(clock), .bcd(r_Count), .digit(digit2));
+
+  always @(posedge clock) begin
     r_Switch_1 <= w_Switch_1;
        
       // Increment Count when switch is pushed down
       if (w_Switch_1 == 1'b1 && r_Switch_1 == 1'b0) begin
-        if (r_Count == 9)
+        if (r_Count == 15)
           r_Count <= 0;
         else
           r_Count <= r_Count + 1;
       end
 
       led_count <= led_count + 1;
-  end
-   
-  // Instantiate Binary to 7-Segment Converter
-  BinaryTo7Segment Inst
-    (.i_Clk(i_Clk),
-     .i_Binary_Num(r_Count),
-     .o_Segment_A(w_Segment2_A),
-     .o_Segment_B(w_Segment2_B),
-     .o_Segment_C(w_Segment2_C),
-     .o_Segment_D(w_Segment2_D),
-     .o_Segment_E(w_Segment2_E),
-     .o_Segment_F(w_Segment2_F),
-     .o_Segment_G(w_Segment2_G)
-     );
-   
-  assign o_Segment2_A = ~w_Segment2_A;
-  assign o_Segment2_B = ~w_Segment2_B;
-  assign o_Segment2_C = ~w_Segment2_C;
-  assign o_Segment2_D = ~w_Segment2_D;
-  assign o_Segment2_E = ~w_Segment2_E;
-  assign o_Segment2_F = ~w_Segment2_F;
-  assign o_Segment2_G = ~w_Segment2_G;
-   
+  end   
 endmodule
