@@ -8,6 +8,7 @@
 _start:
     addi  t0, zero, 0x7ab
     lui   t0, 0xabcde
+/*
     csrr  t0, mhartid
     bnez  t0, halt
 
@@ -39,7 +40,7 @@ puts:
 
 halt: j halt
 
-
+*/
 
 .section .rodata
 msg:
