@@ -1,7 +1,7 @@
 
 `define MEM_SIZE 1024
 
-module Memory(input wire clock, input wire [9:0] address, input[3:0] width, input wire write_en, input wire [31:0] data_in,
+module Memory(input wire clock, input wire [31:0] address, input[3:0] width, input wire write_en, input wire [31:0] data_in,
     output reg [31:0] data_out);
 
     parameter ADDRESS_MASK = 17'h7f;
@@ -69,17 +69,52 @@ module Memory(input wire clock, input wire [9:0] address, input[3:0] width, inpu
     end
 endmodule
 
+module CPU32 (input wire reset, input wire clock,
+    output wire [31:0] pmAddress, output reg [3:0] pmWidth,
+    output reg pmWrite,
+    output reg [31:0] pmDataOut, input wire [31:0] pmDataIn,
+    output wire [31:0] dmAddress, output reg [3:0] dmWidth,
+    output reg dmWrite,
+    output reg [31:0] dmDataOut, input wire [31:0] dmDataIn);
+
+    reg [31:0] pc;
+    assign pmAddress = pc;
+    wire [31:0] instruction = pmDataIn;
+
+    always @(posedge clock, posedge reset) begin
+        if (reset == 1) begin
+            pc <= 0;
+            pmWidth = 4;
+            pmWrite = 0;
+            dmWidth = 4;
+            dmWrite = 0;
+        end else begin
+            $write("%d: %x\n", pc, instruction);
+            pc <= pc + 4;
+        end
+    end
+endmodule
+
 `timescale 1ns / 1ns
 module tb;
     reg clock;
     reg reset;
-    reg [9:0] address;
-    reg [3:0] width;
-    reg write_en;
-    reg [31:0] data_in;
-    wire [31:0] data_out;
+    wire [31:0] pmAddress;
+    wire [3:0] pmWidth;
+    wire pmWrite;
+    wire [31:0] pmDataCOut;
+    wire [31:0] pmDataCIn;
+    wire [31:0] dmAddress;
+    wire [3:0] dmWidth;
+    wire dmWrite;
+    wire [31:0] dmDataCOut;
+    wire [31:0] dmDataCIn;
 
-    Memory uut (clock, address, width, write_en, data_in, data_out);
+    Memory pMemory (clock, pmAddress, pmWidth, pmWrite, pmDataCOut, pmDataCIn);
+    Memory dMemory (clock, dmAddress, dmWidth, dmWrite, dmDataCOut, dmDataCIn);
+    CPU32 cpu(reset, clock, pmAddress, pmWidth, pmWrite, pmDataCOut, pmDataCIn,
+        dmAddress, dmWidth, dmWrite, dmDataCOut, dmDataCIn);
+
     reg [7:0] temp[0:`MEM_SIZE];
 
     initial begin
@@ -89,30 +124,21 @@ module tb;
     integer i;
     initial begin
         $dumpfile("vcd/tb.vcd");
-        $dumpvars(0, uut);
+        $dumpvars(0, cpu);
 
         $write("Begin...\n");
         $readmemh("hello.hex", temp);
         for (i=0; i<`MEM_SIZE; i=i+4) begin
-            uut.cells0[i>>2] = temp[i+0];
-            uut.cells1[i>>2] = temp[i+1];
-            uut.cells2[i>>2] = temp[i+2];
-            uut.cells3[i>>2] = temp[i+3];
+            pMemory.cells0[i>>2] = temp[i+0];
+            pMemory.cells1[i>>2] = temp[i+1];
+            pMemory.cells2[i>>2] = temp[i+2];
+            pMemory.cells3[i>>2] = temp[i+3];
         end
-        address = 0;
-        write_en = 0;
-        width = 4;
-        data_in = 32'h12345678;
 
         #0 reset=0; #25 reset=1; #100; reset=0;
 
         #2000;
         $write("All done!\n");
         $finish;
-    end
-
-    always @(posedge clock) begin
-        $write("%d: %x\n", address-4, data_out);
-        address <= address + 4;
     end
 endmodule
