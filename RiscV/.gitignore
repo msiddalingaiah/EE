@@ -10,3 +10,5 @@ vcd/
 
 *.hex
 *.vvp
+
+main.s

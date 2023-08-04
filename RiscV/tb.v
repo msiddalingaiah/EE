@@ -73,13 +73,15 @@ module CPU32 (input wire reset, input wire clock,
     output wire [31:0] pmAddress, output reg [3:0] pmWidth,
     output reg pmWrite,
     output reg [31:0] pmDataOut, input wire [31:0] pmDataIn,
-    output wire [31:0] dmAddress, output reg [3:0] dmWidth,
+    output reg [31:0] dmAddress, output reg [3:0] dmWidth,
     output reg dmWrite,
     output reg [31:0] dmDataOut, input wire [31:0] dmDataIn);
 
-    reg [31:0] pc;
+    reg [31:0] pc, pc_next;
     reg [31:0] rx[0:31];
-    assign pmAddress = pc;
+    reg [4:0] dest_reg;
+    reg post_reset, write_reg;
+    assign pmAddress = pc_next;
     wire [6:0] opcode = pmDataIn[6:0];
     wire [4:0] rd = pmDataIn[11:7];
     wire [2:0] funct3 = pmDataIn[14:12];
@@ -88,50 +90,91 @@ module CPU32 (input wire reset, input wire clock,
     wire [19:0] imm20 = pmDataIn[31:12];
     wire [31:0] imm12 = { {20{pmDataIn[31]}}, pmDataIn[31:20] };
     wire [6:0] imm7 = pmDataIn[31:25];
+    wire [31:0] load_store_offset = { {20{pmDataIn[31]}}, pmDataIn[31:25], pmDataIn[11:7] };
     wire [31:0] jal_offset = { pmDataIn[31] ? 11'h7ff : 11'h0, pmDataIn[31], pmDataIn[19:12], pmDataIn[20], pmDataIn[30:21], 1'b0 };
+
+    always @(*) begin
+        dmWrite = 0;
+        dmAddress = 0;
+        dmDataOut = 0;
+        dmWidth = 0;
+        pmWrite = 0;
+        pc_next = pc + 4;
+        if (post_reset == 1) begin
+            pc_next = 0;
+        end else begin
+            // Simple branch prediction, needs a pipeline bubble to avoid branch hazard
+            if (opcode == 7'h6f) begin
+                pc_next = pc + jal_offset;
+            end
+            if (opcode == 7'h23 && funct3 == 2) begin   // sw
+                dmWrite = 1;
+                dmWidth = 4;
+                dmAddress = rx[rs1] + load_store_offset;
+                dmDataOut = rx[rs2];
+            end
+            if (opcode == 7'h3 && funct3 == 2) begin   // lw
+                dmWidth = 4;
+                dmAddress = rx[rs1] + imm12;
+            end
+        end
+    end
 
     always @(posedge clock, posedge reset) begin
         if (reset == 1) begin
+            post_reset <= 1;
             pc <= 0;
             pmWidth <= 4;
             pmWrite <= 0;
             dmWidth <= 4;
             dmWrite <= 0;
+            write_reg <= 0;
+            dest_reg <= 0;
             rx[0] <= 0;
             rx[2] <= 0;
             rx[8] <= 0;
             rx[15] <= 0;
         end else begin
-            $write("    0: %x %x %x %x %x %x %x %x\n", rx[0], rx[1], rx[3], rx[3], rx[4], rx[5], rx[6], rx[7]);
-            $write("    8: %x %x %x %x %x %x %x %x\n", rx[8], rx[9], rx[10], rx[11], rx[12], rx[13], rx[14], rx[15]);
-            $write("   16: %x %x %x %x %x %x %x %x\n", rx[16], rx[17], rx[18], rx[19], rx[20], rx[21], rx[22], rx[23]);
-            $write("   24: %x %x %x %x %x %x %x %x\n", rx[24], rx[25], rx[26], rx[27], rx[28], rx[29], rx[30], rx[31]);
-            pc <= pc + 4;
-            case (opcode)
-                7'h3: case (funct3)
-                    2: begin    // lw
-                        rx[rd] <= rx[rs1] + imm12;
-                        $write("%x: lw r%d, offset(rs%d)\n", pc-4, rd, rs1);
+            write_reg <= 0;
+            dest_reg <= 0;
+            post_reset <= 0;
+            pc <= pc_next;
+            // TODO: add pipeline bubble to avoid data hazard, e.g. lw, 15 followed by addi 15
+            if (post_reset == 0) begin
+                $write("    0: %x %x %x %x %x %x %x %x\n", rx[0], rx[1], rx[2], rx[3], rx[4], rx[5], rx[6], rx[7]);
+                $write("    8: %x %x %x %x %x %x %x %x\n", rx[8], rx[9], rx[10], rx[11], rx[12], rx[13], rx[14], rx[15]);
+                $write("   16: %x %x %x %x %x %x %x %x\n", rx[16], rx[17], rx[18], rx[19], rx[20], rx[21], rx[22], rx[23]);
+                $write("   24: %x %x %x %x %x %x %x %x\n", rx[24], rx[25], rx[26], rx[27], rx[28], rx[29], rx[30], rx[31]);
+                case (opcode)
+                    7'h3: case (funct3)
+                        2: begin    // lw
+                            if (rd != 0) begin
+                                write_reg <= 1;
+                                dest_reg <= rd;
+                            end
+                            $write("%x: lw r%d, %x(rs%d)\n", pc, rd, imm12, rs1);
+                        end
+                    endcase
+                    7'h13: case (funct3)
+                        0: begin    // addi
+                            if (rd != 0) rx[rd] <= rx[rs1] + imm12;
+                            $write("%x: %x addi r%d, rs%d, %d\n", pc, pmDataIn, rd, rs1, imm12);
+                        end
+                    endcase
+                    7'h23: case (funct3)
+                        2: begin    // sw
+                            $write("%x: sw rs%d, %x(rs%d)\n", pc, rs2, load_store_offset, rs1);
+                        end
+                    endcase
+                    7'h6f: begin    // jal
+                        //pc <= pc + jal_offset;
+                        $write("%x: jal %x\n", pc, pc + jal_offset);
                     end
+                    default:
+                        $write("%x: %x, funct3: %x, opcode: %x, rd: %x, rs1: %x, imm12: %d\n", pc, pmDataIn, funct3, opcode, rd, rs1, imm12);
                 endcase
-                7'h13: case (funct3)
-                    0: begin    // addi
-                        rx[rd] <= rx[rs1] + imm12;
-                        $write("%x: addi r%d, rs%d, %d\n", pc-4, rd, rs1, imm12);
-                    end
-                endcase
-                7'h23: case (funct3)
-                    2: begin    // sw
-                        $write("%x: sw rs%d, offset(rs%d)\n", pc-4, rs2, rs1);
-                    end
-                endcase
-                7'h6f: begin    // jal
-                    pc <= pc + jal_offset;
-                    $write("%x: jal %x\n", pc-4, pc + jal_offset);
-                end
-                default:
-                    $write("%x: %x, funct3: %x, opcode: %x, rd: %x, rs1: %x, imm12: %d\n", pc-4, pmDataIn, funct3, opcode, rd, rs1, imm12);
-            endcase
+            end
+            if (write_reg) rx[dest_reg] <= dmDataIn;
         end
     end
 endmodule

@@ -1,6 +1,6 @@
 
 void main() {
-    int sum = 0;
+    int sum = 9;
     for(;;) {
         sum += 17;
     }

@@ -6,7 +6,7 @@
 .globl _start
 
 _start:
-    addi x0, x0, 0
+    addi x2, x0, 0x400
     j   main
 /*
     addi  t0, zero, 0x7ab
