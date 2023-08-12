@@ -314,12 +314,14 @@ module CPU32 (input wire reset, input wire clock,
                             $write("%x: lw r%d, %x(rs%d)\n", pc, rd, imm12, rs1);
                         end
                     endcase
-                    7'h13: case (funct3)
-                        0: begin    // addi
-                            if (rd != 0) rx[rd] <= rx[rs1] + imm12;
-                            $write("%x: %x addi r%d, rs%d, %d\n", pc, pmDataIn, rd, rs1, imm12);
-                        end
-                    endcase
+                    OP_OP_IMM: begin
+                        if (rd != 0) rx[rd] <= alu_out;
+                        $write("%x: %x ALU(%d) r%d, rs%d, %d\n", pc, pmDataIn, alu_op, rd, rs1, imm12);
+                    end
+                    OP_OP: begin
+                        if (rd != 0) rx[rd] <= alu_out;
+                        $write("%x: %x ALU(%d) r%d, rs%d, rs%d\n", pc, pmDataIn, alu_op, rd, rs1, rs2);
+                    end
                     7'h23: case (funct3)
                         2: begin    // sw
                             $write("%x: sw rs%d, %x(rs%d)\n", pc, rs2, load_store_offset, rs1);
