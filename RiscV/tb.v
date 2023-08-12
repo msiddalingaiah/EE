@@ -74,16 +74,20 @@ endmodule
 https://wavedrom.com/editor.html
 
 { "signal" : [
-  { "name": "clk",       "wave": "p............", period: 2 },
-  { "name": "reset",     "wave": "010........................", phase: 1.0 },
-  { "name": "post_reset","wave": "01.0.......................", phase: 1.0 },
-  { "name": "pc_next",   "wave": "444444444|", "data": ["0", "0", "10", "14", "18", "1C", "20", "24"], period: 2 },
-  { "name": "pc",        "wave": "x333333333|", "data": ["0", "0", "10", "14", "18", "1C", "20"], period: 2 },
-  { "name": "opcode",    "wave": "zz5555555|", "data": ["j 10", "li 0", "sw 1000", "ai 1"], period: 2 },
-  { "name": "wr",    "wave": "0...10...|", "data": [], period: 2 },
-  {},
-  { "name": "Acknowledge", "wave": "1.....|01." }
-]}
+  { "name": "clk",       "wave": "p............" },
+  { "name": "reset",     "wave": "010...........", phase: 2.9 },
+  { "name": "post_reset","wave": "1.0...........", phase: 2.0 },
+  { "name": "pc_next",   "wave": "444444.4444.|", "data": ["0", "4", "14", "18", "1C", "20", "24", "28", "1C", "20"] },
+  { "name": "pc",        "wave": "3333333.3333|", "data": ["0", "0", "4", "14", "18", "1C", "20", "24", "28", "1C", "20"] },
+  { "name": "opcode",    "wave": "z555555.5555|", "data": ["li 400", "j 14", "li 3", "sw r15", "lw a5", "ai a5", "sw r15", "j 1C", "lw a5", "ai a5"] },
+  { "name": "mem_load",  "wave": "0.....10...1|", "data": [] },
+  { "name": "reg_data",  "wave": "zzzzzz66zzz6|", "data": ["mem_data", "reg_data", "mem_data"] },
+  { "name": "dm_wr",     "wave": "0...10..10..|", "data": [] },
+  { "name": "dm_addr",   "wave": "zzzzz7zzzz7z|", "data": ["addr", "addr"] },
+  { "name": "dm_data",   "wave": "zzzzzz8zzzz8|", "data": ["data", "data"] },
+  ],
+  config: { hscale: 2 }
+}
 
  */
 module CPU32 (input wire reset, input wire clock,
