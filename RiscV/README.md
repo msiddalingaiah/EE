@@ -11,6 +11,9 @@ sudo apt install gcc-riscv64-unknown-elf
 
 ## Basic Timing
 
+* [Harvard architecture](https://en.wikipedia.org/wiki/Harvard_architecture)
+* Synchronous program/data memory
+
 Timing diagram created using [WaveDrom](https://wavedrom.com/tutorial.html).
 
 ![Timing diagram](images/timing.png "Timing diagram")
