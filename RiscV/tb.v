@@ -69,6 +69,23 @@ module Memory(input wire clock, input wire [31:0] address, input[3:0] width, inp
     end
 endmodule
 
+/*
+
+https://wavedrom.com/editor.html
+
+{ "signal" : [
+  { "name": "clk",       "wave": "p............", period: 2 },
+  { "name": "reset",     "wave": "010........................", phase: 1.0 },
+  { "name": "post_reset","wave": "01.0.......................", phase: 1.0 },
+  { "name": "pc_next",   "wave": "444444444|", "data": ["0", "0", "10", "14", "18", "1C", "20", "24"], period: 2 },
+  { "name": "pc",        "wave": "x333333333|", "data": ["0", "0", "10", "14", "18", "1C", "20"], period: 2 },
+  { "name": "opcode",    "wave": "zz5555555|", "data": ["j 10", "li 0", "sw 1000", "ai 1"], period: 2 },
+  { "name": "wr",    "wave": "0...10...|", "data": [], period: 2 },
+  {},
+  { "name": "Acknowledge", "wave": "1.....|01." }
+]}
+
+ */
 module CPU32 (input wire reset, input wire clock,
     output wire [31:0] pmAddress, output reg [3:0] pmWidth,
     output reg pmWrite,
@@ -80,7 +97,7 @@ module CPU32 (input wire reset, input wire clock,
     reg [31:0] pc, pc_next;
     reg [31:0] rx[0:31];
     reg [4:0] dest_reg;
-    reg post_reset, write_reg;
+    reg post_reset, mem_load;
     assign pmAddress = pc_next;
     wire [6:0] opcode = pmDataIn[6:0];
     wire [4:0] rd = pmDataIn[11:7];
@@ -117,6 +134,10 @@ module CPU32 (input wire reset, input wire clock,
                 dmWidth = 4;
                 dmAddress = rx[rs1] + imm12;
             end
+            // Pipeline bubble to avoid data hazard, e.g. lw, 15 followed by addi 15
+            if (mem_load == 1 && dest_reg == rd) begin
+                pc_next = pc;
+            end
         end
     end
 
@@ -128,18 +149,17 @@ module CPU32 (input wire reset, input wire clock,
             pmWrite <= 0;
             dmWidth <= 4;
             dmWrite <= 0;
-            write_reg <= 0;
+            mem_load <= 0;
             dest_reg <= 0;
             rx[0] <= 0;
             rx[2] <= 0;
             rx[8] <= 0;
             rx[15] <= 0;
         end else begin
-            write_reg <= 0;
+            mem_load <= 0;
             dest_reg <= 0;
             post_reset <= 0;
             pc <= pc_next;
-            // TODO: add pipeline bubble to avoid data hazard, e.g. lw, 15 followed by addi 15
             if (post_reset == 0) begin
                 $write("    0: %x %x %x %x %x %x %x %x\n", rx[0], rx[1], rx[2], rx[3], rx[4], rx[5], rx[6], rx[7]);
                 $write("    8: %x %x %x %x %x %x %x %x\n", rx[8], rx[9], rx[10], rx[11], rx[12], rx[13], rx[14], rx[15]);
@@ -149,7 +169,7 @@ module CPU32 (input wire reset, input wire clock,
                     7'h3: case (funct3)
                         2: begin    // lw
                             if (rd != 0) begin
-                                write_reg <= 1;
+                                mem_load <= 1;
                                 dest_reg <= rd;
                             end
                             $write("%x: lw r%d, %x(rs%d)\n", pc, rd, imm12, rs1);
@@ -167,14 +187,13 @@ module CPU32 (input wire reset, input wire clock,
                         end
                     endcase
                     7'h6f: begin    // jal
-                        //pc <= pc + jal_offset;
                         $write("%x: jal %x\n", pc, pc + jal_offset);
                     end
                     default:
                         $write("%x: %x, funct3: %x, opcode: %x, rd: %x, rs1: %x, imm12: %d\n", pc, pmDataIn, funct3, opcode, rd, rs1, imm12);
                 endcase
             end
-            if (write_reg) rx[dest_reg] <= dmDataIn;
+            if (mem_load) rx[dest_reg] <= dmDataIn;
         end
     end
 endmodule

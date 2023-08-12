@@ -1,7 +1,7 @@
 
 void main() {
-    int sum = 9;
+    int sum = 3;
     for(;;) {
-        sum += 17;
+        sum += 3;
     }
 }
