@@ -95,7 +95,8 @@ https://wavedrom.com/editor.html
 `define ALU_OP_XOR 4
 `define ALU_OP_LTU 5
 `define ALU_OP_LT 6
-`define ALU_OP_ZERO 7
+`define ALU_OP_LTE 7
+`define ALU_OP_ZERO 15
 
 module ALU (input wire [3:0] alu_op, input wire [31:0] a, input wire [31:0] b, output reg [31:0] out);
     wire [1:0] signs = { a[31], b[31] };
@@ -114,6 +115,14 @@ module ALU (input wire [3:0] alu_op, input wire [31:0] a, input wire [31:0] b, o
                     1: out = 0;
                     2: out = 1;
                     3: out = b[30:0] < a[30:0]; // is this right?
+                endcase
+            end
+            `ALU_OP_LTE: begin
+                case (signs)
+                    0: out = a <= b;
+                    1: out = 0;
+                    2: out = 1;
+                    3: out = b[30:0] <= a[30:0]; // is this right?
                 endcase
             end
         endcase
@@ -216,6 +225,7 @@ module CPU32 (input wire reset, input wire clock,
     wire [6:0] imm7 = pmDataIn[31:25];
     wire [31:0] load_store_offset = { {20{pmDataIn[31]}}, pmDataIn[31:25], pmDataIn[11:7] };
     wire [31:0] jal_offset = { pmDataIn[31] ? 11'h7ff : 11'h0, pmDataIn[31], pmDataIn[19:12], pmDataIn[20], pmDataIn[30:21], 1'b0 };
+    wire [31:0] branch_offset = { {19{pmDataIn[31]}}, pmDataIn[31], pmDataIn[7], pmDataIn[30:25], pmDataIn[11:8], 1'b0};
 
     reg [3:0] alu_op;
     wire [31:0] alu_a = rx[rs1];
@@ -243,6 +253,10 @@ module CPU32 (input wire reset, input wire clock,
             // Simple branch prediction, needs a pipeline bubble to avoid branch hazard
             if (opcode == OP_JAL) begin
                 pc_next = pc + jal_offset;
+            end
+            // FIXME: referencing alu_out appears to cause a combinational loop...
+            if (opcode == OP_BRANCH) begin
+                pc_next = pc + branch_offset;
             end
             if (opcode == OP_STORE && funct3 == 2) begin   // sw
                 dmWrite = 1;
@@ -272,6 +286,12 @@ module CPU32 (input wire reset, input wire clock,
                 (opcode == OP_OP && funct3 == F3_OP_OP_OR && imm7 == IMM7_OP_OP_0)) alu_op = `ALU_OP_OR;
             if ((opcode == OP_OP_IMM && funct3 == F3_OP_OP_IMM_XORI) ||
                 (opcode == OP_OP && funct3 == F3_OP_OP_XOR && imm7 == IMM7_OP_OP_0)) alu_op = `ALU_OP_XOR;
+            if (opcode == OP_BRANCH) begin
+                case (funct3)
+                    F3_BRANCH_BGE: alu_op = `ALU_OP_LTE;
+                endcase
+                // $write("branch f3: %d, rx[rs1]: %d rx[rs2]: %d\n", funct3, rx[rs1], rx[rs2]);
+            end
         end
     end
 
@@ -305,6 +325,11 @@ module CPU32 (input wire reset, input wire clock,
                             $write("%x: lw r%d, %x(rs%d)\n", pc, rd, imm12, rs1);
                         end
                     endcase
+                    OP_STORE: case (funct3)
+                        2: begin    // sw
+                            $write("%x: sw rs%d, %x(rs%d)\n", pc, rs2, load_store_offset, rs1);
+                        end
+                    endcase
                     OP_OP_IMM: begin
                         if (rd != 0) rx[rd] <= alu_out;
                         $write("%x: %x ALU(%d) r%d, rs%d, %d\n", pc, pmDataIn, alu_op, rd, rs1, imm12);
@@ -313,13 +338,11 @@ module CPU32 (input wire reset, input wire clock,
                         if (rd != 0) rx[rd] <= alu_out;
                         $write("%x: %x ALU(%d) r%d, rs%d, rs%d\n", pc, pmDataIn, alu_op, rd, rs1, rs2);
                     end
-                    OP_STORE: case (funct3)
-                        2: begin    // sw
-                            $write("%x: sw rs%d, %x(rs%d)\n", pc, rs2, load_store_offset, rs1);
-                        end
-                    endcase
                     OP_JAL: begin
                         $write("%x: jal %x\n", pc, pc + jal_offset);
+                    end
+                    OP_BRANCH: begin
+                        $write("%x: branch %x (f3 %d)\n", pc, pc + branch_offset, funct3);
                     end
                     default:
                         $write("%x: %x, funct3: %x, opcode: %x, rd: %x, rs1: %x, imm12: %d\n", pc, pmDataIn, funct3, opcode, rd, rs1, imm12);
@@ -380,7 +403,7 @@ module tb;
 
         #0 reset=0; #25 reset=1; #100; reset=0;
 
-        #2000;
+        #3000;
         $write("All done!\n");
         $finish;
     end

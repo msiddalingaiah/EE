@@ -4,7 +4,7 @@ void write_uart_str(char *p, int n);
 
 void main() {
     int sum = 3;
-    for(;;) {
+    for(int i=0; i<2; i+=1) {
         sum += 3;
     }
 }
