@@ -241,16 +241,16 @@ module CPU32 (input wire reset, input wire clock,
             pc_next = 0;
         end else begin
             // Simple branch prediction, needs a pipeline bubble to avoid branch hazard
-            if (opcode == 7'h6f) begin
+            if (opcode == OP_JAL) begin
                 pc_next = pc + jal_offset;
             end
-            if (opcode == 7'h23 && funct3 == 2) begin   // sw
+            if (opcode == OP_STORE && funct3 == 2) begin   // sw
                 dmWrite = 1;
                 dmWidth = 4;
                 dmAddress = rx[rs1] + load_store_offset;
                 dmDataOut = rx[rs2];
             end
-            if (opcode == 7'h3 && funct3 == 2) begin   // lw
+            if (opcode == OP_LOAD && funct3 == 2) begin   // lw
                 dmWidth = 4;
                 dmAddress = rx[rs1] + imm12;
             end
@@ -296,7 +296,7 @@ module CPU32 (input wire reset, input wire clock,
                 $write("   16: %x %x %x %x %x %x %x %x\n", rx[16], rx[17], rx[18], rx[19], rx[20], rx[21], rx[22], rx[23]);
                 $write("   24: %x %x %x %x %x %x %x %x\n", rx[24], rx[25], rx[26], rx[27], rx[28], rx[29], rx[30], rx[31]);
                 case (opcode)
-                    7'h3: case (funct3)
+                    OP_LOAD: case (funct3)
                         2: begin    // lw
                             if (rd != 0) begin
                                 mem_load <= 1;
@@ -313,12 +313,12 @@ module CPU32 (input wire reset, input wire clock,
                         if (rd != 0) rx[rd] <= alu_out;
                         $write("%x: %x ALU(%d) r%d, rs%d, rs%d\n", pc, pmDataIn, alu_op, rd, rs1, rs2);
                     end
-                    7'h23: case (funct3)
+                    OP_STORE: case (funct3)
                         2: begin    // sw
                             $write("%x: sw rs%d, %x(rs%d)\n", pc, rs2, load_store_offset, rs1);
                         end
                     endcase
-                    7'h6f: begin    // jal
+                    OP_JAL: begin
                         $write("%x: jal %x\n", pc, pc + jal_offset);
                     end
                     default:
