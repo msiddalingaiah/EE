@@ -1,4 +1,9 @@
 
+// `define TRACE_I // trace instructions
+// `define TRACE_REGS // trace registers
+// `define TRACE_WR // trace bus writes
+// `define TRACE_RD // trace bus reads
+
 `define MEM_SIZE 1024
 
 module Memory(input wire clock, input wire [31:0] address, input[3:0] width, input wire write_en, input wire [31:0] data_in,
@@ -95,7 +100,6 @@ https://wavedrom.com/editor.html
 `define ALU_OP_XOR 4
 `define ALU_OP_LTU 5
 `define ALU_OP_LT 6
-`define ALU_OP_LTE 7
 `define ALU_OP_ZERO 15
 
 module ALU (input wire [3:0] alu_op, input wire [31:0] a, input wire [31:0] b, output reg [31:0] out);
@@ -115,14 +119,6 @@ module ALU (input wire [3:0] alu_op, input wire [31:0] a, input wire [31:0] b, o
                     1: out = 0;
                     2: out = 1;
                     3: out = b[30:0] < a[30:0]; // is this right?
-                endcase
-            end
-            `ALU_OP_LTE: begin
-                case (signs)
-                    0: out = a <= b;
-                    1: out = 0;
-                    2: out = 1;
-                    3: out = b[30:0] <= a[30:0]; // is this right?
                 endcase
             end
         endcase
@@ -254,10 +250,6 @@ module CPU32 (input wire reset, input wire clock,
             if (opcode == OP_JAL) begin
                 pc_next = pc + jal_offset;
             end
-            // FIXME: referencing alu_out appears to cause a combinational loop...
-            if (opcode == OP_BRANCH) begin
-                pc_next = pc + branch_offset;
-            end
             if (opcode == OP_STORE && funct3 == 2) begin   // sw
                 dmWrite = 1;
                 dmWidth = 4;
@@ -288,7 +280,7 @@ module CPU32 (input wire reset, input wire clock,
                 (opcode == OP_OP && funct3 == F3_OP_OP_XOR && imm7 == IMM7_OP_OP_0)) alu_op = `ALU_OP_XOR;
             if (opcode == OP_BRANCH) begin
                 case (funct3)
-                    F3_BRANCH_BGE: alu_op = `ALU_OP_LTE;
+                    F3_BRANCH_BGE: if (rx[rs1] >= rx[rs2]) pc_next = pc + branch_offset;
                 endcase
                 // $write("branch f3: %d, rx[rs1]: %d rx[rs2]: %d\n", funct3, rx[rs1], rx[rs2]);
             end
@@ -311,10 +303,12 @@ module CPU32 (input wire reset, input wire clock,
             post_reset <= 0;
             pc <= pc_next;
             if (post_reset == 0) begin
-                $write("    0: %x %x %x %x %x %x %x %x\n", rx[0], rx[1], rx[2], rx[3], rx[4], rx[5], rx[6], rx[7]);
-                $write("    8: %x %x %x %x %x %x %x %x\n", rx[8], rx[9], rx[10], rx[11], rx[12], rx[13], rx[14], rx[15]);
-                $write("   16: %x %x %x %x %x %x %x %x\n", rx[16], rx[17], rx[18], rx[19], rx[20], rx[21], rx[22], rx[23]);
-                $write("   24: %x %x %x %x %x %x %x %x\n", rx[24], rx[25], rx[26], rx[27], rx[28], rx[29], rx[30], rx[31]);
+                `ifdef TRACE_REGS
+                    $write("    0: %x %x %x %x %x %x %x %x\n", rx[0], rx[1], rx[2], rx[3], rx[4], rx[5], rx[6], rx[7]);
+                    $write("    8: %x %x %x %x %x %x %x %x\n", rx[8], rx[9], rx[10], rx[11], rx[12], rx[13], rx[14], rx[15]);
+                    $write("   16: %x %x %x %x %x %x %x %x\n", rx[16], rx[17], rx[18], rx[19], rx[20], rx[21], rx[22], rx[23]);
+                    $write("   24: %x %x %x %x %x %x %x %x\n", rx[24], rx[25], rx[26], rx[27], rx[28], rx[29], rx[30], rx[31]);
+                `endif
                 case (opcode)
                     OP_LOAD: case (funct3)
                         2: begin    // lw
@@ -322,30 +316,43 @@ module CPU32 (input wire reset, input wire clock,
                                 mem_load <= 1;
                                 dest_reg <= rd;
                             end
-                            $write("%x: lw r%d, %x(rs%d)\n", pc, rd, imm12, rs1);
+                            `ifdef TRACE_I
+                                $write("%x: lw r%d, %x(rs%d)\n", pc, rd, imm12, rs1);
+                            `endif
                         end
                     endcase
                     OP_STORE: case (funct3)
                         2: begin    // sw
-                            $write("%x: sw rs%d, %x(rs%d)\n", pc, rs2, load_store_offset, rs1);
+                            `ifdef TRACE_I
+                                $write("%x: sw rs%d, %x(rs%d)\n", pc, rs2, load_store_offset, rs1);
+                            `endif
                         end
                     endcase
                     OP_OP_IMM: begin
                         if (rd != 0) rx[rd] <= alu_out;
-                        $write("%x: %x ALU(%d) r%d, rs%d, %d\n", pc, pmDataIn, alu_op, rd, rs1, imm12);
+                        `ifdef TRACE_I
+                            $write("%x: %x ALU(%d) r%d, rs%d, %d\n", pc, pmDataIn, alu_op, rd, rs1, imm12);
+                        `endif
                     end
                     OP_OP: begin
                         if (rd != 0) rx[rd] <= alu_out;
-                        $write("%x: %x ALU(%d) r%d, rs%d, rs%d\n", pc, pmDataIn, alu_op, rd, rs1, rs2);
+                        `ifdef TRACE_I
+                            $write("%x: %x ALU(%d) r%d, rs%d, rs%d\n", pc, pmDataIn, alu_op, rd, rs1, rs2);
+                        `endif
                     end
                     OP_JAL: begin
-                        $write("%x: jal %x\n", pc, pc + jal_offset);
+                        `ifdef TRACE_I
+                            $write("%x: jal %x\n", pc, pc + jal_offset);
+                        `endif
                     end
                     OP_BRANCH: begin
-                        $write("%x: branch %x (f3 %d)\n", pc, pc + branch_offset, funct3);
+                        `ifdef TRACE_I
+                            $write("%x: branch %x (f3 %d), alu_out: %d\n", pc, pc + branch_offset, funct3, alu_out);
+                        `endif
                     end
                     default:
-                        $write("%x: %x, funct3: %x, opcode: %x, rd: %x, rs1: %x, imm12: %d\n", pc, pmDataIn, funct3, opcode, rd, rs1, imm12);
+                        $write("%x: Unknown OP: %x, funct3: %x, opcode: %x, rd: %x, rs1: %x, imm12: %d\n",
+                            pc, pmDataIn, funct3, opcode, rd, rs1, imm12);
                 endcase
             end
             if (mem_load) rx[dest_reg] <= dmDataIn;
@@ -403,7 +410,7 @@ module tb;
 
         #0 reset=0; #25 reset=1; #100; reset=0;
 
-        #3000;
+        #4000;
         $write("All done!\n");
         $finish;
     end
