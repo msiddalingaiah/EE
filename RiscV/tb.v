@@ -219,9 +219,12 @@ module CPU32 (input wire reset, input wire clock,
     wire [19:0] imm20 = pmDataIn[31:12];
     wire [31:0] imm12 = { {20{pmDataIn[31]}}, pmDataIn[31:20] };
     wire [6:0] imm7 = pmDataIn[31:25];
-    wire [31:0] load_store_offset = { {20{pmDataIn[31]}}, pmDataIn[31:25], pmDataIn[11:7] };
+    wire [31:0] store_offset = { {20{pmDataIn[31]}}, pmDataIn[31:25], pmDataIn[11:7] };
+    wire [31:0] load_offset = { {20{pmDataIn[31]}}, pmDataIn[31:25], pmDataIn[11:7] };
     wire [31:0] jal_offset = { pmDataIn[31] ? 11'h7ff : 11'h0, pmDataIn[31], pmDataIn[19:12], pmDataIn[20], pmDataIn[30:21], 1'b0 };
     wire [31:0] branch_offset = { {19{pmDataIn[31]}}, pmDataIn[31], pmDataIn[7], pmDataIn[30:25], pmDataIn[11:8], 1'b0};
+    // TODO: check this offset
+    wire [31:0] jalr_offset = { {11{imm20[19]}}, imm20, 1'b0 };
 
     reg [3:0] alu_op;
     wire [31:0] alu_a = rx[rs1];
@@ -250,10 +253,14 @@ module CPU32 (input wire reset, input wire clock,
             if (opcode == OP_JAL) begin
                 pc_next = pc + jal_offset;
             end
+            // TODO: this needs testing... (RTS)
+            if (opcode == OP_JALR && funct3 == 0) begin
+                pc_next = rx[rs1] + jalr_offset;
+            end
             if (opcode == OP_STORE && funct3 == 2) begin   // sw
                 dmWrite = 1;
                 dmWidth = 4;
-                dmAddress = rx[rs1] + load_store_offset;
+                dmAddress = rx[rs1] + store_offset;
                 dmDataOut = rx[rs2];
             end
             if (opcode == OP_LOAD && funct3 == 2) begin   // lw
@@ -332,7 +339,7 @@ module CPU32 (input wire reset, input wire clock,
                     OP_STORE: case (funct3)
                         2: begin    // sw
                             `ifdef TRACE_I
-                                $write("%x: sw rs%d, %x(rs%d)\n", pc, rs2, load_store_offset, rs1);
+                                $write("%x: sw rs%d, %x(rs%d)\n", pc, rs2, store_offset, rs1);
                             `endif
                         end
                     endcase
@@ -356,6 +363,11 @@ module CPU32 (input wire reset, input wire clock,
                     OP_BRANCH: begin
                         `ifdef TRACE_I
                             $write("%x: branch %x (f3 %d), alu_out: %d\n", pc, pc + branch_offset, funct3, alu_out);
+                        `endif
+                    end
+                    OP_JALR: begin
+                        `ifdef TRACE_I
+                            $write("%x: jalr %x\n", pc, rx[rs1] + jalr_offset, funct3, alu_out);
                         `endif
                     end
                     default:
