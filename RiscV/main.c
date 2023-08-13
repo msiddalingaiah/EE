@@ -4,17 +4,13 @@ void write_uart_str(char *p, int n);
 
 void main() {
     unsigned int *p = (unsigned int *) 0xf0000010;
-    *p = 'H';
-    *p = 'e';
-    *p = 'l';
-    *p = 'l';
-    *p = 'o';
-    *p = '\n';
 
-    // int sum = 3;
-    // for(int i=0; i<2; i+=1) {
-    //     sum += 3;
-    // }
+    int sum = 3;
+    for(int i=0; i<3; i+=1) {
+        sum += 3;
+        *p = 'A' + i;
+    }
+    *p = '\n';
 }
 
 void write_uart(char c) {

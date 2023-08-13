@@ -260,8 +260,10 @@ module CPU32 (input wire reset, input wire clock,
                 dmWidth = 4;
                 dmAddress = rx[rs1] + imm12;
             end
-            // Pipeline bubble to avoid data hazard, e.g. lw, 15 followed by addi 15
-            if (mem_load == 1 && dest_reg == rd) begin
+            // Pipeline bubble to avoid data hazard, e.g. lw, 15 followed by addi 15 or sw with source reg
+            // TODO: check if this right...
+            if (mem_load == 1 && (dest_reg == rd || dest_reg == rs1 || dest_reg == rs2)) begin
+                dmWrite = 0;
                 pc_next = pc;
             end
             alu_op = `ALU_OP_ZERO;
@@ -417,12 +419,15 @@ module tb;
 
         #0 reset=0; #25 reset=1; #100; reset=0;
 
-        #3000;
+        #8000;
         $write("All done!\n");
         $finish;
     end
 
     always @(posedge clock) begin
         if (dmWrite == 1 && dmAddress == 32'hf0000010) $write("%s", uart_char);
+        `ifdef TRACE_WR
+            if (dmWrite == 1) $write("WR %x: %d\n", dmAddress, uart_char);
+        `endif
     end
 endmodule
