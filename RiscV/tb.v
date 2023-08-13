@@ -321,6 +321,12 @@ module CPU32 (input wire reset, input wire clock,
                             `endif
                         end
                     endcase
+                    OP_LUI: begin
+                        if (rd != 0) rx[rd] <= { imm20, 12'h000 };
+                        `ifdef TRACE_I
+                            $write("%x: %x lui r%d %d\n", pc, pmDataIn, rd, { imm20, 12'h000 });
+                        `endif
+                    end
                     OP_STORE: case (funct3)
                         2: begin    // sw
                             `ifdef TRACE_I
@@ -385,6 +391,7 @@ module tb;
     wire dmWrite;
     wire [31:0] dmDataCOut;
     wire [31:0] dmDataCIn;
+    wire [7:0] uart_char = dmDataCOut & 8'h7f;
 
     Clock cg0(clock);
     Memory pMemory (clock, pmAddress, pmWidth, pmWrite, pmDataCOut, pmDataCIn);
@@ -410,8 +417,12 @@ module tb;
 
         #0 reset=0; #25 reset=1; #100; reset=0;
 
-        #4000;
+        #3000;
         $write("All done!\n");
         $finish;
+    end
+
+    always @(posedge clock) begin
+        if (dmWrite == 1 && dmAddress == 32'hf0000010) $write("%s", uart_char);
     end
 endmodule
