@@ -216,9 +216,10 @@ module CPU32 (input wire reset, input wire clock,
     wire [6:0] imm7 = pmDataIn[31:25];
     wire [31:0] load_store_offset = { {20{pmDataIn[31]}}, pmDataIn[31:25], pmDataIn[11:7] };
     wire [31:0] jal_offset = { pmDataIn[31] ? 11'h7ff : 11'h0, pmDataIn[31], pmDataIn[19:12], pmDataIn[20], pmDataIn[30:21], 1'b0 };
+
     reg [3:0] alu_op;
-    reg [31:0] alu_a;
-    reg [31:0] alu_b;
+    wire [31:0] alu_a = rx[rs1];
+    wire [31:0] alu_b = opcode == OP_OP_IMM ? imm12 : rx[rs2];
     wire [31:0] alu_out;
     ALU alu(alu_op, alu_a, alu_b, alu_out);
 
@@ -271,16 +272,6 @@ module CPU32 (input wire reset, input wire clock,
                 (opcode == OP_OP && funct3 == F3_OP_OP_OR && imm7 == IMM7_OP_OP_0)) alu_op = `ALU_OP_OR;
             if ((opcode == OP_OP_IMM && funct3 == F3_OP_OP_IMM_XORI) ||
                 (opcode == OP_OP && funct3 == F3_OP_OP_XOR && imm7 == IMM7_OP_OP_0)) alu_op = `ALU_OP_XOR;
-            alu_a = 0;
-            alu_b = 0;
-            if (opcode == OP_OP_IMM) begin
-                alu_a = rx[rs1];
-                alu_b = imm12;
-            end
-            if (opcode == OP_OP) begin
-                alu_a = rx[rs1];
-                alu_b = rx[rs1];
-            end
         end
     end
 
@@ -339,9 +330,20 @@ module CPU32 (input wire reset, input wire clock,
     end
 endmodule
 
-`timescale 1ns / 1ns
+`timescale 1 ns/10 ps  // time-unit = 1 ns, precision = 10 ps
+
+module Clock(output reg clock);
+    initial begin
+        #0 clock = 0;
+    end
+
+    always begin
+        #50 clock <= ~clock;
+    end
+endmodule
+
 module tb;
-    reg clock;
+    wire clock;
     reg reset;
     wire [31:0] pmAddress;
     wire [3:0] pmWidth;
@@ -354,6 +356,7 @@ module tb;
     wire [31:0] dmDataCOut;
     wire [31:0] dmDataCIn;
 
+    Clock cg0(clock);
     Memory pMemory (clock, pmAddress, pmWidth, pmWrite, pmDataCOut, pmDataCIn);
     Memory dMemory (clock, dmAddress, dmWidth, dmWrite, dmDataCOut, dmDataCIn);
     CPU32 cpu(reset, clock, pmAddress, pmWidth, pmWrite, pmDataCOut, pmDataCIn,
@@ -361,10 +364,6 @@ module tb;
 
     reg [7:0] temp[0:`MEM_SIZE];
 
-    initial begin
-        clock = 0;
-        forever #50 clock = ~clock;
-    end
     integer i;
     initial begin
         $dumpfile("vcd/tb.vcd");

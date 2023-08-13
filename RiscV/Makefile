@@ -1,5 +1,5 @@
 
-test: tb.vvp main.hex
+top: tb.vvp main.hex
 	vvp tb.vvp
 
 tb.vvp: *.v
@@ -14,3 +14,10 @@ main.hex: boot.s main.c
 
 clean:
 	rm main.hex main.bin tb.vvp
+
+test: test.vvp
+	vvp test.vvp
+
+test.vvp: *.v
+	iverilog -o test.vvp test.v
+
