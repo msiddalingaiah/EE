@@ -223,8 +223,7 @@ module CPU32 (input wire reset, input wire clock,
     wire [31:0] load_offset = { {20{pmDataIn[31]}}, pmDataIn[31:25], pmDataIn[11:7] };
     wire [31:0] jal_offset = { pmDataIn[31] ? 11'h7ff : 11'h0, pmDataIn[31], pmDataIn[19:12], pmDataIn[20], pmDataIn[30:21], 1'b0 };
     wire [31:0] branch_offset = { {19{pmDataIn[31]}}, pmDataIn[31], pmDataIn[7], pmDataIn[30:25], pmDataIn[11:8], 1'b0};
-    // TODO: check this offset
-    wire [31:0] jalr_offset = { {11{imm20[19]}}, imm20, 1'b0 };
+    wire [31:0] jalr_offset = { {19{pmDataIn[31]}}, pmDataIn[31:20], 1'b0 };
 
     reg [3:0] alu_op;
     wire [31:0] alu_a = rx[rs1];
@@ -249,11 +248,9 @@ module CPU32 (input wire reset, input wire clock,
         if (post_reset == 1) begin
             pc_next = 0;
         end else begin
-            // Simple branch prediction, needs a pipeline bubble to avoid branch hazard
             if (opcode == OP_JAL) begin
                 pc_next = pc + jal_offset;
             end
-            // TODO: this needs testing... (RTS)
             if (opcode == OP_JALR && funct3 == 0) begin
                 pc_next = rx[rs1] + jalr_offset;
             end
@@ -356,8 +353,9 @@ module CPU32 (input wire reset, input wire clock,
                         `endif
                     end
                     OP_JAL: begin
+                        if (rd != 0) rx[rd] <= pc + 4;
                         `ifdef TRACE_I
-                            $write("%x: jal %x\n", pc, pc + jal_offset);
+                            $write("%x: jal r%d, %x\n", pc, rd, pc + jal_offset);
                         `endif
                     end
                     OP_BRANCH: begin
