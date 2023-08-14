@@ -1,23 +1,23 @@
 
-top: tb.vvp main.hex
-	vvp tb.vvp
+BIN = bin
 
-tb.vvp: *.v
-	iverilog -o tb.vvp tb.v
+top: ${BIN}/tb.vvp ${BIN}/main.hex
+	vvp ${BIN}/tb.vvp
 
-main.hex: boot.s main.c
-	riscv64-unknown-elf-gcc -march=rv32g -mabi=ilp32 -static -mcmodel=medany -fvisibility=hidden -nostdlib -nostartfiles -Tboot0.ld boot.s main.c -o main.bin
+${BIN}/tb.vvp: *.v
+	iverilog -o ${BIN}/tb.vvp tb.v
 
-	#riscv64-unknown-elf-objcopy -O ihex main.bin main.hex
-	riscv64-unknown-elf-objcopy -O verilog --verilog-data-width=1 main.bin main.hex
-	riscv64-unknown-elf-objdump -S main.bin > main.s
+${BIN}/main.hex: boot.s main.c
+	riscv64-unknown-elf-gcc -march=rv32g -mabi=ilp32 -static -mcmodel=medany -fvisibility=hidden -nostdlib -nostartfiles -Tboot0.ld boot.s main.c -o ${BIN}/main.bin
+	#riscv64-unknown-elf-objcopy -O ihex ${BIN}/main.bin ${BIN}/main.hex
+	riscv64-unknown-elf-objcopy -O verilog --verilog-data-width=1 ${BIN}/main.bin ${BIN}/main.hex
+	riscv64-unknown-elf-objdump -S ${BIN}/main.bin > main.s
 
 clean:
-	rm main.hex main.bin tb.vvp
+	rm ${BIN}/main.hex ${BIN}/main.bin ${BIN}/tb.vvp ${BIN}/test.vvp
 
-test: test.vvp
-	vvp test.vvp
+test: ${BIN}/test.vvp
+	vvp ${BIN}/test.vvp
 
-test.vvp: *.v
-	iverilog -o test.vvp test.v
-
+${BIN}/test.vvp: *.v
+	iverilog -o ${BIN}/test.vvp test.v
