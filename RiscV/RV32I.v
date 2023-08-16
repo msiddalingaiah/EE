@@ -1,84 +1,11 @@
 
 module RV32I (input wire reset, input wire clock,
-    output wire [31:0] pmAddress, output reg [3:0] pmWidth,
+    output wire [31:0] pmAddress, output reg [2:0] pmFunc3,
     output reg pmWrite,
     output reg [31:0] pmDataOut, input wire [31:0] pmDataIn,
-    output reg [31:0] dmAddress, output reg [3:0] dmWidth,
+    output reg [31:0] dmAddress, output reg [2:0] dmFunc3,
     output reg dmWrite,
     output reg [31:0] dmDataOut, input wire [31:0] dmDataIn);
-
-    parameter OP_LOAD = (0 << 5) | (0 << 2) | 3;
-    parameter OP_LOAD_FP = (0 << 5) | (1 << 2) | 3;
-    parameter OP_CUSTOM_0 = (0 << 5) | (2 << 2) | 3;
-    parameter OP_MISC_MEM = (0 << 5) | (3 << 2) | 3;
-    parameter OP_OP_IMM = (0 << 5) | (4 << 2) | 3;
-    parameter OP_AUIPC = (0 << 5) | (5 << 2) | 3;
-    parameter OP_OP_IMM_32 = (0 << 5) | (6 << 2) | 3;
-
-    parameter OP_STORE = (1 << 5) | (0 << 2) | 3;
-    parameter OP_STORE_FP = (1 << 5) | (1 << 2) | 3;
-    parameter OP_CUSTOM_1 = (1 << 5) | (2 << 2) | 3;
-    parameter OP_AMO = (1 << 5) | (3 << 2) | 3;
-    parameter OP_OP = (1 << 5) | (4 << 2) | 3;
-    parameter OP_LUI = (1 << 5) | (5 << 2) | 3;
-    parameter OP_OP_32 = (1 << 5) | (6 << 2) | 3;
-
-    parameter OP_MADD = (2 << 5) | (0 << 2) | 3;
-    parameter OP_MSUB = (2 << 5) | (1 << 2) | 3;
-    parameter OP_NMSUB = (2 << 5) | (2 << 2) | 3;
-    parameter OP_NMADD = (2 << 5) | (3 << 2) | 3;
-    parameter OP_OP_FP = (2 << 5) | (4 << 2) | 3;
-    parameter OP_RESERVED_1 = (2 << 5) | (5 << 2) | 3;
-    parameter OP_CUSTOM_2 = (2 << 5) | (6 << 2) | 3;
-
-    parameter OP_BRANCH = (3 << 5) | (0 << 2) | 3;
-    parameter OP_JALR = (3 << 5) | (1 << 2) | 3;
-    parameter OP_RESERVED_2 = (3 << 5) | (2 << 2) | 3;
-    parameter OP_JAL = (3 << 5) | (3 << 2) | 3;
-    parameter OP_SYSTEM = (3 << 5) | (4 << 2) | 3;
-    parameter OP_RESERVED_3 = (3 << 5) | (5 << 2) | 3;
-    parameter OP_CUSTOM_3 = (3 << 5) | (6 << 2) | 3;
-
-    parameter F3_JALR = 0;
-
-    parameter F3_BRANCH_BEQ = 0;
-    parameter F3_BRANCH_BNE = 1;
-    parameter F3_BRANCH_BLT = 4;
-    parameter F3_BRANCH_BGE = 5;
-    parameter F3_BRANCH_BLTU = 6;
-    parameter F3_BRANCH_BGEU = 7;
-
-    parameter F3_LOAD_LB = 0;
-    parameter F3_LOAD_LH = 1;
-    parameter F3_LOAD_LW = 2;
-    parameter F3_LOAD_LBU = 4;
-    parameter F3_LOAD_LHU = 5;
-
-    parameter F3_STORE_SB = 0;
-    parameter F3_STORE_SH = 1;
-    parameter F3_STORE_SW = 2;
-
-    parameter F3_OP_OP_IMM_ADDI = 0;
-    parameter F3_OP_OP_IMM_SLTI = 2;
-    parameter F3_OP_OP_IMM_SLTIU = 3;
-    parameter F3_OP_OP_IMM_XORI = 4;
-    parameter F3_OP_OP_IMM_ORI = 6;
-    parameter F3_OP_OP_IMM_ANDI = 7;
-
-    parameter F3_OP_OP_IMM_SLL1 = 1;
-    parameter F3_OP_OP_IMM_SRI = 5; // SRLI if imm7 == 0, SRAI if imm7 == 7'h20
-
-    parameter F3_OP_OP_SUM = 0; // ADD if imm7 == 0, SUB if imm7 == 7'h20
-    parameter F3_OP_OP_SLL = 1; // if imm7 == 0
-    parameter F3_OP_OP_SLT = 2; // if imm7 == 0
-    parameter F3_OP_OP_SLTU = 3; // if imm7 == 0
-    parameter F3_OP_OP_XOR = 4; // if imm7 == 0
-    parameter F3_OP_OP_SR = 5; // SRL if imm7 == 0, SRA if imm7 == 7'h20
-    parameter F3_OP_OP_OR = 6; // if imm7 == 0
-    parameter F3_OP_OP_AND = 7; // if imm7 == 0
-
-    parameter IMM7_OP_OP_0 = 7'h00;
-    parameter IMM7_OP_OP_20 = 7'h20;
 
     reg [31:0] pc, pc_next;
     reg [31:0] rx[0:31];
@@ -116,8 +43,9 @@ module RV32I (input wire reset, input wire clock,
         dmWrite = 0;
         dmAddress = 0;
         dmDataOut = 0;
-        dmWidth = 0;
+        dmFunc3 = funct3;
         pmWrite = 0;
+        pmFunc3 = 2;
         pc_next = pc + 4;
         if (post_reset == 1) begin
             pc_next = 0;
@@ -128,14 +56,12 @@ module RV32I (input wire reset, input wire clock,
             if (opcode == OP_JALR && funct3 == 0) begin
                 pc_next = rx[rs1] + jalr_offset;
             end
-            if (opcode == OP_STORE && funct3 == 2) begin   // sw
+            if (opcode == OP_STORE) begin   // sw
                 dmWrite = 1;
-                dmWidth = 4;
                 dmAddress = rx[rs1] + store_offset;
                 dmDataOut = rx[rs2];
             end
-            if (opcode == OP_LOAD && funct3 == 2) begin   // lw
-                dmWidth = 4;
+            if (opcode == OP_LOAD) begin   // lw
                 dmAddress = rx[rs1] + imm12;
             end
             // Pipeline bubble to avoid data hazard, e.g. lw, 15 followed by addi 15 or sw with source reg
@@ -171,9 +97,7 @@ module RV32I (input wire reset, input wire clock,
         if (reset == 1) begin
             post_reset <= 1;
             pc <= 0;
-            pmWidth <= 4;
             pmWrite <= 0;
-            dmWidth <= 4;
             dmWrite <= 0;
             mem_load <= 0;
             dest_reg <= 0;
@@ -247,7 +171,81 @@ module RV32I (input wire reset, input wire clock,
                             pc, pmDataIn, funct3, opcode, rd, rs1, imm12);
                 endcase
             end
+            // TODO: sign extend properly
             if (mem_load) rx[dest_reg] <= dmDataIn;
         end
     end
+
+    parameter OP_LOAD = (0 << 5) | (0 << 2) | 3;
+    parameter OP_LOAD_FP = (0 << 5) | (1 << 2) | 3;
+    parameter OP_CUSTOM_0 = (0 << 5) | (2 << 2) | 3;
+    parameter OP_MISC_MEM = (0 << 5) | (3 << 2) | 3;
+    parameter OP_OP_IMM = (0 << 5) | (4 << 2) | 3;
+    parameter OP_AUIPC = (0 << 5) | (5 << 2) | 3;
+    parameter OP_OP_IMM_32 = (0 << 5) | (6 << 2) | 3;
+
+    parameter OP_STORE = (1 << 5) | (0 << 2) | 3;
+    parameter OP_STORE_FP = (1 << 5) | (1 << 2) | 3;
+    parameter OP_CUSTOM_1 = (1 << 5) | (2 << 2) | 3;
+    parameter OP_AMO = (1 << 5) | (3 << 2) | 3;
+    parameter OP_OP = (1 << 5) | (4 << 2) | 3;
+    parameter OP_LUI = (1 << 5) | (5 << 2) | 3;
+    parameter OP_OP_32 = (1 << 5) | (6 << 2) | 3;
+
+    parameter OP_MADD = (2 << 5) | (0 << 2) | 3;
+    parameter OP_MSUB = (2 << 5) | (1 << 2) | 3;
+    parameter OP_NMSUB = (2 << 5) | (2 << 2) | 3;
+    parameter OP_NMADD = (2 << 5) | (3 << 2) | 3;
+    parameter OP_OP_FP = (2 << 5) | (4 << 2) | 3;
+    parameter OP_RESERVED_1 = (2 << 5) | (5 << 2) | 3;
+    parameter OP_CUSTOM_2 = (2 << 5) | (6 << 2) | 3;
+
+    parameter OP_BRANCH = (3 << 5) | (0 << 2) | 3;
+    parameter OP_JALR = (3 << 5) | (1 << 2) | 3;
+    parameter OP_RESERVED_2 = (3 << 5) | (2 << 2) | 3;
+    parameter OP_JAL = (3 << 5) | (3 << 2) | 3;
+    parameter OP_SYSTEM = (3 << 5) | (4 << 2) | 3;
+    parameter OP_RESERVED_3 = (3 << 5) | (5 << 2) | 3;
+    parameter OP_CUSTOM_3 = (3 << 5) | (6 << 2) | 3;
+
+    parameter F3_JALR = 0;
+
+    parameter F3_BRANCH_BEQ = 0;
+    parameter F3_BRANCH_BNE = 1;
+    parameter F3_BRANCH_BLT = 4;
+    parameter F3_BRANCH_BGE = 5;
+    parameter F3_BRANCH_BLTU = 6;
+    parameter F3_BRANCH_BGEU = 7;
+
+    parameter F3_LOAD_LB = 0;
+    parameter F3_LOAD_LH = 1;
+    parameter F3_LOAD_LW = 2;
+    parameter F3_LOAD_LBU = 4;
+    parameter F3_LOAD_LHU = 5;
+
+    parameter F3_STORE_SB = 0;
+    parameter F3_STORE_SH = 1;
+    parameter F3_STORE_SW = 2;
+
+    parameter F3_OP_OP_IMM_ADDI = 0;
+    parameter F3_OP_OP_IMM_SLTI = 2;
+    parameter F3_OP_OP_IMM_SLTIU = 3;
+    parameter F3_OP_OP_IMM_XORI = 4;
+    parameter F3_OP_OP_IMM_ORI = 6;
+    parameter F3_OP_OP_IMM_ANDI = 7;
+
+    parameter F3_OP_OP_IMM_SLL1 = 1;
+    parameter F3_OP_OP_IMM_SRI = 5; // SRLI if imm7 == 0, SRAI if imm7 == 7'h20
+
+    parameter F3_OP_OP_SUM = 0; // ADD if imm7 == 0, SUB if imm7 == 7'h20
+    parameter F3_OP_OP_SLL = 1; // if imm7 == 0
+    parameter F3_OP_OP_SLT = 2; // if imm7 == 0
+    parameter F3_OP_OP_SLTU = 3; // if imm7 == 0
+    parameter F3_OP_OP_XOR = 4; // if imm7 == 0
+    parameter F3_OP_OP_SR = 5; // SRL if imm7 == 0, SRA if imm7 == 7'h20
+    parameter F3_OP_OP_OR = 6; // if imm7 == 0
+    parameter F3_OP_OP_AND = 7; // if imm7 == 0
+
+    parameter IMM7_OP_OP_0 = 7'h00;
+    parameter IMM7_OP_OP_20 = 7'h20;
 endmodule

@@ -57,22 +57,22 @@ module tb;
     wire clock;
     reg reset;
     wire [31:0] pmAddress;
-    wire [3:0] pmWidth;
+    wire [2:0] pmFunc3;
     wire pmWrite;
     wire [31:0] pmDataCOut;
     wire [31:0] pmDataCIn;
     wire [31:0] dmAddress;
-    wire [3:0] dmWidth;
+    wire [2:0] dmFunc3;
     wire dmWrite;
     wire [31:0] dmDataCOut;
     wire [31:0] dmDataCIn;
     wire [7:0] uart_char = dmDataCOut & 8'h7f;
 
     Clock cg0(clock);
-    Memory pMemory (clock, pmAddress, pmWidth, pmWrite, pmDataCOut, pmDataCIn);
-    Memory dMemory (clock, dmAddress, dmWidth, dmWrite, dmDataCOut, dmDataCIn);
-    RV32I cpu(reset, clock, pmAddress, pmWidth, pmWrite, pmDataCOut, pmDataCIn,
-        dmAddress, dmWidth, dmWrite, dmDataCOut, dmDataCIn);
+    Memory pMemory (clock, pmAddress, pmFunc3, pmWrite, pmDataCOut, pmDataCIn);
+    Memory dMemory (clock, dmAddress, dmFunc3, dmWrite, dmDataCOut, dmDataCIn);
+    RV32I cpu(reset, clock, pmAddress, pmFunc3, pmWrite, pmDataCOut, pmDataCIn,
+        dmAddress, dmFunc3, dmWrite, dmDataCOut, dmDataCIn);
 
     reg [7:0] temp[0:`MEM_SIZE];
 
