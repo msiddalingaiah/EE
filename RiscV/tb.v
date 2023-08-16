@@ -4,7 +4,8 @@
 // `define TRACE_WR // trace bus writes
 // `define TRACE_RD // trace bus reads
 
-`define MEM_SIZE 1024
+// DM/PM memory size in bytes
+`define MEM_SIZE 65536
 
 `define ALU_OP_ADD 0
 `define ALU_OP_SUB 1
@@ -79,7 +80,7 @@ module tb;
     integer i;
     initial begin
         $dumpfile("vcd/tb.vcd");
-        $dumpvars(0, cpu);
+        $dumpvars(0, tb);
 
         $write("Begin...\n");
         $readmemh("bin/main.hex", temp);
@@ -92,7 +93,7 @@ module tb;
 
         #0 reset=0; #25 reset=1; #100; reset=0;
 
-        #8000;
+        #10000;
         $write("All done!\n");
         $finish;
     end

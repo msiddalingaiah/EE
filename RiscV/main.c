@@ -3,10 +3,13 @@ void write_uart(int c);
 void write_uart_str(char *p, int n);
 
 void main() {
-    write_uart('H');
-    write_uart('i');
-    write_uart('!');
-    write_uart('\n');
+    unsigned int *ip = (unsigned int *) 0x400;
+    unsigned char *cp = (unsigned char *) 0x400;
+    *ip = 0x0a434241;
+    write_uart(cp[0]);
+    write_uart(cp[1]);
+    write_uart(cp[2]);
+    write_uart(cp[3]);
     for(;;);
 }
 

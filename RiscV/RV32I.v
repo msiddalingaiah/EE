@@ -60,12 +60,14 @@ module RV32I (input wire reset, input wire clock,
                 dmWrite = 1;
                 dmAddress = rx[rs1] + store_offset;
                 dmDataOut = rx[rs2];
+                `ifdef TRACE_WR
+                    $write("WR %x = %d\n", rx[rs1] + store_offset, rx[rs2]);
+                `endif
             end
             if (opcode == OP_LOAD) begin   // lw
                 dmAddress = rx[rs1] + imm12;
             end
             // Pipeline bubble to avoid data hazard, e.g. lw, 15 followed by addi 15 or sw with source reg
-            // TODO: check if this right...
             if (mem_load == 1 && (dest_reg == rd || dest_reg == rs1 || dest_reg == rs2)) begin
                 dmWrite = 0;
                 pc_next = pc;
@@ -114,30 +116,26 @@ module RV32I (input wire reset, input wire clock,
                     $write("   24: %x %x %x %x %x %x %x %x\n", rx[24], rx[25], rx[26], rx[27], rx[28], rx[29], rx[30], rx[31]);
                 `endif
                 case (opcode)
-                    OP_LOAD: case (funct3)
-                        2: begin    // lw
-                            if (rd != 0) begin
-                                mem_load <= 1;
-                                dest_reg <= rd;
-                            end
-                            `ifdef TRACE_I
-                                $write("%x: lw r%d, %x(rs%d)\n", pc, rd, imm12, rs1);
-                            `endif
+                    OP_LOAD: begin    // lw
+                        if (rd != 0 && mem_load == 0) begin
+                            mem_load <= 1;
+                            dest_reg <= rd;
                         end
-                    endcase
+                        `ifdef TRACE_I
+                            $write("%x: lw r%d, %x(rs%d)\n", pc, rd, imm12, rs1);
+                        `endif
+                    end
                     OP_LUI: begin
                         if (rd != 0) rx[rd] <= { imm20, 12'h000 };
                         `ifdef TRACE_I
                             $write("%x: %x lui r%d %d\n", pc, pmDataIn, rd, { imm20, 12'h000 });
                         `endif
                     end
-                    OP_STORE: case (funct3)
-                        2: begin    // sw
-                            `ifdef TRACE_I
-                                $write("%x: sw rs%d, %x(rs%d)\n", pc, rs2, store_offset, rs1);
-                            `endif
-                        end
-                    endcase
+                    OP_STORE: begin
+                        `ifdef TRACE_I
+                            $write("%x: sw rs%d, %x(rs%d)\n", pc, rs2, store_offset, rs1);
+                        `endif
+                    end
                     OP_OP_IMM: begin
                         if (rd != 0) rx[rd] <= alu_out;
                         `ifdef TRACE_I
@@ -171,8 +169,12 @@ module RV32I (input wire reset, input wire clock,
                             pc, pmDataIn, funct3, opcode, rd, rs1, imm12);
                 endcase
             end
-            // TODO: sign extend properly
-            if (mem_load) rx[dest_reg] <= dmDataIn;
+            if (mem_load) begin
+                rx[dest_reg] <= dmDataIn;
+                `ifdef TRACE_RD
+                    $write("RD r%d <= %d\n", dest_reg, dmDataIn);
+                `endif
+            end
         end
     end
 

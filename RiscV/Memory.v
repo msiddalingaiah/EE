@@ -2,7 +2,6 @@
 module Memory(input wire clock, input wire [31:0] address, input[2:0] func3, input wire write_en, input wire [31:0] data_in,
     output reg [31:0] data_out);
 
-    parameter ADDRESS_MASK = 17'h7f;
     parameter MEM_SIZE_W = `MEM_SIZE >> 2;
 
     reg [7:0] cells0[0:MEM_SIZE_W-1];
