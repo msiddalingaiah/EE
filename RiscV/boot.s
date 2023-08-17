@@ -36,9 +36,8 @@ puts:
     ret
 
 halt: j halt
-*/
 
 .section .rodata
 msg:
   .string "halt.\n"
-  
+*/

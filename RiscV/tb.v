@@ -91,6 +91,11 @@ module tb;
             pMemory.cells1[i>>2] = temp[i+1];
             pMemory.cells2[i>>2] = temp[i+2];
             pMemory.cells3[i>>2] = temp[i+3];
+            // Initialize data memory for constants, strings etc.
+            dMemory.cells0[i>>2] = temp[i+0];
+            dMemory.cells1[i>>2] = temp[i+1];
+            dMemory.cells2[i>>2] = temp[i+2];
+            dMemory.cells3[i>>2] = temp[i+3];
         end
 
         clock_count = 1000;
