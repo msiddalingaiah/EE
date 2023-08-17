@@ -1,6 +1,7 @@
 
 void write_uart(int c);
 void write_uart_str(char *p, int n);
+void halt();
 
 void main() {
     unsigned int *ip = (unsigned int *) 0x400;
@@ -10,6 +11,7 @@ void main() {
     write_uart(cp[1]);
     write_uart(cp[2]);
     write_uart(cp[3]);
+    halt();
     for(;;);
 }
 
@@ -22,4 +24,9 @@ void write_uart_str(char *p, int n) {
     for (int i=0; i<n; i+=1) {
         write_uart(p[i]);
     }
+}
+
+void halt() {
+    unsigned int *p = (unsigned int *) 0xf0000020;
+    *p = 0xc0de;
 }

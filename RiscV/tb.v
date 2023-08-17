@@ -68,6 +68,8 @@ module tb;
     wire [31:0] dmDataCOut;
     wire [31:0] dmDataCIn;
     wire [7:0] uart_char = dmDataCOut & 8'h7f;
+    reg sim_end;
+    reg [31:0] clock_count;
 
     Clock cg0(clock);
     Memory pMemory (clock, pmAddress, pmFunc3, pmWrite, pmDataCOut, pmDataCIn);
@@ -91,15 +93,19 @@ module tb;
             pMemory.cells3[i>>2] = temp[i+3];
         end
 
-        #0 reset=0; #25 reset=1; #100; reset=0;
+        clock_count = 1000;
+        sim_end = 0; #0 reset=0; #25 reset=1; #100; reset=0;
+        wait(sim_end == 1);
 
-        #10000;
         $write("All done!\n");
         $finish;
     end
 
     always @(posedge clock) begin
+        clock_count <= clock_count - 1;
+        if (clock_count == 0) sim_end <= 1;
         if (dmWrite == 1 && dmAddress == 32'hf0000010) $write("%s", uart_char);
+        if (dmWrite == 1 && dmAddress == 32'hf0000020 && dmDataCOut == 32'hc0de) sim_end <= 1;
         `ifdef TRACE_WR
             if (dmWrite == 1) $write("WR %x: %d\n", dmAddress, uart_char);
         `endif
