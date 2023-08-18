@@ -3,27 +3,29 @@ module RV32I (input wire reset, input wire clock,
     output wire [31:0] pmAddress, output reg [2:0] pmFunc3,
     output reg pmWrite,
     output reg [31:0] pmDataOut, input wire [31:0] pmDataIn,
-    output reg [31:0] dmAddress, output reg [2:0] dmFunc3,
+    output wire [31:0] dmAddress, output reg [2:0] dmFunc3,
     output reg dmWrite,
     output reg [31:0] dmDataOut, input wire [31:0] dmDataIn);
 
     reg [31:0] pc, pc_next;
+    wire[31:0] instruction_0 = pmDataIn;
     reg [31:0] rx[0:31];
     reg post_reset, mem_load;
     assign pmAddress = pc_next;
-    wire [6:0] opcode = pmDataIn[6:0];
-    wire [4:0] rd = pmDataIn[11:7];
-    wire [2:0] funct3 = pmDataIn[14:12];
-    wire [4:0] rs1 = pmDataIn[19:15];
-    wire [4:0] rs2 = pmDataIn[24:20];
-    wire [19:0] imm20 = pmDataIn[31:12];
-    wire [31:0] imm12 = { {20{pmDataIn[31]}}, pmDataIn[31:20] };
-    wire [6:0] imm7 = pmDataIn[31:25];
-    wire [31:0] store_offset = { {20{pmDataIn[31]}}, pmDataIn[31:25], pmDataIn[11:7] };
-    wire [31:0] load_offset = { {20{pmDataIn[31]}}, pmDataIn[31:25], pmDataIn[11:7] };
-    wire [31:0] jal_offset = { pmDataIn[31] ? 11'h7ff : 11'h0, pmDataIn[31], pmDataIn[19:12], pmDataIn[20], pmDataIn[30:21], 1'b0 };
-    wire [31:0] branch_offset = { {19{pmDataIn[31]}}, pmDataIn[31], pmDataIn[7], pmDataIn[30:25], pmDataIn[11:8], 1'b0};
-    wire [31:0] jalr_offset = { {19{pmDataIn[31]}}, pmDataIn[31:20], 1'b0 };
+    wire [6:0] opcode = instruction_0[6:0];
+    wire [4:0] rd = instruction_0[11:7];
+    wire [2:0] funct3 = instruction_0[14:12];
+    wire [4:0] rs1 = instruction_0[19:15];
+    wire [4:0] rs2 = instruction_0[24:20];
+    wire [19:0] imm20 = instruction_0[31:12];
+    wire [31:0] imm12 = { {20{instruction_0[31]}}, instruction_0[31:20] };
+    wire [6:0] imm7 = instruction_0[31:25];
+    wire [31:0] store_offset = { {20{instruction_0[31]}}, instruction_0[31:25], instruction_0[11:7] };
+    wire [31:0] load_offset = { {20{instruction_0[31]}}, instruction_0[31:25], instruction_0[11:7] };
+    wire [31:0] jal_offset = { {12{instruction_0[31]}}, instruction_0[19:12], instruction_0[20], instruction_0[30:21], 1'b0 };
+    wire [31:0] branch_offset = { {20{instruction_0[31]}}, instruction_0[7], instruction_0[30:25], instruction_0[11:8], 1'b0};
+    wire [31:0] jalr_offset = { {19{instruction_0[31]}}, instruction_0[31:20], 1'b0 };
+    assign dmAddress = opcode == OP_STORE ? rx[rs1] + store_offset : rx[rs1] + imm12;
 
     reg [3:0] alu_op;
     wire [31:0] alu_a = rx[rs1];
@@ -40,7 +42,6 @@ module RV32I (input wire reset, input wire clock,
 
     always @(*) begin
         dmWrite = 0;
-        dmAddress = 0;
         dmDataOut = 0;
         dmFunc3 = funct3;
         pmWrite = 0;
@@ -57,14 +58,12 @@ module RV32I (input wire reset, input wire clock,
             end
             if (opcode == OP_STORE) begin   // sw
                 dmWrite = 1;
-                dmAddress = rx[rs1] + store_offset;
                 dmDataOut = rx[rs2];
                 `ifdef TRACE_WR
                     $write("WR %x = %d\n", rx[rs1] + store_offset, rx[rs2]);
                 `endif
             end
             if (opcode == OP_LOAD) begin   // lw
-                dmAddress = rx[rs1] + imm12;
                 // Force a bubble to avoid data hazard
                 if (mem_load == 0) pc_next = pc;
             end
@@ -128,7 +127,7 @@ module RV32I (input wire reset, input wire clock,
                     OP_LUI: begin
                         if (rd != 0) rx[rd] <= { imm20, 12'h000 };
                         `ifdef TRACE_I
-                            $write("%x: %x lui r%d %d\n", pc, pmDataIn, rd, { imm20, 12'h000 });
+                            $write("%x: %x lui r%d %d\n", pc, instruction_0, rd, { imm20, 12'h000 });
                         `endif
                     end
                     OP_STORE: begin
@@ -139,13 +138,13 @@ module RV32I (input wire reset, input wire clock,
                     OP_OP_IMM: begin
                         if (rd != 0) rx[rd] <= alu_out;
                         `ifdef TRACE_I
-                            $write("%x: %x ALU(%d) r%d, rs%d, %d\n", pc, pmDataIn, alu_op, rd, rs1, imm12);
+                            $write("%x: %x ALU(%d) r%d, rs%d, %d\n", pc, instruction_0, alu_op, rd, rs1, imm12);
                         `endif
                     end
                     OP_OP: begin
                         if (rd != 0) rx[rd] <= alu_out;
                         `ifdef TRACE_I
-                            $write("%x: %x ALU(%d) r%d, rs%d, rs%d\n", pc, pmDataIn, alu_op, rd, rs1, rs2);
+                            $write("%x: %x ALU(%d) r%d, rs%d, rs%d\n", pc, instruction_0, alu_op, rd, rs1, rs2);
                         `endif
                     end
                     OP_JAL: begin
@@ -166,7 +165,7 @@ module RV32I (input wire reset, input wire clock,
                     end
                     default:
                         $write("%x: Unknown OP: %x, funct3: %x, opcode: %x, rd: %x, rs1: %x, imm12: %d\n",
-                            pc, pmDataIn, funct3, opcode, rd, rs1, imm12);
+                            pc, instruction_0, funct3, opcode, rd, rs1, imm12);
                 endcase
             end
             if (mem_load) begin
