@@ -8,7 +8,7 @@ module Memory(input wire clock, input wire [31:0] address, input[2:0] func3, inp
     reg [7:0] cells1[0:MEM_SIZE_W-1];
     reg [7:0] cells2[0:MEM_SIZE_W-1];
     reg [7:0] cells3[0:MEM_SIZE_W-1];
-    wire [7:0] address_w = address[9:2];
+    wire [29:0] address_w = address[31:2];
     wire [2:0] two_bits = address[1:0];
 
     integer i;

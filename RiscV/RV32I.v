@@ -9,7 +9,6 @@ module RV32I (input wire reset, input wire clock,
 
     reg [31:0] pc, pc_next;
     reg [31:0] rx[0:31];
-    reg [4:0] dest_reg;
     reg post_reset, mem_load;
     assign pmAddress = pc_next;
     wire [6:0] opcode = pmDataIn[6:0];
@@ -66,11 +65,8 @@ module RV32I (input wire reset, input wire clock,
             end
             if (opcode == OP_LOAD) begin   // lw
                 dmAddress = rx[rs1] + imm12;
-            end
-            // Pipeline bubble to avoid data hazard, e.g. lw, 15 followed by addi 15 or sw with source reg
-            if (mem_load == 1 && (dest_reg == rd || dest_reg == rs1 || dest_reg == rs2)) begin
-                dmWrite = 0;
-                pc_next = pc;
+                // Force a bubble to avoid data hazard
+                if (mem_load == 0) pc_next = pc;
             end
             alu_op = `ALU_OP_ZERO;
             if ((opcode == OP_OP_IMM && funct3 == F3_OP_OP_IMM_ADDI) ||
@@ -88,9 +84,16 @@ module RV32I (input wire reset, input wire clock,
                 (opcode == OP_OP && funct3 == F3_OP_OP_XOR && imm7 == IMM7_OP_OP_0)) alu_op = `ALU_OP_XOR;
             if (opcode == OP_BRANCH) begin
                 case (funct3)
+                    F3_BRANCH_BEQ: if (rx[rs1] == rx[rs2]) pc_next = pc + branch_offset;
+                    F3_BRANCH_BNE: if (rx[rs1] != rx[rs2]) pc_next = pc + branch_offset;
+                    // FIXME: signed comparison needed here
+                    F3_BRANCH_BLT: if (rx[rs1] < rx[rs2]) pc_next = pc + branch_offset;
                     F3_BRANCH_BGE: if (rx[rs1] >= rx[rs2]) pc_next = pc + branch_offset;
+                    F3_BRANCH_BLTU: if (rx[rs1] < rx[rs2]) pc_next = pc + branch_offset;
+                    F3_BRANCH_BGEU: if (rx[rs1] >= rx[rs2]) pc_next = pc + branch_offset;
+                    default:
+                        $write("branch f3: %d, rx[%d]: %d rx[%d]: %d\n", funct3, rs1, rx[rs1], rs2, rx[rs2]);
                 endcase
-                // $write("branch f3: %d, rx[rs1]: %d rx[rs2]: %d\n", funct3, rx[rs1], rx[rs2]);
             end
         end
     end
@@ -102,10 +105,8 @@ module RV32I (input wire reset, input wire clock,
             pmWrite <= 0;
             dmWrite <= 0;
             mem_load <= 0;
-            dest_reg <= 0;
         end else begin
             mem_load <= 0;
-            dest_reg <= 0;
             post_reset <= 0;
             pc <= pc_next;
             if (post_reset == 0) begin
@@ -119,7 +120,6 @@ module RV32I (input wire reset, input wire clock,
                     OP_LOAD: begin    // lw
                         if (rd != 0 && mem_load == 0) begin
                             mem_load <= 1;
-                            dest_reg <= rd;
                         end
                         `ifdef TRACE_I
                             $write("%x: lw r%d, %x(rs%d)\n", pc, rd, imm12, rs1);
@@ -170,9 +170,9 @@ module RV32I (input wire reset, input wire clock,
                 endcase
             end
             if (mem_load) begin
-                rx[dest_reg] <= dmDataIn;
+                rx[rd] <= dmDataIn;
                 `ifdef TRACE_RD
-                    $write("RD r%d <= %d\n", dest_reg, dmDataIn);
+                    $write("RD r%d <= %d\n", rd, dmDataIn);
                 `endif
             end
         end

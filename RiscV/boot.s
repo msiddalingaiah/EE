@@ -8,6 +8,7 @@
 _start:
     lui x2, 0xf
     j   main
+    nop
 /*
     addi  t0, zero, 0x7ab
     lui   t0, 0xabcde

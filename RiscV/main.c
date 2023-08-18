@@ -1,15 +1,13 @@
 
 void write_uart(int c);
-void write_uart_str(char *p, int n);
+void write_uart_str(char *p);
 void halt();
+void test_compare();
 
 void main() {
-    unsigned char *cp = (unsigned char *) "abcd\n";
-    write_uart(cp[0]);
-    write_uart(cp[1]);
-    write_uart(cp[2]);
-    write_uart(cp[3]);
-    write_uart(cp[4]);
+    unsigned char *p = (unsigned char *) "Hello World!\n";
+    write_uart_str(p);
+    test_compare();
     halt();
     for(;;);
 }
@@ -19,14 +17,55 @@ void write_uart(int c) {
     *p = c;
 }
 
-// FIXME: this doesn't work yet...
-void write_uart_str(char *p, int n) {
-    for (int i=0; i<n; i+=1) {
-        write_uart(p[i]);
-    }
+void write_uart_str(char *p) {
+    char c;
+    while ((c = *p++) != 0) write_uart(c);
 }
 
 void halt() {
     unsigned int *p = (unsigned int *) 0xf0000020;
     *p = 0xc0de;
+}
+
+void test_compare() {
+    int a = 4;
+    int b = 4;
+    int c = 5;
+    int d = 6;
+    if (a == b) {
+        write_uart('.');
+    } else {
+        write_uart('F');
+    }
+    if (a == c) {
+        write_uart('F');
+    } else {
+        write_uart('.');
+    }
+    if (a == 5) {
+        write_uart('F');
+    } else {
+        write_uart('.');
+    }
+    if (a == 4) {
+        write_uart('.');
+    } else {
+        write_uart('F');
+    }
+    if (a <= c) {
+        write_uart('.');
+    } else {
+        write_uart('F');
+    }
+    if (a <= d) {
+        write_uart('.');
+    } else {
+        write_uart('F');
+    }
+    if (a > c) {
+        write_uart('F');
+    } else {
+        write_uart('.');
+    }
+    write_uart('\n');
 }

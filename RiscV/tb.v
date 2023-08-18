@@ -85,6 +85,9 @@ module tb;
         $dumpvars(0, tb);
 
         $write("Begin...\n");
+        for (i=0; i<`MEM_SIZE; i=i+1) begin
+            temp[i] = 0;
+        end
         $readmemh("bin/main.hex", temp);
         for (i=0; i<`MEM_SIZE; i=i+4) begin
             pMemory.cells0[i>>2] = temp[i+0];
@@ -102,7 +105,7 @@ module tb;
         sim_end = 0; #0 reset=0; #25 reset=1; #100; reset=0;
         wait(sim_end == 1);
 
-        $write("All done!\n");
+        $write("%d: All done!\n", clock_count);
         $finish;
     end
 
