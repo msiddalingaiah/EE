@@ -11,7 +11,6 @@ module RV32I (input wire reset, input wire clock,
     wire[31:0] instruction_0 = pmDataIn;
     reg [31:0] rx[0:31];
     reg post_reset, mem_load;
-    assign pmAddress = pc_next;
     wire [6:0] opcode = instruction_0[6:0];
     wire [4:0] rd = instruction_0[11:7];
     wire [2:0] funct3 = instruction_0[14:12];
@@ -25,6 +24,8 @@ module RV32I (input wire reset, input wire clock,
     wire [31:0] jal_offset = { {12{instruction_0[31]}}, instruction_0[19:12], instruction_0[20], instruction_0[30:21], 1'b0 };
     wire [31:0] branch_offset = { {20{instruction_0[31]}}, instruction_0[7], instruction_0[30:25], instruction_0[11:8], 1'b0};
     wire [31:0] jalr_offset = { {19{instruction_0[31]}}, instruction_0[31:20], 1'b0 };
+
+    assign pmAddress = pc_next;
     assign dmAddress = opcode == OP_STORE ? rx[rs1] + store_offset : rx[rs1] + imm12;
 
     reg [3:0] alu_op;
@@ -32,6 +33,8 @@ module RV32I (input wire reset, input wire clock,
     wire [31:0] alu_b = opcode == OP_OP_IMM ? imm12 : rx[rs2];
     wire [31:0] alu_out;
     ALU alu(alu_op, alu_a, alu_b, alu_out);
+
+    reg[20:0] total_clocks, total_bubbles;
 
     integer i;
     initial begin
@@ -104,11 +107,14 @@ module RV32I (input wire reset, input wire clock,
             pmWrite <= 0;
             dmWrite <= 0;
             mem_load <= 0;
+            total_clocks <= 0;
+            total_bubbles <= 0;
         end else begin
             mem_load <= 0;
             post_reset <= 0;
             pc <= pc_next;
             if (post_reset == 0) begin
+                total_clocks <= total_clocks + 1;
                 `ifdef TRACE_REGS
                     $write("    0: %x %x %x %x %x %x %x %x\n", rx[0], rx[1], rx[2], rx[3], rx[4], rx[5], rx[6], rx[7]);
                     $write("    8: %x %x %x %x %x %x %x %x\n", rx[8], rx[9], rx[10], rx[11], rx[12], rx[13], rx[14], rx[15]);
@@ -119,6 +125,7 @@ module RV32I (input wire reset, input wire clock,
                     OP_LOAD: begin    // lw
                         if (rd != 0 && mem_load == 0) begin
                             mem_load <= 1;
+                            total_bubbles <= total_bubbles + 1;
                         end
                         `ifdef TRACE_I
                             $write("%x: lw r%d, %x(rs%d)\n", pc, rd, imm12, rs1);

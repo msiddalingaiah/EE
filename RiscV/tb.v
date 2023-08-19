@@ -101,17 +101,18 @@ module tb;
             dMemory.cells3[i>>2] = temp[i+3];
         end
 
-        clock_count = 1000;
+        clock_count = 0;
         sim_end = 0; #0 reset=0; #25 reset=1; #100; reset=0;
         wait(sim_end == 1);
 
-        $write("%d: All done!\n", clock_count);
+        $write("All done!\n");
+        $write("Total instructions: %d, Clock count: %d\n", cpu.total_clocks-cpu.total_bubbles, clock_count);
         $finish;
     end
 
     always @(posedge clock) begin
-        clock_count <= clock_count - 1;
-        if (clock_count == 0) sim_end <= 1;
+        clock_count <= clock_count + 1;
+        if (clock_count == 1000) sim_end <= 1;
         if (dmWrite == 1 && dmAddress == 32'hf0000010) $write("%s", uart_char);
         if (dmWrite == 1 && dmAddress == 32'hf0000020 && dmDataCOut == 32'hc0de) sim_end <= 1;
         `ifdef TRACE_WR
