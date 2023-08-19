@@ -28,8 +28,6 @@ module RV32I (input wire reset, input wire clock,
 
     assign pmAddress = pc_next;
     assign dmAddress = opcode == OP_STORE ? rx[rs1] + store_offset : rx[rs1] + imm12;
-    // wire delay = opcode_1 == OP_LOAD && (rd_1 == rs1 || rd_1 == rs2 || rd_1 == rd);
-    wire delay = 0;
 
     wire [31:0] alu_a = rx[rs1];
     wire [31:0] alu_b = opcode == OP_OP_IMM ? imm12 : rx[rs2];
@@ -64,7 +62,7 @@ module RV32I (input wire reset, input wire clock,
             if (opcode == OP_JALR && funct3 == 0) begin
                 pc_next = rx[rs1] + jalr_offset;
             end
-            if (opcode == OP_STORE && delay == 0) begin   // sw
+            if (opcode == OP_STORE) begin   // sw
                 dmWrite = 1;
                 dmDataOut = rx[rs2];
                 `ifdef TRACE_WR
@@ -76,7 +74,7 @@ module RV32I (input wire reset, input wire clock,
                 if (mem_load == 0) pc_next = pc;
             end
 
-            if (opcode == OP_BRANCH && delay == 0) begin
+            if (opcode == OP_BRANCH) begin
                 case (funct3)
                     F3_BRANCH_BEQ: if (rx[rs1] == rx[rs2]) pc_next = pc + branch_offset;
                     F3_BRANCH_BNE: if (rx[rs1] != rx[rs2]) pc_next = pc + branch_offset;
@@ -89,7 +87,6 @@ module RV32I (input wire reset, input wire clock,
                         $write("branch f3: %d, rx[%d]: %d rx[%d]: %d\n", funct3, rs1, rx[rs1], rs2, rx[rs2]);
                 endcase
             end
-            if (delay == 1) pc_next = pc;
         end
     end
 
@@ -127,7 +124,7 @@ module RV32I (input wire reset, input wire clock,
                         `endif
                     end
                     OP_LUI: begin
-                        if (rd != 0 && delay == 0) rx[rd] <= imm20;
+                        if (rd != 0) rx[rd] <= imm20;
                         `ifdef TRACE_I
                             $write("%x: %x lui r%d %d\n", pc, instruction_0, rd, imm20);
                         `endif
@@ -138,19 +135,19 @@ module RV32I (input wire reset, input wire clock,
                         `endif
                     end
                     OP_OP_IMM: begin
-                        if (rd != 0 && delay == 0) rx[rd] <= alu_out;
+                        if (rd != 0) rx[rd] <= alu_out;
                         `ifdef TRACE_I
                             $write("%x: %x ALU(%d) r%d, rs%d, %d\n", pc, instruction_0, alu_op, rd, rs1, imm12);
                         `endif
                     end
                     OP_OP: begin
-                        if (rd != 0 && delay == 0) rx[rd] <= alu_out;
+                        if (rd != 0) rx[rd] <= alu_out;
                         `ifdef TRACE_I
                             $write("%x: %x ALU(%d) r%d, rs%d, rs%d\n", pc, instruction_0, alu_op, rd, rs1, rs2);
                         `endif
                     end
                     OP_JAL: begin
-                        if (rd != 0 && delay == 0) rx[rd] <= pc + 4;
+                        if (rd != 0) rx[rd] <= pc + 4;
                         `ifdef TRACE_I
                             $write("%x: jal r%d, %x\n", pc, rd, pc + jal_offset);
                         `endif
