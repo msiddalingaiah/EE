@@ -17,14 +17,10 @@ module RV32I (input wire reset, input wire clock,
     wire[31:0] instruction_0 = pmDataIn;
 
     wire [6:0] opcode;
-    wire [4:0] rd;
+    wire [4:0] rd, rs1, rs2;
     wire [2:0] funct3;
-    wire [4:0] rs1;
-    wire [4:0] rs2;
-    wire [19:0] imm20;
-    wire [31:0] imm12;
+    wire [31:0] imm12, imm20;
     wire [31:0] store_offset;
-    wire [31:0] load_offset;
     wire [31:0] jal_offset;
     wire [31:0] branch_offset;
     wire [31:0] jalr_offset;
@@ -38,8 +34,9 @@ module RV32I (input wire reset, input wire clock,
     wire [31:0] alu_a = rx[rs1];
     wire [31:0] alu_b = opcode == OP_OP_IMM ? imm12 : rx[rs2];
     wire [31:0] alu_out;
+
     Decoder dec(instruction_0, opcode, rd, rs1, rs2, funct3, imm12, imm20,
-        load_offset, store_offset, jal_offset, jalr_offset, branch_offset, alu_op);
+        store_offset, jal_offset, jalr_offset, branch_offset, alu_op);
     ALU alu(alu_op, alu_a, alu_b, alu_out);
 
     reg[20:0] total_clocks, total_bubbles;
@@ -130,9 +127,9 @@ module RV32I (input wire reset, input wire clock,
                         `endif
                     end
                     OP_LUI: begin
-                        if (rd != 0 && delay == 0) rx[rd] <= { imm20, 12'h000 };
+                        if (rd != 0 && delay == 0) rx[rd] <= imm20;
                         `ifdef TRACE_I
-                            $write("%x: %x lui r%d %d\n", pc, instruction_0, rd, { imm20, 12'h000 });
+                            $write("%x: %x lui r%d %d\n", pc, instruction_0, rd, imm20);
                         `endif
                     end
                     OP_STORE: begin

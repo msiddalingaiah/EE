@@ -1,8 +1,8 @@
 
 module Decoder (input wire[31:0] instruction, output wire [6:0] opcode,
     output wire [4:0] rd, output wire [4:0] rs1, output wire [4:0] rs2,
-    output wire [2:0] funct3, output wire [31:0] imm12, output wire [19:0] imm20,
-    output wire [31:0] load_offset, output wire [31:0] store_offset,
+    output wire [2:0] funct3, output wire [31:0] imm12, output wire [31:0] imm20,
+    output wire [31:0] store_offset,
     output wire [31:0] jal_offset, output wire [31:0] jalr_offset, output wire [31:0] branch_offset, 
     output reg [3:0] alu_op);
 
@@ -34,8 +34,7 @@ module Decoder (input wire[31:0] instruction, output wire [6:0] opcode,
     assign rs1 = instruction[19:15];
     assign rs2 = instruction[24:20];
     assign imm12 = { {20{instruction[31]}}, instruction[31:20] };
-    assign imm20 = instruction[31:12];
-    assign load_offset = { {20{instruction[31]}}, instruction[31:25], instruction[11:7] };
+    assign imm20 = { instruction[31:12], 12'h000 };
     assign store_offset = { {20{instruction[31]}}, instruction[31:25], instruction[11:7] };
     assign jal_offset = { {12{instruction[31]}}, instruction[19:12], instruction[20], instruction[30:21], 1'b0 };
     assign jalr_offset = { {19{instruction[31]}}, instruction[31:20], 1'b0 };
