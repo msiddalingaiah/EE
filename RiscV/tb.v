@@ -18,6 +18,7 @@
 
 `include "Memory.v"
 `include "ALU.v"
+`include "Decoder.v"
 `include "RV32I.v"
 
 /*

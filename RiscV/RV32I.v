@@ -8,30 +8,38 @@ module RV32I (input wire reset, input wire clock,
     output reg [31:0] dmDataOut, input wire [31:0] dmDataIn);
 
     reg [31:0] pc, pc_next;
-    wire[31:0] instruction_0 = pmDataIn;
+    reg [31:0] instruction_1;
+    wire [6:0] opcode_1 = instruction_1[6:0];
+    wire [4:0] rd_1 = instruction_1[11:7];
     reg [31:0] rx[0:31];
     reg post_reset, mem_load;
-    wire [6:0] opcode = instruction_0[6:0];
-    wire [4:0] rd = instruction_0[11:7];
-    wire [2:0] funct3 = instruction_0[14:12];
-    wire [4:0] rs1 = instruction_0[19:15];
-    wire [4:0] rs2 = instruction_0[24:20];
-    wire [19:0] imm20 = instruction_0[31:12];
-    wire [31:0] imm12 = { {20{instruction_0[31]}}, instruction_0[31:20] };
-    wire [6:0] imm7 = instruction_0[31:25];
-    wire [31:0] store_offset = { {20{instruction_0[31]}}, instruction_0[31:25], instruction_0[11:7] };
-    wire [31:0] load_offset = { {20{instruction_0[31]}}, instruction_0[31:25], instruction_0[11:7] };
-    wire [31:0] jal_offset = { {12{instruction_0[31]}}, instruction_0[19:12], instruction_0[20], instruction_0[30:21], 1'b0 };
-    wire [31:0] branch_offset = { {20{instruction_0[31]}}, instruction_0[7], instruction_0[30:25], instruction_0[11:8], 1'b0};
-    wire [31:0] jalr_offset = { {19{instruction_0[31]}}, instruction_0[31:20], 1'b0 };
+
+    wire[31:0] instruction_0 = pmDataIn;
+
+    wire [6:0] opcode;
+    wire [4:0] rd;
+    wire [2:0] funct3;
+    wire [4:0] rs1;
+    wire [4:0] rs2;
+    wire [19:0] imm20;
+    wire [31:0] imm12;
+    wire [31:0] store_offset;
+    wire [31:0] load_offset;
+    wire [31:0] jal_offset;
+    wire [31:0] branch_offset;
+    wire [31:0] jalr_offset;
+    wire [3:0] alu_op;
 
     assign pmAddress = pc_next;
     assign dmAddress = opcode == OP_STORE ? rx[rs1] + store_offset : rx[rs1] + imm12;
+    // wire delay = opcode_1 == OP_LOAD && (rd_1 == rs1 || rd_1 == rs2 || rd_1 == rd);
+    wire delay = 0;
 
-    reg [3:0] alu_op;
     wire [31:0] alu_a = rx[rs1];
     wire [31:0] alu_b = opcode == OP_OP_IMM ? imm12 : rx[rs2];
     wire [31:0] alu_out;
+    Decoder dec(instruction_0, opcode, rd, rs1, rs2, funct3, imm12, imm20,
+        load_offset, store_offset, jal_offset, jalr_offset, branch_offset, alu_op);
     ALU alu(alu_op, alu_a, alu_b, alu_out);
 
     reg[20:0] total_clocks, total_bubbles;
@@ -59,7 +67,7 @@ module RV32I (input wire reset, input wire clock,
             if (opcode == OP_JALR && funct3 == 0) begin
                 pc_next = rx[rs1] + jalr_offset;
             end
-            if (opcode == OP_STORE) begin   // sw
+            if (opcode == OP_STORE && delay == 0) begin   // sw
                 dmWrite = 1;
                 dmDataOut = rx[rs2];
                 `ifdef TRACE_WR
@@ -70,21 +78,8 @@ module RV32I (input wire reset, input wire clock,
                 // Force a bubble to avoid data hazard
                 if (mem_load == 0) pc_next = pc;
             end
-            alu_op = `ALU_OP_ZERO;
-            if ((opcode == OP_OP_IMM && funct3 == F3_OP_OP_IMM_ADDI) ||
-                (opcode == OP_OP && funct3 == F3_OP_OP_SUM && imm7 == IMM7_OP_OP_0)) alu_op = `ALU_OP_ADD;
-            if (opcode == OP_OP && funct3 == F3_OP_OP_SUM && imm7 == IMM7_OP_OP_20) alu_op = `ALU_OP_SUB;
-            if ((opcode == OP_OP_IMM && funct3 == F3_OP_OP_IMM_SLTI) ||
-                (opcode == OP_OP && funct3 == F3_OP_OP_SLT && imm7 == IMM7_OP_OP_0)) alu_op = `ALU_OP_LT;
-            if ((opcode == OP_OP_IMM && funct3 == F3_OP_OP_IMM_SLTIU) ||
-                (opcode == OP_OP && funct3 == F3_OP_OP_SLTU && imm7 == IMM7_OP_OP_0)) alu_op = `ALU_OP_LTU;
-            if ((opcode == OP_OP_IMM && funct3 == F3_OP_OP_IMM_ANDI) ||
-                (opcode == OP_OP && funct3 == F3_OP_OP_AND && imm7 == IMM7_OP_OP_0)) alu_op = `ALU_OP_AND;
-            if ((opcode == OP_OP_IMM && funct3 == F3_OP_OP_IMM_ORI) ||
-                (opcode == OP_OP && funct3 == F3_OP_OP_OR && imm7 == IMM7_OP_OP_0)) alu_op = `ALU_OP_OR;
-            if ((opcode == OP_OP_IMM && funct3 == F3_OP_OP_IMM_XORI) ||
-                (opcode == OP_OP && funct3 == F3_OP_OP_XOR && imm7 == IMM7_OP_OP_0)) alu_op = `ALU_OP_XOR;
-            if (opcode == OP_BRANCH) begin
+
+            if (opcode == OP_BRANCH && delay == 0) begin
                 case (funct3)
                     F3_BRANCH_BEQ: if (rx[rs1] == rx[rs2]) pc_next = pc + branch_offset;
                     F3_BRANCH_BNE: if (rx[rs1] != rx[rs2]) pc_next = pc + branch_offset;
@@ -97,6 +92,7 @@ module RV32I (input wire reset, input wire clock,
                         $write("branch f3: %d, rx[%d]: %d rx[%d]: %d\n", funct3, rs1, rx[rs1], rs2, rx[rs2]);
                 endcase
             end
+            if (delay == 1) pc_next = pc;
         end
     end
 
@@ -109,10 +105,12 @@ module RV32I (input wire reset, input wire clock,
             mem_load <= 0;
             total_clocks <= 0;
             total_bubbles <= 0;
+            instruction_1 <= 0;
         end else begin
             mem_load <= 0;
             post_reset <= 0;
             pc <= pc_next;
+            instruction_1 <= instruction_0;
             if (post_reset == 0) begin
                 total_clocks <= total_clocks + 1;
                 `ifdef TRACE_REGS
@@ -132,7 +130,7 @@ module RV32I (input wire reset, input wire clock,
                         `endif
                     end
                     OP_LUI: begin
-                        if (rd != 0) rx[rd] <= { imm20, 12'h000 };
+                        if (rd != 0 && delay == 0) rx[rd] <= { imm20, 12'h000 };
                         `ifdef TRACE_I
                             $write("%x: %x lui r%d %d\n", pc, instruction_0, rd, { imm20, 12'h000 });
                         `endif
@@ -143,19 +141,19 @@ module RV32I (input wire reset, input wire clock,
                         `endif
                     end
                     OP_OP_IMM: begin
-                        if (rd != 0) rx[rd] <= alu_out;
+                        if (rd != 0 && delay == 0) rx[rd] <= alu_out;
                         `ifdef TRACE_I
                             $write("%x: %x ALU(%d) r%d, rs%d, %d\n", pc, instruction_0, alu_op, rd, rs1, imm12);
                         `endif
                     end
                     OP_OP: begin
-                        if (rd != 0) rx[rd] <= alu_out;
+                        if (rd != 0 && delay == 0) rx[rd] <= alu_out;
                         `ifdef TRACE_I
                             $write("%x: %x ALU(%d) r%d, rs%d, rs%d\n", pc, instruction_0, alu_op, rd, rs1, rs2);
                         `endif
                     end
                     OP_JAL: begin
-                        if (rd != 0) rx[rd] <= pc + 4;
+                        if (rd != 0 && delay == 0) rx[rd] <= pc + 4;
                         `ifdef TRACE_I
                             $write("%x: jal r%d, %x\n", pc, rd, pc + jal_offset);
                         `endif
@@ -176,7 +174,7 @@ module RV32I (input wire reset, input wire clock,
                 endcase
             end
             if (mem_load) begin
-                rx[rd] <= dmDataIn;
+                rx[rd_1] <= dmDataIn;
                 `ifdef TRACE_RD
                     $write("RD r%d <= %d\n", rd, dmDataIn);
                 `endif
@@ -235,25 +233,6 @@ module RV32I (input wire reset, input wire clock,
     parameter F3_STORE_SH = 1;
     parameter F3_STORE_SW = 2;
 
-    parameter F3_OP_OP_IMM_ADDI = 0;
-    parameter F3_OP_OP_IMM_SLTI = 2;
-    parameter F3_OP_OP_IMM_SLTIU = 3;
-    parameter F3_OP_OP_IMM_XORI = 4;
-    parameter F3_OP_OP_IMM_ORI = 6;
-    parameter F3_OP_OP_IMM_ANDI = 7;
-
     parameter F3_OP_OP_IMM_SLL1 = 1;
     parameter F3_OP_OP_IMM_SRI = 5; // SRLI if imm7 == 0, SRAI if imm7 == 7'h20
-
-    parameter F3_OP_OP_SUM = 0; // ADD if imm7 == 0, SUB if imm7 == 7'h20
-    parameter F3_OP_OP_SLL = 1; // if imm7 == 0
-    parameter F3_OP_OP_SLT = 2; // if imm7 == 0
-    parameter F3_OP_OP_SLTU = 3; // if imm7 == 0
-    parameter F3_OP_OP_XOR = 4; // if imm7 == 0
-    parameter F3_OP_OP_SR = 5; // SRL if imm7 == 0, SRA if imm7 == 7'h20
-    parameter F3_OP_OP_OR = 6; // if imm7 == 0
-    parameter F3_OP_OP_AND = 7; // if imm7 == 0
-
-    parameter IMM7_OP_OP_0 = 7'h00;
-    parameter IMM7_OP_OP_20 = 7'h20;
 endmodule
