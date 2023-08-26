@@ -1,5 +1,10 @@
 
-`include "Decoder.v"
+`define PC_INC 0
+`define TIMING_RESET 1
+`define WRITE_EN 2
+`define RA_DATA_IN_Q 3
+
+`include "DecodeLogic.v"
 `timescale 1 ns/10 ps  // time-unit = 1 ns, precision = 10 ps
 
 `define MEM_SIZE 65536
@@ -21,22 +26,40 @@ module CPU (input wire reset, input wire clock, output wire [15:0] address, outp
     output reg [7:0] data_out, input wire [7:0] data_in);
 
     reg [7:0] timing;
-    wire reset_timing;
-    wire [7:0] source, dest;
+    wire [63:0] enables;
 
-    reg [15:0] pc = 0;
-    reg [7:0] opcode;
+    reg [15:0] pc;
+    reg [7:0] opcode, data_in_q;
+    reg [7:0] ra, rx, ry;
 
     assign address = pc;
-    assign write_en = 0;
+    assign write_en = enables[`WRITE_EN];
+    assign timing_reset = enables[`TIMING_RESET];
+    assign pc_inc = enables[`PC_INC];
+    assign ra_data_in_q = enables[`RA_DATA_IN_Q];
 
-    Decoder dec (reset, timing, opcode, source, dest, reset_timing);
+    DecodeLogic dec (reset, timing, opcode, enables);
 
-    always @(posedge clock) begin
-        if (reset_timing == 1) timing <= 8'b00000001;
-        else timing <= { timing[6:0], timing[7] };
-        if (reset_timing) opcode <= data_in;
-        pc <= pc + 1;
+    always @(posedge clock, posedge reset) begin
+        if (reset == 1) begin
+            pc <= 0;
+            opcode <= 8'hea;
+            timing <= 8'b00000001;
+            data_in_q <= 0;
+            ra <= 0;
+            rx <= 0;
+            ry <= 0;
+        end else begin
+            if (timing_reset == 1) begin
+                timing <= 8'b00000001;
+                opcode <= data_in;
+            end else begin
+                timing <= { timing[6:0], timing[7] };
+            end
+            if (pc_inc == 1) pc <= pc + 1;
+            if (ra_data_in_q == 1) ra <= data_in_q;
+            data_in_q <= data_in;
+        end
     end
 endmodule
 

@@ -4,6 +4,7 @@ __pycache__/
 
 vcd/
 *.vcd
+*.gtkw
 *.vvp
 
 *.bin
