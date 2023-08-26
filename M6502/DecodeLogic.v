@@ -9,5 +9,6 @@ module DecodeLogic (input wire reset, input wire [7:0] timing, input wire [7:0] 
     assign enables[`TIMING_RESET] = reset | nop | (timing[1] & lda) | (timing[2] & jmp);
     assign enables[`WRITE_EN] = 0;
     assign enables[`PC_INC] = nop | lda | jmp;
-    assign enables[`RA_DATA_IN_Q] = lda & timing[1];
+    assign enables[`RA_OPERAND] = lda & timing[1];
+    assign enables[`PC_OPERAND] = jmp & timing[2];
 endmodule

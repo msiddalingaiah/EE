@@ -2,7 +2,8 @@
 `define PC_INC 0
 `define TIMING_RESET 1
 `define WRITE_EN 2
-`define RA_DATA_IN_Q 3
+`define RA_OPERAND 3
+`define PC_OPERAND 4
 
 `include "DecodeLogic.v"
 `timescale 1 ns/10 ps  // time-unit = 1 ns, precision = 10 ps
@@ -28,27 +29,40 @@ module CPU (input wire reset, input wire clock, output wire [15:0] address, outp
     reg [7:0] timing;
     wire [63:0] enables;
 
-    reg [15:0] pc;
-    reg [7:0] opcode, data_in_q;
+    reg [15:0] pc, pc_next, operand_16;
+    reg [7:0] opcode;
     reg [7:0] ra, rx, ry;
 
-    assign address = pc;
+    wire [7:0] operand_8 = operand_16[15:8];
+
+    assign address = pc_next;
     assign write_en = enables[`WRITE_EN];
     assign timing_reset = enables[`TIMING_RESET];
     assign pc_inc = enables[`PC_INC];
-    assign ra_data_in_q = enables[`RA_DATA_IN_Q];
+    assign ra_operand = enables[`RA_OPERAND];
+    assign pc_operand = enables[`PC_OPERAND];
 
     DecodeLogic dec (reset, timing, opcode, enables);
+
+    always @(*) begin
+        if (reset == 1) begin
+            pc_next = 0;
+        end else begin
+            pc_next = pc;
+            if (pc_inc == 1) pc_next = pc + 1;
+            if (pc_operand == 1) pc_next = operand_16;
+        end
+    end
 
     always @(posedge clock, posedge reset) begin
         if (reset == 1) begin
             pc <= 0;
             opcode <= 8'hea;
             timing <= 8'b00000001;
-            data_in_q <= 0;
             ra <= 0;
             rx <= 0;
             ry <= 0;
+            operand_16 <= 0;
         end else begin
             if (timing_reset == 1) begin
                 timing <= 8'b00000001;
@@ -56,9 +70,9 @@ module CPU (input wire reset, input wire clock, output wire [15:0] address, outp
             end else begin
                 timing <= { timing[6:0], timing[7] };
             end
-            if (pc_inc == 1) pc <= pc + 1;
-            if (ra_data_in_q == 1) ra <= data_in_q;
-            data_in_q <= data_in;
+            if (ra_operand == 1) ra <= operand_8;
+            operand_16 <= { data_in, operand_8 };
+            pc <= pc_next;
         end
     end
 endmodule
