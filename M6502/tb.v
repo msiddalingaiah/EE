@@ -1,12 +1,4 @@
 
-`define PC_INC 0
-`define TIMING_RESET 1
-`define WRITE_EN 2
-`define RA_OPERAND 3
-`define PC_OPERAND 4
-`define RX_OPERAND 5
-`define RY_OPERAND 6
-
 `include "DecodeLogic.v"
 `timescale 1 ns/10 ps  // time-unit = 1 ns, precision = 10 ps
 
@@ -26,24 +18,24 @@ module Memory(input wire clock, input wire [15:0] address, input wire write_en, 
 endmodule
 
 module CPU (input wire reset, input wire clock, output wire [15:0] address, output write_en,
-    output reg [7:0] data_out, input wire [7:0] data_in);
+    output wire [7:0] data_out, input wire [7:0] data_in);
 
     reg [7:0] timing;
     wire [63:0] enables;
 
-    reg [15:0] pc, pc_next, operand_16;
+    reg [15:0] pc, pc_next, operand_16, rp;
     reg [7:0] opcode;
     reg [7:0] ra, rx, ry;
 
     wire [7:0] operand_8 = operand_16[15:8];
 
-    assign address = pc_next;
+    assign address = enables[`ADDR_RP] ? rp : pc_next;
     assign write_en = enables[`WRITE_EN];
     assign timing_reset = enables[`TIMING_RESET];
     assign pc_inc = enables[`PC_INC];
-    assign ra_operand = enables[`RA_OPERAND];
-    assign pc_operand = enables[`PC_OPERAND];
 
+    assign data_out = enables[`DATA_OUT_RA] ? ra : 0;
+    
     DecodeLogic dec (reset, timing, opcode, enables);
 
     always @(*) begin
@@ -51,20 +43,21 @@ module CPU (input wire reset, input wire clock, output wire [15:0] address, outp
             pc_next = 0;
         end else begin
             pc_next = pc;
-            if (pc_inc == 1) pc_next = pc + 1;
-            if (pc_operand == 1) pc_next = operand_16;
+            if (enables[`PC_INC]) pc_next = pc + 1;
+            if (enables[`PC_OPERAND]) pc_next = operand_16;
         end
     end
 
     always @(posedge clock, posedge reset) begin
         if (reset == 1) begin
             pc <= 0;
-            opcode <= 8'hea;
             timing <= 8'b00000001;
             ra <= 0;
             rx <= 0;
             ry <= 0;
+            rp <= 0;
             operand_16 <= 0;
+            opcode <= 8'hea;
         end else begin
             if (timing_reset == 1) begin
                 timing <= 8'b00000001;
@@ -72,9 +65,10 @@ module CPU (input wire reset, input wire clock, output wire [15:0] address, outp
             end else begin
                 timing <= { timing[6:0], timing[7] };
             end
-            if (ra_operand == 1) ra <= operand_8;
+            if (enables[`RA_OPERAND]) ra <= operand_8;
             if (enables[`RX_OPERAND]) rx <= operand_8;
             if (enables[`RY_OPERAND]) ry <= operand_8;
+            if (enables[`RP_OPERAND]) rp <= operand_16;
             operand_16 <= { data_in, operand_8 };
             pc <= pc_next;
         end
