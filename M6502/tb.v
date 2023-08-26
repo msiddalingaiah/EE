@@ -4,6 +4,8 @@
 `define WRITE_EN 2
 `define RA_OPERAND 3
 `define PC_OPERAND 4
+`define RX_OPERAND 5
+`define RY_OPERAND 6
 
 `include "DecodeLogic.v"
 `timescale 1 ns/10 ps  // time-unit = 1 ns, precision = 10 ps
@@ -71,6 +73,8 @@ module CPU (input wire reset, input wire clock, output wire [15:0] address, outp
                 timing <= { timing[6:0], timing[7] };
             end
             if (ra_operand == 1) ra <= operand_8;
+            if (enables[`RX_OPERAND]) rx <= operand_8;
+            if (enables[`RY_OPERAND]) ry <= operand_8;
             operand_16 <= { data_in, operand_8 };
             pc <= pc_next;
         end
