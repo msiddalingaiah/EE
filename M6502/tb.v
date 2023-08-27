@@ -1,6 +1,5 @@
 
-//`include "DecodeLogic.v"
-`include "DL2.v"
+`include "DecodeLogic.v"
 `timescale 1 ns/10 ps  // time-unit = 1 ns, precision = 10 ps
 
 `define MEM_SIZE 65536
@@ -33,7 +32,7 @@ module CPU (input wire reset, input wire clock, output wire [15:0] address, outp
     assign address = enables[`ADDR_RP] ? rp : pc_next;
     assign write_en = enables[`WRITE_EN];
     assign timing_reset = enables[`TIMING_RESET];
-    assign pc_inc = enables[`PC_INC];
+    assign pc_hold = enables[`PC_HOLD];
 
     assign data_out = enables[`DATA_OUT_RA] ? ra : 0;
     
@@ -43,8 +42,8 @@ module CPU (input wire reset, input wire clock, output wire [15:0] address, outp
         if (reset == 1) begin
             pc_next = 0;
         end else begin
-            pc_next = pc;
-            if (enables[`PC_INC]) pc_next = pc + 1;
+            pc_next = pc + 1;
+            if (enables[`PC_HOLD]) pc_next = pc;
             if (enables[`PC_OPERAND]) pc_next = operand_16;
         end
     end

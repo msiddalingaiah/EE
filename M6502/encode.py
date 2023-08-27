@@ -45,7 +45,7 @@ module DecodeLogic (input wire reset, input wire [7:0] timing, input wire [7:0] 
     tail = """endmodule
 """
 
-    with open('DL2.v', 'wt') as f:
+    with open('DecodeLogic.v', 'wt') as f:
         f.write('\n')
         for line in defines:
             f.write(line + '\n')
