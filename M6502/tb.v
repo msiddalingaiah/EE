@@ -1,5 +1,6 @@
 
-`include "DecodeLogic.v"
+//`include "DecodeLogic.v"
+`include "DL2.v"
 `timescale 1 ns/10 ps  // time-unit = 1 ns, precision = 10 ps
 
 `define MEM_SIZE 65536
