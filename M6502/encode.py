@@ -31,6 +31,9 @@ if __name__ == '__main__':
         assign_opcodes.append(f"\tassign {name} = opcode == 8'h{value};")
 
     head = """
+/*
+ * This module was automatically generated. Do not Edit.
+ */
 module DecodeLogic (input wire reset, input wire [7:0] timing, input wire [7:0] opcode,
     output wire [63:0] enables);
 

@@ -34,6 +34,10 @@ module CPU (input wire reset, input wire clock, output wire [15:0] address, outp
     assign timing_reset = enables[`TIMING_RESET];
     assign pc_hold = enables[`PC_HOLD];
 
+    wire [7:0] alu_a = enables[`ALU_A_OPERAND] ? operand_8 : 0;
+    wire [7:0] alu_b = 0;
+    wire [7:0] alu_out = enables[`ALU_OP_OR] ? alu_a | alu_b : 0;
+
     assign data_out = enables[`DATA_OUT_RA] ? ra : 0;
     
     DecodeLogic dec (reset, timing, opcode, enables);
@@ -65,9 +69,9 @@ module CPU (input wire reset, input wire clock, output wire [15:0] address, outp
             end else begin
                 timing <= { timing[6:0], timing[7] };
             end
-            if (enables[`RA_OPERAND]) ra <= operand_8;
-            if (enables[`RX_OPERAND]) rx <= operand_8;
-            if (enables[`RY_OPERAND]) ry <= operand_8;
+            if (enables[`RA_ALU_OUT]) ra <= alu_out;
+            if (enables[`RX_ALU_OUT]) rx <= alu_out;
+            if (enables[`RY_ALU_OUT]) ry <= alu_out;
             if (enables[`RP_OPERAND]) rp <= operand_16;
             operand_16 <= { data_in, operand_8 };
             pc <= pc_next;
