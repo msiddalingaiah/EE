@@ -7,6 +7,7 @@ if __name__ == '__main__':
     sheet_name = 'Sheet1'
     url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/gviz/tq?tqx=out:csv&sheet={sheet_name}"
     df = pd.read_csv(url).fillna('')
+    #print(df)
     opcodes = {}
     enables = defaultdict(list)
     for index, row in df.iterrows():
@@ -28,7 +29,7 @@ if __name__ == '__main__':
     names = sorted(opcodes.keys())
     for name in names:
         value = opcodes[name]
-        assign_opcodes.append(f"\tassign {name} = opcode == 8'h{value};")
+        assign_opcodes.append(f"\tassign {name} = opcode == {value};")
 
     head = """
 /*

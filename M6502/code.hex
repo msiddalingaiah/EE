@@ -1,12 +1,11 @@
 @0000
 ea          // nop
-a9 23       // lda #23
-8d 02 5a    // sta $5a02
-a9 45       // lda #45
-ad 02 5a    // lda $5a02
+a9 30       // lda #30
+8d 10 f0    // sta $f010
+69 01       // adc #01
 a2 01       // ldx #01
 a0 09       // ldy #09
 ea          // nop
 ea
-4c 01 00
+4c 03 00
 ea

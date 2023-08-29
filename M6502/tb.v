@@ -26,6 +26,7 @@ module CPU (input wire reset, input wire clock, output wire [15:0] address, outp
     reg [15:0] pc, pc_next, operand_16, rp;
     reg [7:0] opcode;
     reg [7:0] ra, rx, ry;
+    reg fc;
 
     wire [7:0] operand_8 = operand_16[15:8];
 
@@ -35,8 +36,9 @@ module CPU (input wire reset, input wire clock, output wire [15:0] address, outp
     assign pc_hold = enables[`PC_HOLD];
 
     wire [7:0] alu_a = enables[`ALU_A_OPERAND] ? operand_8 : 0;
-    wire [7:0] alu_b = 0;
-    wire [7:0] alu_out = enables[`ALU_OP_OR] ? alu_a | alu_b : 0;
+    wire [7:0] alu_b = enables[`ALU_B_RA] ? ra : 0;
+    wire [7:0] alu_out = enables[`ALU_OP_OR] ? alu_a | alu_b :
+                        enables[`ALU_OP_ADC] ? alu_a + alu_b + fc : 0;
 
     assign data_out = enables[`DATA_OUT_RA] ? ra : 0;
     
@@ -60,6 +62,7 @@ module CPU (input wire reset, input wire clock, output wire [15:0] address, outp
             rx <= 0;
             ry <= 0;
             rp <= 0;
+            fc <= 0;
             operand_16 <= 0;
             opcode <= 8'hea;
         end else begin
@@ -126,7 +129,7 @@ module tb;
 
     always @(posedge clock) begin
         clock_count <= clock_count + 1;
-        if (clock_count == 40) sim_end <= 1;
+        if (clock_count == 100) sim_end <= 1;
         if (write_en == 1 && address == 16'hf010) $write("%s", uart_char);
         if (write_en == 1 && address == 16'hf020 && dataCOut == 8'hc0) sim_end <= 1;
         `ifdef TRACE_WR
