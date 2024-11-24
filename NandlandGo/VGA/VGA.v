@@ -50,29 +50,65 @@ module VGA (
     BinaryTo7Segment bcd72(digitCount[3:0], digit2);
 
     reg [9:0] column, row;
+    reg [2:0] red, green, blue;
+    reg [8:0] color;
+
+    reg [9:0] ball_x, ball_y, dx, dy;
 
     initial begin
         row = 0;
         column = 0;
+        color = 0;
+        ball_x = 0;
+        ball_y = 0;
+        dx = 1;
+        dy = 1;
     end
+
+    localparam H_ACTIVE = 640;
+    localparam V_ACTIVE = 480;
     
     // See https://vanhunteradams.com/DE1/VGA_Driver/Driver.html
     assign o_VGA_HSync = (column < 640+16 || column >= 640+16+96) ? 1 : 0;
     assign o_VGA_VSync = (row < 480+10 || row >= 480+10+2) ? 1 : 0;
-    assign o_VGA_Blu_2 = 0;
-    assign o_VGA_Blu_1 = 0;
-    assign o_VGA_Blu_0 = 0;
-    assign o_VGA_Grn_2 = (column < 640 && row < 480) ? 1 : 0;
-    assign o_VGA_Grn_1 = (column < 640 && row < 480) ? 1 : 0;
-    assign o_VGA_Grn_0 = (column < 640 && row < 480) ? 1 : 0;
-    assign o_VGA_Red_2 = 0;
-    assign o_VGA_Red_1 = 0;
-    assign o_VGA_Red_0 = 0;
+    assign { o_VGA_Red_2, o_VGA_Red_1, o_VGA_Red_0 } = (column < 640 && row < 480) ? red : 0;
+    assign { o_VGA_Grn_2, o_VGA_Grn_1, o_VGA_Grn_0 } = (column < 640 && row < 480) ? green : 0;
+    assign { o_VGA_Blu_2, o_VGA_Blu_1, o_VGA_Blu_0  } = (column < 640 && row < 480) ? blue : 0;
+
+    assign { red, green, blue } = color;
+
+    always @(*) begin
+        color = 0;
+        if ((ball_y - row) < 10 && (ball_x - column) < 10) begin
+            color = 9'b111111111;
+        end
+    end
 
     always @(posedge i_Clk) begin
         led_count <= led_count + 1;
         if (led_count == 0) begin
             digitCount <= digitCount + 1;
+        end
+
+        if (led_count[16:0] == 0) begin
+            ball_x <= ball_x + dx;
+            ball_y <= ball_y + dy;
+            if (ball_x == 640) begin
+                ball_x <= 639;
+                dx <= ~dx + 1;
+            end
+            if (ball_x == 0) begin
+                ball_x <= 1;
+                dx <= ~dx + 1;
+            end
+            if (ball_y == 480) begin
+                ball_y <= 479;
+                dy <= ~dy + 1;
+            end
+            if (ball_y == 0) begin
+                ball_y <= 1;
+                dy <= ~dy + 1;
+            end
         end
 
         column <= column + 1;
