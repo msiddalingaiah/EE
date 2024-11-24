@@ -14,19 +14,11 @@ module Sync_To_Count
    output reg [9:0] o_Col_Count = 0,
    output reg [9:0] o_Row_Count = 0);
    
-   wire w_Frame_Start;
-  // Look for rising edge on Vertical Sync to reset the counters
-  assign w_Frame_Start = (~o_VSync & i_VSync);
-   
-  // Register syncs to align with output data.
-  always @(posedge i_Clk) begin
-  end
-
   // Keep track of Row/Column counters.
   always @(posedge i_Clk) begin
     o_VSync <= i_VSync;
     o_HSync <= i_HSync;
-    if (w_Frame_Start == 1'b1) begin
+    if ((~o_VSync & i_VSync) == 1'b1) begin
       o_Col_Count <= 0;
       o_Row_Count <= 0;
     end else begin
