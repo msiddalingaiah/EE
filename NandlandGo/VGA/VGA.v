@@ -52,17 +52,19 @@ module VGA (
     reg [9:0] column, row;
     reg [2:0] red, green, blue;
     reg [8:0] color;
+    reg draw;
 
     reg [9:0] ball_x, ball_y, dx, dy;
 
     initial begin
         row = 0;
         column = 0;
-        color = 0;
+        color = 9'b111111000;
         ball_x = 43;
         ball_y = 71;
         dx = 1;
         dy = 1;
+        draw = 0;
     end
 
     localparam H_ACTIVE = 640;
@@ -82,12 +84,12 @@ module VGA (
     assign { o_VGA_Grn_2, o_VGA_Grn_1, o_VGA_Grn_0 } = (column < H_ACTIVE && row < V_ACTIVE) ? green : 0;
     assign { o_VGA_Blu_2, o_VGA_Blu_1, o_VGA_Blu_0  } = (column < H_ACTIVE && row < V_ACTIVE) ? blue : 0;
 
-    assign { red, green, blue } = color;
+    assign { red, green, blue } = draw ? color : 0;
 
     always @(*) begin
-        color = 0;
+        draw = 0;
         if ((ball_y - row) < 5 && (ball_x - column) < 5) begin
-            color = 9'b111111111;
+            draw = 1;
         end
     end
 
@@ -103,18 +105,22 @@ module VGA (
             if (ball_x == H_ACTIVE) begin
                 ball_x <= H_ACTIVE-1;
                 dx <= ~dx + 1;
+                color <= 9'b111000000;
             end
             if (ball_x == 0) begin
                 ball_x <= 1;
                 dx <= ~dx + 1;
+                color <= 9'b000111000;
             end
             if (ball_y == V_ACTIVE) begin
                 ball_y <= V_ACTIVE-1;
                 dy <= ~dy + 1;
+                color <= 9'b000000111;
             end
             if (ball_y == 0) begin
                 ball_y <= 1;
                 dy <= ~dy + 1;
+                color <= 9'b000111111;
             end
         end
 
