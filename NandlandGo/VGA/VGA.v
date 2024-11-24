@@ -51,8 +51,13 @@ module VGA (
 
     reg [9:0] column, row;
 
+    initial begin
+        row = 0;
+        column = 0;
+    end
+    
     // See https://vanhunteradams.com/DE1/VGA_Driver/Driver.html
-    assign o_VGA_HSync = (column < 480+16 || column >= 480+16+96) ? 1 : 0;
+    assign o_VGA_HSync = (column < 640+16 || column >= 640+16+96) ? 1 : 0;
     assign o_VGA_VSync = (row < 480+10 || row >= 480+10+2) ? 1 : 0;
     assign o_VGA_Blu_2 = 0;
     assign o_VGA_Blu_1 = 0;
