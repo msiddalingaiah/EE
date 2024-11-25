@@ -54,9 +54,11 @@ module VGA (
 
     // Beam row/column positions
     reg [9:0] column, row;
-    reg [2:0] red, green, blue;
 
-    // 9-bit beam color
+    // VGA RGB 3-bit DAC signals
+    wire [2:0] red, green, blue;
+
+    // 9-bit beam color (RGB)
     reg [8:0] color;
 
     // Ball and paddle center positions
@@ -86,8 +88,9 @@ module VGA (
         row = 0;
         column = 0;
         color = 0;
-        ball_x = 43;
-        ball_y = 71;
+        ball_x <= H_ACTIVE >> 1;
+        ball_y <= V_ACTIVE >> 1;
+
         ball_dx = 1;
         ball_dy = 1;
         paddle_left_y = V_ACTIVE >> 1;
