@@ -38,25 +38,32 @@ module VGA (
     output LED_3,
     output LED_4);
 
-    reg [7:0] digitCount = 0;
     reg [23:0] led_count = 0;
-    wire [6:0] digit1, digit2;
+    reg [3:0] left_digit, right_digit;
+    wire [6:0] left_digit_segments, right_digit_segments;
 
+    // LEDs are for operational display only, it's a nice sanity check
     assign { LED_1, LED_2, LED_3, LED_4 } = led_count[23:20];
-    assign { Segment1_A, Segment1_B, Segment1_C, Segment1_D, Segment1_E, Segment1_F, Segment1_G } = ~digit1;
-    assign { Segment2_A, Segment2_B, Segment2_C, Segment2_D, Segment2_E, Segment2_F, Segment2_G } = ~digit2;
 
-    BinaryTo7Segment bcd71(digitCount[7:4], digit1);
-    BinaryTo7Segment bcd72(digitCount[3:0], digit2);
+    // 7-segment displays are used to display left/right score
+    assign { Segment1_A, Segment1_B, Segment1_C, Segment1_D, Segment1_E, Segment1_F, Segment1_G } = ~left_digit_segments;
+    assign { Segment2_A, Segment2_B, Segment2_C, Segment2_D, Segment2_E, Segment2_F, Segment2_G } = ~right_digit_segments;
 
+    BinaryTo7Segment bcd71(left_digit, left_digit_segments);
+    BinaryTo7Segment bcd72(right_digit, right_digit_segments);
+
+    // Beam row/column positions
     reg [9:0] column, row;
     reg [2:0] red, green, blue;
+
+    // 9-bit beam color
     reg [8:0] color;
 
+    // Ball and paddle center positions
     reg [9:0] ball_x, ball_y, ball_dx, ball_dy;
     reg [9:0] paddle_left_y, paddle_right_y;
 
-    reg [1:0] state;
+    reg [1:0] game_state;
 
     localparam H_ACTIVE = 640;
     localparam H_FPORCH = 16;
@@ -67,6 +74,7 @@ module VGA (
     localparam V_FPORCH = 10;
     localparam V_PULSE = 2;
     localparam V_MAX = 525;
+
     localparam PADDLE_HEIGHT_2 = 30;
     localparam PADDLE_WIDTH = 10;
     localparam BALL_SIZE_2 = 3;
@@ -84,20 +92,26 @@ module VGA (
         ball_dy = 1;
         paddle_left_y = V_ACTIVE >> 1;
         paddle_right_y = V_ACTIVE >> 1;
-        state = IDLE;
+        left_digit = 0;
+        right_digit = 0;
+        game_state = IDLE;
     end
 
     // See https://vanhunteradams.com/DE1/VGA_Driver/Driver.html
+    // Generate horizontal and vertical sync pulses based on row/column position
     assign o_VGA_HSync = (column < H_ACTIVE+H_FPORCH || column >= H_ACTIVE+H_FPORCH+H_PULSE) ? 1 : 0;
     assign o_VGA_VSync = (row < V_ACTIVE+V_FPORCH || row >= V_ACTIVE+V_FPORCH+V_PULSE) ? 1 : 0;
+
+    // Generate beam color in active area only
     assign { o_VGA_Red_2, o_VGA_Red_1, o_VGA_Red_0 } = (column < H_ACTIVE && row < V_ACTIVE) ? red : 0;
     assign { o_VGA_Grn_2, o_VGA_Grn_1, o_VGA_Grn_0 } = (column < H_ACTIVE && row < V_ACTIVE) ? green : 0;
     assign { o_VGA_Blu_2, o_VGA_Blu_1, o_VGA_Blu_0  } = (column < H_ACTIVE && row < V_ACTIVE) ? blue : 0;
 
+    // 9-bit beam color
     assign { red, green, blue } = color;
 
+    // Combinational logic to generate color for each "pixel", e.g. "Racing the Beam"
     always @(*) begin
-        draw = 0;
         color = 0;
         if ((ball_y - row < BALL_SIZE_2 || row - ball_y < BALL_SIZE_2)
                 && (ball_x - column < BALL_SIZE_2 || column - ball_x < BALL_SIZE_2)) begin
@@ -114,18 +128,25 @@ module VGA (
     end
 
     always @(posedge i_Clk) begin
-        led_count <= led_count + 1;
-        if (led_count == 0) begin
-            digitCount <= digitCount + 1;
+        column <= column + 1;
+        if (column == H_MAX-1) begin
+            column <= 0;
+            row <= row + 1;
+            if (row == V_MAX-1) begin
+                row <= 0;
+            end
         end
 
+        led_count <= led_count + 1;
+
+        // led_count is used for game refresh rate
         if (led_count[16:0] == 0) begin
-            if (state == IDLE) begin
+            if (game_state == IDLE) begin
                 ball_x <= H_ACTIVE >> 1;
                 ball_y <= V_ACTIVE >> 1;
-                if (i_Switch_1) state <= PLAY;
+                if (i_Switch_1) game_state <= PLAY;
             end
-            if (state == PLAY) begin
+            if (game_state == PLAY) begin
                 ball_x <= ball_x + ball_dx;
                 ball_y <= ball_y + ball_dy;
             end
@@ -135,7 +156,8 @@ module VGA (
                     ball_dx <= ~ball_dx + 1;
                 end else begin
                     // Left player wins..
-                    state <= IDLE;
+                    left_digit <= left_digit + 1;
+                    game_state <= IDLE;
                 end
             end
             if (ball_x == 0) begin
@@ -144,7 +166,8 @@ module VGA (
                     ball_dx <= ~ball_dx + 1;
                 end else begin
                     // Right player wins..
-                    state <= IDLE;
+                    right_digit <= right_digit + 1;
+                    game_state <= IDLE;
                 end
             end
             if (ball_y == V_ACTIVE) begin
@@ -160,15 +183,6 @@ module VGA (
             if (i_Switch_2 && paddle_left_y < V_ACTIVE-PADDLE_HEIGHT_2) paddle_left_y <= paddle_left_y + 1;
             if (i_Switch_3 && paddle_right_y > PADDLE_HEIGHT_2) paddle_right_y <= paddle_right_y - 1;
             if (i_Switch_4 && paddle_right_y < V_ACTIVE-PADDLE_HEIGHT_2) paddle_right_y <= paddle_right_y + 1;
-        end
-
-        column <= column + 1;
-        if (column == H_MAX-1) begin
-            column <= 0;
-            row <= row + 1;
-            if (row == V_MAX-1) begin
-                row <= 0;
-            end
         end
     end
 endmodule
