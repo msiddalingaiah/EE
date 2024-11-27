@@ -1,7 +1,7 @@
 
 # VGA Pong
 
-A lightweight [VGA](https://vanhunteradams.com/DE1/VGA_Driver/Driver.html) [Pong](https://www.reddit.com/r/EngineeringPorn/comments/ul49zt/the_original_pong_video_game_had_no_code_and_was/) game in Verilog.
+A lightweight [VGA](https://vanhunteradams.com/DE1/VGA_Driver/Driver.html) [Pong](https://www.pong-story.com/LAWN_TENNIS.pdf) game in Verilog.
 
 ![VGA Pong](images/board.png "VGA Pong")
 
@@ -19,10 +19,10 @@ make test
 
 ## Synthesis
 
-[Project IceStorm](https://clifford.at/icestorm) open source tools were used for synthesis. Synthesis is known to work on [WSL](https://docs.microsoft.com/en-us/windows/wsl/install) Ubuntu running on Windows 11. The following command will build and program the FPGA:
+[Project IceStorm](https://clifford.at/icestorm) open source tools were used for synthesis. Synthesis is known to work on [WSL](https://docs.microsoft.com/en-us/windows/wsl/install) Ubuntu running on Windows 11. The following command will perform synthesis and generate the bitstream suitable for programming the FPGA:
 
 ```
-make prog
+make
 ```
 
 USB support on WSL requires [usbipd](https://devblogs.microsoft.com/commandline/connecting-usb-devices-to-wsl) for device programming in WSL. To connect a USB device to WSL Ubuntu, the following commands must be executed from an **administrator** command prompt on Windows:
@@ -36,8 +36,16 @@ usbipd wsl attach --busid <busid>
 
 Where busid is the appropriate USB bus ID from the wsl list command above. The device should appear in WSL Ubuntu using ```lsusb```.
 
+Alternatively, Windows Powershell in VSCode is quicker. Open a Windows Powershell terminal in VSCode using Terminal | New Terminal and run the following command to list available usb devices:
+
+```
+.\usb.bat
+```
+
+Then run ```usbipd wsl attach --busid <busid>``` as described above.
+
 The board can be programmed from WSL Ubuntu using:
 
 ```
-make sudo-prog
+make prog
 ```

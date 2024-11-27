@@ -18,17 +18,15 @@ PROJ = VGA
 PIN_DEF = nandland_go.pcf
 DEVICE = hx1k
 PACKAGE = vq100
-
-# Comment QUIET for detailed output
-#QUIET = -q
+FREQ_MHz = 25
 
 all: $(PROJ).rpt $(PROJ).bin
 
 %.json: %.v Makefile *.v
-	yosys $(QUIET) -p 'synth_ice40 -top $(PROJ) -json $@' $<
+	yosys -q -p 'synth_ice40 -top $(PROJ) -json $@' $<
 
 %.asc: $(PIN_DEF) %.json
-	nextpnr-ice40 $(QUIET) --$(DEVICE) --package $(PACKAGE) --json $(word 2,$^) --pcf $(PIN_DEF) --asc $@
+	nextpnr-ice40 -q -l vcd/log.txt --freq $(FREQ_MHz) $(QUIET) --$(DEVICE) --package $(PACKAGE) --json $(word 2,$^) --pcf $(PIN_DEF) --asc $@
 
 %.bin: %.asc
 	icepack $< $@
