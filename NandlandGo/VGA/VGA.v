@@ -66,6 +66,7 @@ module VGA (
     reg [9:0] paddle_left_y, paddle_right_y;
 
     reg [1:0] game_state;
+    reg hsync, vsync;
 
     localparam H_ACTIVE = 10'd640;
     localparam H_FPORCH = 10'd16;
@@ -98,12 +99,14 @@ module VGA (
         left_digit = 0;
         right_digit = 0;
         game_state = IDLE;
+        hsync = 1'b1;
+        vsync = 1'b1;
     end
 
     // See https://vanhunteradams.com/DE1/VGA_Driver/Driver.html
     // Generate horizontal and vertical sync pulses based on row/column position
-    assign o_VGA_HSync = (column < H_ACTIVE+H_FPORCH || column >= H_ACTIVE+H_FPORCH+H_PULSE) ? 1 : 0;
-    assign o_VGA_VSync = (row < V_ACTIVE+V_FPORCH || row >= V_ACTIVE+V_FPORCH+V_PULSE) ? 1 : 0;
+    assign o_VGA_HSync = hsync;
+    assign o_VGA_VSync = vsync;
 
     // Generate beam color in active area only
     assign { o_VGA_Red_2, o_VGA_Red_1, o_VGA_Red_0 } = (column < H_ACTIVE && row < V_ACTIVE) ? red : 0;
@@ -139,6 +142,10 @@ module VGA (
                 row <= 0;
             end
         end
+        if (column == H_ACTIVE+H_FPORCH-10'd1) hsync <= 1'b0;
+        if (column == H_ACTIVE+H_FPORCH+H_PULSE-10'd1) hsync <= 1'b1;
+        if (row == V_ACTIVE+V_FPORCH-10'd1) vsync <= 1'b0;
+        if (row == V_ACTIVE+V_FPORCH+V_PULSE-10'd1) vsync <= 1'b1;
 
         led_count <= led_count + 1;
 
