@@ -2,6 +2,19 @@
 import pandas as pd
 from collections import defaultdict
 
+'''
+Flags:
+
+BRK: B
+BIT: N V Z
+ADC SBC: N V Z C
+AND DEC EOR INC LDA LDX LDY ORA Register: N Z
+ASL CMP CPX CPY LSR ROL ROR: N Z C
+RTI: all
+Flag: as noted
+Branch JMP JSR NOP RTS STA STX STY: none
+'''
+
 if __name__ == '__main__':
     sheet_id = '1qyLGqIjKDMJsN9bKOeyYNXZg_xGTqNLmVT-KvU2YOd4'
     sheet_name = 'Sheet1'
