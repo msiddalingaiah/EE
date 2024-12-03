@@ -1,12 +1,14 @@
 
-module SpriteROM(input wire clock, input wire [6:0] row_address, output reg [255:0] row_data);
-    reg [255:0] memory[0:127];
+module SpriteROM(input wire clock, input wire [5:0] sprite_num, input wire [2:0] row_num, output reg [15:0] row_data);
+    reg [15:0] memory[0:143];
     initial begin
         $readmemh("sprites.txt", memory);
     end
 
+    wire [7:0] mem_address = { sprite_num[4:0], row_num };
+
     always @(posedge clock) begin
-        row_data <= memory[row_address];
+        row_data <= memory[mem_address];
     end
 endmodule
 
@@ -71,16 +73,17 @@ module Sprites (
 
     // 9-bit beam color (RGB)
     reg [8:0] color;
+    reg hsync, vsync;
 
-    localparam H_ACTIVE = 640;
-    localparam H_FPORCH = 16;
-    localparam H_PULSE = 96;
-    localparam H_MAX = 800;
+    localparam H_ACTIVE = 10'd640;
+    localparam H_FPORCH = 10'd16;
+    localparam H_PULSE = 10'd96;
+    localparam H_MAX = 10'd800;
 
-    localparam V_ACTIVE = 480;
-    localparam V_FPORCH = 10;
-    localparam V_PULSE = 2;
-    localparam V_MAX = 525;
+    localparam V_ACTIVE = 10'd480;
+    localparam V_FPORCH = 10'd10;
+    localparam V_PULSE = 10'd2;
+    localparam V_MAX = 10'd525;
 
     initial begin
         row = 0;
@@ -88,13 +91,16 @@ module Sprites (
         color = 0;
         left_digit = 0;
         right_digit = 0;
-        shift_reg = { 32'hff00ff00, 32'hff00ff00, 32'hff00ff00, 32'hff00ff00, 32'hff00ff00, 32'hff00ff00, 32'hff00ff00, 32'hff00ff00 };
+        hsync = 1'b1;
+        vsync = 1'b1;
+        shift_reg = 0;
+        sprite_num = 0;
     end
 
     // See https://vanhunteradams.com/DE1/VGA_Driver/Driver.html
     // Generate horizontal and vertical sync pulses based on row/column position
-    assign o_VGA_HSync = (column < H_ACTIVE+H_FPORCH || column >= H_ACTIVE+H_FPORCH+H_PULSE) ? 1 : 0;
-    assign o_VGA_VSync = (row < V_ACTIVE+V_FPORCH || row >= V_ACTIVE+V_FPORCH+V_PULSE) ? 1 : 0;
+    assign o_VGA_HSync = hsync;
+    assign o_VGA_VSync = vsync;
 
     // Generate beam color in active area only
     assign { o_VGA_Red_2, o_VGA_Red_1, o_VGA_Red_0 } = (column < H_ACTIVE && row < V_ACTIVE) ? red : 0;
@@ -104,16 +110,17 @@ module Sprites (
     // 9-bit beam color
     assign { red, green, blue } = color;
 
-    wire [255:0] sprite_row;
-    wire [6:0] sprite_address = row[7:1];
-    reg [255:0] shift_reg;
+    wire [15:0] sprite_row;
+    reg [5:0] sprite_num;
+    wire [2:0] sprite_row_num = row[3:1];
+    reg [15:0] shift_reg;
 
-    SpriteROM sr(i_Clk, sprite_address, sprite_row);
+    SpriteROM sr(i_Clk, sprite_num, sprite_row_num, sprite_row);
 
     // Combinational logic to generate color for each "pixel", e.g. "Racing the Beam"
     always @(*) begin
         color = 0;
-        case (shift_reg[255:254])
+        case (shift_reg[15:14])
             0: color = 9'b000000000;
             1: color = 9'b111111100;
             2: color = 9'b111000000;
@@ -123,15 +130,24 @@ module Sprites (
 
     always @(posedge i_Clk) begin
         column <= column + 1;
-        if (column[0] == 0) shift_reg <= { shift_reg[253:0], shift_reg[255:254] };
+        if (column[0] == 0) shift_reg <= { shift_reg[13:0], shift_reg[15:14] };
+        if (column[3:0] == 4'd0) begin
+            sprite_num <= sprite_num + 1;
+            shift_reg <= sprite_row;
+        end
         if (column == H_MAX-1) begin
             column <= 0;
-            shift_reg <= sprite_row;
             row <= row + 1;
+            sprite_num <= 0;
             if (row == V_MAX-1) begin
                 row <= 0;
+                sprite_num <= 0;
             end
         end
+        if (column == H_ACTIVE+H_FPORCH-10'd1) hsync <= 1'b0;
+        if (column == H_ACTIVE+H_FPORCH+H_PULSE-10'd1) hsync <= 1'b1;
+        if (row == V_ACTIVE+V_FPORCH-10'd1) vsync <= 1'b0;
+        if (row == V_ACTIVE+V_FPORCH+V_PULSE-10'd1) vsync <= 1'b1;
 
         led_count <= led_count + 1;
 
