@@ -5,7 +5,7 @@ A lightweight [VGA](https://vanhunteradams.com/DE1/VGA_Driver/Driver.html) [Pong
 
 ![VGA Pong](images/board.png "VGA Pong")
 
-The code runs on a [Nandland Go Board](https://nandland.com/the-go-board/), using about 1006 of the 1280 available logic cells in a Lattice iCE40HX1K. The two 7-segment LED displays are used for left/right score keeping.
+The code runs on a [Nandland Go Board](https://nandland.com/the-go-board/), using about 725 of the 1280 available logic cells in a Lattice iCE40HX1K. The two 7-segment LED displays are used for left/right score keeping.
 
 The code is not optimized in any way, written mostly for readability. It's requires a 25 MHz clock (VGA spec is 25.175 MHz). Max design frequency is 64 MHz.
 

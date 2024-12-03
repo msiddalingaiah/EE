@@ -67,22 +67,22 @@ module VGA (
 
     reg [1:0] game_state;
 
-    localparam H_ACTIVE = 640;
-    localparam H_FPORCH = 16;
-    localparam H_PULSE = 96;
-    localparam H_MAX = 800;
+    localparam H_ACTIVE = 10'd640;
+    localparam H_FPORCH = 10'd16;
+    localparam H_PULSE = 10'd96;
+    localparam H_MAX = 10'd800;
 
-    localparam V_ACTIVE = 480;
-    localparam V_FPORCH = 10;
-    localparam V_PULSE = 2;
-    localparam V_MAX = 525;
+    localparam V_ACTIVE = 10'd480;
+    localparam V_FPORCH = 10'd10;
+    localparam V_PULSE = 10'd2;
+    localparam V_MAX = 10'd525;
 
-    localparam PADDLE_HEIGHT_2 = 30;
-    localparam PADDLE_WIDTH = 10;
-    localparam BALL_SIZE_2 = 3;
+    localparam PADDLE_HEIGHT_2 = 10'd30;
+    localparam PADDLE_WIDTH = 10'd10;
+    localparam BALL_SIZE_2 = 10'd3;
 
-    localparam IDLE = 0;
-    localparam PLAY = 1;
+    localparam IDLE = 2'd0;
+    localparam PLAY = 2'd1;
 
     initial begin
         row = 0;
