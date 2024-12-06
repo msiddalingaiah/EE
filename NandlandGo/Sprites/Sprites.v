@@ -1,14 +1,19 @@
 
-module SpriteROM(input wire clock, input wire [5:0] sprite_num, input wire [2:0] row_num, output reg [15:0] row_data);
-    reg [15:0] memory[0:143];
+module SpriteROM(input wire clock, input wire [5:0] sprite_num, input wire [2:0] row_num, input wire [2:0] col_num, output reg [1:0] pixel);
+    reg [1:0] memory[0:2047];
     initial begin
-        $readmemh("sprites.txt", memory);
+        $readmemb("sprites.txt", memory);
+        pixel = 0;
     end
 
-    wire [7:0] mem_address = { sprite_num[4:0], row_num };
+    wire [10:0] mem_address = { sprite_num[5:0], row_num, col_num };
 
     always @(posedge clock) begin
-        row_data <= memory[mem_address];
+        // if (pixel === 2'bxx) begin
+        //     $display("X pixel at 0x%x, %d\n", mem_address, mem_address);
+        //     $finish;
+        // end
+        pixel <= memory[mem_address];
     end
 endmodule
 
@@ -49,10 +54,16 @@ module Sprites (
     output LED_1,
     output LED_2,
     output LED_3,
-    output LED_4);
+    output LED_4
+`ifdef TESTBENCH
+    , output wire [9:0] tb_row,
+    output wire [9:0] tb_column,
+    output wire [1:0] tb_pixel);
+`else
+	);
+`endif
 
     reg [23:0] led_count = 0;
-    reg [3:0] left_digit, right_digit;
     wire [6:0] left_digit_segments, right_digit_segments;
 
     // LEDs are for operational display only, it's a nice sanity check
@@ -62,8 +73,8 @@ module Sprites (
     assign { Segment1_A, Segment1_B, Segment1_C, Segment1_D, Segment1_E, Segment1_F, Segment1_G } = ~left_digit_segments;
     assign { Segment2_A, Segment2_B, Segment2_C, Segment2_D, Segment2_E, Segment2_F, Segment2_G } = ~right_digit_segments;
 
-    BinaryTo7Segment bcd71(left_digit, left_digit_segments);
-    BinaryTo7Segment bcd72(right_digit, right_digit_segments);
+    BinaryTo7Segment bcd71({2'b00, sprite_num[5:4]}, left_digit_segments);
+    BinaryTo7Segment bcd72(sprite_num[3:0], right_digit_segments);
 
     // Beam row/column positions
     reg [9:0] column, row;
@@ -89,11 +100,8 @@ module Sprites (
         row = 0;
         column = 0;
         color = 0;
-        left_digit = 0;
-        right_digit = 0;
         hsync = 1'b1;
         vsync = 1'b1;
-        shift_reg = 0;
         sprite_num = 0;
     end
 
@@ -110,17 +118,23 @@ module Sprites (
     // 9-bit beam color
     assign { red, green, blue } = color;
 
-    wire [15:0] sprite_row;
+    wire [1:0] sprite_pixel;
     reg [5:0] sprite_num;
     wire [2:0] sprite_row_num = row[3:1];
-    reg [15:0] shift_reg;
+    wire [2:0] sprite_col_num = column[3:1];
 
-    SpriteROM sr(i_Clk, sprite_num, sprite_row_num, sprite_row);
+    SpriteROM sr(i_Clk, sprite_num, sprite_row_num, sprite_col_num, sprite_pixel);
+
+`ifdef TESTBENCH
+    assign tb_pixel = sprite_pixel;
+    assign tb_row = row;
+    assign tb_column = column;
+`endif
 
     // Combinational logic to generate color for each "pixel", e.g. "Racing the Beam"
     always @(*) begin
         color = 0;
-        case (shift_reg[15:14])
+        case (sprite_pixel)
             0: color = 9'b000000000;
             1: color = 9'b111111100;
             2: color = 9'b111000000;
@@ -130,18 +144,14 @@ module Sprites (
 
     always @(posedge i_Clk) begin
         column <= column + 1;
-        if (column[0] == 0) shift_reg <= { shift_reg[13:0], shift_reg[15:14] };
-        if (column[3:0] == 4'd0) begin
-            sprite_num <= sprite_num + 1;
-            shift_reg <= sprite_row;
+        if (column[4:0] == 5'd0) begin
+            // sprite_num <= sprite_num + 1'b1;
         end
         if (column == H_MAX-1) begin
             column <= 0;
             row <= row + 1;
-            sprite_num <= 0;
             if (row == V_MAX-1) begin
                 row <= 0;
-                sprite_num <= 0;
             end
         end
         if (column == H_ACTIVE+H_FPORCH-10'd1) hsync <= 1'b0;
@@ -153,6 +163,10 @@ module Sprites (
 
         // led_count is used for game refresh rate
         if (led_count[16:0] == 0) begin
+        end
+        if (led_count == 0) begin
+            sprite_num <= sprite_num + 1;
+            if (sprite_num == 6'd31) sprite_num <= 0;
         end
     end
 endmodule

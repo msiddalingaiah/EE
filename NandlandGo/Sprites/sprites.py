@@ -77,28 +77,54 @@ def show_sprite(sprites, sprite_index, offset=0):
     plt.show()
 
 def write_sprite(f, sprite, sprite_num):
-    f.write(f'\n// Sprite {sprite_num}\n')
     for row in range(8):
-        word = 0
         for col in range(8):
-            word <<= 2
-            word |= int(sprite[row, col])
-        f.write(f'{word:04x}\n')
+            word = int(sprite[row, col])
+            suffix = ''
+            if row == 0 and col == 0:
+                suffix = f'// Sprite {sprite_num}'
+            f.write(f'{word:02b} {suffix}\n')
 
 if __name__ == '__main__':
     sprites = get_sprites()
     # show_all_sprites(sprites)
-    word_count = 0
+    bit_count = 0
     sprite_num = 0
     with open('sprites.txt', 'wt') as f:
+        word_count = 0
         for i in range(10):
             s = get_sprite(sprites, 96+i, 0)
             write_sprite(f, s, sprite_num)
             sprite_num += 1
-            word_count += 8
+            bit_count += 8*8*2
+            word_count += 8*8
         for i in range(0, 16, 2):
             s = get_sprite(sprites, i, 4)
             write_sprite(f, s, sprite_num)
             sprite_num += 1
-            word_count += 8
-    print(f'{sprite_num} Sprites, {word_count} words, {word_count<<1} bytes, {(word_count<<4) >> 10} kbits')
+            bit_count += 8*8*2
+            word_count += 8*8
+        s = get_sprite(sprites, 16, 4)
+        write_sprite(f, s, sprite_num)
+        sprite_num += 1
+        bit_count += 8*8*2
+        word_count += 8*8
+        for i in range(20, 28, 1):
+            s = get_sprite(sprites, i, 0)
+            write_sprite(f, s, sprite_num)
+            sprite_num += 1
+            bit_count += 8*8*2
+            word_count += 8*8
+        for i in [28, 30]:
+            s = get_sprite(sprites, i, 3)
+            write_sprite(f, s, sprite_num)
+            sprite_num += 1
+            bit_count += 8*8*2
+            word_count += 8*8
+        for i in range(32, 35, 1):
+            s = get_sprite(sprites, i, 0)
+            write_sprite(f, s, sprite_num)
+            sprite_num += 1
+            bit_count += 8*8*2
+            word_count += 8*8
+    print(f'{sprite_num} Sprites, {word_count} words, {bit_count>>3} bytes, {bit_count} bits')

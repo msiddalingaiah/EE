@@ -1,6 +1,8 @@
 
 `timescale 1 ns/10 ps  // time-unit = 1 ns, precision = 10 ps
 
+`define TESTBENCH
+
 `include "Sprites.v"
 
 module Clock(output reg clock);
@@ -14,10 +16,14 @@ module Clock(output reg clock);
 endmodule
 
 module TestBench;
+    integer fd;
     initial begin
-        $dumpfile("vcd/TestBench.vcd");
-        $dumpvars(0, TestBench);
+        // $dumpfile("vcd/TestBench.vcd");
+        // $dumpvars(0, TestBench);
         cycle_count = 0;
+        pixel_shift_reg = 0;
+        pixel_sr_count = 0;
+        fd = $fopen("vcd/image.txt", "w");
     end
 
     reg [31:0] cycle_count;
@@ -62,6 +68,12 @@ module TestBench;
     wire LED_2;
     wire LED_3;
     wire LED_4;
+    wire [9:0] tb_row;
+    wire [9:0] tb_column;
+    wire [1:0] tb_pixel;
+
+    reg [31:0] pixel_shift_reg;
+    reg [4:0] pixel_sr_count;
 
     Sprites sp(
         i_Clk,
@@ -100,12 +112,23 @@ module TestBench;
         LED_1,
         LED_2,
         LED_3,
-        LED_4);
+        LED_4,
+        tb_row,
+        tb_column,
+        tb_pixel);
     
     always @(posedge i_Clk) begin
         cycle_count <= cycle_count + 1;
-        if (cycle_count > 810*3) begin
+        if (cycle_count > 810*64) begin
+            $fclose(fd);
             $finish;
+        end
+        if (tb_row < 256 && tb_column >= 100 && tb_column < 100+256) begin
+            pixel_shift_reg <= { pixel_shift_reg[29:0], tb_pixel };
+            pixel_sr_count <= pixel_sr_count + 1;
+            if (pixel_sr_count == 31) begin
+                $fdisplayh(fd, pixel_shift_reg);
+            end
         end
     end
 endmodule
