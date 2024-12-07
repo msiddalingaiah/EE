@@ -43,6 +43,7 @@ sudo-prog: $(PROJ).bin
 
 test: TestBench
 	vvp vcd/TestBench
+	py .\show_image.py
 
 TestBench: *.v
 	iverilog -o vcd/TestBench TestBench.v

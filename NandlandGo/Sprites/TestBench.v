@@ -123,7 +123,7 @@ module TestBench;
             $fclose(fd);
             $finish;
         end
-        if (tb_row < 256 && tb_column >= 100 && tb_column < 100+256) begin
+        if (tb_row < 256 && tb_column >= 16 && tb_column < 16+256) begin
             pixel_shift_reg <= { pixel_shift_reg[29:0], tb_pixel };
             pixel_sr_count <= pixel_sr_count + 1;
             if (pixel_sr_count == 31) begin

@@ -92,37 +92,13 @@ if __name__ == '__main__':
     sprite_num = 0
     with open('sprites.txt', 'wt') as f:
         word_count = 0
-        for i in range(10):
-            s = get_sprite(sprites, 96+i, 0)
-            write_sprite(f, s, sprite_num)
-            sprite_num += 1
-            bit_count += 8*8*2
-            word_count += 8*8
-        for i in range(0, 16, 2):
-            s = get_sprite(sprites, i, 4)
-            write_sprite(f, s, sprite_num)
-            sprite_num += 1
-            bit_count += 8*8*2
-            word_count += 8*8
-        s = get_sprite(sprites, 16, 4)
-        write_sprite(f, s, sprite_num)
-        sprite_num += 1
-        bit_count += 8*8*2
-        word_count += 8*8
-        for i in range(20, 28, 1):
-            s = get_sprite(sprites, i, 0)
-            write_sprite(f, s, sprite_num)
-            sprite_num += 1
-            bit_count += 8*8*2
-            word_count += 8*8
-        for i in [28, 30]:
-            s = get_sprite(sprites, i, 3)
-            write_sprite(f, s, sprite_num)
-            sprite_num += 1
-            bit_count += 8*8*2
-            word_count += 8*8
-        for i in range(32, 35, 1):
-            s = get_sprite(sprites, i, 0)
+        sprite_list = np.array([(255, 0), (44, 0), (45, 0), (48, 0), (49, 0), (20, 0), (21, 0), (28, 3),
+            (0, 4), (10, 4), (14, 4), (16, 4), (120, 0), (121, 0), (122, 0), (123, 0), (96, 0),
+            (97, 0), (98, 0), (99, 0), (100, 0), (101, 0), (102, 0), (103, 0), (104, 0),
+            (105, 0), (107, 0), (108, 0), (109, 0), (58, 4), (60, 4), (62, 4)])
+
+        for i, o in sprite_list:
+            s = get_sprite(sprites, i, o)
             write_sprite(f, s, sprite_num)
             sprite_num += 1
             bit_count += 8*8*2

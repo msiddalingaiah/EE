@@ -63,7 +63,7 @@ module Sprites (
 	);
 `endif
 
-    reg [23:0] led_count = 0;
+    reg [25:0] led_count = 0;
     wire [6:0] left_digit_segments, right_digit_segments;
 
     // LEDs are for operational display only, it's a nice sanity check
@@ -103,6 +103,8 @@ module Sprites (
         hsync = 1'b1;
         vsync = 1'b1;
         sprite_num = 0;
+        sprite_x = 10'h7f;
+        sprite_y = 10'h7f;
     end
 
     // See https://vanhunteradams.com/DE1/VGA_Driver/Driver.html
@@ -119,11 +121,12 @@ module Sprites (
     assign { red, green, blue } = color;
 
     wire [1:0] sprite_pixel;
-    reg [5:0] sprite_num;
-    wire [2:0] sprite_row_num = row[3:1];
-    wire [2:0] sprite_col_num = column[3:1];
+    reg [5:0] sprite_num, sprite_draw;
+    reg [2:0] sprite_row_num;
+    reg [2:0] sprite_col_num;
+    reg [9:0] sprite_x, sprite_y, sprite_dx, sprite_dy;
 
-    SpriteROM sr(i_Clk, sprite_num, sprite_row_num, sprite_col_num, sprite_pixel);
+    SpriteROM sr(i_Clk, sprite_draw, sprite_row_num, sprite_col_num, sprite_pixel);
 
 `ifdef TESTBENCH
     assign tb_pixel = sprite_pixel;
@@ -140,13 +143,19 @@ module Sprites (
             2: color = 9'b111000000;
             3: color = 9'b000111000;
         endcase
+        sprite_draw = 0;
+        sprite_dx = column - sprite_x;
+        sprite_dy = row - sprite_y;
+        if ((sprite_dy[9:4] == 6'hff) && (sprite_dx < 10'd16)) begin
+            sprite_draw = sprite_num;
+        end
+        sprite_row_num = sprite_dy[3:1];
+        sprite_col_num = sprite_dx[3:1];
     end
 
     always @(posedge i_Clk) begin
         column <= column + 1;
-        if (column[4:0] == 5'd0) begin
-            // sprite_num <= sprite_num + 1'b1;
-        end
+        // sprite_num <= column[8:4];
         if (column == H_MAX-1) begin
             column <= 0;
             row <= row + 1;
@@ -162,11 +171,12 @@ module Sprites (
         led_count <= led_count + 1;
 
         // led_count is used for game refresh rate
-        if (led_count[16:0] == 0) begin
+        if (led_count[17:0] == 0) begin
+            sprite_x <= ((sprite_x + 1'b1) & 10'hff) | 10'h80;
+            sprite_y <= ((sprite_y + 1'b1) & 10'hff) | 10'h80;
         end
         if (led_count == 0) begin
-            sprite_num <= sprite_num + 1;
-            if (sprite_num == 6'd31) sprite_num <= 0;
+            sprite_num <= sprite_num + 1'b1;
         end
     end
 endmodule

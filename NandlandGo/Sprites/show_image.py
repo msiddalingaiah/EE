@@ -16,11 +16,12 @@ cmaps.append(matplotlib.colors.ListedColormap(["#000000", "#00FF00", "#FF00FF", 
 cmaps.append(matplotlib.colors.ListedColormap(["#000000", "#FFFF00", "#FF0000", "#00FFFF"], name='from_list', N=None))
 
 def show_image(data):
-    plt.figure(figsize=(7, 3))
+    plt.figure(figsize=(7, 2))
     plt.imshow(data, cmap=cmaps[0])
     plt.show()
 
 if __name__ == '__main__':
+    plt.rcParams['axes.facecolor'] = 'black'
     with open('vcd/image.txt') as f:
         data = []
         lines = f.readlines()
@@ -30,5 +31,4 @@ if __name__ == '__main__':
                 data.append((word32 >> 30-i) & 3)
         rows = int(len(data)/256)
         data = data[0:rows*256]
-        print(len(data), len(data)/256)
         show_image(np.array(data).reshape(rows, 256))
