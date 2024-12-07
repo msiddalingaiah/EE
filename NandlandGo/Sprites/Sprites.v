@@ -116,8 +116,8 @@ module Sprites (
         hsync = 1'b1;
         vsync = 1'b1;
         sprite_num = 0;
-        sprite_x = 10'h7f;
-        sprite_y = 10'h7f;
+        sprite_x = 10'h00;
+        sprite_y = 10'h00;
     end
 
     // See https://vanhunteradams.com/DE1/VGA_Driver/Driver.html
@@ -144,7 +144,6 @@ module Sprites (
     wire [10:0] lr_write_addr = { 2'b00, row[1], column[8:1] };
     wire [1:0] lr_rd_data;
     reg [1:0] lr_wr_data;
-    reg line_match;
 
     SpriteROM sr(i_Clk, sprite_draw, sprite_row_num, sprite_col_num, sprite_pixel);
     LineRAM lr(i_Clk, lr_write, lr_write_addr, lr_wr_data, lr_read_addr, lr_rd_data);
@@ -170,12 +169,12 @@ module Sprites (
         lr_wr_data = sprite_pixel;
         sprite_dx = column - sprite_x;
         sprite_dy = row - sprite_y;
-        line_match = sprite_dy[9:4] == 6'h3f;
-        if (line_match && (sprite_dx < 10'd16)) begin
-            sprite_draw = sprite_num;
-            lr_write = 1'b1;
-        end
-        if (line_match == 0) begin
+        if (sprite_dy[9:4] == 6'h3f) begin
+            if (sprite_dx < 10'd16) begin
+                sprite_draw = sprite_num;
+                lr_write = 1'b1;
+            end
+        end else begin
             lr_wr_data <= 0;
             lr_write = 1'b1;
         end
@@ -202,8 +201,8 @@ module Sprites (
 
         // led_count is used for game refresh rate
         if (led_count[17:0] == 0) begin
-            sprite_x <= ((sprite_x + 1'b1) & 10'hff) | 10'h80;
-            sprite_y <= ((sprite_y + 1'b1) & 10'hff) | 10'h80;
+            sprite_x <= (sprite_x + 2'd2) & 10'h1ff;
+            sprite_y <= (sprite_y + 2'd2) & 10'h1ff;
         end
         if (led_count == 0) begin
             sprite_num <= sprite_num + 1'b1;
