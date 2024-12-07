@@ -142,13 +142,15 @@ module Sprites (
     // Ping-pong every other line
     wire [10:0] lr_read_addr = { 2'b00, ~row[1], column[8:1] };
     wire [10:0] lr_write_addr = { 2'b00, row[1], column[8:1] };
-    wire [1:0] lr_wr_data;
+    wire [1:0] lr_rd_data;
+    reg [1:0] lr_wr_data;
+    reg line_match;
 
-    SpriteROM sr(i_Clk, sprite_draw, sprite_row_num, sprite_col_num, lr_wr_data);
-    LineRAM lr(i_Clk, lr_write, lr_write_addr, lr_wr_data, lr_read_addr, sprite_pixel);
+    SpriteROM sr(i_Clk, sprite_draw, sprite_row_num, sprite_col_num, sprite_pixel);
+    LineRAM lr(i_Clk, lr_write, lr_write_addr, lr_wr_data, lr_read_addr, lr_rd_data);
 
 `ifdef TESTBENCH
-    assign tb_pixel = sprite_pixel;
+    assign tb_pixel = lr_rd_data;
     assign tb_row = row;
     assign tb_column = column;
 `endif
@@ -156,18 +158,25 @@ module Sprites (
     // Combinational logic to generate color for each "pixel", e.g. "Racing the Beam"
     always @(*) begin
         color = 0;
-        case (sprite_pixel)
+        case (lr_rd_data)
             0: color = 9'b000000000;
             1: color = 9'b111111100;
             2: color = 9'b111000000;
             3: color = 9'b000111000;
         endcase
+
         sprite_draw = 0;
         lr_write = 1'b0;
+        lr_wr_data = sprite_pixel;
         sprite_dx = column - sprite_x;
         sprite_dy = row - sprite_y;
-        if ((sprite_dy[9:4] == 6'h3f) && (sprite_dx < 10'd16)) begin
+        line_match = sprite_dy[9:4] == 6'h3f;
+        if (line_match && (sprite_dx < 10'd16)) begin
             sprite_draw = sprite_num;
+            lr_write = 1'b1;
+        end
+        if (line_match == 0) begin
+            lr_wr_data <= 0;
             lr_write = 1'b1;
         end
         sprite_row_num = sprite_dy[3:1];
