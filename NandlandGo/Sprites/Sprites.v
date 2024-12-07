@@ -9,11 +9,24 @@ module SpriteROM(input wire clock, input wire [5:0] sprite_num, input wire [2:0]
     wire [10:0] mem_address = { sprite_num[5:0], row_num, col_num };
 
     always @(posedge clock) begin
-        // if (pixel === 2'bxx) begin
-        //     $display("X pixel at 0x%x, %d\n", mem_address, mem_address);
-        //     $finish;
-        // end
         pixel <= memory[mem_address];
+    end
+endmodule
+
+module LineRAM(input wire clock, input wire write, input wire [10:0] write_addr, input wire [1:0] wr_data,
+    input wire [10:0] read_addr, output reg [1:0] rd_data);
+
+    reg[1:0] memory[0:2047];
+    integer i;
+    initial begin
+        for (i=0; i<2048; i=i+1) begin
+            memory[i] = i & 3;
+        end
+    end
+
+    always @(posedge clock) begin
+        if (write) memory[write_addr] <= wr_data;
+        rd_data <= memory[read_addr];
     end
 endmodule
 
@@ -125,8 +138,14 @@ module Sprites (
     reg [2:0] sprite_row_num;
     reg [2:0] sprite_col_num;
     reg [9:0] sprite_x, sprite_y, sprite_dx, sprite_dy;
+    reg lr_write;
+    // Ping-pong every other line
+    wire [10:0] lr_read_addr = { 2'b00, ~row[1], column[8:1] };
+    wire [10:0] lr_write_addr = { 2'b00, row[1], column[8:1] };
+    wire [1:0] lr_wr_data;
 
-    SpriteROM sr(i_Clk, sprite_draw, sprite_row_num, sprite_col_num, sprite_pixel);
+    SpriteROM sr(i_Clk, sprite_draw, sprite_row_num, sprite_col_num, lr_wr_data);
+    LineRAM lr(i_Clk, lr_write, lr_write_addr, lr_wr_data, lr_read_addr, sprite_pixel);
 
 `ifdef TESTBENCH
     assign tb_pixel = sprite_pixel;
@@ -144,10 +163,12 @@ module Sprites (
             3: color = 9'b000111000;
         endcase
         sprite_draw = 0;
+        lr_write = 1'b0;
         sprite_dx = column - sprite_x;
         sprite_dy = row - sprite_y;
-        if ((sprite_dy[9:4] == 6'hff) && (sprite_dx < 10'd16)) begin
+        if ((sprite_dy[9:4] == 6'h3f) && (sprite_dx < 10'd16)) begin
             sprite_draw = sprite_num;
+            lr_write = 1'b1;
         end
         sprite_row_num = sprite_dy[3:1];
         sprite_col_num = sprite_dx[3:1];
