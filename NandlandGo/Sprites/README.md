@@ -10,7 +10,7 @@ pixels driving a 640 x 480 60 Hz VGA monitor. Each visible pixel is 2 x 2 VGA pi
 - VGA sync signal generator
 - Sprite renderer: 32 x 30 fixed playfield sprites, 16 motion sprites
 - Lightweight, high speed 16-bit CPU optimized small code size
-    - Each instruction is exactly one byte, 25 MHz clock
+    - Each instruction is exactly one byte, one clock cycle, 25 MHz clock
 
 ## Current status:
 
@@ -29,50 +29,53 @@ Next steps:
 
 ## CPU
 
-Registers:
+16-bit stack machine with internal call stack. Stack is 4 16-bit words deep, labeled S3-S0, with S0 as top of stack.
+The following auxilliary registers are included to improve performance:
 
-- A: 16 bits
-- B: 16 bits
-- PC: 16 bits
-- SP: 16 bits
-- flags: 8 bits: 0 0 0 0 V C M Z
-    - Overflow, carry, minus, zero
+- PC: 12 bit program counter
+- I: 16 bit loop count register
+- J: 12 bit jump register
 
 Instruction Set
 
-Each instruction is exactly 1 byte. Instruction format:
+Each instruction is exactly 1 byte, single cycle execution. Instruction format:
 
-- No operation: 00000000
-- Load A immediate, sign extended: 1ddddddd, A = 16 bit sign extended (ddddddd)
-- Load A from memory with offset: 001ddddd, A[7:0] = mem[B + ddddd] no sign extension
-- Load A from register/stack: 0100xxxx
-    - 01000000: A = B
-    - 01000001: A = PC
-    - 01000010: A = SP
-    - 01000011: A = flags
-    - 01000100: A = { A[7:0], A[15:8] } (swap high/low bytes)
-    - 01000101: Load A from stack (pop): A[7:0] = mem[++SP] no sign extension
-- ALU operations: 0101xxxx (up to 16)
-    - 01010000: A = A + B
-    - 01010001: A = A    - B
-    - 01010010: A = A & B
-    - 01010011: A = A | B
-    - 01010100: A = A ^ B
-    - 01010101: A = A << 1 (left shift)
-    - 01010110: A = A >> 1 (right shift)
-- Store A to memory with offset: 011ddddd, mem[B + ddddd] = A
-- Store A to register/stack: 0110xxxx
-    - 01100000: B = A
-    - 01100001: Store A to stack (push): mem[SP--] = A[7:0]
-    - 01100010: SP = A
-    - 01100011: flags = A
-- Branch: 0111xxxx (up to 16)
-    - 01110000: PC = A (unconditional branch)
-    - 01110001: SP = PC, PC = A (branch and link)
-    - 01110010: PC = A if Z (branch if zero)
-    - 01110011: PC = A if ~Z (branch if not zero)
-    - 01110100: PC = A if M (branch if negative)
-    - 01110101: PC = A if ~M (branch if positive)
+- 00000000: No operation
+
+- 1ddddddd: Load immediate, sign extended
+- 00000001: Load unsigned 8-bit value from memory using S0 as address: S0[7:0] = mem[S0]
+- 00000010: Load signed 8-bit value from memory using S0 as address: S0[15:0] = sign extend(mem[S0])
+- 00000011: Load from PC: S0[15:0] = { 4'b000, PC } (unsigned)
+- 00000100: Load from I: S0[15:0] = I
+- 00000101: Load from J: S0[15:0] = { 4'b000, J } (unsigned)
+- 00000110: Duplicate: S0 = S0
+
+- 00001000: Store to PC (unconditional jump): PC = S0
+- 00001001: Store to I (index/loop counter): I = S0
+- 00001010: Store to J (jump register): J = S0
+- 00001011: Store to memory: mem[S1] = S0
+
+- 00010000: ADD: S0 = S1 + S0
+- 00010001: SUB: S0 = S1 - S0
+- 00010010: AND: S0 = S1 & S0
+- 00010011: OR: S0 = S1 | S0
+- 00010100: XOR: S0 = S1 ^ S0
+- 00010101: LT: S0 = S1 < S0
+- 00010110: EQ: S0 = S1 == S0
+- 00010111: NEQ: S0 = S1 != S0
+- 00011000: GT: S0 = S1 > S0
+- 00010101: Shift left 1: S0 = S0 << 1
+- 00010110: Logical shift right 1: S0 = S0 >> 1
+- 00010111: Arithmetic shift right 1: S0 = S0 >> 1, S[15] = S[15]
+
+- 00100000: Jump to J: PC = J
+- 00100001: Jump to J if zero: PC = J if S0 == 0
+- 00100010: Jump to J if not zero: PC = J if S0 != 0
+- 00100011: Jump to J if negative: PC = J if S0[15] == 1
+- 00100100: Jump to J if positive: PC = J if S0[15] == 0
+- 00100101: Jump to J if I > 0: PC = J if I > 0, I -= 1
+- 00100110: Call: stack.push(PC), PC = S0
+- 00100111: Return: PC = stack.pop()
 
 ## Resource Utilization
 
