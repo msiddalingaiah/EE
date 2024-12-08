@@ -30,16 +30,16 @@ module LineRAM(input wire clock, input wire write, input wire [10:0] write_addr,
     end
 endmodule
 
-module PlayfieldRAM(input wire clock, input wire write, input wire [8:0] write_addr, input wire [7:0] wr_data,
-    input wire [8:0] read_addr, output reg [7:0] rd_data);
+module PlayfieldRAM(input wire clock, input wire write, input wire [9:0] write_addr, input wire [7:0] wr_data,
+    input wire [9:0] read_addr, output reg [7:0] rd_data);
 
-    reg[7:0] memory[0:511];
+    reg[7:0] memory[0:1023];
     integer i;
     initial begin
-        for (i=0; i<512; i=i+1) begin
+        for (i=0; i<1024; i=i+1) begin
             memory[i] = 0;
         end
-        for (i=0; i<512; i=i+7) begin
+        for (i=0; i<1024; i=i+6) begin
             memory[i] = i >> 3;
         end
     end
@@ -167,8 +167,8 @@ module Sprites (
     reg [1:0] lr_wr_data;
     // Playfield RAM
     reg pf_write;
-    wire [8:0] pf_read_addr = { row[7:4], column[8:4] };
-    wire [8:0] pf_write_addr = 9'h00;
+    wire [9:0] pf_read_addr = { row[7:4], column[9:4] };
+    wire [9:0] pf_write_addr = 10'h00;
     wire [7:0] pf_sprite;
     wire [7:0] pf_wr_data = 8'h00;
 

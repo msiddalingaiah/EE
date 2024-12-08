@@ -14,11 +14,12 @@ pixels driving a 640 x 480 60 Hz VGA monitor. Each visible pixel is 2 x 2 VGA pi
 
 ## Current status:
 
-- Single sprite rendering with dual port ping-pong buffer functional
+- Single sprite rendering with dual port ping-pong buffer
+- Playfield rendering, needs alignment
 
 Next steps:
 
-- Playfield/motion sprite RAM
+- Motion sprite RAM
 - CPU
 - Assembler
 - Compiler
@@ -83,9 +84,10 @@ The code runs on a [Nandland Go Board](https://nandland.com/the-go-board/) with 
 
 - 1 4kbit BRAM (4096 bits): 32 8x8 pixel sprite table, 4 colors/pixel (2 bits each)
 - 1 4kbit BRAM (4096 bits): 2048 x 2 bit dual port line RAM, ping-pong buffer stores next line for motion objects
-    - Two bufferes, 1024 x 2 bits each, alternate each line
-- 1 4kbit BRAM (4096 bits): 32 x 30 fixed playfield sprites and 16 motion sprites
-- 8 4kbit BRAM (4 kB): CPU instruction ROM
+    - Two buffers, 1024 x 2 bits each, alternate each line
+- 2 4kbit BRAM (4096 bits): 32 x 30 fixed playfield sprites
+- 1 4kbit BRAM 16 motion sprites
+- 4 4kbit BRAM (2 kB): CPU instruction ROM
 - 2 4kbit BRAM (1 kB): CPU RAM
 - 13/16 BRAMs used
 
