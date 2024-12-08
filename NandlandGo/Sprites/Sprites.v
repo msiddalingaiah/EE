@@ -30,6 +30,26 @@ module LineRAM(input wire clock, input wire write, input wire [10:0] write_addr,
     end
 endmodule
 
+module PlayfieldRAM(input wire clock, input wire write, input wire [8:0] write_addr, input wire [7:0] wr_data,
+    input wire [8:0] read_addr, output reg [7:0] rd_data);
+
+    reg[7:0] memory[0:511];
+    integer i;
+    initial begin
+        for (i=0; i<512; i=i+1) begin
+            memory[i] = 0;
+        end
+        for (i=0; i<512; i=i+7) begin
+            memory[i] = i >> 3;
+        end
+    end
+
+    always @(posedge clock) begin
+        if (write) memory[write_addr] <= wr_data;
+        rd_data <= memory[read_addr];
+    end
+endmodule
+
 module Sprites (
     input  i_Clk,
     input  i_Switch_1,
@@ -134,19 +154,27 @@ module Sprites (
     assign { red, green, blue } = color;
 
     wire [1:0] sprite_pixel;
+    reg [1:0] out_pixel;
     reg [5:0] sprite_num, sprite_draw;
     reg [2:0] sprite_row_num;
     reg [2:0] sprite_col_num;
     reg [9:0] sprite_x, sprite_y, sprite_dx, sprite_dy;
-    reg lr_write;
     // Ping-pong every other line
+    reg lr_write;
     wire [10:0] lr_read_addr = { 2'b00, ~row[1], column[8:1] };
     wire [10:0] lr_write_addr = { 2'b00, row[1], column[8:1] };
     wire [1:0] lr_rd_data;
     reg [1:0] lr_wr_data;
+    // Playfield RAM
+    reg pf_write;
+    wire [8:0] pf_read_addr = { row[7:4], column[8:4] };
+    wire [8:0] pf_write_addr = 9'h00;
+    wire [7:0] pf_sprite;
+    wire [7:0] pf_wr_data = 8'h00;
 
     SpriteROM sr(i_Clk, sprite_draw, sprite_row_num, sprite_col_num, sprite_pixel);
     LineRAM lr(i_Clk, lr_write, lr_write_addr, lr_wr_data, lr_read_addr, lr_rd_data);
+    PlayfieldRAM pf(i_Clk, pf_write, pf_write_addr, pf_wr_data, pf_read_addr, pf_sprite);
 
 `ifdef TESTBENCH
     assign tb_pixel = lr_rd_data;
@@ -156,15 +184,10 @@ module Sprites (
 
     // Combinational logic to generate color for each "pixel", e.g. "Racing the Beam"
     always @(*) begin
-        color = 0;
-        case (lr_rd_data)
-            0: color = 9'b000000000;
-            1: color = 9'b111111100;
-            2: color = 9'b111000000;
-            3: color = 9'b000111000;
-        endcase
-
-        sprite_draw = 0;
+        sprite_draw = pf_sprite[5:0];
+        sprite_row_num = row[3:1];
+        sprite_col_num = column[3:1];
+        out_pixel = sprite_pixel;
         lr_write = 1'b0;
         lr_wr_data = sprite_pixel;
         sprite_dx = column - sprite_x;
@@ -172,14 +195,25 @@ module Sprites (
         if (sprite_dy[9:4] == 6'h3f) begin
             if (sprite_dx < 10'd16) begin
                 sprite_draw = sprite_num;
+                sprite_row_num = sprite_dy[3:1];
+                sprite_col_num = sprite_dx[3:1];
                 lr_write = 1'b1;
             end
         end else begin
             lr_wr_data <= 0;
             lr_write = 1'b1;
         end
-        sprite_row_num = sprite_dy[3:1];
-        sprite_col_num = sprite_dx[3:1];
+
+        pf_write = 0;
+
+        if (lr_rd_data != 0) out_pixel = lr_rd_data;
+        color = 0;
+        case (out_pixel)
+            0: color = 9'b000000000;
+            1: color = 9'b111111100;
+            2: color = 9'b111000000;
+            3: color = 9'b000111000;
+        endcase
     end
 
     always @(posedge i_Clk) begin
