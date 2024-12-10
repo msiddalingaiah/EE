@@ -44,6 +44,8 @@ Each instruction is exactly 1 byte, single cycle execution. Instruction format:
 - 00000000: No operation
 
 - 1ddddddd: Load immediate, sign extended
+
+OPS_LOAD
 - 00000001: Load unsigned 8-bit value from memory using S0 as address: S0[7:0] = mem[S0]
 - 00000010: Load signed 8-bit value from memory using S0 as address: S0[15:0] = sign extend(mem[S0])
 - 00000011: Load from PC: S0[15:0] = { 4'b000, PC } (unsigned)
@@ -51,32 +53,38 @@ Each instruction is exactly 1 byte, single cycle execution. Instruction format:
 - 00000101: Load from J: S0[15:0] = { 4'b000, J } (unsigned)
 - 00000110: Duplicate: S0 = S0
 
-- 00001000: Store to PC (unconditional jump): PC = S0
-- 00001001: Store to I (index/loop counter): I = S0
-- 00001010: Store to J (jump register): J = S0
-- 00001011: Store to memory: mem[S1] = S0
+OPS_STORE
+- 00010000: Store to PC (unconditional jump): PC = S0
+- 00010001: Store to I (index/loop counter): I = S0
+- 00010010: Store to J (jump register): J = S0
+- 00010011: Store to memory: mem[S1] = S0
 
-- 00010000: ADD: S0 = S1 + S0
-- 00010001: SUB: S0 = S1 - S0
-- 00010010: AND: S0 = S1 & S0
-- 00010011: OR: S0 = S1 | S0
-- 00010100: XOR: S0 = S1 ^ S0
-- 00010101: LT: S0 = S1 < S0
-- 00010110: EQ: S0 = S1 == S0
-- 00010111: NEQ: S0 = S1 != S0
-- 00011000: GT: S0 = S1 > S0
-- 00010101: Shift left 1: S0 = S0 << 1
-- 00010110: Logical shift right 1: S0 = S0 >> 1
-- 00010111: Arithmetic shift right 1: S0 = S0 >> 1, S[15] = S[15]
+OPS_ALU
+- 00100000: ADD: S0 = S1 + S0
+- 00100001: SUB: S0 = S1 - S0
+- 00100010: AND: S0 = S1 & S0
+- 00100011: OR: S0 = S1 | S0
+- 00100100: XOR: S0 = S1 ^ S0
+- 00100101: LT: S0 = S1 < S0
+- 00100110: EQ: S0 = S1 == S0
+- 00100111: NEQ: S0 = S1 != S0
+- 00101000: GT: S0 = S1 > S0
+- 00100101: Shift left 1: S0 = S0 << 1
+- 00100110: Logical shift right 1: S0 = S0 >> 1
+- 00100111: Arithmetic shift right 1: S0 = S0 >> 1, S[15] = S[15]
 
-- 00100000: Jump to J: PC = J
-- 00100001: Jump to J if zero: PC = J if S0 == 0
-- 00100010: Jump to J if not zero: PC = J if S0 != 0
-- 00100011: Jump to J if negative: PC = J if S0[15] == 1
-- 00100100: Jump to J if positive: PC = J if S0[15] == 0
-- 00100101: Jump to J if I > 0: PC = J if I > 0, I -= 1
-- 00100110: Call: stack.push(PC), PC = S0
-- 00100111: Return: PC = stack.pop()
+OPS_JUMP
+- 00110000: Jump to J: PC = J
+- 00110001: Jump to J if zero: PC = J if S0 == 0
+- 00110010: Jump to J if not zero: PC = J if S0 != 0
+- 00110011: Jump to J if negative: PC = J if S0[15] == 1
+- 00110100: Jump to J if positive: PC = J if S0[15] == 0
+- 00110101: Jump to J if I > 0: PC = J if I > 0, I -= 1
+- 00110110: Call: stack.push(PC), PC = S0
+- 00110111: Return: PC = stack.pop()
+
+OPS_SYS
+- 01000000: Halt
 
 ## Resource Utilization
 

@@ -4,6 +4,7 @@
 `define TESTBENCH
 
 `include "Sprites.v"
+`include "I8CPU.v"
 
 module Clock(output reg clock);
     initial begin
@@ -18,8 +19,8 @@ endmodule
 module TestBench;
     integer fd;
     initial begin
-        // $dumpfile("vcd/TestBench.vcd");
-        // $dumpvars(0, TestBench);
+        $dumpfile("vcd/TestBench.vcd");
+        $dumpvars(0, TestBench);
         cycle_count = 0;
         pixel_shift_reg = 0;
         pixel_sr_count = 0;
@@ -29,6 +30,7 @@ module TestBench;
     reg [31:0] cycle_count;
 
     wire i_Clk;
+    wire reset = 0;
 
     Clock cg0(i_Clk);
 
@@ -117,9 +119,11 @@ module TestBench;
         tb_column,
         tb_pixel);
     
+    I8CPU cpu(reset, i_Clk);
+
     always @(posedge i_Clk) begin
         cycle_count <= cycle_count + 1;
-        if (cycle_count > 810*64) begin
+        if (cycle_count > 16) begin
             $fclose(fd);
             $finish;
         end
