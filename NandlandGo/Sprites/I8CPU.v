@@ -6,16 +6,7 @@ module CodeROM(input wire clock, input wire [11:0] rd_address, output reg [7:0] 
         for (i=0; i<512; i=i+1) begin
             memory[i] = 0;
         end
-        memory[1] = 8'h82;
-        memory[2] = 8'h41;
-        memory[3] = 8'h83;
-        memory[4] = 8'h41;
-        memory[5] = 8'h20;
-        memory[6] = 8'h41;
-        memory[7] = 8'h81;
-        memory[8] = 8'h41;
-        memory[9] = 8'h20;
-        memory[10] = 8'h41;
+        $readmemh("roms/code.txt", memory);
     end
 
     always @(posedge clock) begin
@@ -39,7 +30,7 @@ module I8CPU(input wire reset, input wire clock);
 
     reg [11:0] pc, offset;
     reg [1:0] cSP, cSP1;
-    reg [1:0] dSP, dSP1, dSM1;
+    reg [1:0] dSP, dSP1, dSPm1;
     reg [11:0] codeAddress;
     reg [11:0] cStack[0:3];
     reg [15:0] dStack[0:3];
@@ -48,7 +39,7 @@ module I8CPU(input wire reset, input wire clock);
     wire [3:0] op_fam = opcode[7:4];
     wire [3:0] op_op = opcode[3:0];
     wire [7:0] S0 = dStack[dSP];
-    wire [7:0] S1 = dStack[dSM1];
+    wire [7:0] S1 = dStack[dSPm1];
 
     localparam OPS_LOAD  = 4'b0000;
     localparam OPS_STORE = 4'b0001;
@@ -76,7 +67,7 @@ module I8CPU(input wire reset, input wire clock);
         endcase
 
         dSP1 = dSP + 1'b1;
-        dSM1 = dSP - 1'b1;
+        dSPm1 = dSP - 1'b1;
     end
 
     // Guideline #1: When modeling sequential logic, use nonblocking 
@@ -95,16 +86,19 @@ module I8CPU(input wire reset, input wire clock);
             endcase
             pc <= codeAddress + 1;
 
-            if (opcode[7] == 1'b1) begin dStack[dSP1] <= { {9{opcode[6]}}, opcode[6:0] }; dSP <= dSP + 1'b1; end
+            if (opcode[7] == 1'b1) begin dStack[dSP1] <= { {9{opcode[6]}}, opcode[6:0] }; dSP <= dSP1; end
             if (op_fam == OPS_ALU) begin
-                if (op_op == OPS_ALU_ADD) begin dStack[dSM1] <= S1 + S0; dSP <= dSP - 1'b1; end
-                if (op_op == OPS_ALU_SUB) begin dStack[dSM1] <= S1 - S0; dSP <= dSP - 1'b1; end
+                if (op_op == OPS_ALU_ADD) begin dStack[dSPm1] <= S1 + S0; dSP <= dSPm1; end
+                if (op_op == OPS_ALU_SUB) begin dStack[dSPm1] <= S1 - S0; dSP <= dSPm1; end
             end
             if (op_fam == OPS_SYS) begin
                 if (op_op == OPS_SYS_HALT) begin
                 end
                 if (op_op == OPS_SYS_PRINT) begin
+`ifdef TESTBENCH
                     $display("%d, %d", S1, S0);
+`endif
+                    dSP <= dSPm1;
                 end
             end
 		end

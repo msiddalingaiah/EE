@@ -41,11 +41,14 @@ sudo-prog: $(PROJ).bin
 	@echo 'Executing prog as root!!!'
 	sudo iceprog $<
 
-test: TestBench
+test: TestBench roms/code.txt
 	vvp vcd/TestBench
 
 TestBench: *.v
 	iverilog -o vcd/TestBench TestBench.v
+
+roms/code.txt: roms/main.f
+	py roms/Compiler.py roms/main.f roms/code.txt
 
 clean:
 	rm $(PROJ).json $(PROJ).asc $(PROJ).bin $(PROJ).rpt vcd/TestBench

@@ -54,10 +54,9 @@ OPS_LOAD
 - 00000110: Duplicate: S0 = S0
 
 OPS_STORE
-- 00010000: Store to PC (unconditional jump): PC = S0
-- 00010001: Store to I (index/loop counter): I = S0
-- 00010010: Store to J (jump register): J = S0
-- 00010011: Store to memory: mem[S1] = S0
+- 00010000: Store to I (index/loop counter): I = S0
+- 00010001: Store to J (jump register): J = S0
+- 00010010: Store to memory: mem[S1] = S0
 
 OPS_ALU
 - 00100000: ADD: S0 = S1 + S0
@@ -71,17 +70,19 @@ OPS_ALU
 - 00101000: GT: S0 = S1 > S0
 - 00100101: Shift left 1: S0 = S0 << 1
 - 00100110: Logical shift right 1: S0 = S0 >> 1
-- 00100111: Arithmetic shift right 1: S0 = S0 >> 1, S[15] = S[15]
+- 00100111: Arithmetic shift right 1: S0 = S0 >> 1, S0[15] = S0[14]
+- 00101000: Negate: S0 = -S0
 
 OPS_JUMP
-- 00110000: Jump to J: PC = J
-- 00110001: Jump to J if zero: PC = J if S0 == 0
-- 00110010: Jump to J if not zero: PC = J if S0 != 0
-- 00110011: Jump to J if negative: PC = J if S0[15] == 1
-- 00110100: Jump to J if positive: PC = J if S0[15] == 0
-- 00110101: Jump to J if I > 0: PC = J if I > 0, I -= 1
-- 00110110: Call: stack.push(PC), PC = S0
-- 00110111: Return: PC = stack.pop()
+- 00110000: Unconditional jump: PC = S0
+- 00110001: Jump to J: PC = J
+- 00110010: Jump to J if zero: PC = J if S0 == 0
+- 00110011: Jump to J if not zero: PC = J if S0 != 0
+- 00110100: Jump to J if negative: PC = J if S0[15] == 1
+- 00110101: Jump to J if positive: PC = J if S0[15] == 0
+- 00110110: Jump to J if I > 0: PC = J if I > 0, I -= 1
+- 00110111: Call: stack.push(PC), PC = S0
+- 00111000: Return: PC = stack.pop()
 
 OPS_SYS
 - 01000000: Halt
