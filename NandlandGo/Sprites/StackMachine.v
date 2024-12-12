@@ -25,9 +25,6 @@ module StackMachine(input wire reset, input wire clock, output reg write, output
         for (i=0;i<4;i=i+1) dStack[i] = 0;
         op = 0;
         offset = 0;
-        write = 0;
-        wr_addr = 0;
-        wr_data = 0;
     end
 
     reg [11:0] pc, offset;
@@ -76,6 +73,12 @@ module StackMachine(input wire reset, input wire clock, output reg write, output
 
         wr_data = S1;
         wr_addr = S0;
+        write = 1'b0;
+        if (op_fam == OPS_STORE) begin
+            if (op_op == OPS_STORE_MEM) begin
+                write = 1'b1;
+            end
+        end
     end
 
     // Guideline #1: When modeling sequential logic, use nonblocking 
@@ -85,7 +88,6 @@ module StackMachine(input wire reset, input wire clock, output reg write, output
             pc <= 0;
             cSP <= 3;
             dSP <= 3;
-            write <= 1'b0;
 		end else begin
             case (op)
                 0: ;  // next
@@ -100,10 +102,8 @@ module StackMachine(input wire reset, input wire clock, output reg write, output
                 if (op_op == OPS_ALU_ADD) begin dStack[dSPm1] <= S1 + S0; dSP <= dSPm1; end
                 if (op_op == OPS_ALU_SUB) begin dStack[dSPm1] <= S1 - S0; dSP <= dSPm1; end
             end
-            write <= 1'b0;
             if (op_fam == OPS_STORE) begin
                 if (op_op == OPS_STORE_MEM) begin
-                    write <= 1'b1;
                     dSP <= dSPm2;
                 end
             end
