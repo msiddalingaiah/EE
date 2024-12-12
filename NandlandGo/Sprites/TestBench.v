@@ -4,7 +4,6 @@
 `define TESTBENCH
 
 `include "Sprites.v"
-`include "I8CPU.v"
 
 module Clock(output reg clock);
     initial begin
@@ -30,7 +29,6 @@ module TestBench;
     reg [31:0] cycle_count;
 
     wire i_Clk;
-    wire reset = 0;
 
     Clock cg0(i_Clk);
 
@@ -119,8 +117,6 @@ module TestBench;
         tb_column,
         tb_pixel);
     
-    I8CPU cpu(reset, i_Clk);
-
     always @(posedge i_Clk) begin
         cycle_count <= cycle_count + 1;
         if (cycle_count > 16) begin

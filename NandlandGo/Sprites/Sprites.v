@@ -1,4 +1,6 @@
 
+`include "StackMachine.v"
+
 module SpriteROM(input wire clock, input wire [5:0] sprite_num, input wire [2:0] row_num, input wire [2:0] col_num, output reg [1:0] pixel);
     reg [1:0] memory[0:2047];
     initial begin
@@ -171,10 +173,14 @@ module Sprites (
     wire [9:0] pf_write_addr = 10'h00;
     wire [7:0] pf_sprite;
     wire [7:0] pf_wr_data = 8'h00;
+    wire reset = 0;
+    wire cpu_write;
+    wire [15:0] cpu_wr_addr, cpu_wr_data;
 
     SpriteROM sr(i_Clk, sprite_draw, sprite_row_num, sprite_col_num, sprite_pixel);
     LineRAM lr(i_Clk, lr_write, lr_write_addr, lr_wr_data, lr_read_addr, lr_rd_data);
     PlayfieldRAM pf(i_Clk, pf_write, pf_write_addr, pf_wr_data, pf_read_addr, pf_sprite);
+    StackMachine cpu(reset, i_Clk, cpu_write, cpu_wr_addr, cpu_wr_data);
 
 `ifdef TESTBENCH
     assign tb_pixel = lr_rd_data;
@@ -240,6 +246,13 @@ module Sprites (
         end
         if (led_count == 0) begin
             sprite_num <= sprite_num + 1'b1;
+        end
+        // FIXME: this doesn't work
+        // if (cpu_write == 1'b1) begin
+        //     if (cpu_wr_addr[15:12] == 4'hf) sprite_num <= cpu_wr_data[5:0];
+        // end
+        if (cpu_write == 1'b1) begin
+            sprite_num <= cpu_wr_data[5:0];
         end
     end
 endmodule

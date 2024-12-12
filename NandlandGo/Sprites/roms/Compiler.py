@@ -132,6 +132,7 @@ class Parser(object):
         patterns.append(Pattern('const', r'const'))
         patterns.append(Pattern('call', r'call'))
         patterns.append(Pattern('return', r'return'))
+        patterns.append(Pattern('print', r'print'))
         patterns.append(Pattern('ID', r'[a-zA-Z_][a-zA-Z0-9_\.]*'))
         patterns.append(Pattern('INT', r'(0x)?[0-9a-fA-F]+'))
         patterns.append(Pattern(';', r'\;'))
@@ -187,6 +188,21 @@ class Parser(object):
             tree.add(self.sc.expect('ID'))
             self.sc.expect('=')
             tree.add(self.parseExp())
+            while self.sc.matches(','):
+                tree.add(self.sc.expect('ID'))
+                self.sc.expect('=')
+                tree.add(self.parseExp())
+            self.sc.expect(';')
+            return tree
+        if self.sc.matches('var'):
+            tree = Tree(self.sc.terminal)
+            tree.add(self.sc.expect('ID'))
+            if self.sc.matches('='):
+                tree.add(self.parseExp())
+            while self.sc.matches(','):
+                tree.add(self.sc.expect('ID'))
+                if self.sc.matches('='):
+                    tree.add(self.parseExp())
             self.sc.expect(';')
             return tree
         tree = Tree(self.sc.expect('def'))
@@ -261,9 +277,12 @@ class Parser(object):
             tree.add(self.sc.expect('ID'))
             self.sc.expect(';')
             return tree
-        tree = self.parseExp()
-        self.sc.expect(';')
-        return tree
+        if self.sc.matches('print'):
+            tree.add(self.sc.terminal)
+            tree.add(self.parseExp())
+            self.sc.expect(';')
+            return tree
+        self.sc.expect('if', 'do', 'while', 'ID', 'call', 'return', 'continue', 'print')
 
     def parseExp(self, index=0):
         result = self.parseTail(index)
@@ -316,6 +335,11 @@ class Parser(object):
             return Tree(t)
         return Tree(self.sc.expect('ID'))
 
+OPS_ALU_ADD = '20'
+OPS_ALU_SUB = '21'
+OPS_ALU_NEG = '28'
+OPS_SYS_PRINT = '41'
+
 class Generator(object):
     def __init__(self, tree):
         self.tree = tree
@@ -356,15 +380,17 @@ class Generator(object):
 
     def genProc(self, tree, opcodes):
         for stat in tree:
-            if stat.value.name == 'stat':
-                if stat[0].value.name == 'call':
-                    func = stat[1].value.value
-                    if func == 'print':
-                        opcodes.append("41")
-                    else:
-                        raise Exception(f"call {func} not supported")
+            if stat.value.name != 'stat':
+                raise Exception('stat expected')
+            s0_name = stat[0].value.name
+            if s0_name == 'call':
+                func = stat[1].value.value
+                raise Exception(f"call {func} does not exist")
+            elif s0_name == 'print':
+                self.genEval(stat[1], opcodes)
+                opcodes.append(OPS_SYS_PRINT)
             else:
-                self.genEval(stat, opcodes)            
+                raise Exception(f'{s0_name} not yet support')
 
 
     def genEval(self, tree, opcodes):
@@ -386,14 +412,14 @@ class Generator(object):
         op = tree.value.name
         self.genEval(tree.children[0], opcodes)
         if op == 'NEG':
-            opcodes.append(f"28")
+            opcodes.append(OPS_ALU_NEG)
             return
         self.genEval(tree.children[1], opcodes)
         if op == '+':
-            opcodes.append(f"20")
+            opcodes.append(OPS_ALU_ADD)
             return
         if op == '-':
-            opcodes.append(f"21")
+            opcodes.append(OPS_ALU_SUB)
             return
         raise Exception(f"line {tree.value.lineNumber}, Unknown operator '{op}'")
 

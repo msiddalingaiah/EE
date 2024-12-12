@@ -14,8 +14,7 @@ module CodeROM(input wire clock, input wire [11:0] rd_address, output reg [7:0] 
     end
 endmodule
 
-
-module I8CPU(input wire reset, input wire clock);
+module StackMachine(input wire reset, input wire clock, output reg write, output reg [15:0] wr_addr, output reg [15:0] wr_data);
     integer i;
     initial begin
         pc = 0;
@@ -26,11 +25,14 @@ module I8CPU(input wire reset, input wire clock);
         for (i=0;i<4;i=i+1) dStack[i] = 0;
         op = 0;
         offset = 0;
+        write = 0;
+        wr_addr = 0;
+        wr_data = 0;
     end
 
     reg [11:0] pc, offset;
     reg [1:0] cSP, cSP1;
-    reg [1:0] dSP, dSP1, dSPm1;
+    reg [1:0] dSP, dSP1, dSPm1, dSPm2;
     reg [11:0] codeAddress;
     reg [11:0] cStack[0:3];
     reg [15:0] dStack[0:3];
@@ -46,6 +48,8 @@ module I8CPU(input wire reset, input wire clock);
     localparam OPS_ALU   = 4'b0010;
     localparam OPS_JUMP  = 4'b0011;
     localparam OPS_SYS   = 4'b0100;
+
+    localparam OPS_STORE_MEM = 4'b0010;
 
     localparam OPS_ALU_ADD   = 4'b0000;
     localparam OPS_ALU_SUB   = 4'b0001;
@@ -68,6 +72,10 @@ module I8CPU(input wire reset, input wire clock);
 
         dSP1 = dSP + 1'b1;
         dSPm1 = dSP - 1'b1;
+        dSPm2 = dSP - 2'b10;
+
+        wr_data = S1;
+        wr_addr = S0;
     end
 
     // Guideline #1: When modeling sequential logic, use nonblocking 
@@ -77,6 +85,7 @@ module I8CPU(input wire reset, input wire clock);
             pc <= 0;
             cSP <= 3;
             dSP <= 3;
+            write <= 1'b0;
 		end else begin
             case (op)
                 0: ;  // next
@@ -90,6 +99,13 @@ module I8CPU(input wire reset, input wire clock);
             if (op_fam == OPS_ALU) begin
                 if (op_op == OPS_ALU_ADD) begin dStack[dSPm1] <= S1 + S0; dSP <= dSPm1; end
                 if (op_op == OPS_ALU_SUB) begin dStack[dSPm1] <= S1 - S0; dSP <= dSPm1; end
+            end
+            write <= 1'b0;
+            if (op_fam == OPS_STORE) begin
+                if (op_op == OPS_STORE_MEM) begin
+                    write <= 1'b1;
+                    dSP <= dSPm2;
+                end
             end
             if (op_fam == OPS_SYS) begin
                 if (op_op == OPS_SYS_HALT) begin
