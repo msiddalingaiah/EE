@@ -47,7 +47,7 @@ test: TestBench roms/code.txt
 TestBench: *.v
 	iverilog -o vcd/TestBench TestBench.v
 
-roms/code.txt: roms/main.f
+roms/code.txt: roms/main.f roms/*.py
 	py roms/Compiler.py roms/main.f roms/code.txt
 
 clean:

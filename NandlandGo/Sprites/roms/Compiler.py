@@ -258,10 +258,8 @@ class Parser(object):
             return tree
         if self.sc.matches('while'):
             tree.add(self.sc.terminal)
-            if self.sc.matches('not'):
-                tree.add(self.sc.terminal)
             tree.add(self.parseExp())
-            tree.add(self.parseStatList(stat_name='while'))
+            tree.add(self.parseStatList())
             return tree
         if self.sc.matches('call'):
             tree.add(self.sc.terminal)
@@ -339,6 +337,9 @@ OPS_ALU_ADD = '20'
 OPS_ALU_SUB = '21'
 OPS_ALU_NEG = '28'
 OPS_SYS_PRINT = '41'
+OPS_JUMP = '30'
+OPS_JUMP_ZERO = '31'
+OPS_JUMP_NOT_ZERO = '32'
 
 class Generator(object):
     def __init__(self, tree):
@@ -353,7 +354,7 @@ class Generator(object):
                 self.procedureTrees[name] = t[1]
         main = self.procedureTrees["main"]
         self.opcodes = []
-        self.genProc(main, self.opcodes)
+        self.genStatList(main)
 
     def eval(self, tree):
         if tree.value.name == 'INT':
@@ -378,7 +379,7 @@ class Generator(object):
             return a / b
         raise Exception(f"line {tree.value.lineNumber}, Unknown operator '{op}'")
 
-    def genProc(self, tree, opcodes):
+    def genStatList(self, tree):
         for stat in tree:
             if stat.value.name != 'stat':
                 raise Exception('stat expected')
@@ -387,18 +388,30 @@ class Generator(object):
                 func = stat[1].value.value
                 raise Exception(f"call {func} does not exist")
             elif s0_name == 'print':
-                self.genEval(stat[1], opcodes)
-                opcodes.append(OPS_SYS_PRINT)
+                self.genEval(stat[1])
+                self.opcodes.append(OPS_SYS_PRINT)
+            elif s0_name == 'while':
+                top = len(self.opcodes)
+                self.genEval(stat[1])
+                jump = len(self.opcodes)
+                self.opcodes.append('80')
+                self.opcodes.append(OPS_JUMP_ZERO)
+                self.genStatList(stat[2])
+                pc = 0x80 | ((top - len(self.opcodes) - 2) & 0x7f)
+                self.opcodes.append(f'{pc:02x}')
+                self.opcodes.append(OPS_JUMP)
+                pc = 0x80 | ((len(self.opcodes) - jump - 2) & 0x7f)
+                self.opcodes[jump] = f'{pc:02x}'
             else:
                 raise Exception(f'{s0_name} not yet support')
 
 
-    def genEval(self, tree, opcodes):
+    def genEval(self, tree):
         if tree.value.name == 'INT':
             value = tree.value.value
             if value > 0x4f:
                 raise Exception(f"Value too large: {value}")
-            opcodes.append(f"{0x80 | value:02x}")
+            self.opcodes.append(f"{0x80 | value:02x}")
             return
         if tree.value.name == 'ID':
             name = tree.value.value
@@ -407,19 +420,19 @@ class Generator(object):
             value = self.constants[name]
             if value > 0x4f:
                 raise Exception(f"Value too large: {value}")
-            opcodes.append(f"{0x80 | value:02x}")
+            self.opcodes.append(f"{0x80 | value:02x}")
             return
         op = tree.value.name
-        self.genEval(tree.children[0], opcodes)
+        self.genEval(tree.children[0])
         if op == 'NEG':
-            opcodes.append(OPS_ALU_NEG)
+            self.opcodes.append(OPS_ALU_NEG)
             return
-        self.genEval(tree.children[1], opcodes)
+        self.genEval(tree.children[1])
         if op == '+':
-            opcodes.append(OPS_ALU_ADD)
+            self.opcodes.append(OPS_ALU_ADD)
             return
         if op == '-':
-            opcodes.append(OPS_ALU_SUB)
+            self.opcodes.append(OPS_ALU_SUB)
             return
         raise Exception(f"line {tree.value.lineNumber}, Unknown operator '{op}'")
 

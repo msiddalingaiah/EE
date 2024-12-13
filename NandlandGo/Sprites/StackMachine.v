@@ -24,10 +24,9 @@ module StackMachine(input wire reset, input wire clock, output reg write, output
         for (i=0;i<4;i=i+1) cStack[i] = 0;
         for (i=0;i<4;i=i+1) dStack[i] = 0;
         op = 0;
-        offset = 0;
     end
 
-    reg [11:0] pc, offset;
+    reg [11:0] pc;
     reg [1:0] cSP, cSP1;
     reg [1:0] dSP, dSP1, dSPm1, dSPm2;
     reg [11:0] codeAddress;
@@ -35,10 +34,8 @@ module StackMachine(input wire reset, input wire clock, output reg write, output
     reg [15:0] dStack[0:3];
     wire [7:0] opcode;
     reg [1:0] op;
-    wire [3:0] op_fam = opcode[7:4];
-    wire [3:0] op_op = opcode[3:0];
-    wire [7:0] S0 = dStack[dSP];
-    wire [7:0] S1 = dStack[dSPm1];
+    reg [3:0] op_fam, op_op;
+    reg [15:0] S0, S1;
 
     localparam OPS_LOAD  = 4'b0000;
     localparam OPS_STORE = 4'b0001;
@@ -51,6 +48,10 @@ module StackMachine(input wire reset, input wire clock, output reg write, output
     localparam OPS_ALU_ADD   = 4'b0000;
     localparam OPS_ALU_SUB   = 4'b0001;
 
+    localparam OPS_JUMP_JUMP = 4'b0000;
+    localparam OPS_JUMP_ZERO = 4'b0001;
+    localparam OPS_JUMP_NOT_ZERO = 4'b0010;
+
     localparam OPS_SYS_HALT   = 4'b0100;
     localparam OPS_SYS_PRINT   = 4'b0001;
 
@@ -58,19 +59,16 @@ module StackMachine(input wire reset, input wire clock, output reg write, output
 
     // Guideline #3: When modeling combinational logic with an "always" 
     //              block, use blocking assignments.
-    always @(*) begin        
-        cSP1 = cSP + 1'b1;
-        case (op)
-            0: codeAddress = pc;  // next
-            1: begin codeAddress = pc+offset; end // jump
-            2: begin codeAddress = pc+offset; end // call
-            3: codeAddress = cStack[cSP1]; // return
-        endcase
+    always @(*) begin
+        op_fam = opcode[7:4];
+        op_op = opcode[3:0];
 
         dSP1 = dSP + 1'b1;
         dSPm1 = dSP - 1'b1;
         dSPm2 = dSP - 2'b10;
 
+        S0 = dStack[dSP];
+        S1 = dStack[dSPm1];
         wr_data = S1;
         wr_addr = S0;
         write = 1'b0;
@@ -79,6 +77,23 @@ module StackMachine(input wire reset, input wire clock, output reg write, output
                 write = 1'b1;
             end
         end
+
+        op = 2'd0;
+        if (op_fam == OPS_JUMP) begin
+            case (op_op)
+                OPS_JUMP_JUMP: op = 2'd1;
+                OPS_JUMP_ZERO: if (S1 == 16'd0) op = 2'd1;
+                OPS_JUMP_NOT_ZERO: if (S1 != 16'd0) op = 2'd1;
+            endcase
+        end
+
+        cSP1 = cSP + 1'b1;
+        case (op)
+            2'd0: codeAddress = pc;  // next
+            2'd1: begin codeAddress = pc+S0[11:0]; end // jump
+            2'd2: begin codeAddress = pc+S0[11:0]; end // call
+            2'd3: codeAddress = cStack[cSP1]; // return
+        endcase
     end
 
     // Guideline #1: When modeling sequential logic, use nonblocking 
@@ -90,10 +105,10 @@ module StackMachine(input wire reset, input wire clock, output reg write, output
             dSP <= 3;
 		end else begin
             case (op)
-                0: ;  // next
-                1: ;  // jump
-                2: begin cStack[cSP1] <= pc; cSP <= cSP + 1'b1; end // call
-                3: cSP <= cSP - 1; // return
+                2'd0: ;  // next
+                2'd1: ;  // jump
+                2'd2: begin cStack[cSP1] <= pc; cSP <= cSP + 1'b1; end // call
+                2'd3: cSP <= cSP - 1; // return
             endcase
             pc <= codeAddress + 1;
 
@@ -106,6 +121,13 @@ module StackMachine(input wire reset, input wire clock, output reg write, output
                 if (op_op == OPS_STORE_MEM) begin
                     dSP <= dSPm2;
                 end
+            end
+            if (op_fam == OPS_JUMP) begin
+                case (op_op)
+                    OPS_JUMP_JUMP: dSP <= dSPm1;
+                    OPS_JUMP_ZERO: dSP <= dSPm2;
+                    OPS_JUMP_NOT_ZERO: dSP <= dSPm2;
+                endcase
             end
             if (op_fam == OPS_SYS) begin
                 if (op_op == OPS_SYS_HALT) begin

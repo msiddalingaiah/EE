@@ -16,13 +16,12 @@ pixels driving a 640 x 480 60 Hz VGA monitor. Each visible pixel is 2 x 2 VGA pi
 
 - Single sprite rendering with dual port ping-pong buffer
 - Playfield rendering, needs alignment
+- StackMachine 16-bit CPU
+- 558/1280 LCs, 5/16 RAM blocks, Timing estimate: 11.09 ns (90.17 MHz)
 
 Next steps:
 
 - Motion sprite RAM
-- CPU
-- Assembler
-- Compiler
 
 ## Sprite Rendering
 
@@ -34,8 +33,6 @@ Next steps:
 The following auxilliary registers are included to improve performance:
 
 - PC: 12 bit program counter
-- I: 16 bit loop count register
-- J: 12 bit jump register
 
 Instruction Set
 
@@ -48,15 +45,11 @@ Each instruction is exactly 1 byte, single cycle execution. Instruction format:
 OPS_LOAD
 - 00000001: Load unsigned 8-bit value from memory using S0 as address: S0[7:0] = mem[S0]
 - 00000010: Load signed 8-bit value from memory using S0 as address: S0[15:0] = sign extend(mem[S0])
-- 00000011: Load from PC: S0[15:0] = { 4'b000, PC } (unsigned)
-- 00000100: Load from I: S0[15:0] = I
-- 00000101: Load from J: S0[15:0] = { 4'b000, J } (unsigned)
-- 00000110: Duplicate: S0 = S0
+- 00000011: Duplicate: S0 = S0
+- 00000100: Load from PC: S0[15:0] = { 4'b000, PC } (unsigned)
 
 OPS_STORE
-- 00010000: Store to I (index/loop counter): I = S0
-- 00010001: Store to J (jump register): J = S0
-- 00010010: Store to memory: mem[S1] = S0
+- 00010000: Store to memory: mem[S0] = S1
 
 OPS_ALU
 - 00100000: ADD: S0 = S1 + S0
@@ -75,17 +68,14 @@ OPS_ALU
 
 OPS_JUMP
 - 00110000: Unconditional jump: PC = S0
-- 00110001: Jump to J: PC = J
-- 00110010: Jump to J if zero: PC = J if S0 == 0
-- 00110011: Jump to J if not zero: PC = J if S0 != 0
-- 00110100: Jump to J if negative: PC = J if S0[15] == 1
-- 00110101: Jump to J if positive: PC = J if S0[15] == 0
-- 00110110: Jump to J if I > 0: PC = J if I > 0, I -= 1
-- 00110111: Call: stack.push(PC), PC = S0
-- 00111000: Return: PC = stack.pop()
+- 00110001: Jump if zero: PC = S0 if S1 == 0
+- 00110010: Jump if not zero: PC = S0 if S1 != 0
+- 00110011: Call: stack.push(PC), PC = S0
+- 00110100: Return: PC = stack.pop()
 
 OPS_SYS
 - 01000000: Halt
+- 01000001: Print (TestBench only)
 
 ## Resource Utilization
 

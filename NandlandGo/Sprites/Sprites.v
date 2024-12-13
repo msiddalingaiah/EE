@@ -247,12 +247,8 @@ module Sprites (
         if (led_count == 0) begin
             sprite_num <= sprite_num + 1'b1;
         end
-        // FIXME: this doesn't work
-        // if (cpu_write == 1'b1) begin
-        //     if (cpu_wr_addr[15:12] == 4'hf) sprite_num <= cpu_wr_data[5:0];
-        // end
         if (cpu_write == 1'b1) begin
-            sprite_num <= cpu_wr_data[5:0];
+            if (cpu_wr_addr[15:12] == 4'hf) sprite_num <= cpu_wr_data[5:0];
         end
     end
 endmodule
