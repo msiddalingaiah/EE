@@ -1,4 +1,7 @@
 
+`define CPU_WIDTH 12
+`define CPU_WIDTHm1 (`CPU_WIDTH-1)
+
 `include "StackMachine.v"
 
 module SpriteROM(input wire clock, input wire [5:0] sprite_num, input wire [2:0] row_num, input wire [2:0] col_num, output reg [1:0] pixel);
@@ -175,12 +178,14 @@ module Sprites (
     wire [7:0] pf_wr_data = 8'h00;
     wire reset = 0;
     wire cpu_write;
-    wire [15:0] cpu_wr_addr, cpu_wr_data, cpu_io_rd_data;
+    wire [`CPU_WIDTHm1:0] cpu_addr, cpu_wr_data;
+    reg [`CPU_WIDTHm1:0] cpu_rd_data;
+    reg cpu_decode_io;
 
     SpriteROM sr(i_Clk, sprite_draw, sprite_row_num, sprite_col_num, sprite_pixel);
     LineRAM lr(i_Clk, lr_write, lr_write_addr, lr_wr_data, lr_read_addr, lr_rd_data);
     PlayfieldRAM pf(i_Clk, pf_write, pf_write_addr, pf_wr_data, pf_read_addr, pf_sprite);
-    StackMachine cpu(reset, i_Clk, cpu_wr_addr, cpu_io_rd_data, cpu_write, cpu_wr_data);
+    StackMachine cpu(reset, i_Clk, cpu_addr, cpu_rd_data, cpu_write, cpu_wr_data);
 
 `ifdef TESTBENCH
     assign tb_pixel = lr_rd_data;
@@ -190,6 +195,9 @@ module Sprites (
 
     // Combinational logic to generate color for each "pixel", e.g. "Racing the Beam"
     always @(*) begin
+        cpu_decode_io = cpu_addr[`CPU_WIDTHm1:`CPU_WIDTHm1-1] == 2'h3 ? 1'b1 : 1'b0;
+        cpu_rd_data = 16'h0;
+
         sprite_draw = pf_sprite[5:0];
         sprite_row_num = row[3:1];
         sprite_col_num = column[3:1];
@@ -247,8 +255,18 @@ module Sprites (
         if (led_count == 0) begin
             sprite_num <= sprite_num + 1'b1;
         end
-        if (cpu_write == 1'b1) begin
-            if (cpu_wr_addr[15:12] == 4'hf) sprite_num <= cpu_wr_data[5:0];
+        if (cpu_wr_data & cpu_decode_io) begin
+            sprite_num <= cpu_wr_data[5:0];
+            case (cpu_addr[`CPU_WIDTHm1:`CPU_WIDTHm1-1])
+                2'h0: begin
+                end
+                2'h1: begin
+                end
+                2'h2: begin
+                end
+                2'h3: begin
+                end
+            endcase
         end
     end
 endmodule

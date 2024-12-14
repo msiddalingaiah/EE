@@ -312,6 +312,14 @@ OPS_LOAD_MEM = '01'
 OPS_STORE_MEM = '10'
 OPS_ALU_ADD = '20'
 OPS_ALU_SUB = '21'
+OPS_ALU_AND = '22'
+OPS_ALU_OR = '23'
+OPS_ALU_XOR = '24'
+OPS_ALU_SL = '25'
+OPS_ALU_LSR = '26'
+OPS_ALU_ASR = '27'
+OPS_ALU_SL6 = '28'
+
 OPS_ALU_NEG = '28'
 OPS_SYS_PRINT = '41'
 OPS_JUMP = '30'
@@ -398,9 +406,14 @@ class Generator(object):
                 raise Exception(f'{s0_name} not yet support')
 
     def genLoadImm(self, tree, value):
-        if value > 0x4f:
-            raise Exception(f"line {tree.value.lineNumber}, Value too large: {value}")
-        self.opcodes.append(f"{0x80 | value:02x}")
+        print(value)
+        if value < 64:
+            self.opcodes.append(f"{0x80 | value:02x}")
+        else:
+            self.opcodes.append(f"{0x80 | (value>>6):02x}")
+            self.opcodes.append(OPS_ALU_SL6)
+            self.opcodes.append(f"{0x80 | (value&0x3f):02x}")
+            self.opcodes.append(OPS_ALU_OR)
 
     def genEval(self, tree):
         if tree.value.name == 'INT':

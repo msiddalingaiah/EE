@@ -17,7 +17,7 @@ pixels driving a 640 x 480 60 Hz VGA monitor. Each visible pixel is 2 x 2 VGA pi
 - Single sprite rendering with dual port ping-pong buffer
 - Playfield rendering, needs alignment
 - StackMachine 16-bit CPU, 512 bytes program memory, 512 x 16bit data memory
-- 780/1280 LCs, 7/16 RAM blocks, Timing estimate: 11.09 ns (90.17 MHz)
+- 754/1280 LCs, 7/16 RAM blocks, Timing estimate: 13.57 ns (73.71 MHz)
 
 Next steps:
 
@@ -29,7 +29,7 @@ Next steps:
 
 ## CPU
 
-16-bit stack machine with internal call stack. Stack is 4 16-bit words deep, labeled S3-S0, with S0 as top of stack.
+12-bit stack machine with internal call stack. Stack is 4 words deep, labeled S3-S0, with S0 as top of stack.
 The following auxilliary registers are included to improve performance:
 
 - PC: 12 bit program counter
@@ -43,9 +43,8 @@ Each instruction is exactly 1 byte, single cycle execution. Instruction format:
 - 1ddddddd: Load immediate, sign extended
 
 OPS_LOAD
-- 00000001: Load 16-bit value from memory using S0 as address: S0 = mem[S0]
+- 00000001: Load word from memory using S0 as address: S0 = mem[S0]
 - 00000010: Duplicate: S0 = S0
-- 00000011: Load from PC: S0[15:0] = { 4'b000, PC } (unsigned)
 
 OPS_STORE
 - 00010000: Store to memory: mem[S0] = S1
@@ -56,14 +55,10 @@ OPS_ALU
 - 00100010: AND: S0 = S1 & S0
 - 00100011: OR: S0 = S1 | S0
 - 00100100: XOR: S0 = S1 ^ S0
-- 00100101: LT: S0 = S1 < S0
-- 00100110: EQ: S0 = S1 == S0
-- 00100111: NEQ: S0 = S1 != S0
-- 00101000: GT: S0 = S1 > S0
 - 00100101: Shift left 1: S0 = S0 << 1
 - 00100110: Logical shift right 1: S0 = S0 >> 1
-- 00100111: Arithmetic shift right 1: S0 = S0 >> 1, S0[15] = S0[14]
-- 00101000: Negate: S0 = -S0
+- 00100111: Arithmetic shift right 1: S0 = S0 >> 1, S0[11] = S0[10]
+- 00101000: Shift left 6: S0 = S0 << 6
 
 OPS_JUMP
 - 00110000: Unconditional jump: PC = S0
