@@ -188,10 +188,6 @@ class Parser(object):
             tree.add(self.sc.expect('ID'))
             self.sc.expect('=')
             tree.add(self.parseExp())
-            while self.sc.matches(','):
-                tree.add(self.sc.expect('ID'))
-                self.sc.expect('=')
-                tree.add(self.parseExp())
             self.sc.expect(';')
             return tree
         if self.sc.matches('var'):
@@ -199,10 +195,6 @@ class Parser(object):
             tree.add(self.sc.expect('ID'))
             if self.sc.matches('='):
                 tree.add(self.parseExp())
-            while self.sc.matches(','):
-                tree.add(self.sc.expect('ID'))
-                if self.sc.matches('='):
-                    tree.add(self.parseExp())
             self.sc.expect(';')
             return tree
         tree = Tree(self.sc.expect('def'))
@@ -217,13 +209,12 @@ class Parser(object):
         return tree
 
     def parseStatement(self):
-        tree = Tree(Terminal('stat', 'stat'))
         if self.sc.matches('loop'):
-            tree.add(self.sc.terminal)
+            tree = Tree(self.sc.terminal)
             tree.add(self.parseStatList())
             return tree
         if self.sc.matches('do'):
-            tree.add(self.sc.terminal)
+            tree = Tree(self.sc.terminal)
             tree.add(self.parseStatList())
             self.sc.expect('while')
             if self.sc.matches('not'):
@@ -232,51 +223,35 @@ class Parser(object):
             self.sc.expect(';')
             return tree
         if self.sc.matches('ID'):
-            id = Tree(self.sc.terminal)
-            if self.sc.matches(':'):
-                tree = Tree(self.sc.terminal)
-                tree.add(id)
-                return tree
-            self.sc.expect('=')
-            tree = Tree(self.sc.terminal)
-            tree.add(id)
+            var = self.sc.terminal
+            tree = Tree(self.sc.expect('='))
+            tree.add(var)
             tree.add(self.parseExp())
+            self.sc.expect(';')
             return tree
         if self.sc.matches('if'):
-            tree.add(self.sc.terminal)
-            if self.sc.matches('not'):
-                tree.add(self.sc.terminal)
+            tree = Tree(self.sc.terminal)
             tree.add(self.parseExp())
-            if self.sc.matches('continue'):
-                tree.add(self.sc.terminal)
-                tree.add(self.sc.expect('ID'))
-                self.sc.expect(';')
-                return tree
             tree.add(self.parseStatList())
             if self.sc.matches('else'):
                 tree.add(self.parseStatList())
             return tree
         if self.sc.matches('while'):
-            tree.add(self.sc.terminal)
+            tree = Tree(self.sc.terminal)
             tree.add(self.parseExp())
             tree.add(self.parseStatList())
             return tree
         if self.sc.matches('call'):
-            tree.add(self.sc.terminal)
+            tree = Tree(self.sc.terminal)
             tree.add(self.sc.expect('ID'))
             self.sc.expect(';')
             return tree
         if self.sc.matches('return'):
-            tree.add(self.sc.terminal)
-            self.sc.expect(';')
-            return tree
-        if self.sc.matches('continue'):
-            tree.add(self.sc.terminal)
-            tree.add(self.sc.expect('ID'))
+            tree = Tree(self.sc.terminal)
             self.sc.expect(';')
             return tree
         if self.sc.matches('print'):
-            tree.add(self.sc.terminal)
+            tree = Tree(self.sc.terminal)
             tree.add(self.parseExp())
             self.sc.expect(';')
             return tree
@@ -333,6 +308,8 @@ class Parser(object):
             return Tree(t)
         return Tree(self.sc.expect('ID'))
 
+OPS_LOAD_MEM = '01'
+OPS_STORE_MEM = '10'
 OPS_ALU_ADD = '20'
 OPS_ALU_SUB = '21'
 OPS_ALU_NEG = '28'
@@ -345,10 +322,20 @@ class Generator(object):
     def __init__(self, tree):
         self.tree = tree
         self.procedureTrees = {}
+        self.constants = {}
+        self.variable_address = 0
+        self.variables = {}
         for t in tree.children:
             if t.value == 'const':
                 name = t[0].value.value
                 self.constants[name] = self.eval(t[1])
+            if t.value == 'var':
+                name = t[0].value.value
+                if len(t) > 1:
+                    self.variables[name] = self.eval(t[1])
+                else:
+                    self.variables[name] = self.variable_address
+                    self.variable_address += 1
             if t.value == 'def':
                 name = t[0].value.value
                 self.procedureTrees[name] = t[1]
@@ -381,47 +368,54 @@ class Generator(object):
 
     def genStatList(self, tree):
         for stat in tree:
-            if stat.value.name != 'stat':
-                raise Exception('stat expected')
-            s0_name = stat[0].value.name
+            s0_name = stat.value.name
             if s0_name == 'call':
-                func = stat[1].value.value
-                raise Exception(f"call {func} does not exist")
+                func = stat[0].value.value
+                raise Exception(f"line {func.value.lineNumber}, call {func} does not exist")
             elif s0_name == 'print':
-                self.genEval(stat[1])
+                self.genEval(stat[0])
                 self.opcodes.append(OPS_SYS_PRINT)
             elif s0_name == 'while':
                 top = len(self.opcodes)
-                self.genEval(stat[1])
+                self.genEval(stat[0])
                 jump = len(self.opcodes)
                 self.opcodes.append('80')
                 self.opcodes.append(OPS_JUMP_ZERO)
-                self.genStatList(stat[2])
+                self.genStatList(stat[1])
                 pc = 0x80 | ((top - len(self.opcodes) - 2) & 0x7f)
                 self.opcodes.append(f'{pc:02x}')
                 self.opcodes.append(OPS_JUMP)
                 pc = 0x80 | ((len(self.opcodes) - jump - 2) & 0x7f)
                 self.opcodes[jump] = f'{pc:02x}'
+            elif s0_name == '=':
+                var_name = stat[0].value.value
+                if var_name not in self.variables:
+                    raise Exception(f"line {stat[1].value.lineNumber}, undefined variable {var_name}")
+                self.genEval(stat[1])
+                self.genLoadImm(stat[0], self.variables[var_name])
+                self.opcodes.append(OPS_STORE_MEM)
             else:
                 raise Exception(f'{s0_name} not yet support')
 
+    def genLoadImm(self, tree, value):
+        if value > 0x4f:
+            raise Exception(f"line {tree.value.lineNumber}, Value too large: {value}")
+        self.opcodes.append(f"{0x80 | value:02x}")
 
     def genEval(self, tree):
         if tree.value.name == 'INT':
-            value = tree.value.value
-            if value > 0x4f:
-                raise Exception(f"Value too large: {value}")
-            self.opcodes.append(f"{0x80 | value:02x}")
+            self.genLoadImm(tree, tree.value.value)
             return
         if tree.value.name == 'ID':
             name = tree.value.value
-            if name not in self.constants:
-                raise Exception(f"line {tree.value.lineNumber}, No such constant '{name}'")
-            value = self.constants[name]
-            if value > 0x4f:
-                raise Exception(f"Value too large: {value}")
-            self.opcodes.append(f"{0x80 | value:02x}")
-            return
+            if name in self.variables:
+                self.genLoadImm(tree, self.variables[name])
+                self.opcodes.append(OPS_LOAD_MEM)
+                return
+            elif name in self.constants:
+                self.genLoadImm(tree, self.constants[name])
+                return
+            raise Exception(f"line {tree.value.lineNumber}, No such constant '{name}'")
         op = tree.value.name
         self.genEval(tree.children[0])
         if op == 'NEG':

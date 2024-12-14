@@ -175,12 +175,12 @@ module Sprites (
     wire [7:0] pf_wr_data = 8'h00;
     wire reset = 0;
     wire cpu_write;
-    wire [15:0] cpu_wr_addr, cpu_wr_data;
+    wire [15:0] cpu_wr_addr, cpu_wr_data, cpu_io_rd_data;
 
     SpriteROM sr(i_Clk, sprite_draw, sprite_row_num, sprite_col_num, sprite_pixel);
     LineRAM lr(i_Clk, lr_write, lr_write_addr, lr_wr_data, lr_read_addr, lr_rd_data);
     PlayfieldRAM pf(i_Clk, pf_write, pf_write_addr, pf_wr_data, pf_read_addr, pf_sprite);
-    StackMachine cpu(reset, i_Clk, cpu_write, cpu_wr_addr, cpu_wr_data);
+    StackMachine cpu(reset, i_Clk, cpu_wr_addr, cpu_io_rd_data, cpu_write, cpu_wr_data);
 
 `ifdef TESTBENCH
     assign tb_pixel = lr_rd_data;

@@ -14,7 +14,24 @@ module CodeROM(input wire clock, input wire [11:0] rd_address, output reg [7:0] 
     end
 endmodule
 
-module StackMachine(input wire reset, input wire clock, output reg write, output reg [15:0] wr_addr, output reg [15:0] wr_data);
+module CPURAM(input wire clock, input wire [11:0] address, output reg [15:0] rd_data, input wire write, input wire [15:0] wr_data);
+    reg [15:0] memory[0:511];
+    integer i;
+    initial begin
+        for (i=0; i<512; i=i+1) begin
+            memory[i] = 0;
+        end
+    end
+
+    always @(posedge clock) begin
+        rd_data <= memory[address[8:0]];
+        if (write == 1'b1) memory[address[8:0]] <= wr_data;
+    end
+endmodule
+
+module StackMachine(input wire reset, input wire clock, output reg [15:0] io_addr, input wire [15:0] io_rd_data,
+    output reg io_write, output reg [15:0] io_wr_data);
+
     integer i;
     initial begin
         pc = 0;
@@ -36,6 +53,8 @@ module StackMachine(input wire reset, input wire clock, output reg write, output
     reg [1:0] op;
     reg [3:0] op_fam, op_op;
     reg [15:0] S0, S1;
+    wire [15:0] ram_rd_data;
+    reg ram_write;
 
     localparam OPS_LOAD  = 4'b0000;
     localparam OPS_STORE = 4'b0001;
@@ -43,7 +62,8 @@ module StackMachine(input wire reset, input wire clock, output reg write, output
     localparam OPS_JUMP  = 4'b0011;
     localparam OPS_SYS   = 4'b0100;
 
-    localparam OPS_STORE_MEM = 4'b0010;
+    localparam OPS_LOAD_MEM = 4'b0001;
+    localparam OPS_STORE_MEM = 4'b0000;
 
     localparam OPS_ALU_ADD   = 4'b0000;
     localparam OPS_ALU_SUB   = 4'b0001;
@@ -56,6 +76,7 @@ module StackMachine(input wire reset, input wire clock, output reg write, output
     localparam OPS_SYS_PRINT   = 4'b0001;
 
     CodeROM rom(clock, codeAddress, opcode);
+    CPURAM ram(clock, S0[11:0], ram_rd_data, ram_write, S1);
 
     // Guideline #3: When modeling combinational logic with an "always" 
     //              block, use blocking assignments.
@@ -69,12 +90,14 @@ module StackMachine(input wire reset, input wire clock, output reg write, output
 
         S0 = dStack[dSP];
         S1 = dStack[dSPm1];
-        wr_data = S1;
-        wr_addr = S0;
-        write = 1'b0;
+        io_wr_data = S1;
+        io_addr = S0;
+        io_write = 1'b0;
+        ram_write = 1'b0;
         if (op_fam == OPS_STORE) begin
             if (op_op == OPS_STORE_MEM) begin
-                write = 1'b1;
+                if (S0[15:9] == 0) ram_write = 1'b1;
+                else io_write = 1'b1;
             end
         end
 
@@ -116,6 +139,12 @@ module StackMachine(input wire reset, input wire clock, output reg write, output
             if (op_fam == OPS_ALU) begin
                 if (op_op == OPS_ALU_ADD) begin dStack[dSPm1] <= S1 + S0; dSP <= dSPm1; end
                 if (op_op == OPS_ALU_SUB) begin dStack[dSPm1] <= S1 - S0; dSP <= dSPm1; end
+            end
+            if (op_fam == OPS_LOAD) begin
+                if (op_op == OPS_LOAD_MEM) begin
+                    if (S0[15:9] == 0) dStack[dSP] <= ram_rd_data;
+                    else dStack[dSP] <= io_rd_data;
+                end
             end
             if (op_fam == OPS_STORE) begin
                 if (op_op == OPS_STORE_MEM) begin
