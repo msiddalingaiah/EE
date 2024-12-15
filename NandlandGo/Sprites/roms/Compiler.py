@@ -443,6 +443,7 @@ class Generator(object):
         raise Exception(f"line {tree.value.lineNumber}, Unknown operator '{op}'")
 
     def write(self, fname):
+        print(f'Code size {len(self.opcodes)} bytes')
         with open(fname, "wt") as f:
             for op in self.opcodes:
                 f.write(f"{op}\n")

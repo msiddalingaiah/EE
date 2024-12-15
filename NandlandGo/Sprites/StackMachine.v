@@ -3,9 +3,6 @@ module CodeROM(input wire clock, input wire [11:0] rd_address, output reg [7:0] 
     reg [7:0] memory[0:511];
     integer i;
     initial begin
-        for (i=0; i<512; i=i+1) begin
-            memory[i] = 0;
-        end
         $readmemh("roms/code.txt", memory);
     end
 
