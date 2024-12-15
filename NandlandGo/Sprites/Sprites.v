@@ -105,14 +105,18 @@ module Sprites (
     wire [6:0] left_digit_segments, right_digit_segments;
 
     // LEDs are for operational display only, it's a nice sanity check
-    assign { LED_1, LED_2, LED_3, LED_4 } = led_count[23:20];
+    // assign { LED_1, LED_2, LED_3, LED_4 } = led_count[23:20];
+    assign { LED_1, LED_2, LED_3, LED_4 } = temp[3:0];
 
     // 7-segment displays are used to display left/right score
     assign { Segment1_A, Segment1_B, Segment1_C, Segment1_D, Segment1_E, Segment1_F, Segment1_G } = ~left_digit_segments;
     assign { Segment2_A, Segment2_B, Segment2_C, Segment2_D, Segment2_E, Segment2_F, Segment2_G } = ~right_digit_segments;
 
-    BinaryTo7Segment bcd71({2'b00, sprite_num[5:4]}, left_digit_segments);
-    BinaryTo7Segment bcd72(sprite_num[3:0], right_digit_segments);
+    // BinaryTo7Segment bcd71({2'b00, sprite_num[5:4]}, left_digit_segments);
+    // BinaryTo7Segment bcd72(sprite_num[3:0], right_digit_segments);
+
+    BinaryTo7Segment bcd71({2'b00, temp[5:4]}, left_digit_segments);
+    BinaryTo7Segment bcd72(temp[3:0], right_digit_segments);
 
     // Beam row/column positions
     reg [9:0] column, row;
@@ -143,6 +147,7 @@ module Sprites (
         sprite_num = 0;
         sprite_x = 10'h00;
         sprite_y = 10'h00;
+        temp = 0;
     end
 
     // See https://vanhunteradams.com/DE1/VGA_Driver/Driver.html
@@ -179,7 +184,7 @@ module Sprites (
     wire reset = 0;
     wire cpu_write;
     wire [`CPU_WIDTHm1:0] cpu_addr, cpu_wr_data;
-    reg [`CPU_WIDTHm1:0] cpu_rd_data;
+    reg [`CPU_WIDTHm1:0] cpu_rd_data, temp;
     reg cpu_decode_io;
 
     SpriteROM sr(i_Clk, sprite_draw, sprite_row_num, sprite_col_num, sprite_pixel);
@@ -195,7 +200,7 @@ module Sprites (
 
     // Combinational logic to generate color for each "pixel", e.g. "Racing the Beam"
     always @(*) begin
-        cpu_decode_io = cpu_addr[`CPU_WIDTHm1:`CPU_WIDTHm1-1] == 2'h3 ? 1'b1 : 1'b0;
+        cpu_decode_io = cpu_addr[`CPU_WIDTHm1:`CPU_WIDTHm1-1] != 2'h0 ? 1'b1 : 1'b0;
         cpu_rd_data = 16'h0;
 
         sprite_draw = pf_sprite[5:0];
@@ -255,12 +260,15 @@ module Sprites (
         if (led_count == 0) begin
             sprite_num <= sprite_num + 1'b1;
         end
-        if (cpu_wr_data & cpu_decode_io) begin
-            sprite_num <= cpu_wr_data[5:0];
+        // if (cpu_decode_io == 1'b1) temp <= temp + 1;
+        // temp <= temp + 1;
+        temp <= cpu_addr;
+        if (cpu_write & cpu_decode_io) begin
             case (cpu_addr[`CPU_WIDTHm1:`CPU_WIDTHm1-1])
                 2'h0: begin
                 end
                 2'h1: begin
+                    sprite_num <= cpu_wr_data[5:0];
                 end
                 2'h2: begin
                 end

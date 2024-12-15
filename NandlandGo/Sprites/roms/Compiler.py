@@ -406,7 +406,6 @@ class Generator(object):
                 raise Exception(f'{s0_name} not yet support')
 
     def genLoadImm(self, tree, value):
-        print(value)
         if value < 64:
             self.opcodes.append(f"{0x80 | value:02x}")
         else:

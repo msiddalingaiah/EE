@@ -1,11 +1,11 @@
 
 var i;
+var sprite_num = 0x400;
 
 def main {
-    print 4095;
-    i = 3;
-    while i {
-        print i;
-        i = i - 1;
+    i = 0;
+    while 1 {
+        sprite_num = i;
+        i = i + 1;
     }
 }
