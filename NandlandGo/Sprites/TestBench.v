@@ -32,10 +32,10 @@ module TestBench;
 
     Clock cg0(i_Clk);
 
-    wire  i_Switch_1;
-    wire  i_Switch_2;
-    wire  i_Switch_3;
-    wire  i_Switch_4;
+    wire  i_Switch_1 = 1'b0;
+    wire  i_Switch_2 = 1'b0;
+    wire  i_Switch_3 = 1'b0;
+    wire  i_Switch_4 = 1'b0;
 
     // VGA
     wire o_VGA_HSync;

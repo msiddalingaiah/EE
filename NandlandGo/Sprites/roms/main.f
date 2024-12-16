@@ -8,10 +8,12 @@ var switches = 0xc02;
 var vertical_int = 0xc03;
 
 def main {
-    i = 0;
+    i = 3;
     while 1 {
-        leds_numeric = vertical_int;
+        leds_numeric = i;
         i = i + 1;
+        while 1 - vertical_int {
+        }
+        vertical_int = 0;
     }
-    print -1;
 }

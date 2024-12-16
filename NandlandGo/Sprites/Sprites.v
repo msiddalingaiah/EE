@@ -148,6 +148,8 @@ module Sprites (
         leds_on_off = 4'h0;
         leds_numeric = 8'h0;
         vertical_int = 1'b0;
+        reset = 1'b0;
+        reset1 = 1'b0;
     end
 
     // See https://vanhunteradams.com/DE1/VGA_Driver/Driver.html
@@ -181,7 +183,7 @@ module Sprites (
     wire [9:0] pf_write_addr = 10'h00;
     wire [7:0] pf_sprite;
     wire [7:0] pf_wr_data = 8'h00;
-    wire reset = 0;
+    reg reset, reset1;
     wire cpu_write;
     wire [`CPU_WIDTHm1:0] cpu_addr, cpu_wr_data;
     reg [`CPU_WIDTHm1:0] cpu_rd_data;
@@ -205,7 +207,6 @@ module Sprites (
     // Combinational logic to generate color for each "pixel", e.g. "Racing the Beam"
     always @(*) begin
         cpu_decode_io = cpu_addr[`CPU_WIDTHm1:`CPU_WIDTHm1-1] != 2'h0 ? 1'b1 : 1'b0;
-        cpu_rd_data = 16'h0;
 
         sprite_draw = pf_sprite[5:0];
         sprite_row_num = row[3:1];
@@ -238,6 +239,7 @@ module Sprites (
             3: color = 9'b000111000;
         endcase
 
+        cpu_rd_data = {`CPU_WIDTH{1'b0}};
         if (cpu_decode_io) begin
             case (cpu_addr[`CPU_WIDTHm1:`CPU_WIDTHm1-1])
                 2'h1: begin
@@ -256,6 +258,8 @@ module Sprites (
     end
 
     always @(posedge i_Clk) begin
+        // if (reset == 0 && reset1 == 0) begin reset <= 1'b1; reset1 <= 1'b1; end
+        // if (reset == 1'b1) reset <= 0;
         column <= column + 1;
         if (column == H_MAX-1) begin
             column <= 0;
