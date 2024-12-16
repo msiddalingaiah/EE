@@ -103,6 +103,7 @@ module Sprites (
 
     reg [25:0] led_count = 0;
     wire [6:0] left_digit_segments, right_digit_segments;
+    wire [3:0] switches = { i_Switch_1, i_Switch_2, i_Switch_3, i_Switch_4 };
 
     // LEDs are for operational display only, it's a nice sanity check
     // assign { LED_1, LED_2, LED_3, LED_4 } = led_count[23:20];
@@ -144,7 +145,7 @@ module Sprites (
         sprite_num = 1;
         sprite_x = 10'h00;
         sprite_y = 10'h00;
-        leds_numeric = 4'h0;
+        leds_on_off = 4'h0;
         leds_numeric = 8'h0;
     end
 
@@ -190,7 +191,7 @@ module Sprites (
     SpriteROM sr(i_Clk, sprite_draw, sprite_row_num, sprite_col_num, sprite_pixel);
     LineRAM lr(i_Clk, lr_write, lr_write_addr, lr_wr_data, lr_read_addr, lr_rd_data);
     PlayfieldRAM pf(i_Clk, pf_write, pf_write_addr, pf_wr_data, pf_read_addr, pf_sprite);
-    StackMachine cpu(reset, led_count[20], cpu_addr, cpu_rd_data, cpu_write, cpu_wr_data);
+    StackMachine cpu(reset, i_Clk, cpu_addr, cpu_rd_data, cpu_write, cpu_wr_data);
 
 `ifdef TESTBENCH
     assign tb_pixel = lr_rd_data;
@@ -233,6 +234,21 @@ module Sprites (
             2: color = 9'b111000000;
             3: color = 9'b000111000;
         endcase
+
+        if (cpu_decode_io) begin
+            case (cpu_addr[`CPU_WIDTHm1:`CPU_WIDTHm1-1])
+                2'h1: begin
+                    if (cpu_addr[1:0] == 2'h0) cpu_rd_data = { {`CPU_WIDTH-6{1'b0}}, sprite_num };
+                end
+                2'h2: begin
+                end
+                2'h3: begin
+                    if (cpu_addr[1:0] == 2'h0) cpu_rd_data = { {`CPU_WIDTH-4{1'b0}}, leds_on_off };
+                    if (cpu_addr[1:0] == 2'h1) cpu_rd_data = { {`CPU_WIDTH-8{1'b0}}, leds_numeric };
+                    if (cpu_addr[1:0] == 2'h2) cpu_rd_data = { {`CPU_WIDTH-4{1'b0}}, switches };
+                end
+            endcase
+        end
     end
 
     always @(posedge i_Clk) begin
@@ -250,9 +266,6 @@ module Sprites (
         if (row == V_ACTIVE+V_FPORCH+V_PULSE-10'd1) vsync <= 1'b1;
 
         led_count <= led_count + 1;
-        leds_on_off[3:2] = led_count[23:22];
-        leds_on_off[1:0] <= { cpu_decode_io, cpu_write };
-        leds_numeric <= sprite_num;
 
         if (led_count[17:0] == 0) begin
             sprite_x <= (sprite_x + 2'd2) & 10'h1ff;
@@ -260,14 +273,14 @@ module Sprites (
         end
         if (cpu_write & cpu_decode_io) begin
             case (cpu_addr[`CPU_WIDTHm1:`CPU_WIDTHm1-1])
-                2'h0: begin
-                end
                 2'h1: begin
                     if (cpu_addr[1:0] == 2'h0) sprite_num <= cpu_wr_data[5:0];
                 end
                 2'h2: begin
                 end
                 2'h3: begin
+                    if (cpu_addr[1:0] == 2'h0) leds_on_off <= cpu_wr_data[3:0];
+                    if (cpu_addr[1:0] == 2'h1) leds_numeric <= cpu_wr_data[7:0];
                 end
             endcase
         end

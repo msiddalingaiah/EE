@@ -17,7 +17,7 @@ pixels driving a 640 x 480 60 Hz VGA monitor. Each visible pixel is 2 x 2 VGA pi
 - Single sprite rendering with dual port ping-pong buffer
 - Playfield rendering, needs alignment
 - StackMachine 12-bit CPU, 512 bytes program memory, 512 x 16bit data memory
-- 788/1280 LCs, 7/16 RAM blocks, Timing estimate: 79.90 MHz
+- 1029/1280 LCs, 7/16 RAM blocks, Timing estimate: 79.90 MHz
 - I/O access not fully functional
 
 Next steps:
@@ -46,7 +46,7 @@ Each instruction is exactly 1 byte, single cycle execution. Instruction format:
 
 OPS_LOAD
 - 00000001: Load word from memory using S0 as address: S0 = mem[S0]
-- 00000010: Duplicate: S0 = S0
+- 00000010: Swap: S0 = S1, S1 = S0
 
 OPS_STORE
 - 00010000: Store to memory: mem[S0] = S1

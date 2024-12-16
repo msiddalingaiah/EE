@@ -63,6 +63,8 @@ module StackMachine(input wire reset, input wire clock, output reg [`CPU_WIDTHm1
     localparam OPS_SYS   = 4'b0100;
 
     localparam OPS_LOAD_MEM = 4'b0001;
+    localparam OPS_LOAD_SWAP = 4'b0010;
+
     localparam OPS_STORE_MEM = 4'b0000;
 
     localparam OPS_ALU_ADD   = 4'b0000;
@@ -115,8 +117,8 @@ module StackMachine(input wire reset, input wire clock, output reg [`CPU_WIDTHm1
         if (op_fam == OPS_JUMP) begin
             case (op_op)
                 OPS_JUMP_JUMP: op = 2'd1;
-                OPS_JUMP_ZERO: if (S1 == 16'd0) op = 2'd1;
-                OPS_JUMP_NOT_ZERO: if (S1 != 16'd0) op = 2'd1;
+                OPS_JUMP_ZERO: if (S1 == {`CPU_WIDTH{1'b0}}) op = 2'd1;
+                OPS_JUMP_NOT_ZERO: if (S1 != {`CPU_WIDTH{1'b0}}) op = 2'd1;
             endcase
         end
 
@@ -161,6 +163,10 @@ module StackMachine(input wire reset, input wire clock, output reg [`CPU_WIDTHm1
                 if (op_op == OPS_LOAD_MEM) begin
                     if (decode_ram_io == 1'b0) dStack[dSP] <= ram_rd_data;
                     else dStack[dSP] <= io_rd_data;
+                end
+                if (op_op == OPS_LOAD_SWAP) begin
+                    dStack[dSP] <= dStack[dSPm1];
+                    dStack[dSPm1] <= dStack[dSP];
                 end
             end
             if (op_fam == OPS_STORE) begin

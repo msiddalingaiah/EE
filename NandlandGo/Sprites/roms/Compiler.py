@@ -309,7 +309,10 @@ class Parser(object):
         return Tree(self.sc.expect('ID'))
 
 OPS_LOAD_MEM = '01'
+OPS_LOAD_SWAP = '02'
+
 OPS_STORE_MEM = '10'
+
 OPS_ALU_ADD = '20'
 OPS_ALU_SUB = '21'
 OPS_ALU_AND = '22'
@@ -320,7 +323,6 @@ OPS_ALU_LSR = '26'
 OPS_ALU_ASR = '27'
 OPS_ALU_SL6 = '28'
 
-OPS_ALU_NEG = '28'
 OPS_SYS_PRINT = '41'
 OPS_JUMP = '30'
 OPS_JUMP_ZERO = '31'
@@ -348,8 +350,7 @@ class Generator(object):
                 name = t[0].value.value
                 self.procedureTrees[name] = t[1]
         main = self.procedureTrees["main"]
-        self.opcodes = []
-        self.genStatList(main)
+        self.opcodes = self.genStatList(main)
 
     def eval(self, tree):
         if tree.value.name == 'INT':
@@ -375,71 +376,89 @@ class Generator(object):
         raise Exception(f"line {tree.value.lineNumber}, Unknown operator '{op}'")
 
     def genStatList(self, tree):
+        opcodes = []
         for stat in tree:
             s0_name = stat.value.name
             if s0_name == 'call':
                 func = stat[0].value.value
                 raise Exception(f"line {func.value.lineNumber}, call {func} does not exist")
             elif s0_name == 'print':
-                self.genEval(stat[0])
-                self.opcodes.append(OPS_SYS_PRINT)
+                opcodes.extend(self.genEval(stat[0]))
+                opcodes.append(OPS_SYS_PRINT + ' // print')
             elif s0_name == 'while':
-                top = len(self.opcodes)
-                self.genEval(stat[0])
-                jump = len(self.opcodes)
-                self.opcodes.append('80')
-                self.opcodes.append(OPS_JUMP_ZERO)
-                self.genStatList(stat[1])
-                pc = 0x80 | ((top - len(self.opcodes) - 2) & 0x7f)
-                self.opcodes.append(f'{pc:02x}')
-                self.opcodes.append(OPS_JUMP)
-                pc = 0x80 | ((len(self.opcodes) - jump - 2) & 0x7f)
-                self.opcodes[jump] = f'{pc:02x}'
+                exp_ops = self.genEval(stat[0])
+                stat_ops = self.genStatList(stat[1])
+                short = True
+                delta = 2
+                offset = len(stat_ops)
+                if offset > 56:
+                    short = False
+                    delta = 4
+                exp_ops.extend(self.genLoadImm(offset+delta, short))
+                exp_ops.append(OPS_JUMP_ZERO + f' // Jump if zero {offset}')
+                offset = -(len(exp_ops)+len(stat_ops)+delta)
+                stat_ops.extend(self.genLoadImm(offset, short))
+                stat_ops.append(OPS_JUMP + f' // Jump {offset}')
+                opcodes.extend(exp_ops)
+                opcodes.extend(stat_ops)
             elif s0_name == '=':
                 var_name = stat[0].value.value
                 if var_name not in self.variables:
                     raise Exception(f"line {stat[1].value.lineNumber}, undefined variable {var_name}")
-                self.genEval(stat[1])
-                self.genLoadImm(stat[0], self.variables[var_name])
-                self.opcodes.append(OPS_STORE_MEM)
+                opcodes.extend(self.genEval(stat[1]))
+                opcodes.extend(self.genLoadImm(self.variables[var_name]))
+                opcodes.append(OPS_STORE_MEM + ' // Store')
             else:
                 raise Exception(f'{s0_name} not yet support')
+        return opcodes
 
-    def genLoadImm(self, tree, value):
-        if value < 64:
-            self.opcodes.append(f"{0x80 | value:02x}")
+    def genLoadImm(self, value, short=True):
+        opcodes = []
+        if value < 0:
+            if -value < 64 and short:
+                opcodes.append(f"{0x80 | (value & 0x7f):02x} // load {value}")
+            else:
+                opcodes.append(f"{0x80 | ((value>>6) & 0x7f):02x} // load {value>>6}")
+                opcodes.append(OPS_ALU_SL6 + ' // shift left 6 bits')
+                opcodes.append(f"{0x80 | (value&0x7f):02x} // load {value&0x3f}")
+                opcodes.append(OPS_ALU_OR + ' // OR')
+            return opcodes
+        if value < 64 and short:
+            opcodes.append(f"{0x80 | value:02x} // load {value}")
         else:
-            self.opcodes.append(f"{0x80 | (value>>6):02x}")
-            self.opcodes.append(OPS_ALU_SL6)
-            self.opcodes.append(f"{0x80 | (value&0x3f):02x}")
-            self.opcodes.append(OPS_ALU_OR)
+            opcodes.append(f"{0x80 | (value>>6):02x} // load {value>>6}")
+            opcodes.append(OPS_ALU_SL6 + ' // shift left 6 bits')
+            opcodes.append(f"{0x80 | (value&0x3f):02x} // load {value&0x3f}")
+            opcodes.append(OPS_ALU_OR + ' // OR')
+        return opcodes
 
     def genEval(self, tree):
         if tree.value.name == 'INT':
-            self.genLoadImm(tree, tree.value.value)
-            return
+            return self.genLoadImm(tree.value.value)
         if tree.value.name == 'ID':
             name = tree.value.value
             if name in self.variables:
-                self.genLoadImm(tree, self.variables[name])
-                self.opcodes.append(OPS_LOAD_MEM)
-                return
+                addr = self.variables[name]
+                opcodes = self.genLoadImm(addr)
+                opcodes.append(OPS_LOAD_MEM + f' // load mem[0x{addr:x}]')
+                return opcodes
             elif name in self.constants:
-                self.genLoadImm(tree, self.constants[name])
-                return
+                return self.genLoadImm(self.constants[name])
             raise Exception(f"line {tree.value.lineNumber}, No such constant '{name}'")
         op = tree.value.name
-        self.genEval(tree.children[0])
+        opcodes = self.genEval(tree.children[0])
         if op == 'NEG':
-            self.opcodes.append(OPS_ALU_NEG)
-            return
-        self.genEval(tree.children[1])
+            opcodes.extend(self.genLoadImm(0))
+            opcodes.append(OPS_LOAD_SWAP + ' // Swap')
+            opcodes.append(OPS_ALU_SUB + ' // SUB')
+            return opcodes
+        opcodes.extend(self.genEval(tree.children[1]))
         if op == '+':
-            self.opcodes.append(OPS_ALU_ADD)
-            return
+            opcodes.append(OPS_ALU_ADD + ' // ADD')
+            return opcodes
         if op == '-':
-            self.opcodes.append(OPS_ALU_SUB)
-            return
+            opcodes.append(OPS_ALU_SUB + ' // SUB')
+            return opcodes
         raise Exception(f"line {tree.value.lineNumber}, Unknown operator '{op}'")
 
     def write(self, fname):
