@@ -459,6 +459,15 @@ class Generator(object):
         if op == '-':
             opcodes.append(OPS_ALU_SUB + ' // SUB')
             return opcodes
+        if op == '&':
+            opcodes.append(OPS_ALU_AND + ' // AND')
+            return opcodes
+        if op == '|':
+            opcodes.append(OPS_ALU_OR + ' // OR')
+            return opcodes
+        if op == '^':
+            opcodes.append(OPS_ALU_XOR + ' // XOR')
+            return opcodes
         raise Exception(f"line {tree.value.lineNumber}, Unknown operator '{op}'")
 
     def write(self, fname):

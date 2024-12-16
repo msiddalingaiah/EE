@@ -29,7 +29,9 @@ module CPURAM(input wire clock, input wire [11:0] address, output reg [`CPU_WIDT
 endmodule
 
 module StackMachine(input wire reset, input wire clock, output reg [`CPU_WIDTHm1:0] io_addr, input wire [`CPU_WIDTHm1:0] io_rd_data,
-    output reg io_write, output reg [`CPU_WIDTHm1:0] io_wr_data);
+    output reg io_write, output reg [`CPU_WIDTHm1:0] io_wr_data, output wire [7:0] cpu_op);
+
+    assign cpu_op = opcode;
 
     integer i;
     initial begin

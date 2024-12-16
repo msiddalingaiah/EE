@@ -147,6 +147,7 @@ module Sprites (
         sprite_y = 10'h00;
         leds_on_off = 4'h0;
         leds_numeric = 8'h0;
+        vertical_int = 1'b0;
     end
 
     // See https://vanhunteradams.com/DE1/VGA_Driver/Driver.html
@@ -187,11 +188,13 @@ module Sprites (
     reg cpu_decode_io;
     reg [3:0] leds_on_off;
     reg [7:0] leds_numeric;
+    reg vertical_int;
+    wire [7:0] cpu_op;
 
     SpriteROM sr(i_Clk, sprite_draw, sprite_row_num, sprite_col_num, sprite_pixel);
     LineRAM lr(i_Clk, lr_write, lr_write_addr, lr_wr_data, lr_read_addr, lr_rd_data);
     PlayfieldRAM pf(i_Clk, pf_write, pf_write_addr, pf_wr_data, pf_read_addr, pf_sprite);
-    StackMachine cpu(reset, i_Clk, cpu_addr, cpu_rd_data, cpu_write, cpu_wr_data);
+    StackMachine cpu(reset, i_Clk, cpu_addr, cpu_rd_data, cpu_write, cpu_wr_data, cpu_op);
 
 `ifdef TESTBENCH
     assign tb_pixel = lr_rd_data;
@@ -246,6 +249,7 @@ module Sprites (
                     if (cpu_addr[1:0] == 2'h0) cpu_rd_data = { {`CPU_WIDTH-4{1'b0}}, leds_on_off };
                     if (cpu_addr[1:0] == 2'h1) cpu_rd_data = { {`CPU_WIDTH-8{1'b0}}, leds_numeric };
                     if (cpu_addr[1:0] == 2'h2) cpu_rd_data = { {`CPU_WIDTH-4{1'b0}}, switches };
+                    if (cpu_addr[1:0] == 2'h3) cpu_rd_data = { {`CPU_WIDTH-1{1'b0}}, vertical_int };
                 end
             endcase
         end
@@ -258,6 +262,7 @@ module Sprites (
             row <= row + 1;
             if (row == V_MAX-1) begin
                 row <= 0;
+                vertical_int <= 1'b1;
             end
         end
         if (column == H_ACTIVE+H_FPORCH-10'd1) hsync <= 1'b0;
@@ -281,9 +286,11 @@ module Sprites (
                 2'h3: begin
                     if (cpu_addr[1:0] == 2'h0) leds_on_off <= cpu_wr_data[3:0];
                     if (cpu_addr[1:0] == 2'h1) leds_numeric <= cpu_wr_data[7:0];
+                    if (cpu_addr[1:0] == 2'h3) vertical_int <= cpu_wr_data[0];
                 end
             endcase
         end
+        leds_on_off <= cpu_op;
     end
 endmodule
 
