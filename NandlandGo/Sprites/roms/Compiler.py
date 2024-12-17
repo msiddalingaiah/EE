@@ -401,7 +401,7 @@ class Generator(object):
                     short = False
                     delta = 4
                 exp_ops.extend(self.genLoadImm(offset+delta, short))
-                exp_ops.append(OPS_JUMP_ZERO + f' // Jump if zero {offset}')
+                exp_ops.append(OPS_JUMP_ZERO + f' // Jump if zero {offset+delta}')
                 offset = -(len(exp_ops)+len(stat_ops)+delta)
                 stat_ops.extend(self.genLoadImm(offset, short))
                 stat_ops.append(OPS_JUMP + f' // Jump {offset}')

@@ -243,7 +243,9 @@ module Sprites (
         if (cpu_decode_io) begin
             case (cpu_addr[`CPU_WIDTHm1:`CPU_WIDTHm1-1])
                 2'h1: begin
-                    if (cpu_addr[1:0] == 2'h0) cpu_rd_data = { {`CPU_WIDTH-6{1'b0}}, sprite_num };
+                    if (cpu_addr[3:0] == 4'h0) cpu_rd_data = { {`CPU_WIDTH-6{1'b0}}, sprite_num };
+                    if (cpu_addr[3:0] == 4'h1) cpu_rd_data = { {`CPU_WIDTH-10{1'b0}}, sprite_x };
+                    if (cpu_addr[3:0] == 4'h2) cpu_rd_data = { {`CPU_WIDTH-10{1'b0}}, sprite_y };
                 end
                 2'h2: begin
                 end
@@ -258,11 +260,11 @@ module Sprites (
     end
 
     always @(posedge i_Clk) begin
-        if (reset == 1'b0 && reset_inhibit == 1'b0) begin reset <= 1'b1; reset_inhibit <= 1'b1; end
+        if (~reset & ~reset_inhibit) begin reset <= 1'b1; reset_inhibit <= 1'b1; end
         column <= column + 1;
         if (column == H_MAX-1) begin
-            // De-assert reset after ~32 us
-            if (reset == 1'b1) reset <= 0;
+            // De-assert reset after ~32 microseconds
+            if (reset) reset <= 0;
             column <= 0;
             row <= row + 1;
             if (row == V_MAX-1) begin
@@ -277,14 +279,12 @@ module Sprites (
 
         led_count <= led_count + 1;
 
-        if (led_count[17:0] == 0) begin
-            sprite_x <= (sprite_x + 2'd2) & 10'h1ff;
-            sprite_y <= (sprite_y + 2'd2) & 10'h1ff;
-        end
         if (cpu_write & cpu_decode_io) begin
             case (cpu_addr[`CPU_WIDTHm1:`CPU_WIDTHm1-1])
                 2'h1: begin
-                    if (cpu_addr[1:0] == 2'h0) sprite_num <= cpu_wr_data[5:0];
+                    if (cpu_addr[3:0] == 4'h0) sprite_num = cpu_wr_data[5:0];
+                    if (cpu_addr[3:0] == 4'h1) sprite_x = cpu_wr_data[9:0];
+                    if (cpu_addr[3:0] == 4'h2) sprite_y = cpu_wr_data[9:0];
                 end
                 2'h2: begin
                 end
@@ -295,7 +295,6 @@ module Sprites (
                 end
             endcase
         end
-        leds_on_off <= cpu_op;
     end
 endmodule
 

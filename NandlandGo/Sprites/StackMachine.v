@@ -135,7 +135,7 @@ module StackMachine(input wire reset, input wire clock, output reg [`CPU_WIDTHm1
 
     // Guideline #1: When modeling sequential logic, use nonblocking 
     //              assignments.
-    always @(posedge clock, posedge reset) begin
+    always @(posedge clock) begin
 		if (reset == 1'b1) begin
             pc <= 0;
             cSP <= 3;

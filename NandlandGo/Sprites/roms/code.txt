@@ -1,22 +1,82 @@
 00 // No operation
+81 // load 1
+b0 // load 48
+28 // shift left 6 bits
+80 // load 0
+23 // OR
+10 // Store
+87 // load 7
+90 // load 16
+28 // shift left 6 bits
+80 // load 0
+23 // OR
+10 // Store
 80 // load 0
 80 // load 0
 10 // Store
-81 // load 1
-a0 // load 32
-31 // Jump if zero 30
-80 // load 0
-01 // load mem[0x0]
-b0 // load 48
+b2 // load 50
+90 // load 16
 28 // shift left 6 bits
 81 // load 1
 23 // OR
 10 // Store
+9e // load 30
+90 // load 16
+28 // shift left 6 bits
+82 // load 2
+23 // OR
+10 // Store
+90 // load 16
+28 // shift left 6 bits
+80 // load 0
+23 // OR
+01 // load mem[0x400]
+41 // print
+90 // load 16
+28 // shift left 6 bits
+81 // load 1
+23 // OR
+01 // load mem[0x401]
+81 // load 1
+20 // ADD
+81 // load 1
+28 // shift left 6 bits
+bf // load 63
+23 // OR
+22 // AND
+41 // print
+90 // load 16
+28 // shift left 6 bits
+82 // load 2
+23 // OR
+01 // load mem[0x402]
+41 // print
+81 // load 1
+b7 // load 55
+31 // Jump if zero 55
 80 // load 0
 01 // load mem[0x0]
 81 // load 1
 20 // ADD
 80 // load 0
+10 // Store
+80 // load 0
+01 // load mem[0x0]
+81 // load 1
+28 // shift left 6 bits
+bf // load 63
+23 // OR
+22 // AND
+80 // load 0
+10 // Store
+80 // load 0
+01 // load mem[0x0]
+9e // load 30
+20 // ADD
+90 // load 16
+28 // shift left 6 bits
+82 // load 2
+23 // OR
 10 // Store
 81 // load 1
 b0 // load 48
@@ -26,7 +86,7 @@ b0 // load 48
 01 // load mem[0xc03]
 21 // SUB
 82 // load 2
-31 // Jump if zero 0
+31 // Jump if zero 2
 f5 // load -11
 30 // Jump -11
 80 // load 0
@@ -35,80 +95,20 @@ b0 // load 48
 83 // load 3
 23 // OR
 10 // Store
-dd // load -35
-30 // Jump -35
-00
-00
-00
-00
-00
-00
-00
-00
-00
-00
-00
-00
-00
-00
-00
-00
-00
-00
-00
-00
-00
-00
-00
-00
-00
-00
-00
-00
-00
-00
-00
-00
-00
-00
-00
-00
-00
-00
-00
-00
-00
-00
-00
-00
-00
-00
-00
-00
-00
-00
-00
-00
-00
-00
-00
-00
-00
-00
-00
-00
-00
-00
-00
-00
-00
-00
-00
-00
-00
-00
-00
-00
+b0 // load 48
+28 // shift left 6 bits
+80 // load 0
+23 // OR
+01 // load mem[0xc00]
+81 // load 1
+20 // ADD
+b0 // load 48
+28 // shift left 6 bits
+80 // load 0
+23 // OR
+10 // Store
+c6 // load -58
+30 // Jump -58
 00
 00
 00
