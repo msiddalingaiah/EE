@@ -76,6 +76,7 @@ module StackMachine(input wire reset, input wire clock, output reg [`CPU_WIDTHm1
     localparam OPS_ALU_LSR   = 4'b0110;
     localparam OPS_ALU_ASR   = 4'b0111;
     localparam OPS_ALU_SL6   = 4'b1000;
+    localparam OPS_ALU_LT    = 4'b1001;
 
     localparam OPS_JUMP_JUMP = 4'b0000;
     localparam OPS_JUMP_ZERO = 4'b0001;
@@ -159,6 +160,7 @@ module StackMachine(input wire reset, input wire clock, output reg [`CPU_WIDTHm1
                 // if (op_op == OPS_ALU_LSR) begin dStack[dSP] <= { 1'b0, S0[`CPU_WIDTHm1:1] }; end
                 // if (op_op == OPS_ALU_ASR) begin dStack[dSP] <= { S0[`CPU_WIDTHm1], S0[`CPU_WIDTHm1:1] }; end
                 if (op_op == OPS_ALU_SL6) begin dStack[dSP] <= { S0[`CPU_WIDTHm1-6:0], 6'h0 }; end
+                if (op_op == OPS_ALU_LT) begin dStack[dSP] <= { {`CPU_WIDTH-1{1'b0}}, S0[`CPU_WIDTH-1] }; end
             end
             if (op_fam == OPS_LOAD) begin
                 if (op_op == OPS_LOAD_MEM) begin

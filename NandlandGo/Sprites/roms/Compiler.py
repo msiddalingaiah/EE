@@ -166,7 +166,7 @@ class Parser(object):
         patterns.append(Pattern("'", r"'(?:[^'\\]|\\.)'"))
         patterns.append(Pattern('"', r'"(?:[^"\\]|\\.)*"'))
         self.sc = Scanner(patterns)
-        self.prec = [('&','|','^'), ('>>', '<<'), ('==','!=','>','<','>=','<='), ('+','-')]
+        self.prec = [('&','|'), ('<', '!='), ('+','-')]
 
     def parse(self, input):
         self.sc.setInput(input)
@@ -324,6 +324,7 @@ OPS_ALU_SL = '25'
 OPS_ALU_LSR = '26'
 OPS_ALU_ASR = '27'
 OPS_ALU_SL6 = '28'
+OPS_ALU_LT = '29'
 
 OPS_SYS_PRINT = '41'
 OPS_JUMP = '30'
@@ -470,8 +471,12 @@ class Generator(object):
         if op == '|':
             opcodes.append(OPS_ALU_OR + ' // OR')
             return opcodes
-        if op == '^':
-            opcodes.append(OPS_ALU_XOR + ' // XOR')
+        if op == '!=':
+            opcodes.append(OPS_ALU_SUB + ' // SUB')
+            return opcodes
+        if op == '<':
+            opcodes.append(OPS_ALU_SUB + ' // SUB')
+            opcodes.append(OPS_ALU_LT + ' // LT')
             return opcodes
         raise Exception(f"line {tree.value.lineNumber}, Unknown operator '{op}'")
 

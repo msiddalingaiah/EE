@@ -8,7 +8,7 @@ var switches = 0xc02;
 var vertical_int = 0xc03;
 
 def main {
-    i = 3;
+    i = 0;
     while 1 {
         leds_numeric = i;
         i = i + 1;

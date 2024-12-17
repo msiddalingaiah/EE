@@ -1,5 +1,5 @@
 00 // No operation
-83 // load 3
+80 // load 0
 80 // load 0
 10 // Store
 81 // load 1

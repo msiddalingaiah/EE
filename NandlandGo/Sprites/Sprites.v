@@ -261,13 +261,13 @@ module Sprites (
         if (reset == 1'b0 && reset_inhibit == 1'b0) begin reset <= 1'b1; reset_inhibit <= 1'b1; end
         column <= column + 1;
         if (column == H_MAX-1) begin
+            // De-assert reset after ~32 us
+            if (reset == 1'b1) reset <= 0;
             column <= 0;
             row <= row + 1;
             if (row == V_MAX-1) begin
                 row <= 0;
                 vertical_int <= 1'b1;
-                // De-assert reset after ~15 ms
-                if (reset == 1'b1) reset <= 0;
             end
         end
         if (column == H_ACTIVE+H_FPORCH-10'd1) hsync <= 1'b0;
