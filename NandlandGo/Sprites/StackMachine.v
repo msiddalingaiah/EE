@@ -38,7 +38,6 @@ module StackMachine(input wire reset, input wire clock, output reg [`CPU_WIDTHm1
         pc = 0;
         cSP = 3;
         dSP = 3;
-        codeAddress = 0;
         for (i=0;i<4;i=i+1) cStack[i] = 0;
         for (i=0;i<4;i=i+1) dStack[i] = 0;
     end
@@ -124,6 +123,7 @@ module StackMachine(input wire reset, input wire clock, output reg [`CPU_WIDTHm1
         end
 
         cSP1 = cSP + 1'b1;
+        codeAddress = pc;
         case (op)
             2'd0: codeAddress = pc;  // next
             2'd1: begin codeAddress = pc+S0[11:0]; end // jump
@@ -154,7 +154,7 @@ module StackMachine(input wire reset, input wire clock, output reg [`CPU_WIDTHm1
                 if (op_op == OPS_ALU_SUB) begin dStack[dSPm1] <= S1 - S0; dSP <= dSPm1; end
                 if (op_op == OPS_ALU_AND) begin dStack[dSPm1] <= S1 & S0; dSP <= dSPm1; end
                 if (op_op == OPS_ALU_OR)  begin dStack[dSPm1] <= S1 | S0; dSP <= dSPm1; end
-                if (op_op == OPS_ALU_XOR) begin dStack[dSPm1] <= S1 ^ S0; dSP <= dSPm1; end
+                // if (op_op == OPS_ALU_XOR) begin dStack[dSPm1] <= S1 ^ S0; dSP <= dSPm1; end
                 // if (op_op == OPS_ALU_SL)  begin dStack[dSP] <= { S0[14:0], 1'b0 }; end
                 // if (op_op == OPS_ALU_LSR) begin dStack[dSP] <= { 1'b0, S0[`CPU_WIDTHm1:1] }; end
                 // if (op_op == OPS_ALU_ASR) begin dStack[dSP] <= { S0[`CPU_WIDTHm1], S0[`CPU_WIDTHm1:1] }; end

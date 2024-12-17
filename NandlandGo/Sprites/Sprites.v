@@ -149,7 +149,7 @@ module Sprites (
         leds_numeric = 8'h0;
         vertical_int = 1'b0;
         reset = 1'b0;
-        reset1 = 1'b0;
+        reset_inhibit = 1'b0;
     end
 
     // See https://vanhunteradams.com/DE1/VGA_Driver/Driver.html
@@ -183,7 +183,7 @@ module Sprites (
     wire [9:0] pf_write_addr = 10'h00;
     wire [7:0] pf_sprite;
     wire [7:0] pf_wr_data = 8'h00;
-    reg reset, reset1;
+    reg reset, reset_inhibit;
     wire cpu_write;
     wire [`CPU_WIDTHm1:0] cpu_addr, cpu_wr_data;
     reg [`CPU_WIDTHm1:0] cpu_rd_data;
@@ -258,8 +258,7 @@ module Sprites (
     end
 
     always @(posedge i_Clk) begin
-        // if (reset == 0 && reset1 == 0) begin reset <= 1'b1; reset1 <= 1'b1; end
-        // if (reset == 1'b1) reset <= 0;
+        if (reset == 1'b0 && reset_inhibit == 1'b0) begin reset <= 1'b1; reset_inhibit <= 1'b1; end
         column <= column + 1;
         if (column == H_MAX-1) begin
             column <= 0;
@@ -267,6 +266,8 @@ module Sprites (
             if (row == V_MAX-1) begin
                 row <= 0;
                 vertical_int <= 1'b1;
+                // De-assert reset after ~15 ms
+                if (reset == 1'b1) reset <= 0;
             end
         end
         if (column == H_ACTIVE+H_FPORCH-10'd1) hsync <= 1'b0;

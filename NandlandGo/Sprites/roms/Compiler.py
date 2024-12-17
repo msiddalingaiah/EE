@@ -308,6 +308,8 @@ class Parser(object):
             return Tree(t)
         return Tree(self.sc.expect('ID'))
 
+OPS_NOP = '00'
+
 OPS_LOAD_MEM = '01'
 OPS_LOAD_SWAP = '02'
 
@@ -350,7 +352,10 @@ class Generator(object):
                 name = t[0].value.value
                 self.procedureTrees[name] = t[1]
         main = self.procedureTrees["main"]
-        self.opcodes = self.genStatList(main)
+        self.opcodes = []
+        # Reset location must contain a NOP!
+        self.opcodes.append(OPS_NOP + ' // No operation')
+        self.opcodes.extend(self.genStatList(main))
 
     def eval(self, tree):
         if tree.value.name == 'INT':

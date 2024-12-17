@@ -1,3 +1,4 @@
+00 // No operation
 83 // load 3
 80 // load 0
 10 // Store
@@ -36,7 +37,6 @@ b0 // load 48
 10 // Store
 dd // load -35
 30 // Jump -35
-00
 00
 00
 00

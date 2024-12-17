@@ -17,8 +17,8 @@ pixels driving a 640 x 480 60 Hz VGA monitor. Each visible pixel is 2 x 2 VGA pi
 - Single sprite rendering with dual port ping-pong buffer
 - Playfield rendering, needs alignment
 - StackMachine 12-bit CPU, 512 bytes program memory, 512 x 16bit data memory
-- 1030/1280 LCs, 7/16 RAM blocks, Timing estimate: 60.20 MHz
-- I/O functional, something not properly initialized.
+- 900/1280 LCs, 7/16 RAM blocks, Timing estimate: 72.26 MHz
+- I/O functional
 
 Next steps:
 
