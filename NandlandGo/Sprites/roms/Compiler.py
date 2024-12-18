@@ -356,6 +356,7 @@ class Generator(object):
         self.opcodes = []
         # Reset location must contain a NOP!
         self.opcodes.append(OPS_NOP + ' // No operation')
+        self.opcodes.append(OPS_NOP + ' // No operation')
         self.opcodes.extend(self.genStatList(main))
 
     def eval(self, tree):
@@ -464,6 +465,8 @@ class Generator(object):
             if name in self.variables:
                 addr = self.variables[name]
                 opcodes = self.genLoadImm(addr)
+                if addr < 0x400:
+                    opcodes.append(OPS_NOP + ' // RAM read delay slot')
                 opcodes.append(OPS_LOAD_MEM + f' // load mem[0x{addr:x}]')
                 return opcodes
             elif name in self.constants:

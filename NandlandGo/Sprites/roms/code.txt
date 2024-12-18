@@ -1,4 +1,24 @@
 00 // No operation
+00 // No operation
+80 // load 0
+80 // load 0
+10 // Store
+81 // load 1
+81 // load 1
+10 // Store
+80 // load 0
+00 // RAM read delay slot
+01 // load mem[0x0]
+81 // load 1
+00 // RAM read delay slot
+01 // load mem[0x1]
+20 // ADD
+81 // load 1
+28 // shift left 6 bits
+bf // load 63
+23 // OR
+22 // AND
+41 // print
 81 // load 1
 b0 // load 48
 28 // shift left 6 bits
@@ -10,9 +30,6 @@ b0 // load 48
 28 // shift left 6 bits
 80 // load 0
 23 // OR
-10 // Store
-80 // load 0
-80 // load 0
 10 // Store
 b2 // load 50
 90 // load 16
@@ -52,13 +69,12 @@ bf // load 63
 01 // load mem[0x402]
 41 // print
 80 // load 0
+00 // RAM read delay slot
 01 // load mem[0x0]
 81 // load 1
+00 // RAM read delay slot
+01 // load mem[0x1]
 20 // ADD
-80 // load 0
-10 // Store
-80 // load 0
-01 // load mem[0x0]
 81 // load 1
 28 // shift left 6 bits
 bf // load 63
@@ -67,6 +83,7 @@ bf // load 63
 80 // load 0
 10 // Store
 80 // load 0
+00 // RAM read delay slot
 01 // load mem[0x0]
 9e // load 30
 20 // ADD
@@ -126,23 +143,6 @@ ba // load 58
 a3 // load 35
 23 // OR
 41 // print
-00
-00
-00
-00
-00
-00
-00
-00
-00
-00
-00
-00
-00
-00
-00
-00
-00
 00
 00
 00
