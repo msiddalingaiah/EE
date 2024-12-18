@@ -17,7 +17,7 @@ def main {
     print sprite_num;
     print (sprite_x + 1) & 0x7f;
     print sprite_y;
-    while 1 {
+    loop {
         x = x + 1;
         x = x & 0x7f;
         sprite_y = x + 30;

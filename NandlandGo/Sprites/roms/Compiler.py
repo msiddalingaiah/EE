@@ -392,21 +392,9 @@ class Generator(object):
                 opcodes.extend(self.genEval(stat[0]))
                 opcodes.append(OPS_SYS_PRINT + ' // print')
             elif s0_name == 'while':
-                exp_ops = self.genEval(stat[0])
-                stat_ops = self.genStatList(stat[1])
-                short = True
-                jump_len = 2
-                offset = len(stat_ops)
-                if offset+5 > 60:
-                    short = False
-                    jump_len = 5
-                exp_ops.extend(self.genLoadImm(offset+jump_len, short))
-                exp_ops.append(OPS_JUMP_ZERO + f' // Jump if zero {offset+jump_len}')
-                offset = -(len(exp_ops)+len(stat_ops)+jump_len)
-                stat_ops.extend(self.genLoadImm(offset, short))
-                stat_ops.append(OPS_JUMP + f' // Jump {offset}')
-                opcodes.extend(exp_ops)
-                opcodes.extend(stat_ops)
+                opcodes.extend(self.genWhile(stat))
+            elif s0_name == 'loop':
+                opcodes.extend(self.genLoop(stat))
             elif s0_name == '=':
                 var_name = stat[0].value.value
                 if var_name not in self.variables:
@@ -415,8 +403,38 @@ class Generator(object):
                 opcodes.extend(self.genLoadImm(self.variables[var_name]))
                 opcodes.append(OPS_STORE_MEM + ' // Store')
             else:
-                raise Exception(f'{s0_name} not yet support')
+                raise Exception(f'{s0_name} not yet supported')
         return opcodes
+
+    def genWhile(self, stat):
+        exp_ops = self.genEval(stat[0])
+        stat_ops = self.genStatList(stat[1])
+        short = True
+        jump_len = 2
+        offset = len(stat_ops)
+        if offset+5 > 60:
+            short = False
+            jump_len = 5
+        exp_ops.extend(self.genLoadImm(offset+jump_len, short))
+        exp_ops.append(OPS_JUMP_ZERO + f' // Jump if zero {offset+jump_len}')
+        offset = -(len(exp_ops)+len(stat_ops)+jump_len)
+        stat_ops.extend(self.genLoadImm(offset, short))
+        stat_ops.append(OPS_JUMP + f' // Jump {offset}')
+        exp_ops.extend(stat_ops)
+        return exp_ops
+
+    def genLoop(self, stat):
+        stat_ops = self.genStatList(stat[0])
+        short = True
+        jump_len = 2
+        offset = len(stat_ops)
+        if offset+5 > 60:
+            short = False
+            jump_len = 5
+        offset = -(len(stat_ops)+jump_len)
+        stat_ops.extend(self.genLoadImm(offset, short))
+        stat_ops.append(OPS_JUMP + f' // Jump {offset}')
+        return stat_ops
 
     def genLoadImm(self, value, short=True):
         opcodes = []

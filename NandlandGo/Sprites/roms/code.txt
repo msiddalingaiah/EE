@@ -51,12 +51,6 @@ bf // load 63
 23 // OR
 01 // load mem[0x402]
 41 // print
-81 // load 1
-81 // load 1
-28 // shift left 6 bits
-86 // load 6
-23 // OR
-31 // Jump if zero 70
 80 // load 0
 01 // load mem[0x0]
 81 // load 1
@@ -124,14 +118,20 @@ b0 // load 48
 10 // Store
 fe // load -2
 28 // shift left 6 bits
-b4 // load 52
+ba // load 58
 23 // OR
-30 // Jump -76
+30 // Jump -70
 81 // load 1
 28 // shift left 6 bits
 a3 // load 35
 23 // OR
 41 // print
+00
+00
+00
+00
+00
+00
 00
 00
 00
