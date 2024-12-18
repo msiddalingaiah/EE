@@ -119,7 +119,7 @@ module TestBench;
     
     always @(posedge i_Clk) begin
         cycle_count <= cycle_count + 1;
-        if (cycle_count > 1000) begin
+        if (cycle_count > 100) begin
             $fclose(fd);
             $finish;
         end

@@ -396,6 +396,7 @@ class Generator(object):
                 stat_ops = self.genStatList(stat[1])
                 short = True
                 delta = 2
+                # TODO this isn't quite right for big loops
                 offset = len(stat_ops)
                 if offset > 56:
                     short = False

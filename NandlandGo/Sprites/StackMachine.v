@@ -136,64 +136,65 @@ module StackMachine(input wire reset, input wire clock, output reg [`CPU_WIDTHm1
     // Guideline #1: When modeling sequential logic, use nonblocking 
     //              assignments.
     always @(posedge clock) begin
+        case (op)
+            2'd0: ;  // next
+            2'd1: ;  // jump
+            2'd2: begin cStack[cSP1] <= pc; cSP <= cSP + 1'b1; end // call
+            2'd3: cSP <= cSP - 1; // return
+        endcase
+        pc <= codeAddress + 1;
+
+        if (opcode[7] == 1'b1) begin dStack[dSP1] <= { {9{opcode[6]}}, opcode[6:0] }; dSP <= dSP1; end
+        if (op_fam == OPS_ALU) begin
+            if (op_op == OPS_ALU_ADD) begin dStack[dSPm1] <= S1 + S0; dSP <= dSPm1; end
+            if (op_op == OPS_ALU_SUB) begin dStack[dSPm1] <= S1 - S0; dSP <= dSPm1; end
+            if (op_op == OPS_ALU_AND) begin dStack[dSPm1] <= S1 & S0; dSP <= dSPm1; end
+            if (op_op == OPS_ALU_OR)  begin dStack[dSPm1] <= S1 | S0; dSP <= dSPm1; end
+            // if (op_op == OPS_ALU_XOR) begin dStack[dSPm1] <= S1 ^ S0; dSP <= dSPm1; end
+            // if (op_op == OPS_ALU_SL)  begin dStack[dSP] <= { S0[14:0], 1'b0 }; end
+            // if (op_op == OPS_ALU_LSR) begin dStack[dSP] <= { 1'b0, S0[`CPU_WIDTHm1:1] }; end
+            // if (op_op == OPS_ALU_ASR) begin dStack[dSP] <= { S0[`CPU_WIDTHm1], S0[`CPU_WIDTHm1:1] }; end
+            if (op_op == OPS_ALU_SL6) begin dStack[dSP] <= { S0[`CPU_WIDTHm1-6:0], 6'h0 }; end
+            if (op_op == OPS_ALU_LT) begin dStack[dSP] <= { {`CPU_WIDTH-1{1'b0}}, S0[`CPU_WIDTH-1] }; end
+        end
+        if (op_fam == OPS_LOAD) begin
+            if (op_op == OPS_LOAD_MEM) begin
+                if (decode_ram_io == 1'b0) dStack[dSP] <= ram_rd_data;
+                else dStack[dSP] <= io_rd_data;
+            end
+            if (op_op == OPS_LOAD_SWAP) begin
+                dStack[dSP] <= dStack[dSPm1];
+                dStack[dSPm1] <= dStack[dSP];
+            end
+        end
+        if (op_fam == OPS_STORE) begin
+            if (op_op == OPS_STORE_MEM) begin
+                dSP <= dSPm2;
+            end
+        end
+        if (op_fam == OPS_JUMP) begin
+            case (op_op)
+                OPS_JUMP_JUMP: dSP <= dSPm1;
+                OPS_JUMP_ZERO: dSP <= dSPm2;
+                OPS_JUMP_NOT_ZERO: dSP <= dSPm2;
+            endcase
+        end
+        if (op_fam == OPS_SYS) begin
+            if (op_op == OPS_SYS_HALT) begin
+            end
+            if (op_op == OPS_SYS_PRINT) begin
+`ifdef TESTBENCH
+                $display("%d, %d", S1, S0);
+`endif
+                dSP <= dSPm1;
+            end
+        end
+        // https://blog.award-winning.me/2017/11/resetting-reset-handling.html
+        // Synchronous reset saves routing resources
 		if (reset == 1'b1) begin
             pc <= 0;
             cSP <= 3;
             dSP <= 3;
-		end else begin
-            case (op)
-                2'd0: ;  // next
-                2'd1: ;  // jump
-                2'd2: begin cStack[cSP1] <= pc; cSP <= cSP + 1'b1; end // call
-                2'd3: cSP <= cSP - 1; // return
-            endcase
-            pc <= codeAddress + 1;
-
-            if (opcode[7] == 1'b1) begin dStack[dSP1] <= { {9{opcode[6]}}, opcode[6:0] }; dSP <= dSP1; end
-            if (op_fam == OPS_ALU) begin
-                if (op_op == OPS_ALU_ADD) begin dStack[dSPm1] <= S1 + S0; dSP <= dSPm1; end
-                if (op_op == OPS_ALU_SUB) begin dStack[dSPm1] <= S1 - S0; dSP <= dSPm1; end
-                if (op_op == OPS_ALU_AND) begin dStack[dSPm1] <= S1 & S0; dSP <= dSPm1; end
-                if (op_op == OPS_ALU_OR)  begin dStack[dSPm1] <= S1 | S0; dSP <= dSPm1; end
-                // if (op_op == OPS_ALU_XOR) begin dStack[dSPm1] <= S1 ^ S0; dSP <= dSPm1; end
-                // if (op_op == OPS_ALU_SL)  begin dStack[dSP] <= { S0[14:0], 1'b0 }; end
-                // if (op_op == OPS_ALU_LSR) begin dStack[dSP] <= { 1'b0, S0[`CPU_WIDTHm1:1] }; end
-                // if (op_op == OPS_ALU_ASR) begin dStack[dSP] <= { S0[`CPU_WIDTHm1], S0[`CPU_WIDTHm1:1] }; end
-                if (op_op == OPS_ALU_SL6) begin dStack[dSP] <= { S0[`CPU_WIDTHm1-6:0], 6'h0 }; end
-                if (op_op == OPS_ALU_LT) begin dStack[dSP] <= { {`CPU_WIDTH-1{1'b0}}, S0[`CPU_WIDTH-1] }; end
-            end
-            if (op_fam == OPS_LOAD) begin
-                if (op_op == OPS_LOAD_MEM) begin
-                    if (decode_ram_io == 1'b0) dStack[dSP] <= ram_rd_data;
-                    else dStack[dSP] <= io_rd_data;
-                end
-                if (op_op == OPS_LOAD_SWAP) begin
-                    dStack[dSP] <= dStack[dSPm1];
-                    dStack[dSPm1] <= dStack[dSP];
-                end
-            end
-            if (op_fam == OPS_STORE) begin
-                if (op_op == OPS_STORE_MEM) begin
-                    dSP <= dSPm2;
-                end
-            end
-            if (op_fam == OPS_JUMP) begin
-                case (op_op)
-                    OPS_JUMP_JUMP: dSP <= dSPm1;
-                    OPS_JUMP_ZERO: dSP <= dSPm2;
-                    OPS_JUMP_NOT_ZERO: dSP <= dSPm2;
-                endcase
-            end
-            if (op_fam == OPS_SYS) begin
-                if (op_op == OPS_SYS_HALT) begin
-                end
-                if (op_op == OPS_SYS_PRINT) begin
-`ifdef TESTBENCH
-                    $display("%d, %d", S1, S0);
-`endif
-                    dSP <= dSPm1;
-                end
-            end
-		end
+		end 
     end
 endmodule

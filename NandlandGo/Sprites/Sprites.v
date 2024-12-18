@@ -260,16 +260,20 @@ module Sprites (
     end
 
     always @(posedge i_Clk) begin
+`ifdef TESTBENCH
+        // Short reset is enough for simulation
+        reset <= 0;
+`endif
         if (~reset & ~reset_inhibit) begin reset <= 1'b1; reset_inhibit <= 1'b1; end
         column <= column + 1;
         if (column == H_MAX-1) begin
-            // De-assert reset after ~32 microseconds
-            if (reset) reset <= 0;
             column <= 0;
             row <= row + 1;
             if (row == V_MAX-1) begin
                 row <= 0;
                 vertical_int <= 1'b1;
+                // De-assert reset after ~16 ms for synthesis
+                reset <= 0;
             end
         end
         if (column == H_ACTIVE+H_FPORCH-10'd1) hsync <= 1'b0;
