@@ -25,5 +25,7 @@ def main {
         }
         vertical_int = 0;
         leds_on_off = leds_on_off + 1;
+        leds_numeric = leds_numeric + 1;
     }
+    print 99;
 }

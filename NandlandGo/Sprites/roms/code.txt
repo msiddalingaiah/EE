@@ -52,8 +52,11 @@ bf // load 63
 01 // load mem[0x402]
 41 // print
 81 // load 1
-b7 // load 55
-31 // Jump if zero 55
+81 // load 1
+28 // shift left 6 bits
+86 // load 6
+23 // OR
+31 // Jump if zero 70
 80 // load 0
 01 // load mem[0x0]
 81 // load 1
@@ -107,31 +110,28 @@ b0 // load 48
 80 // load 0
 23 // OR
 10 // Store
-c6 // load -58
-30 // Jump -58
-00
-00
-00
-00
-00
-00
-00
-00
-00
-00
-00
-00
-00
-00
-00
-00
-00
-00
-00
-00
-00
-00
-00
+b0 // load 48
+28 // shift left 6 bits
+81 // load 1
+23 // OR
+01 // load mem[0xc01]
+81 // load 1
+20 // ADD
+b0 // load 48
+28 // shift left 6 bits
+81 // load 1
+23 // OR
+10 // Store
+fe // load -2
+28 // shift left 6 bits
+b4 // load 52
+23 // OR
+30 // Jump -76
+81 // load 1
+28 // shift left 6 bits
+a3 // load 35
+23 // OR
+41 // print
 00
 00
 00

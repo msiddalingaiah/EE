@@ -395,15 +395,14 @@ class Generator(object):
                 exp_ops = self.genEval(stat[0])
                 stat_ops = self.genStatList(stat[1])
                 short = True
-                delta = 2
-                # TODO this isn't quite right for big loops
+                jump_len = 2
                 offset = len(stat_ops)
-                if offset > 56:
+                if offset+5 > 60:
                     short = False
-                    delta = 4
-                exp_ops.extend(self.genLoadImm(offset+delta, short))
-                exp_ops.append(OPS_JUMP_ZERO + f' // Jump if zero {offset+delta}')
-                offset = -(len(exp_ops)+len(stat_ops)+delta)
+                    jump_len = 5
+                exp_ops.extend(self.genLoadImm(offset+jump_len, short))
+                exp_ops.append(OPS_JUMP_ZERO + f' // Jump if zero {offset+jump_len}')
+                offset = -(len(exp_ops)+len(stat_ops)+jump_len)
                 stat_ops.extend(self.genLoadImm(offset, short))
                 stat_ops.append(OPS_JUMP + f' // Jump {offset}')
                 opcodes.extend(exp_ops)
