@@ -396,6 +396,8 @@ class Generator(object):
                 opcodes.extend(self.genWhile(stat))
             elif s0_name == 'loop':
                 opcodes.extend(self.genLoop(stat))
+            elif s0_name == 'if':
+                opcodes.extend(self.genIf(stat))
             elif s0_name == '=':
                 var_name = stat[0].value.value
                 if var_name not in self.variables:
@@ -436,6 +438,22 @@ class Generator(object):
         stat_ops.extend(self.genLoadImm(offset, short))
         stat_ops.append(OPS_JUMP + f' // Jump {offset}')
         return stat_ops
+
+    def genIf(self, stat):
+        exp_ops = self.genEval(stat[0])
+        stat_ops = self.genStatList(stat[1])
+        if len(stat) > 2:
+            else_ops = self.genStatList(stat[2])
+            offset = len(else_ops)
+            stat_ops.extend(self.genLoadImm(offset, offset < 60))
+            stat_ops.append(OPS_JUMP + f' // Jump {offset}')
+        offset = len(stat_ops)
+        exp_ops.extend(self.genLoadImm(offset, offset < 60))
+        exp_ops.append(OPS_JUMP_ZERO + f' // Jump if zero {offset}')
+        exp_ops.extend(stat_ops)
+        if len(stat) > 2:
+            exp_ops.extend(else_ops)
+        return exp_ops
 
     def genLoadImm(self, value, short=True):
         opcodes = []
