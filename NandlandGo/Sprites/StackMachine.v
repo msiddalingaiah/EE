@@ -60,12 +60,12 @@ module StackMachine(input wire reset, input wire clock, output reg [`CPU_WIDTHm1
     localparam OPS_STORE = 4'b0001;
     localparam OPS_ALU   = 4'b0010;
     localparam OPS_JUMP  = 4'b0011;
-    localparam OPS_SYS   = 4'b0100;
 
     localparam OPS_LOAD_MEM = 4'b0001;
     localparam OPS_LOAD_SWAP = 4'b0010;
 
     localparam OPS_STORE_MEM = 4'b0000;
+    localparam OPS_STORE_PRINT = 4'b0001;
 
     localparam OPS_ALU_ADD   = 4'b0000;
     localparam OPS_ALU_SUB   = 4'b0001;
@@ -75,15 +75,12 @@ module StackMachine(input wire reset, input wire clock, output reg [`CPU_WIDTHm1
     localparam OPS_ALU_SL    = 4'b0101;
     localparam OPS_ALU_LSR   = 4'b0110;
     localparam OPS_ALU_ASR   = 4'b0111;
-    localparam OPS_ALU_SL6   = 4'b1000;
-    localparam OPS_ALU_LT    = 4'b1001;
+    localparam OPS_ALU_LT    = 4'b1000;
 
     localparam OPS_JUMP_JUMP = 4'b0000;
     localparam OPS_JUMP_ZERO = 4'b0001;
     localparam OPS_JUMP_NOT_ZERO = 4'b0010;
 
-    localparam OPS_SYS_HALT   = 4'b0100;
-    localparam OPS_SYS_PRINT   = 4'b0001;
 
     CodeROM rom(clock, codeAddress, opcode);
     CPURAM ram(clock, S0[11:0], ram_rd_data, ram_write, S1);
@@ -145,6 +142,7 @@ module StackMachine(input wire reset, input wire clock, output reg [`CPU_WIDTHm1
         pc <= codeAddress + 1;
 
         if (opcode[7] == 1'b1) begin dStack[dSP1] <= { {9{opcode[6]}}, opcode[6:0] }; dSP <= dSP1; end
+        if (opcode[7:6] == 2'b01) begin dStack[dSP] <= { S0[`CPU_WIDTHm1-6:0], opcode[5:0] }; end
         if (op_fam == OPS_ALU) begin
             if (op_op == OPS_ALU_ADD) begin dStack[dSPm1] <= S1 + S0; dSP <= dSPm1; end
             if (op_op == OPS_ALU_SUB) begin dStack[dSPm1] <= S1 - S0; dSP <= dSPm1; end
@@ -154,7 +152,6 @@ module StackMachine(input wire reset, input wire clock, output reg [`CPU_WIDTHm1
             // if (op_op == OPS_ALU_SL)  begin dStack[dSP] <= { S0[14:0], 1'b0 }; end
             // if (op_op == OPS_ALU_LSR) begin dStack[dSP] <= { 1'b0, S0[`CPU_WIDTHm1:1] }; end
             // if (op_op == OPS_ALU_ASR) begin dStack[dSP] <= { S0[`CPU_WIDTHm1], S0[`CPU_WIDTHm1:1] }; end
-            if (op_op == OPS_ALU_SL6) begin dStack[dSP] <= { S0[`CPU_WIDTHm1-6:0], 6'h0 }; end
             if (op_op == OPS_ALU_LT) begin dStack[dSP] <= { {`CPU_WIDTH-1{1'b0}}, S0[`CPU_WIDTH-1] }; end
         end
         if (op_fam == OPS_LOAD) begin
@@ -171,6 +168,12 @@ module StackMachine(input wire reset, input wire clock, output reg [`CPU_WIDTHm1
             if (op_op == OPS_STORE_MEM) begin
                 dSP <= dSPm2;
             end
+            if (op_op == OPS_STORE_PRINT) begin
+`ifdef TESTBENCH
+                $display("%d, %d", S1, S0);
+`endif
+                dSP <= dSPm1;
+            end
         end
         if (op_fam == OPS_JUMP) begin
             case (op_op)
@@ -178,16 +181,6 @@ module StackMachine(input wire reset, input wire clock, output reg [`CPU_WIDTHm1
                 OPS_JUMP_ZERO: dSP <= dSPm2;
                 OPS_JUMP_NOT_ZERO: dSP <= dSPm2;
             endcase
-        end
-        if (op_fam == OPS_SYS) begin
-            if (op_op == OPS_SYS_HALT) begin
-            end
-            if (op_op == OPS_SYS_PRINT) begin
-`ifdef TESTBENCH
-                $display("%d, %d", S1, S0);
-`endif
-                dSP <= dSPm1;
-            end
         end
         // https://blog.award-winning.me/2017/11/resetting-reset-handling.html
         // Synchronous reset saves routing resources

@@ -314,6 +314,7 @@ OPS_LOAD_MEM = '01'
 OPS_LOAD_SWAP = '02'
 
 OPS_STORE_MEM = '10'
+OPS_STORE_PRINT = '11'
 
 OPS_ALU_ADD = '20'
 OPS_ALU_SUB = '21'
@@ -323,10 +324,8 @@ OPS_ALU_XOR = '24'
 OPS_ALU_SL = '25'
 OPS_ALU_LSR = '26'
 OPS_ALU_ASR = '27'
-OPS_ALU_SL6 = '28'
-OPS_ALU_LT = '29'
+OPS_ALU_LT = '28'
 
-OPS_SYS_PRINT = '41'
 OPS_JUMP = '30'
 OPS_JUMP_ZERO = '31'
 OPS_JUMP_NOT_ZERO = '32'
@@ -391,7 +390,7 @@ class Generator(object):
                 raise Exception(f"line {func.value.lineNumber}, call {func} does not exist")
             elif s0_name == 'print':
                 opcodes.extend(self.genEval(stat[0]))
-                opcodes.append(OPS_SYS_PRINT + ' // print')
+                opcodes.append(OPS_STORE_PRINT + ' // print')
             elif s0_name == 'while':
                 opcodes.extend(self.genWhile(stat))
             elif s0_name == 'loop':
@@ -415,9 +414,9 @@ class Generator(object):
         short = True
         jump_len = 2
         offset = len(stat_ops)
-        if offset+5 > 60:
+        if offset+3 > 60:
             short = False
-            jump_len = 5
+            jump_len = 3
         exp_ops.extend(self.genLoadImm(offset+jump_len, short))
         exp_ops.append(OPS_JUMP_ZERO + f' // Jump if zero {offset+jump_len}')
         offset = -(len(exp_ops)+len(stat_ops)+jump_len)
@@ -431,9 +430,9 @@ class Generator(object):
         short = True
         jump_len = 2
         offset = len(stat_ops)
-        if offset+5 > 60:
+        if offset+3 > 60:
             short = False
-            jump_len = 5
+            jump_len = 3
         offset = -(len(stat_ops)+jump_len)
         stat_ops.extend(self.genLoadImm(offset, short))
         stat_ops.append(OPS_JUMP + f' // Jump {offset}')
@@ -456,23 +455,26 @@ class Generator(object):
         return exp_ops
 
     def genLoadImm(self, value, short=True):
+        display_value = value
         opcodes = []
-        if value < 0:
-            if -value < 64 and short:
-                opcodes.append(f"{0x80 | (value & 0x7f):02x} // load {value}")
-            else:
-                opcodes.append(f"{0x80 | ((value>>6) & 0x7f):02x} // load {value>>6}")
-                opcodes.append(OPS_ALU_SL6 + ' // shift left 6 bits')
-                opcodes.append(f"{0x80 | (value&0x7f):02x} // load {value&0x3f}")
-                opcodes.append(OPS_ALU_OR + ' // OR')
-            return opcodes
-        if value < 64 and short:
-            opcodes.append(f"{0x80 | value:02x} // load {value}")
-        else:
-            opcodes.append(f"{0x80 | (value>>6):02x} // load {value>>6}")
-            opcodes.append(OPS_ALU_SL6 + ' // shift left 6 bits')
-            opcodes.append(f"{0x80 | (value&0x3f):02x} // load {value&0x3f}")
-            opcodes.append(OPS_ALU_OR + ' // OR')
+        negative = value < 0
+        opcodes = []
+        opcodes.append(value & 0x3f)
+        value >>= 6
+        if not short:
+            opcodes.append(value & 0x3f)
+            value >>= 6
+        while value != 0 and value != -1:
+            opcodes.append(value & 0x3f)
+            value >>= 6
+        opcodes.reverse()
+        opcodes[0] |= 0x80
+        if negative:
+            opcodes[0] |= 0x40
+        opcodes[0] = f'{opcodes[0]:02x} // Load immediate, sign extended {display_value}'
+        for i in range(1, len(opcodes)):
+            opcodes[i] |= 0x40
+            opcodes[i] = f'{opcodes[i]:02x} // Load immediate, shift left 6 bits {display_value}'
         return opcodes
 
     def genEval(self, tree):

@@ -17,7 +17,7 @@ pixels driving a 640 x 480 60 Hz VGA monitor. Each visible pixel is 2 x 2 VGA pi
 - Playfield rendering needs alignment
 - Motion sprites need transparent background
 - StackMachine 12-bit CPU, 512 bytes program memory, 512 x 16bit data memory
-- 577/1280 LCs, 7/16 RAM blocks, Timing estimate: 89.44 MHz
+- 601/1280 LCs, 7/16 RAM blocks, Timing estimate: 89.50 MHz
 - I/O functional, Single motion sprite
 - if/else, while, loop, assignment statements
 
@@ -44,6 +44,7 @@ Each instruction is exactly 1 byte, single cycle execution. Instruction format:
 - 00000000: No operation
 
 - 1ddddddd: Load immediate, sign extended
+- 01dddddd: Load immediate, S0 shifted left 6 bits: S0 = (S0 << 6) | d
 
 OPS_LOAD
 - 00000001: Load word from memory using S0 as address: S0 = mem[S0]
@@ -51,6 +52,7 @@ OPS_LOAD
 
 OPS_STORE
 - 00010000: Store to memory: mem[S0] = S1
+- 00010001: Print (TestBench only)
 
 OPS_ALU
 - 00100000: ADD: S0 = S1 + S0
@@ -61,7 +63,7 @@ OPS_ALU
 - 00100101: Shift left 1: S0 = S0 << 1
 - 00100110: Logical shift right 1: S0 = S0 >> 1
 - 00100111: Arithmetic shift right 1: S0 = S0 >> 1, S0[11] = S0[10]
-- 00101000: Shift left 6: S0 = S0 << 6
+- 00101000: Less than: S0 = S1 < S0
 
 OPS_JUMP
 - 00110000: Unconditional jump: PC = S0
@@ -69,10 +71,6 @@ OPS_JUMP
 - 00110010: Jump if not zero: PC = S0 if S1 != 0
 - 00110011: Call: stack.push(PC), PC = S0
 - 00110100: Return: PC = stack.pop()
-
-OPS_SYS
-- 01000000: Halt
-- 01000001: Print (TestBench only)
 
 ## Resource Utilization
 

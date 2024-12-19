@@ -1,7 +1,5 @@
 
-var x;
-var dx;
-var sp;
+var dy;
 var sprite_num = 0x400;
 var sprite_x = 0x401;
 var sprite_y = 0x402;
@@ -11,37 +9,35 @@ var switches = 0xc02;
 var vertical_int = 0xc03;
 
 def main {
-    if 1 != 1 {
-    } else {
-        print 7;
-        print 8;
-    }
-    print 10;
-    x = 30;
-    dx = 5;
-    leds_on_off = 1;
-    sp = 7;
-    sprite_num = sp;
+    dy = 5;
+    sprite_num = 1;
     sprite_x = 50;
     sprite_y = 30;
     print sprite_num;
-    print (sprite_x + 1) & 0x7f;
-    print sprite_y;
     loop {
         if sprite_x < 500 {
             sprite_x = sprite_x + 1;
         } else {
             sprite_x = 50;
         }
-        x = x + dx;
-        if x < 400 {
+        sprite_y = sprite_y + dy;
+        if sprite_y < 400 {
         } else {
-            dx = -5;
+            dy = -5;
+            if sprite_num != 0 {
+                sprite_num = sprite_num + 1;
+            } else {
+                sprite_num = 1;
+            }
         }
-        if x < 30 {
-            dx = 5;
+        if sprite_y < 30 {
+            dy = 5;
+            if sprite_num != 0 {
+                sprite_num = sprite_num + 1;
+            } else {
+                sprite_num = 1;
+            }
         }
-        sprite_y = x;
         while 1 - vertical_int {
         }
         vertical_int = 0;
