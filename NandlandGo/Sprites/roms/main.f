@@ -24,19 +24,11 @@ def main {
         if sprite_y < 400 {
         } else {
             dy = -5;
-            if sprite_num != 0 {
-                sprite_num = sprite_num + 1;
-            } else {
-                sprite_num = 1;
-            }
+            sprite_num = sprite_num + 1;
         }
         if sprite_y < 30 {
             dy = 5;
-            if sprite_num != 0 {
-                sprite_num = sprite_num + 1;
-            } else {
-                sprite_num = 1;
-            }
+            sprite_num = sprite_num + 1;
         }
         while 1 - vertical_int {
         }

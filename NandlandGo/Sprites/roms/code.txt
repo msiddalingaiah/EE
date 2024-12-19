@@ -61,8 +61,8 @@ b2 // Load immediate, sign extended 50
 28 // LT
 82 // Load immediate, sign extended 2
 31 // Jump if zero 2
-9b // Load immediate, sign extended 27
-30 // Jump 27
+8e // Load immediate, sign extended 14
+30 // Jump 14
 85 // Load immediate, sign extended 5
 80 // Load immediate, sign extended 0
 02 // Swap
@@ -72,21 +72,8 @@ b2 // Load immediate, sign extended 50
 90 // Load immediate, sign extended 1024
 40 // Load immediate, shift left 6 bits 1024
 01 // load mem[0x400]
-80 // Load immediate, sign extended 0
-21 // SUB
-8a // Load immediate, sign extended 10
-31 // Jump if zero 10
-90 // Load immediate, sign extended 1024
-40 // Load immediate, shift left 6 bits 1024
-01 // load mem[0x400]
 81 // Load immediate, sign extended 1
 20 // ADD
-90 // Load immediate, sign extended 1024
-40 // Load immediate, shift left 6 bits 1024
-10 // Store
-84 // Load immediate, sign extended 4
-30 // Jump 4
-81 // Load immediate, sign extended 1
 90 // Load immediate, sign extended 1024
 40 // Load immediate, shift left 6 bits 1024
 10 // Store
@@ -96,29 +83,16 @@ b2 // Load immediate, sign extended 50
 9e // Load immediate, sign extended 30
 21 // SUB
 28 // LT
-98 // Load immediate, sign extended 24
-31 // Jump if zero 24
+8b // Load immediate, sign extended 11
+31 // Jump if zero 11
 85 // Load immediate, sign extended 5
 80 // Load immediate, sign extended 0
 10 // Store
 90 // Load immediate, sign extended 1024
 40 // Load immediate, shift left 6 bits 1024
 01 // load mem[0x400]
-80 // Load immediate, sign extended 0
-21 // SUB
-8a // Load immediate, sign extended 10
-31 // Jump if zero 10
-90 // Load immediate, sign extended 1024
-40 // Load immediate, shift left 6 bits 1024
-01 // load mem[0x400]
 81 // Load immediate, sign extended 1
 20 // ADD
-90 // Load immediate, sign extended 1024
-40 // Load immediate, shift left 6 bits 1024
-10 // Store
-84 // Load immediate, sign extended 4
-30 // Jump 4
-81 // Load immediate, sign extended 1
 90 // Load immediate, sign extended 1024
 40 // Load immediate, shift left 6 bits 1024
 10 // Store
@@ -149,12 +123,38 @@ b0 // Load immediate, sign extended 3072
 b0 // Load immediate, sign extended 3073
 41 // Load immediate, shift left 6 bits 3073
 10 // Store
-fd // Load immediate, sign extended -133
-7b // Load immediate, shift left 6 bits -133
-30 // Jump -133
+fe // Load immediate, sign extended -107
+55 // Load immediate, shift left 6 bits -107
+30 // Jump -107
 81 // Load immediate, sign extended 99
 63 // Load immediate, shift left 6 bits 99
 11 // print
+00
+00
+00
+00
+00
+00
+00
+00
+00
+00
+00
+00
+00
+00
+00
+00
+00
+00
+00
+00
+00
+00
+00
+00
+00
+00
 00
 00
 00
