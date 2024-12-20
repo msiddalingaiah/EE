@@ -1,7 +1,10 @@
 00 // No operation
 00 // No operation
-85 // Load immediate, sign extended 5
 80 // Load immediate, sign extended 0
+80 // Load immediate, sign extended 0
+10 // Store
+80 // Load immediate, sign extended 0
+81 // Load immediate, sign extended 1
 10 // Store
 81 // Load immediate, sign extended 1
 90 // Load immediate, sign extended 1024
@@ -19,13 +22,16 @@ b2 // Load immediate, sign extended 50
 40 // Load immediate, shift left 6 bits 1024
 01 // load mem[0x400]
 11 // print
-90 // Load immediate, sign extended 1025
-41 // Load immediate, shift left 6 bits 1025
-01 // load mem[0x401]
-87 // Load immediate, sign extended 500
-74 // Load immediate, shift left 6 bits 500
-21 // SUB
-28 // LT
+b0 // Load immediate, sign extended 3074
+42 // Load immediate, shift left 6 bits 3074
+01 // load mem[0xc02]
+81 // Load immediate, sign extended 1
+22 // AND
+97 // Load immediate, sign extended 23
+31 // Jump if zero 23
+81 // Load immediate, sign extended 1
+00 // RAM read delay slot
+01 // load mem[0x1]
 8a // Load immediate, sign extended 10
 31 // Jump if zero 10
 90 // Load immediate, sign extended 1025
@@ -36,39 +42,61 @@ b2 // Load immediate, sign extended 50
 90 // Load immediate, sign extended 1025
 41 // Load immediate, shift left 6 bits 1025
 10 // Store
-84 // Load immediate, sign extended 4
-30 // Jump 4
-b2 // Load immediate, sign extended 50
+88 // Load immediate, sign extended 8
+30 // Jump 8
+90 // Load immediate, sign extended 1026
+42 // Load immediate, shift left 6 bits 1026
+01 // load mem[0x402]
+81 // Load immediate, sign extended 1
+20 // ADD
+90 // Load immediate, sign extended 1026
+42 // Load immediate, shift left 6 bits 1026
+10 // Store
+b0 // Load immediate, sign extended 3074
+42 // Load immediate, shift left 6 bits 3074
+01 // load mem[0xc02]
+82 // Load immediate, sign extended 2
+22 // AND
+97 // Load immediate, sign extended 23
+31 // Jump if zero 23
+81 // Load immediate, sign extended 1
+00 // RAM read delay slot
+01 // load mem[0x1]
+8a // Load immediate, sign extended 10
+31 // Jump if zero 10
+90 // Load immediate, sign extended 1025
+41 // Load immediate, shift left 6 bits 1025
+01 // load mem[0x401]
+81 // Load immediate, sign extended 1
+21 // SUB
 90 // Load immediate, sign extended 1025
 41 // Load immediate, shift left 6 bits 1025
 10 // Store
+88 // Load immediate, sign extended 8
+30 // Jump 8
 90 // Load immediate, sign extended 1026
 42 // Load immediate, shift left 6 bits 1026
 01 // load mem[0x402]
+81 // Load immediate, sign extended 1
+21 // SUB
+90 // Load immediate, sign extended 1026
+42 // Load immediate, shift left 6 bits 1026
+10 // Store
 80 // Load immediate, sign extended 0
 00 // RAM read delay slot
 01 // load mem[0x0]
-20 // ADD
-90 // Load immediate, sign extended 1026
-42 // Load immediate, shift left 6 bits 1026
-10 // Store
-90 // Load immediate, sign extended 1026
-42 // Load immediate, shift left 6 bits 1026
-01 // load mem[0x402]
-86 // Load immediate, sign extended 400
-50 // Load immediate, shift left 6 bits 400
+81 // Load immediate, sign extended 1
 21 // SUB
 28 // LT
-82 // Load immediate, sign extended 2
-31 // Jump if zero 2
-8e // Load immediate, sign extended 14
-30 // Jump 14
-85 // Load immediate, sign extended 5
-80 // Load immediate, sign extended 0
-02 // Swap
-21 // SUB
-80 // Load immediate, sign extended 0
-10 // Store
+9d // Load immediate, sign extended 29
+31 // Jump if zero 29
+b0 // Load immediate, sign extended 3074
+42 // Load immediate, shift left 6 bits 3074
+01 // load mem[0xc02]
+84 // Load immediate, sign extended 4
+22 // AND
+88 // Load immediate, sign extended 8
+31 // Jump if zero 8
 90 // Load immediate, sign extended 1024
 40 // Load immediate, shift left 6 bits 1024
 01 // load mem[0x400]
@@ -77,24 +105,19 @@ b2 // Load immediate, sign extended 50
 90 // Load immediate, sign extended 1024
 40 // Load immediate, shift left 6 bits 1024
 10 // Store
-90 // Load immediate, sign extended 1026
-42 // Load immediate, shift left 6 bits 1026
-01 // load mem[0x402]
-9e // Load immediate, sign extended 30
-21 // SUB
-28 // LT
-8b // Load immediate, sign extended 11
-31 // Jump if zero 11
-85 // Load immediate, sign extended 5
-80 // Load immediate, sign extended 0
-10 // Store
-90 // Load immediate, sign extended 1024
-40 // Load immediate, shift left 6 bits 1024
-01 // load mem[0x400]
+b0 // Load immediate, sign extended 3074
+42 // Load immediate, shift left 6 bits 3074
+01 // load mem[0xc02]
+88 // Load immediate, sign extended 8
+22 // AND
+87 // Load immediate, sign extended 7
+31 // Jump if zero 7
 81 // Load immediate, sign extended 1
-20 // ADD
-90 // Load immediate, sign extended 1024
-40 // Load immediate, shift left 6 bits 1024
+81 // Load immediate, sign extended 1
+00 // RAM read delay slot
+01 // load mem[0x1]
+21 // SUB
+81 // Load immediate, sign extended 1
 10 // Store
 81 // Load immediate, sign extended 1
 b0 // Load immediate, sign extended 3075
@@ -109,6 +132,12 @@ f7 // Load immediate, sign extended -9
 b0 // Load immediate, sign extended 3075
 43 // Load immediate, shift left 6 bits 3075
 10 // Store
+81 // Load immediate, sign extended 1
+00 // RAM read delay slot
+01 // load mem[0x1]
+b0 // Load immediate, sign extended 3073
+41 // Load immediate, shift left 6 bits 3073
+10 // Store
 b0 // Load immediate, sign extended 3072
 40 // Load immediate, shift left 6 bits 3072
 01 // load mem[0xc00]
@@ -117,61 +146,32 @@ b0 // Load immediate, sign extended 3072
 b0 // Load immediate, sign extended 3072
 40 // Load immediate, shift left 6 bits 3072
 10 // Store
-90 // Load immediate, sign extended 1025
-41 // Load immediate, shift left 6 bits 1025
-01 // load mem[0x401]
-b0 // Load immediate, sign extended 3073
-41 // Load immediate, shift left 6 bits 3073
+80 // Load immediate, sign extended 0
+00 // RAM read delay slot
+01 // load mem[0x0]
+8f // Load immediate, sign extended 15
+21 // SUB
+28 // LT
+89 // Load immediate, sign extended 9
+31 // Jump if zero 9
+80 // Load immediate, sign extended 0
+00 // RAM read delay slot
+01 // load mem[0x0]
+81 // Load immediate, sign extended 1
+20 // ADD
+80 // Load immediate, sign extended 0
 10 // Store
-fe // Load immediate, sign extended -107
-55 // Load immediate, shift left 6 bits -107
-30 // Jump -107
+83 // Load immediate, sign extended 3
+30 // Jump 3
+80 // Load immediate, sign extended 0
+80 // Load immediate, sign extended 0
+10 // Store
+fd // Load immediate, sign extended -147
+6d // Load immediate, shift left 6 bits -147
+30 // Jump -147
 81 // Load immediate, sign extended 99
 63 // Load immediate, shift left 6 bits 99
 11 // print
-00
-00
-00
-00
-00
-00
-00
-00
-00
-00
-00
-00
-00
-00
-00
-00
-00
-00
-00
-00
-00
-00
-00
-00
-00
-00
-00
-00
-00
-00
-00
-00
-00
-00
-00
-00
-00
-00
-00
-00
-00
-00
-00
 00
 00
 00

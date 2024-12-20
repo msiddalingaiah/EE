@@ -149,7 +149,7 @@ module StackMachine(input wire reset, input wire clock, output reg [`CPU_WIDTHm1
             if (op_op == OPS_ALU_AND) begin dStack[dSPm1] <= S1 & S0; dSP <= dSPm1; end
             if (op_op == OPS_ALU_OR)  begin dStack[dSPm1] <= S1 | S0; dSP <= dSPm1; end
             if (op_op == OPS_ALU_XOR) begin dStack[dSPm1] <= S1 ^ S0; dSP <= dSPm1; end
-            if (op_op == OPS_ALU_SL)  begin dStack[dSP] <= { S0[14:0], 1'b0 }; end
+            if (op_op == OPS_ALU_SL)  begin dStack[dSP] <= { S0[`CPU_WIDTH-2:0], 1'b0 }; end
             if (op_op == OPS_ALU_LSR) begin dStack[dSP] <= { 1'b0, S0[`CPU_WIDTHm1:1] }; end
             if (op_op == OPS_ALU_ASR) begin dStack[dSP] <= { S0[`CPU_WIDTHm1], S0[`CPU_WIDTHm1:1] }; end
             if (op_op == OPS_ALU_LT) begin dStack[dSP] <= { {`CPU_WIDTH-1{1'b0}}, S0[`CPU_WIDTH-1] }; end
