@@ -308,27 +308,44 @@ class Parser(object):
             return Tree(t)
         return Tree(self.sc.expect('ID'))
 
-OPS_NOP = '00'
+OPS_NOP = 0x00
 
-OPS_LOAD_MEM = '01'
-OPS_LOAD_SWAP = '02'
+OPS_LOAD_MEM = 0x01
+OPS_LOAD_SWAP = 0x02
 
-OPS_STORE_MEM = '10'
-OPS_STORE_PRINT = '11'
+OPS_STORE_MEM = 0x10
+OPS_STORE_PRINT = 0x11
 
-OPS_ALU_ADD = '20'
-OPS_ALU_SUB = '21'
-OPS_ALU_AND = '22'
-OPS_ALU_OR = '23'
-OPS_ALU_XOR = '24'
-OPS_ALU_SL = '25'
-OPS_ALU_LSR = '26'
-OPS_ALU_ASR = '27'
-OPS_ALU_LT = '28'
+OPS_ALU_ADD = 0x20
+OPS_ALU_SUB = 0x21
+OPS_ALU_AND = 0x22
+OPS_ALU_OR = 0x23
+OPS_ALU_XOR = 0x24
+OPS_ALU_SL = 0x25
+OPS_ALU_LSR = 0x26
+OPS_ALU_ASR = 0x27
+OPS_ALU_LT = 0x28
 
-OPS_JUMP = '30'
-OPS_JUMP_ZERO = '31'
-OPS_JUMP_NOT_ZERO = '32'
+OPS_JUMP = 0x30
+OPS_JUMP_ZERO = 0x31
+OPS_JUMP_NOT_ZERO = 0x32
+
+OP_SP_SIZE_MAP = { OPS_STORE_MEM: -2, OPS_STORE_PRINT: -1, OPS_JUMP: -1, OPS_JUMP_ZERO: -2, OPS_JUMP_NOT_ZERO: -2,
+    OPS_ALU_ADD: -1, OPS_ALU_SUB: -1, OPS_ALU_AND: -1, OPS_ALU_OR: -1, OPS_ALU_XOR: -1, }
+
+class OpCode(object):
+    def __init__(self, code, comment, offset=0):
+        self.code = code
+        self.comment = comment
+        self.offset = offset
+
+    def getSP(self):
+        if self.code & 0x80:
+            return 1
+        return OP_SP_SIZE_MAP.get(self.code, 0)
+
+    def __str__(self):
+        return f"{self.code:02x} // {self.comment}"
 
 class Generator(object):
     def __init__(self, tree):
@@ -354,8 +371,8 @@ class Generator(object):
         main = self.procedureTrees["main"]
         self.opcodes = []
         # Reset location must contain a NOP!
-        self.opcodes.append(OPS_NOP + ' // No operation')
-        self.opcodes.append(OPS_NOP + ' // No operation')
+        self.opcodes.append(OpCode(OPS_NOP, 'No operation'))
+        self.opcodes.append(OpCode(OPS_NOP, 'No operation'))
         self.opcodes.extend(self.genStatList(main))
 
     def eval(self, tree):
@@ -390,7 +407,7 @@ class Generator(object):
                 raise Exception(f"line {func.value.lineNumber}, call {func} does not exist")
             elif s0_name == 'print':
                 opcodes.extend(self.genEval(stat[0]))
-                opcodes.append(OPS_STORE_PRINT + ' // print')
+                opcodes.append(OpCode(OPS_STORE_PRINT, 'print'))
             elif s0_name == 'while':
                 opcodes.extend(self.genWhile(stat))
             elif s0_name == 'loop':
@@ -403,7 +420,7 @@ class Generator(object):
                     raise Exception(f"line {stat[1].value.lineNumber}, undefined variable {var_name}")
                 opcodes.extend(self.genEval(stat[1]))
                 opcodes.extend(self.genLoadImm(self.variables[var_name]))
-                opcodes.append(OPS_STORE_MEM + ' // Store')
+                opcodes.append(OpCode(OPS_STORE_MEM, 'Store'))
             else:
                 raise Exception(f'{s0_name} not yet supported')
         return opcodes
@@ -418,10 +435,10 @@ class Generator(object):
             short = False
             jump_len = 3
         exp_ops.extend(self.genLoadImm(offset+jump_len, short))
-        exp_ops.append(OPS_JUMP_ZERO + f' // Jump if zero {offset+jump_len}')
+        exp_ops.append(OpCode(OPS_JUMP_ZERO, 'Jump if zero', offset=offset+jump_len))
         offset = -(len(exp_ops)+len(stat_ops)+jump_len)
         stat_ops.extend(self.genLoadImm(offset, short))
-        stat_ops.append(OPS_JUMP + f' // Jump {offset}')
+        stat_ops.append(OpCode(OPS_JUMP, f'Jump', offset=offset))
         exp_ops.extend(stat_ops)
         return exp_ops
 
@@ -435,7 +452,7 @@ class Generator(object):
             jump_len = 3
         offset = -(len(stat_ops)+jump_len)
         stat_ops.extend(self.genLoadImm(offset, short))
-        stat_ops.append(OPS_JUMP + f' // Jump {offset}')
+        stat_ops.append(OpCode(OPS_JUMP, 'Jump', offset=offset))
         return stat_ops
 
     def genIf(self, stat):
@@ -445,10 +462,10 @@ class Generator(object):
             else_ops = self.genStatList(stat[2])
             offset = len(else_ops)
             stat_ops.extend(self.genLoadImm(offset, offset < 60))
-            stat_ops.append(OPS_JUMP + f' // Jump {offset}')
+            stat_ops.append(OpCode(OPS_JUMP, 'Jump', offset=offset))
         offset = len(stat_ops)
         exp_ops.extend(self.genLoadImm(offset, offset < 60))
-        exp_ops.append(OPS_JUMP_ZERO + f' // Jump if zero {offset}')
+        exp_ops.append(OpCode(OPS_JUMP_ZERO, 'Jump if zero', offset=offset))
         exp_ops.extend(stat_ops)
         if len(stat) > 2:
             exp_ops.extend(else_ops)
@@ -471,10 +488,10 @@ class Generator(object):
         opcodes[0] |= 0x80
         if negative:
             opcodes[0] |= 0x40
-        opcodes[0] = f'{opcodes[0]:02x} // Load immediate, sign extended {display_value}'
+        opcodes[0] = OpCode(opcodes[0], f'Load immediate, sign extended {display_value}')
         for i in range(1, len(opcodes)):
             opcodes[i] |= 0x40
-            opcodes[i] = f'{opcodes[i]:02x} // Load immediate, shift left 6 bits {display_value}'
+            opcodes[i] = OpCode(opcodes[i], f'Load immediate, shift left 6 bits {display_value}')
         return opcodes
 
     def genEval(self, tree):
@@ -486,8 +503,8 @@ class Generator(object):
                 addr = self.variables[name]
                 opcodes = self.genLoadImm(addr)
                 if addr < 0x400:
-                    opcodes.append(OPS_NOP + ' // RAM read delay slot')
-                opcodes.append(OPS_LOAD_MEM + f' // load mem[0x{addr:x}]')
+                    opcodes.append(OpCode(OPS_NOP, 'RAM read delay slot'))
+                opcodes.append(OpCode(OPS_LOAD_MEM, f'load mem[0x{addr:x}]'))
                 return opcodes
             elif name in self.constants:
                 return self.genLoadImm(self.constants[name])
@@ -496,38 +513,63 @@ class Generator(object):
         opcodes = self.genEval(tree.children[0])
         if op == 'NEG':
             opcodes.extend(self.genLoadImm(0))
-            opcodes.append(OPS_LOAD_SWAP + ' // Swap')
-            opcodes.append(OPS_ALU_SUB + ' // SUB')
+            opcodes.append(OpCode(OPS_LOAD_SWAP, 'Swap'))
+            opcodes.append(OpCode(OPS_ALU_SUB, 'SUB'))
             return opcodes
         opcodes.extend(self.genEval(tree.children[1]))
         if op == '+':
-            opcodes.append(OPS_ALU_ADD + ' // ADD')
+            opcodes.append(OpCode(OPS_ALU_ADD, 'ADD'))
             return opcodes
         if op == '-':
-            opcodes.append(OPS_ALU_SUB + ' // SUB')
+            opcodes.append(OpCode(OPS_ALU_SUB, 'SUB'))
             return opcodes
         if op == '&':
-            opcodes.append(OPS_ALU_AND + ' // AND')
+            opcodes.append(OpCode(OPS_ALU_AND, 'AND'))
             return opcodes
         if op == '|':
-            opcodes.append(OPS_ALU_OR + ' // OR')
+            opcodes.append(OpCode(OPS_ALU_OR, 'OR'))
             return opcodes
         if op == '!=':
-            opcodes.append(OPS_ALU_SUB + ' // SUB')
+            opcodes.append(OpCode(OPS_ALU_SUB, 'SUB'))
             return opcodes
         if op == '<':
-            opcodes.append(OPS_ALU_SUB + ' // SUB')
-            opcodes.append(OPS_ALU_LT + ' // LT')
+            opcodes.append(OpCode(OPS_ALU_SUB, 'SUB'))
+            opcodes.append(OpCode(OPS_ALU_LT, 'LT'))
             return opcodes
         raise Exception(f"line {tree.value.lineNumber}, Unknown operator '{op}'")
 
     def write(self, fname):
-        print(f'Code size {len(self.opcodes)} bytes')
+        code_limit = 512
+        print(f'Code size {len(self.opcodes)} bytes, {100.0*len(self.opcodes)/code_limit:.1f}% utilization')
+        assert len(self.opcodes) < code_limit, f"Code size exceeds limit of {code_limit} bytes by {len(self.opcodes)-code_limit}"
+        stack_size = 0
+        max_stack = 0
+        pc = 0
+        loop_sizes = []
         with open(fname, "wt") as f:
             for op in self.opcodes:
-                f.write(f"{op}\n")
+                stack_size += op.getSP()
+                if op.offset != 0:
+                    target_pc = pc+op.offset+1
+                    if op.offset < 0:
+                        loop_sizes.append([pc, -op.offset])
+                    f.write(f"{op.code:02x} // {pc:4d}: SP: {stack_size:1d}, {op.comment} {target_pc}\n")
+                else:
+                    f.write(f"{op.code:02x} // {pc:4d}: SP: {stack_size:1d}, {op.comment}\n")
+                if stack_size > max_stack:
+                    max_stack = stack_size
+                assert stack_size < 4, "Stack overflow"
+                assert stack_size >= 0, "Stack underflow"
+                pc += 1
             for i in range(512-len(self.opcodes)):
                 f.write("00\n")
+        print(f'Max stack size: {max_stack}')
+        if len(loop_sizes):
+            print(f"{len(loop_sizes)} loops detected:")
+            for ls in sorted(loop_sizes, key=lambda x: x[1]):
+                print(f'    {ls[0]}: {ls[1]} operations, {ls[1]/25.0:.2f} microseconds')
+        else:
+            print("No loops detected.")
 
 import sys
 
