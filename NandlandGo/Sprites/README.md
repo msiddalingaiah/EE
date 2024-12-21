@@ -95,7 +95,20 @@ make test
 
 ## Synthesis
 
-[Project IceStorm](https://clifford.at/icestorm) open source tools were used for synthesis. Synthesis is known to work on [WSL](https://docs.microsoft.com/en-us/windows/wsl/install) Ubuntu running on Windows 11. The following command will perform synthesis and generate the bitstream suitable for programming the FPGA:
+[Project IceStorm](https://clifford.at/icestorm) open source tools were used for synthesis. Synthesis is known to work on [WSL](https://docs.microsoft.com/en-us/windows/wsl/install) Ubuntu running on Windows 11. WSL requires [usbipd](https://devblogs.microsoft.com/commandline/connecting-usb-devices-to-wsl) to allow WSL Ubuntu to access the USB for programming.
+
+Alternatively, [OSS Cad Suite](https://github.com/YosysHQ/oss-cad-suite-build) contains pre-built binaries for Windows, which might require some USB driver adjustments to work properly. Both solutions are described here.
+
+### Windows Native
+
+* Install [OSS Cad Suite](https://github.com/YosysHQ/oss-cad-suite-build)
+* Run ```oss-cad-suite\environment.ps1``` or ```oss-cad-suite\environment.bat``` to set up paths and environment variables
+
+In the event that iceprog fails with error ```Can't find iCE FTDI USB device (vendor_id 0x0403, device_id 0x6010).```, it is necessary to replace USB drivers using [Zadig](https://zadig.akeo.ie/) as mentioned in this [issue](https://github.com/YosysHQ/icestorm/issues/141). I found that replacing default Windows drivers with WinUSB as mentioned [here](https://gojimmypi.blogspot.com/2020/12/ice40-fpga-programming-with-wsl-and.html) works, whereas libusbK results in a silent failure. Step by step instructions are available on [Adafruit](https://learn.adafruit.com/adafruit-ft232h-breakout/windows-setup).
+
+### Windows Subsystem for Linux (WSL)
+
+The following command will perform synthesis and generate the bitstream suitable for programming the FPGA:
 
 ```
 make
@@ -123,5 +136,11 @@ Then run ```usbipd wsl attach --busid <busid>``` as described above.
 The board can be programmed from WSL Ubuntu using:
 
 ```
-make prog
+make sudo-prog
+```
+
+Note that WSL needs sudo, otherwise this error might result:
+
+```
+Can't find iCE FTDI USB device (vendor_id 0x0403, device_id 0x6010 or 0x6014).
 ```

@@ -44,9 +44,9 @@ module PlayfieldRAM(input wire clock, input wire write, input wire [9:0] write_a
         for (i=0; i<1024; i=i+1) begin
             memory[i] = 0;
         end
-        for (i=0; i<1024; i=i+6) begin
-            memory[i] = i >> 3;
-        end
+        // for (i=0; i<1024; i=i+6) begin
+        //     memory[i] = i >> 3;
+        // end
     end
 
     always @(posedge clock) begin

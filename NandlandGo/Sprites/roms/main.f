@@ -12,7 +12,7 @@ var vertical_int = 0xc03;
 def main {
     int_count = 0;
     x_y = 0;
-    sprite_num = 1;
+    sprite_num = 7;
     sprite_x = 50;
     sprite_y = 30;
     print sprite_num;

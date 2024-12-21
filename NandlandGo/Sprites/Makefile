@@ -35,7 +35,7 @@ all: $(PROJ).rpt $(PROJ).bin
 	icetime -d $(DEVICE) -mtr $@ $<
 
 prog: $(PROJ).bin
-	sudo iceprog $<
+	iceprog $<
 
 sudo-prog: $(PROJ).bin
 	@echo 'Executing prog as root!!!'

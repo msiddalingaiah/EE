@@ -6,7 +6,7 @@
 80 //    5: SP: 1, Load immediate, sign extended 0
 81 //    6: SP: 2, Load immediate, sign extended 1
 10 //    7: SP: 0, Store
-81 //    8: SP: 1, Load immediate, sign extended 1
+87 //    8: SP: 1, Load immediate, sign extended 7
 90 //    9: SP: 2, Load immediate, sign extended 1024
 40 //   10: SP: 2, Load immediate, shift left 6 bits 1024
 10 //   11: SP: 0, Store
