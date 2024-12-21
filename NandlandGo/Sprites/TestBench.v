@@ -16,21 +16,11 @@ module Clock(output reg clock);
 endmodule
 
 module TestBench;
-    integer fd;
-    initial begin
-        $dumpfile("vcd/TestBench.vcd");
-        $dumpvars(0, TestBench);
-        cycle_count = 0;
-        pixel_shift_reg = 0;
-        pixel_sr_count = 0;
-        fd = $fopen("vcd/image.txt", "w");
-    end
-
+    wire i_Clk;
     reg [31:0] cycle_count;
 
-    wire i_Clk;
-
-    Clock cg0(i_Clk);
+    reg [31:0] pixel_shift_reg;
+    reg [4:0] pixel_sr_count;
 
     wire  i_Switch_1 = 1'b0;
     wire  i_Switch_2 = 1'b0;
@@ -72,8 +62,17 @@ module TestBench;
     wire [9:0] tb_column;
     wire [1:0] tb_pixel;
 
-    reg [31:0] pixel_shift_reg;
-    reg [4:0] pixel_sr_count;
+    integer fd;
+    initial begin
+        $dumpfile("vcd/TestBench.vcd");
+        $dumpvars(0, TestBench);
+        cycle_count = 0;
+        pixel_shift_reg = 0;
+        pixel_sr_count = 0;
+        fd = $fopen("vcd/image.txt", "w");
+    end
+
+    Clock cg0(i_Clk);
 
     Sprites sp(
         i_Clk,

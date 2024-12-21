@@ -105,6 +105,44 @@ module Sprites (
     wire [6:0] left_digit_segments, right_digit_segments;
     wire [3:0] switches = { i_Switch_1, i_Switch_2, i_Switch_3, i_Switch_4 };
 
+    // Beam row/column positions
+    reg [9:0] column, row;
+
+    // VGA RGB 3-bit DAC signals
+    wire [2:0] red, green, blue;
+
+    // 9-bit beam color (RGB)
+    reg [8:0] color;
+    reg hsync, vsync;
+
+    wire [1:0] sprite_pixel;
+    reg [1:0] out_pixel;
+    reg [5:0] sprite_num, sprite_draw;
+    reg [2:0] sprite_row_num;
+    reg [2:0] sprite_col_num;
+    reg [9:0] sprite_x, sprite_y, sprite_dx, sprite_dy;
+    // Ping-pong every other line
+    reg lr_write;
+    wire [10:0] lr_read_addr = { 2'b00, ~row[1], column[8:1] };
+    wire [10:0] lr_write_addr = { 2'b00, row[1], column[8:1] };
+    wire [1:0] lr_rd_data;
+    reg [1:0] lr_wr_data;
+    // Playfield RAM
+    reg pf_write;
+    wire [9:0] pf_read_addr = { row[7:4], column[9:4] };
+    wire [9:0] pf_write_addr = 10'h00;
+    wire [7:0] pf_sprite;
+    wire [7:0] pf_wr_data = 8'h00;
+    reg reset, reset_inhibit;
+    wire cpu_write;
+    wire [`CPU_WIDTHm1:0] cpu_addr, cpu_wr_data;
+    reg [`CPU_WIDTHm1:0] cpu_rd_data;
+    reg cpu_decode_io;
+    reg [3:0] leds_on_off;
+    reg [7:0] leds_numeric;
+    reg vertical_int;
+    wire [7:0] cpu_op;
+
     // LEDs are for operational display only, it's a nice sanity check
     // assign { LED_1, LED_2, LED_3, LED_4 } = led_count[23:20];
     assign { LED_1, LED_2, LED_3, LED_4 } = leds_on_off;
@@ -115,16 +153,6 @@ module Sprites (
 
     BinaryTo7Segment bcd71(leds_numeric[7:4], left_digit_segments);
     BinaryTo7Segment bcd72(leds_numeric[3:0], right_digit_segments);
-
-    // Beam row/column positions
-    reg [9:0] column, row;
-
-    // VGA RGB 3-bit DAC signals
-    wire [2:0] red, green, blue;
-
-    // 9-bit beam color (RGB)
-    reg [8:0] color;
-    reg hsync, vsync;
 
     localparam H_ACTIVE = 10'd640;
     localparam H_FPORCH = 10'd16;
@@ -164,34 +192,6 @@ module Sprites (
 
     // 9-bit beam color
     assign { red, green, blue } = color;
-
-    wire [1:0] sprite_pixel;
-    reg [1:0] out_pixel;
-    reg [5:0] sprite_num, sprite_draw;
-    reg [2:0] sprite_row_num;
-    reg [2:0] sprite_col_num;
-    reg [9:0] sprite_x, sprite_y, sprite_dx, sprite_dy;
-    // Ping-pong every other line
-    reg lr_write;
-    wire [10:0] lr_read_addr = { 2'b00, ~row[1], column[8:1] };
-    wire [10:0] lr_write_addr = { 2'b00, row[1], column[8:1] };
-    wire [1:0] lr_rd_data;
-    reg [1:0] lr_wr_data;
-    // Playfield RAM
-    reg pf_write;
-    wire [9:0] pf_read_addr = { row[7:4], column[9:4] };
-    wire [9:0] pf_write_addr = 10'h00;
-    wire [7:0] pf_sprite;
-    wire [7:0] pf_wr_data = 8'h00;
-    reg reset, reset_inhibit;
-    wire cpu_write;
-    wire [`CPU_WIDTHm1:0] cpu_addr, cpu_wr_data;
-    reg [`CPU_WIDTHm1:0] cpu_rd_data;
-    reg cpu_decode_io;
-    reg [3:0] leds_on_off;
-    reg [7:0] leds_numeric;
-    reg vertical_int;
-    wire [7:0] cpu_op;
 
     SpriteROM sr(i_Clk, sprite_draw, sprite_row_num, sprite_col_num, sprite_pixel);
     LineRAM lr(i_Clk, lr_write, lr_write_addr, lr_wr_data, lr_read_addr, lr_rd_data);

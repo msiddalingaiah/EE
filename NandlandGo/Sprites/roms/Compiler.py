@@ -166,7 +166,7 @@ class Parser(object):
         patterns.append(Pattern("'", r"'(?:[^'\\]|\\.)'"))
         patterns.append(Pattern('"', r'"(?:[^"\\]|\\.)*"'))
         self.sc = Scanner(patterns)
-        self.prec = [('&','|'), ('<', '!='), ('+','-')]
+        self.prec = [('&','|'), ('<', '!=', '>'), ('+','-')]
 
     def parse(self, input):
         self.sc.setInput(input)
@@ -510,6 +510,15 @@ class Generator(object):
                 return self.genLoadImm(self.constants[name])
             raise Exception(f"line {tree.value.lineNumber}, No such constant '{name}'")
         op = tree.value.name
+
+        if op == '>':
+            # reverse operands
+            opcodes = self.genEval(tree.children[1])
+            opcodes.extend(self.genEval(tree.children[0]))
+            opcodes.append(OpCode(OPS_ALU_SUB, 'SUB'))
+            opcodes.append(OpCode(OPS_ALU_LT, 'LT'))
+            return opcodes
+
         opcodes = self.genEval(tree.children[0])
         if op == 'NEG':
             opcodes.extend(self.genLoadImm(0))

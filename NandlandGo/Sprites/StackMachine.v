@@ -31,17 +31,6 @@ endmodule
 module StackMachine(input wire reset, input wire clock, output reg [`CPU_WIDTHm1:0] io_addr, input wire [`CPU_WIDTHm1:0] io_rd_data,
     output reg io_write, output reg [`CPU_WIDTHm1:0] io_wr_data, output wire [7:0] cpu_op);
 
-    assign cpu_op = opcode;
-
-    integer i;
-    initial begin
-        pc = 0;
-        cSP = 3;
-        dSP = 3;
-        for (i=0;i<4;i=i+1) cStack[i] = 0;
-        for (i=0;i<4;i=i+1) dStack[i] = 0;
-    end
-
     reg [11:0] pc;
     reg [1:0] cSP, cSP1;
     reg [1:0] dSP, dSP1, dSPm1, dSPm2;
@@ -55,6 +44,17 @@ module StackMachine(input wire reset, input wire clock, output reg [`CPU_WIDTHm1
     wire [`CPU_WIDTHm1:0] ram_rd_data;
     reg ram_write;
     reg decode_ram_io;
+
+    assign cpu_op = opcode;
+
+    integer i;
+    initial begin
+        pc = 0;
+        cSP = 3;
+        dSP = 3;
+        for (i=0;i<4;i=i+1) cStack[i] = 0;
+        for (i=0;i<4;i=i+1) dStack[i] = 0;
+    end
 
     localparam OPS_LOAD  = 4'b0000;
     localparam OPS_STORE = 4'b0001;
