@@ -47,8 +47,8 @@ test: TestBench roms/code.txt
 TestBench: *.v
 	iverilog -o vcd/TestBench TestBench.v
 
-roms/code.txt: roms/main.f roms/*.py
-	py roms/Compiler.py roms/main.f roms/code.txt
+roms/code.txt: roms/lunar_lander.f roms/*.py
+	py roms/Compiler.py roms/lunar_lander.f roms/code.txt
 
 clean:
 	rm $(PROJ).json $(PROJ).asc $(PROJ).bin $(PROJ).rpt vcd/TestBench

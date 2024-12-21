@@ -106,6 +106,8 @@ Alternatively, [OSS Cad Suite](https://github.com/YosysHQ/oss-cad-suite-build) c
 
 In the event that iceprog fails with error ```Can't find iCE FTDI USB device (vendor_id 0x0403, device_id 0x6010).```, it is necessary to replace USB drivers using [Zadig](https://zadig.akeo.ie/) as mentioned in this [issue](https://github.com/YosysHQ/icestorm/issues/141). I found that replacing default Windows drivers with WinUSB as mentioned [here](https://gojimmypi.blogspot.com/2020/12/ice40-fpga-programming-with-wsl-and.html) works, whereas libusbK results in a silent failure. Step by step instructions are available on [Adafruit](https://learn.adafruit.com/adafruit-ft232h-breakout/windows-setup).
 
+Exercise extreme caution when using Zadig! The wrong USB driver could be accidentally wiped out!
+
 ### Windows Subsystem for Linux (WSL)
 
 The following command will perform synthesis and generate the bitstream suitable for programming the FPGA:
