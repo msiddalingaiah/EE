@@ -4,7 +4,21 @@
 
 `include "StackMachine.v"
 
-module SpriteROM(input wire clock, input wire [5:0] sprite_num, input wire [2:0] row_num, input wire [2:0] col_num, output reg [1:0] pixel);
+module MotionSpriteROM(input wire clock, input wire [5:0] sprite_num, input wire [2:0] row_num, input wire [2:0] col_num, output reg [1:0] pixel);
+    reg [1:0] memory[0:2047];
+    initial begin
+        $readmemb("sprites.txt", memory);
+        pixel = 0;
+    end
+
+    wire [10:0] mem_address = { sprite_num[5:0], row_num, col_num };
+
+    always @(posedge clock) begin
+        pixel <= memory[mem_address];
+    end
+endmodule
+
+module PlayfieldSpriteROM(input wire clock, input wire [5:0] sprite_num, input wire [2:0] row_num, input wire [2:0] col_num, output reg [1:0] pixel);
     reg [1:0] memory[0:2047];
     initial begin
         $readmemb("sprites.txt", memory);
@@ -35,6 +49,7 @@ module LineRAM(input wire clock, input wire write, input wire [10:0] write_addr,
     end
 endmodule
 
+// 32 rows x 32 columns playfield sprites
 module PlayfieldRAM(input wire clock, input wire write, input wire [9:0] write_addr, input wire [7:0] wr_data,
     input wire [9:0] read_addr, output reg [7:0] rd_data);
 
@@ -44,9 +59,9 @@ module PlayfieldRAM(input wire clock, input wire write, input wire [9:0] write_a
         for (i=0; i<1024; i=i+1) begin
             memory[i] = 0;
         end
-        // for (i=0; i<1024; i=i+6) begin
-        //     memory[i] = i >> 3;
-        // end
+        memory[(29 << 5) | 15] = 26;
+        memory[(29 << 5) | 16] = 26;
+        memory[(29 << 5) | 17] = 26;
     end
 
     always @(posedge clock) begin
@@ -115,9 +130,9 @@ module Sprites (
     reg [8:0] color;
     reg hsync, vsync;
 
-    wire [1:0] sprite_pixel;
+    wire [1:0] motion_sprite_pixel, playfield_sprite_pixel;
     reg [1:0] out_pixel;
-    reg [5:0] sprite_num, sprite_draw;
+    reg [5:0] sprite_num;
     reg [2:0] sprite_row_num;
     reg [2:0] sprite_col_num;
     reg [9:0] sprite_x, sprite_y, sprite_dx, sprite_dy;
@@ -129,7 +144,7 @@ module Sprites (
     reg [1:0] lr_wr_data;
     // Playfield RAM
     reg pf_write;
-    wire [9:0] pf_read_addr = { row[7:4], column[9:4] };
+    wire [9:0] pf_read_addr = { row[8:4], column[8:4] };
     wire [9:0] pf_write_addr = 10'h00;
     wire [7:0] pf_sprite;
     wire [7:0] pf_wr_data = 8'h00;
@@ -193,9 +208,10 @@ module Sprites (
     // 9-bit beam color
     assign { red, green, blue } = color;
 
-    SpriteROM sr(i_Clk, sprite_draw, sprite_row_num, sprite_col_num, sprite_pixel);
-    LineRAM lr(i_Clk, lr_write, lr_write_addr, lr_wr_data, lr_read_addr, lr_rd_data);
-    PlayfieldRAM pf(i_Clk, pf_write, pf_write_addr, pf_wr_data, pf_read_addr, pf_sprite);
+    MotionSpriteROM motion_rom(i_Clk, sprite_num, sprite_row_num, sprite_col_num, motion_sprite_pixel);
+    PlayfieldSpriteROM playfield_rom(i_Clk, pf_sprite[5:0], sprite_row_num, sprite_col_num, playfield_sprite_pixel);
+    LineRAM line_ram(i_Clk, lr_write, lr_write_addr, lr_wr_data, lr_read_addr, lr_rd_data);
+    PlayfieldRAM playfield_ram(i_Clk, pf_write, pf_write_addr, pf_wr_data, pf_read_addr, pf_sprite);
     StackMachine cpu(reset, i_Clk, cpu_addr, cpu_rd_data, cpu_write, cpu_wr_data, cpu_op);
 
 `ifdef TESTBENCH
@@ -208,17 +224,15 @@ module Sprites (
     always @(*) begin
         cpu_decode_io = cpu_addr[`CPU_WIDTHm1:`CPU_WIDTHm1-1] != 2'h0 ? 1'b1 : 1'b0;
 
-        sprite_draw = pf_sprite[5:0];
         sprite_row_num = row[3:1];
         sprite_col_num = column[3:1];
-        out_pixel = sprite_pixel;
+        out_pixel = playfield_sprite_pixel;
         lr_write = 1'b0;
-        lr_wr_data = sprite_pixel;
+        lr_wr_data = motion_sprite_pixel;
         sprite_dx = column - sprite_x;
         sprite_dy = row - sprite_y;
         if (sprite_dy[9:4] == 6'h3f) begin
             if (sprite_dx < 10'd16) begin
-                sprite_draw = sprite_num;
                 sprite_row_num = sprite_dy[3:1];
                 sprite_col_num = sprite_dx[3:1];
                 lr_write = 1'b1;

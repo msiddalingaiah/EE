@@ -35,7 +35,7 @@ def main {
             sprite_x = (x_frac >> 6) + sprite_x;
             x_frac = x_frac & 0x3f;
         }
-        if sprite_y < 400 {
+        if sprite_y < 464 {
             dv_y_frac = dv_y_frac + gravity;
             if switches & 8 {
                 dv_y_frac = dv_y_frac - 2;

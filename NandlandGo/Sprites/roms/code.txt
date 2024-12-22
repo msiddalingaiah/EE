@@ -98,8 +98,8 @@ bf //   93: SP: 2, Load immediate, sign extended 63,
 90 //   97: SP: 1, Load immediate, sign extended 1026, 
 42 //   98: SP: 1, Load immediate, shift left 6 bits 1026, 
 01 //   99: SP: 1, load mem[0x402], line 38
-86 //  100: SP: 2, Load immediate, sign extended 400, 
-50 //  101: SP: 2, Load immediate, shift left 6 bits 400, 
+87 //  100: SP: 2, Load immediate, sign extended 464, 
+50 //  101: SP: 2, Load immediate, shift left 6 bits 464, 
 21 //  102: SP: 1, SUB, 
 28 //  103: SP: 1, LT, line 38
 81 //  104: SP: 2, Load immediate, sign extended 95, 
