@@ -7,24 +7,22 @@ var leds_numeric = 0xc01;
 var switches = 0xc02;
 var vertical_int = 0xc03;
 
-# Memory corruption?
 var x_frac;
 var dv_x_frac;
 var y_frac;
 var dv_y_frac;
-var g = 1;
+var gravity;
 
 def main {
     x_frac = 0;
     dv_x_frac = 1;
     y_frac = 0;
     dv_y_frac = 1;
-    sprite_num = 13;
+    gravity = 1;
+
     sprite_x = 50;
     sprite_y = 30;           
-    print sprite_num;
     loop {
-        dv_y_frac = dv_y_frac + g;
         if switches & 2 {
             x_frac = 0;
             y_frac = 0;
@@ -40,6 +38,7 @@ def main {
             x_frac = x_frac & 0x3f;
         }
         if sprite_y < 400 {
+            dv_y_frac = dv_y_frac + gravity;
             if switches & 8 {
                 dv_y_frac = dv_y_frac - 2;
                 sprite_num = 14;
@@ -47,18 +46,15 @@ def main {
                 sprite_num = 13;
             }
             if switches & 4 {
-                # This decreases Y for some reason...
                 dv_x_frac = dv_x_frac - 1;
             }
             if switches & 1 {
-                # This increases Y for some reason...
                 dv_x_frac = dv_x_frac + 1;
             }
             y_frac = y_frac + dv_y_frac;
             sprite_y = (y_frac >> 6) + sprite_y;
             y_frac = y_frac & 0x3f;
         } else {
-            g = 0;
             dv_x_frac = 0;
             if dv_y_frac > 128 {
                 sprite_num = 30;
