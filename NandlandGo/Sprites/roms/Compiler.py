@@ -71,9 +71,13 @@ class Scanner(object):
         self.lookAhead = self.next()
 
     def skipWhiteSpace(self):
-        while self.index < len(self.input) and self.input[self.index].isspace():
+        comment = False
+        while self.index < len(self.input) and (self.input[self.index].isspace() or self.input[self.index] == '#' or comment):
+            if self.input[self.index] == '#':
+                comment = True
             if self.input[self.index] == '\n':
                 self.lineNumber += 1
+                comment = False
             self.index += 1
 
     def skipComment(self):
@@ -149,12 +153,15 @@ class Parser(object):
         patterns.append(Pattern('*', r'\*'))
         patterns.append(Pattern('/', r'\/'))
         patterns.append(Pattern('<<', r'\<\<'))
+        patterns.append(Pattern('>>>', r'\>\>\>'))
         patterns.append(Pattern('>>', r'\>\>'))
         patterns.append(Pattern('<=', r'\<\='))
         patterns.append(Pattern('>=', r'\>\='))
         patterns.append(Pattern('==', r'\=\='))
         patterns.append(Pattern('!=', r'\!\='))
+        patterns.append(Pattern('&&', r'\&\&'))
         patterns.append(Pattern('&', r'\&'))
+        patterns.append(Pattern('||', r'\|\|'))
         patterns.append(Pattern('|', r'\|'))
         patterns.append(Pattern('^', r'\^'))
         patterns.append(Pattern('=', r'\='))
@@ -166,7 +173,7 @@ class Parser(object):
         patterns.append(Pattern("'", r"'(?:[^'\\]|\\.)'"))
         patterns.append(Pattern('"', r'"(?:[^"\\]|\\.)*"'))
         self.sc = Scanner(patterns)
-        self.prec = [('&','|'), ('<', '!=', '>'), ('+','-')]
+        self.prec = [('&&','||'), ('<', '!=', '>'), ('<<', '>>>', '>>'), ('&','|'), ('+','-')]
 
     def parse(self, input):
         self.sc.setInput(input)
@@ -338,6 +345,7 @@ class OpCode(object):
         self.code = code
         self.comment = comment
         self.offset = offset
+        self.lineNumber = 0
 
     def getSP(self):
         if self.code & 0x80:
@@ -408,6 +416,7 @@ class Generator(object):
             elif s0_name == 'print':
                 opcodes.extend(self.genEval(stat[0]))
                 opcodes.append(OpCode(OPS_STORE_PRINT, 'print'))
+                opcodes[-1].lineNumber = tree.value.lineNumber
             elif s0_name == 'while':
                 opcodes.extend(self.genWhile(stat))
             elif s0_name == 'loop':
@@ -421,6 +430,7 @@ class Generator(object):
                 opcodes.extend(self.genEval(stat[1]))
                 opcodes.extend(self.genLoadImm(self.variables[var_name]))
                 opcodes.append(OpCode(OPS_STORE_MEM, 'Store'))
+                opcodes[-1].lineNumber = tree.value.lineNumber
             else:
                 raise Exception(f'{s0_name} not yet supported')
         return opcodes
@@ -436,9 +446,11 @@ class Generator(object):
             jump_len = 3
         exp_ops.extend(self.genLoadImm(offset+jump_len, short))
         exp_ops.append(OpCode(OPS_JUMP_ZERO, 'Jump if zero', offset=offset+jump_len))
+        exp_ops[-1].lineNumber = stat.value.lineNumber
         offset = -(len(exp_ops)+len(stat_ops)+jump_len)
         stat_ops.extend(self.genLoadImm(offset, short))
         stat_ops.append(OpCode(OPS_JUMP, f'Jump', offset=offset))
+        stat_ops[-1].lineNumber = stat.value.lineNumber
         exp_ops.extend(stat_ops)
         return exp_ops
 
@@ -453,6 +465,7 @@ class Generator(object):
         offset = -(len(stat_ops)+jump_len)
         stat_ops.extend(self.genLoadImm(offset, short))
         stat_ops.append(OpCode(OPS_JUMP, 'Jump', offset=offset))
+        stat_ops[-1].lineNumber = stat.value.lineNumber
         return stat_ops
 
     def genIf(self, stat):
@@ -463,9 +476,11 @@ class Generator(object):
             offset = len(else_ops)
             stat_ops.extend(self.genLoadImm(offset, offset < 60))
             stat_ops.append(OpCode(OPS_JUMP, 'Jump', offset=offset))
+            stat_ops[-1].lineNumber = stat.value.lineNumber
         offset = len(stat_ops)
         exp_ops.extend(self.genLoadImm(offset, offset < 60))
         exp_ops.append(OpCode(OPS_JUMP_ZERO, 'Jump if zero', offset=offset))
+        exp_ops[-1].lineNumber = stat.value.lineNumber
         exp_ops.extend(stat_ops)
         if len(stat) > 2:
             exp_ops.extend(else_ops)
@@ -494,6 +509,24 @@ class Generator(object):
             opcodes[i] = OpCode(opcodes[i], f'Load immediate, shift left 6 bits {display_value}')
         return opcodes
 
+    def genShift(self, tree, opcodes, op, op_text):
+        if tree.children[1].value.name == 'INT':
+            n = tree.children[1].value.value
+            for i in range(n):
+                opcodes.append(OpCode(op, op_text))
+            opcodes[-1].lineNumber = tree.value.lineNumber
+            return opcodes
+        if tree.children[1].value.name == 'ID':
+            n = tree.children[1].value.value
+            if n not in self.constants:
+                raise Exception(f"line {tree.value.lineNumber}, no such constant {n}")
+            n = self.constants[n]
+            for i in range(n):
+                opcodes.append(OpCode(op, op_text))
+            opcodes[-1].lineNumber = tree.value.lineNumber
+            return opcodes
+        raise Exception(f"line {tree.value.lineNumber}, shift amount must be a constant")
+
     def genEval(self, tree):
         if tree.value.name == 'INT':
             return self.genLoadImm(tree.value.value)
@@ -505,6 +538,7 @@ class Generator(object):
                 if addr < 0x400:
                     opcodes.append(OpCode(OPS_NOP, 'RAM read delay slot'))
                 opcodes.append(OpCode(OPS_LOAD_MEM, f'load mem[0x{addr:x}]'))
+                opcodes[-1].lineNumber = tree.value.lineNumber
                 return opcodes
             elif name in self.constants:
                 return self.genLoadImm(self.constants[name])
@@ -517,33 +551,51 @@ class Generator(object):
             opcodes.extend(self.genEval(tree.children[0]))
             opcodes.append(OpCode(OPS_ALU_SUB, 'SUB'))
             opcodes.append(OpCode(OPS_ALU_LT, 'LT'))
+            opcodes[-1].lineNumber = tree.value.lineNumber
             return opcodes
 
-        opcodes = self.genEval(tree.children[0])
         if op == 'NEG':
+            if tree.children[0].value.name == 'INT':
+                return self.genLoadImm(-tree.children[0].value.value)
+            opcodes = self.genEval(tree.children[0])
             opcodes.extend(self.genLoadImm(0))
             opcodes.append(OpCode(OPS_LOAD_SWAP, 'Swap'))
             opcodes.append(OpCode(OPS_ALU_SUB, 'SUB'))
+            opcodes[-1].lineNumber = tree.value.lineNumber
             return opcodes
+        opcodes = self.genEval(tree.children[0])
+        if op == '>>':
+            return self.genShift(tree, opcodes, OPS_ALU_ASR, 'Arithmetic shift right')
+        if op == '>>>':
+            return self.genShift(tree, opcodes, OPS_ALU_LSR, 'Logical shift right')
+        if op == '<<':
+            return self.genShift(tree, opcodes, OPS_ALU_SL, 'Shift left')
+
         opcodes.extend(self.genEval(tree.children[1]))
         if op == '+':
             opcodes.append(OpCode(OPS_ALU_ADD, 'ADD'))
+            opcodes[-1].lineNumber = tree.value.lineNumber
             return opcodes
         if op == '-':
             opcodes.append(OpCode(OPS_ALU_SUB, 'SUB'))
+            opcodes[-1].lineNumber = tree.value.lineNumber
             return opcodes
-        if op == '&':
+        if op == '&' or op == '&&':
             opcodes.append(OpCode(OPS_ALU_AND, 'AND'))
+            opcodes[-1].lineNumber = tree.value.lineNumber
             return opcodes
-        if op == '|':
+        if op == '|' or op == '||':
             opcodes.append(OpCode(OPS_ALU_OR, 'OR'))
+            opcodes[-1].lineNumber = tree.value.lineNumber
             return opcodes
         if op == '!=':
             opcodes.append(OpCode(OPS_ALU_SUB, 'SUB'))
+            opcodes[-1].lineNumber = tree.value.lineNumber
             return opcodes
         if op == '<':
             opcodes.append(OpCode(OPS_ALU_SUB, 'SUB'))
             opcodes.append(OpCode(OPS_ALU_LT, 'LT'))
+            opcodes[-1].lineNumber = tree.value.lineNumber
             return opcodes
         raise Exception(f"line {tree.value.lineNumber}, Unknown operator '{op}'")
 
@@ -558,13 +610,16 @@ class Generator(object):
         with open(fname, "wt") as f:
             for op in self.opcodes:
                 stack_size += op.getSP()
+                op_line = ''
+                if op.lineNumber != 0:
+                    op_line = f'line {op.lineNumber}'
                 if op.offset != 0:
                     target_pc = pc+op.offset+1
                     if op.offset < 0:
                         loop_sizes.append([pc, -op.offset])
-                    f.write(f"{op.code:02x} // {pc:4d}: SP: {stack_size:1d}, {op.comment} {target_pc}\n")
+                    f.write(f"{op.code:02x} // {pc:4d}: SP: {stack_size:1d}, {op.comment} {target_pc}, {op_line}\n")
                 else:
-                    f.write(f"{op.code:02x} // {pc:4d}: SP: {stack_size:1d}, {op.comment}\n")
+                    f.write(f"{op.code:02x} // {pc:4d}: SP: {stack_size:1d}, {op.comment}, {op_line}\n")
                 if stack_size > max_stack:
                     max_stack = stack_size
                 assert stack_size < 4, "Stack overflow"
