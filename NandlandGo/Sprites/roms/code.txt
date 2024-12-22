@@ -2,259 +2,259 @@
 00 //    1: SP: 0, No operation, 
 80 //    2: SP: 1, Load immediate, sign extended 0, 
 80 //    3: SP: 2, Load immediate, sign extended 0, 
-10 //    4: SP: 0, Store, line 16
+10 //    4: SP: 0, Store, line 15
 81 //    5: SP: 1, Load immediate, sign extended 1, 
 81 //    6: SP: 2, Load immediate, sign extended 1, 
 10 //    7: SP: 0, Store, line 16
 80 //    8: SP: 1, Load immediate, sign extended 0, 
 82 //    9: SP: 2, Load immediate, sign extended 2, 
-10 //   10: SP: 0, Store, line 16
+10 //   10: SP: 0, Store, line 17
 81 //   11: SP: 1, Load immediate, sign extended 1, 
 83 //   12: SP: 2, Load immediate, sign extended 3, 
-10 //   13: SP: 0, Store, line 16
+10 //   13: SP: 0, Store, line 18
 81 //   14: SP: 1, Load immediate, sign extended 1, 
 84 //   15: SP: 2, Load immediate, sign extended 4, 
-10 //   16: SP: 0, Store, line 16
+10 //   16: SP: 0, Store, line 19
 b2 //   17: SP: 1, Load immediate, sign extended 50, 
 90 //   18: SP: 2, Load immediate, sign extended 1025, 
 41 //   19: SP: 2, Load immediate, shift left 6 bits 1025, 
-10 //   20: SP: 0, Store, line 16
+10 //   20: SP: 0, Store, line 21
 9e //   21: SP: 1, Load immediate, sign extended 30, 
 90 //   22: SP: 2, Load immediate, sign extended 1026, 
 42 //   23: SP: 2, Load immediate, shift left 6 bits 1026, 
-10 //   24: SP: 0, Store, line 16
+10 //   24: SP: 0, Store, line 22
 b0 //   25: SP: 1, Load immediate, sign extended 3074, 
 42 //   26: SP: 1, Load immediate, shift left 6 bits 3074, 
-01 //   27: SP: 1, load mem[0xc02], line 26
+01 //   27: SP: 1, load mem[0xc02], line 24
 82 //   28: SP: 2, Load immediate, sign extended 2, 
-22 //   29: SP: 1, AND, line 26
+22 //   29: SP: 1, AND, line 24
 98 //   30: SP: 2, Load immediate, sign extended 24, 
-31 //   31: SP: 0, Jump if zero 56, line 26
+31 //   31: SP: 0, Jump if zero 56, line 24
 80 //   32: SP: 1, Load immediate, sign extended 0, 
 80 //   33: SP: 2, Load immediate, sign extended 0, 
-10 //   34: SP: 0, Store, line 26
+10 //   34: SP: 0, Store, line 25
 80 //   35: SP: 1, Load immediate, sign extended 0, 
 82 //   36: SP: 2, Load immediate, sign extended 2, 
 10 //   37: SP: 0, Store, line 26
 81 //   38: SP: 1, Load immediate, sign extended 1, 
 81 //   39: SP: 2, Load immediate, sign extended 1, 
-10 //   40: SP: 0, Store, line 26
+10 //   40: SP: 0, Store, line 27
 81 //   41: SP: 1, Load immediate, sign extended 1, 
 83 //   42: SP: 2, Load immediate, sign extended 3, 
-10 //   43: SP: 0, Store, line 26
+10 //   43: SP: 0, Store, line 28
 8d //   44: SP: 1, Load immediate, sign extended 13, 
 90 //   45: SP: 2, Load immediate, sign extended 1024, 
 40 //   46: SP: 2, Load immediate, shift left 6 bits 1024, 
-10 //   47: SP: 0, Store, line 26
+10 //   47: SP: 0, Store, line 29
 b2 //   48: SP: 1, Load immediate, sign extended 50, 
 90 //   49: SP: 2, Load immediate, sign extended 1025, 
 41 //   50: SP: 2, Load immediate, shift left 6 bits 1025, 
-10 //   51: SP: 0, Store, line 26
+10 //   51: SP: 0, Store, line 30
 9e //   52: SP: 1, Load immediate, sign extended 30, 
 90 //   53: SP: 2, Load immediate, sign extended 1026, 
 42 //   54: SP: 2, Load immediate, shift left 6 bits 1026, 
-10 //   55: SP: 0, Store, line 26
+10 //   55: SP: 0, Store, line 31
 90 //   56: SP: 1, Load immediate, sign extended 1025, 
 41 //   57: SP: 1, Load immediate, shift left 6 bits 1025, 
-01 //   58: SP: 1, load mem[0x401], line 35
+01 //   58: SP: 1, load mem[0x401], line 33
 87 //   59: SP: 2, Load immediate, sign extended 500, 
 74 //   60: SP: 2, Load immediate, shift left 6 bits 500, 
 21 //   61: SP: 1, SUB, 
-28 //   62: SP: 1, LT, line 35
+28 //   62: SP: 1, LT, line 33
 a0 //   63: SP: 2, Load immediate, sign extended 32, 
-31 //   64: SP: 0, Jump if zero 97, line 35
+31 //   64: SP: 0, Jump if zero 97, line 33
 80 //   65: SP: 1, Load immediate, sign extended 0, 
 00 //   66: SP: 1, RAM read delay slot, 
-01 //   67: SP: 1, load mem[0x0], line 36
+01 //   67: SP: 1, load mem[0x0], line 34
 81 //   68: SP: 2, Load immediate, sign extended 1, 
 00 //   69: SP: 2, RAM read delay slot, 
-01 //   70: SP: 2, load mem[0x1], line 36
-20 //   71: SP: 1, ADD, line 36
+01 //   70: SP: 2, load mem[0x1], line 34
+20 //   71: SP: 1, ADD, line 34
 80 //   72: SP: 2, Load immediate, sign extended 0, 
-10 //   73: SP: 0, Store, line 35
+10 //   73: SP: 0, Store, line 34
 80 //   74: SP: 1, Load immediate, sign extended 0, 
 00 //   75: SP: 1, RAM read delay slot, 
-01 //   76: SP: 1, load mem[0x0], line 37
+01 //   76: SP: 1, load mem[0x0], line 35
 27 //   77: SP: 1, Arithmetic shift right, 
 27 //   78: SP: 1, Arithmetic shift right, 
 27 //   79: SP: 1, Arithmetic shift right, 
 27 //   80: SP: 1, Arithmetic shift right, 
 27 //   81: SP: 1, Arithmetic shift right, 
-27 //   82: SP: 1, Arithmetic shift right, line 37
+27 //   82: SP: 1, Arithmetic shift right, line 35
 90 //   83: SP: 2, Load immediate, sign extended 1025, 
 41 //   84: SP: 2, Load immediate, shift left 6 bits 1025, 
-01 //   85: SP: 2, load mem[0x401], line 37
-20 //   86: SP: 1, ADD, line 37
+01 //   85: SP: 2, load mem[0x401], line 35
+20 //   86: SP: 1, ADD, line 35
 90 //   87: SP: 2, Load immediate, sign extended 1025, 
 41 //   88: SP: 2, Load immediate, shift left 6 bits 1025, 
 10 //   89: SP: 0, Store, line 35
 80 //   90: SP: 1, Load immediate, sign extended 0, 
 00 //   91: SP: 1, RAM read delay slot, 
-01 //   92: SP: 1, load mem[0x0], line 38
+01 //   92: SP: 1, load mem[0x0], line 36
 bf //   93: SP: 2, Load immediate, sign extended 63, 
-22 //   94: SP: 1, AND, line 38
+22 //   94: SP: 1, AND, line 36
 80 //   95: SP: 2, Load immediate, sign extended 0, 
-10 //   96: SP: 0, Store, line 35
+10 //   96: SP: 0, Store, line 36
 90 //   97: SP: 1, Load immediate, sign extended 1026, 
 42 //   98: SP: 1, Load immediate, shift left 6 bits 1026, 
-01 //   99: SP: 1, load mem[0x402], line 40
+01 //   99: SP: 1, load mem[0x402], line 38
 86 //  100: SP: 2, Load immediate, sign extended 400, 
 50 //  101: SP: 2, Load immediate, shift left 6 bits 400, 
 21 //  102: SP: 1, SUB, 
-28 //  103: SP: 1, LT, line 40
+28 //  103: SP: 1, LT, line 38
 81 //  104: SP: 2, Load immediate, sign extended 95, 
 5f //  105: SP: 2, Load immediate, shift left 6 bits 95, 
-31 //  106: SP: 0, Jump if zero 202, line 40
+31 //  106: SP: 0, Jump if zero 202, line 38
 83 //  107: SP: 1, Load immediate, sign extended 3, 
 00 //  108: SP: 1, RAM read delay slot, 
-01 //  109: SP: 1, load mem[0x3], line 41
+01 //  109: SP: 1, load mem[0x3], line 39
 84 //  110: SP: 2, Load immediate, sign extended 4, 
 00 //  111: SP: 2, RAM read delay slot, 
-01 //  112: SP: 2, load mem[0x4], line 41
-20 //  113: SP: 1, ADD, line 41
+01 //  112: SP: 2, load mem[0x4], line 39
+20 //  113: SP: 1, ADD, line 39
 83 //  114: SP: 2, Load immediate, sign extended 3, 
-10 //  115: SP: 0, Store, line 40
+10 //  115: SP: 0, Store, line 39
 b0 //  116: SP: 1, Load immediate, sign extended 3074, 
 42 //  117: SP: 1, Load immediate, shift left 6 bits 3074, 
-01 //  118: SP: 1, load mem[0xc02], line 42
+01 //  118: SP: 1, load mem[0xc02], line 40
 88 //  119: SP: 2, Load immediate, sign extended 8, 
-22 //  120: SP: 1, AND, line 42
+22 //  120: SP: 1, AND, line 40
 8d //  121: SP: 2, Load immediate, sign extended 13, 
-31 //  122: SP: 0, Jump if zero 136, line 42
+31 //  122: SP: 0, Jump if zero 136, line 40
 83 //  123: SP: 1, Load immediate, sign extended 3, 
 00 //  124: SP: 1, RAM read delay slot, 
-01 //  125: SP: 1, load mem[0x3], line 43
+01 //  125: SP: 1, load mem[0x3], line 41
 82 //  126: SP: 2, Load immediate, sign extended 2, 
-21 //  127: SP: 1, SUB, line 43
+21 //  127: SP: 1, SUB, line 41
 83 //  128: SP: 2, Load immediate, sign extended 3, 
-10 //  129: SP: 0, Store, line 42
+10 //  129: SP: 0, Store, line 41
 8e //  130: SP: 1, Load immediate, sign extended 14, 
 90 //  131: SP: 2, Load immediate, sign extended 1024, 
 40 //  132: SP: 2, Load immediate, shift left 6 bits 1024, 
 10 //  133: SP: 0, Store, line 42
 84 //  134: SP: 1, Load immediate, sign extended 4, 
-30 //  135: SP: 0, Jump 140, line 42
+30 //  135: SP: 0, Jump 140, line 40
 8d //  136: SP: 1, Load immediate, sign extended 13, 
 90 //  137: SP: 2, Load immediate, sign extended 1024, 
 40 //  138: SP: 2, Load immediate, shift left 6 bits 1024, 
-10 //  139: SP: 0, Store, line 45
+10 //  139: SP: 0, Store, line 44
 b0 //  140: SP: 1, Load immediate, sign extended 3074, 
 42 //  141: SP: 1, Load immediate, shift left 6 bits 3074, 
-01 //  142: SP: 1, load mem[0xc02], line 48
+01 //  142: SP: 1, load mem[0xc02], line 46
 84 //  143: SP: 2, Load immediate, sign extended 4, 
-22 //  144: SP: 1, AND, line 48
+22 //  144: SP: 1, AND, line 46
 87 //  145: SP: 2, Load immediate, sign extended 7, 
-31 //  146: SP: 0, Jump if zero 154, line 48
+31 //  146: SP: 0, Jump if zero 154, line 46
 81 //  147: SP: 1, Load immediate, sign extended 1, 
 00 //  148: SP: 1, RAM read delay slot, 
-01 //  149: SP: 1, load mem[0x1], line 49
+01 //  149: SP: 1, load mem[0x1], line 47
 81 //  150: SP: 2, Load immediate, sign extended 1, 
-21 //  151: SP: 1, SUB, line 49
+21 //  151: SP: 1, SUB, line 47
 81 //  152: SP: 2, Load immediate, sign extended 1, 
-10 //  153: SP: 0, Store, line 48
+10 //  153: SP: 0, Store, line 47
 b0 //  154: SP: 1, Load immediate, sign extended 3074, 
 42 //  155: SP: 1, Load immediate, shift left 6 bits 3074, 
-01 //  156: SP: 1, load mem[0xc02], line 51
+01 //  156: SP: 1, load mem[0xc02], line 49
 81 //  157: SP: 2, Load immediate, sign extended 1, 
-22 //  158: SP: 1, AND, line 51
+22 //  158: SP: 1, AND, line 49
 87 //  159: SP: 2, Load immediate, sign extended 7, 
-31 //  160: SP: 0, Jump if zero 168, line 51
+31 //  160: SP: 0, Jump if zero 168, line 49
 81 //  161: SP: 1, Load immediate, sign extended 1, 
 00 //  162: SP: 1, RAM read delay slot, 
-01 //  163: SP: 1, load mem[0x1], line 52
+01 //  163: SP: 1, load mem[0x1], line 50
 81 //  164: SP: 2, Load immediate, sign extended 1, 
-20 //  165: SP: 1, ADD, line 52
+20 //  165: SP: 1, ADD, line 50
 81 //  166: SP: 2, Load immediate, sign extended 1, 
-10 //  167: SP: 0, Store, line 51
+10 //  167: SP: 0, Store, line 50
 82 //  168: SP: 1, Load immediate, sign extended 2, 
 00 //  169: SP: 1, RAM read delay slot, 
-01 //  170: SP: 1, load mem[0x2], line 54
+01 //  170: SP: 1, load mem[0x2], line 52
 83 //  171: SP: 2, Load immediate, sign extended 3, 
 00 //  172: SP: 2, RAM read delay slot, 
-01 //  173: SP: 2, load mem[0x3], line 54
-20 //  174: SP: 1, ADD, line 54
+01 //  173: SP: 2, load mem[0x3], line 52
+20 //  174: SP: 1, ADD, line 52
 82 //  175: SP: 2, Load immediate, sign extended 2, 
-10 //  176: SP: 0, Store, line 40
+10 //  176: SP: 0, Store, line 52
 82 //  177: SP: 1, Load immediate, sign extended 2, 
 00 //  178: SP: 1, RAM read delay slot, 
-01 //  179: SP: 1, load mem[0x2], line 55
+01 //  179: SP: 1, load mem[0x2], line 53
 27 //  180: SP: 1, Arithmetic shift right, 
 27 //  181: SP: 1, Arithmetic shift right, 
 27 //  182: SP: 1, Arithmetic shift right, 
 27 //  183: SP: 1, Arithmetic shift right, 
 27 //  184: SP: 1, Arithmetic shift right, 
-27 //  185: SP: 1, Arithmetic shift right, line 55
+27 //  185: SP: 1, Arithmetic shift right, line 53
 90 //  186: SP: 2, Load immediate, sign extended 1026, 
 42 //  187: SP: 2, Load immediate, shift left 6 bits 1026, 
-01 //  188: SP: 2, load mem[0x402], line 55
-20 //  189: SP: 1, ADD, line 55
+01 //  188: SP: 2, load mem[0x402], line 53
+20 //  189: SP: 1, ADD, line 53
 90 //  190: SP: 2, Load immediate, sign extended 1026, 
 42 //  191: SP: 2, Load immediate, shift left 6 bits 1026, 
-10 //  192: SP: 0, Store, line 40
+10 //  192: SP: 0, Store, line 53
 82 //  193: SP: 1, Load immediate, sign extended 2, 
 00 //  194: SP: 1, RAM read delay slot, 
-01 //  195: SP: 1, load mem[0x2], line 56
+01 //  195: SP: 1, load mem[0x2], line 54
 bf //  196: SP: 2, Load immediate, sign extended 63, 
-22 //  197: SP: 1, AND, line 56
+22 //  197: SP: 1, AND, line 54
 82 //  198: SP: 2, Load immediate, sign extended 2, 
-10 //  199: SP: 0, Store, line 40
+10 //  199: SP: 0, Store, line 54
 96 //  200: SP: 1, Load immediate, sign extended 22, 
-30 //  201: SP: 0, Jump 224, line 40
+30 //  201: SP: 0, Jump 224, line 38
 80 //  202: SP: 1, Load immediate, sign extended 0, 
 81 //  203: SP: 2, Load immediate, sign extended 1, 
-10 //  204: SP: 0, Store, line 57
+10 //  204: SP: 0, Store, line 56
 82 //  205: SP: 1, Load immediate, sign extended 128, 
 40 //  206: SP: 1, Load immediate, shift left 6 bits 128, 
 83 //  207: SP: 2, Load immediate, sign extended 3, 
 00 //  208: SP: 2, RAM read delay slot, 
-01 //  209: SP: 2, load mem[0x3], line 59
+01 //  209: SP: 2, load mem[0x3], line 57
 21 //  210: SP: 1, SUB, 
-28 //  211: SP: 1, LT, line 59
+28 //  211: SP: 1, LT, line 57
 86 //  212: SP: 2, Load immediate, sign extended 6, 
-31 //  213: SP: 0, Jump if zero 220, line 59
+31 //  213: SP: 0, Jump if zero 220, line 57
 9e //  214: SP: 1, Load immediate, sign extended 30, 
 90 //  215: SP: 2, Load immediate, sign extended 1024, 
 40 //  216: SP: 2, Load immediate, shift left 6 bits 1024, 
-10 //  217: SP: 0, Store, line 59
+10 //  217: SP: 0, Store, line 58
 84 //  218: SP: 1, Load immediate, sign extended 4, 
-30 //  219: SP: 0, Jump 224, line 59
+30 //  219: SP: 0, Jump 224, line 57
 8f //  220: SP: 1, Load immediate, sign extended 15, 
 90 //  221: SP: 2, Load immediate, sign extended 1024, 
 40 //  222: SP: 2, Load immediate, shift left 6 bits 1024, 
-10 //  223: SP: 0, Store, line 61
+10 //  223: SP: 0, Store, line 60
 81 //  224: SP: 1, Load immediate, sign extended 1, 
 b0 //  225: SP: 2, Load immediate, sign extended 3075, 
 43 //  226: SP: 2, Load immediate, shift left 6 bits 3075, 
-01 //  227: SP: 2, load mem[0xc03], line 65
-21 //  228: SP: 1, SUB, line 65
+01 //  227: SP: 2, load mem[0xc03], line 63
+21 //  228: SP: 1, SUB, line 63
 82 //  229: SP: 2, Load immediate, sign extended 2, 
-31 //  230: SP: 0, Jump if zero 233, line 65
+31 //  230: SP: 0, Jump if zero 233, line 63
 f7 //  231: SP: 1, Load immediate, sign extended -9, 
-30 //  232: SP: 0, Jump 224, line 65
+30 //  232: SP: 0, Jump 224, line 63
 80 //  233: SP: 1, Load immediate, sign extended 0, 
 b0 //  234: SP: 2, Load immediate, sign extended 3075, 
 43 //  235: SP: 2, Load immediate, shift left 6 bits 3075, 
-10 //  236: SP: 0, Store, line 25
+10 //  236: SP: 0, Store, line 65
 83 //  237: SP: 1, Load immediate, sign extended 3, 
 00 //  238: SP: 1, RAM read delay slot, 
-01 //  239: SP: 1, load mem[0x3], line 68
+01 //  239: SP: 1, load mem[0x3], line 66
 b0 //  240: SP: 2, Load immediate, sign extended 3073, 
 41 //  241: SP: 2, Load immediate, shift left 6 bits 3073, 
-10 //  242: SP: 0, Store, line 25
+10 //  242: SP: 0, Store, line 66
 b0 //  243: SP: 1, Load immediate, sign extended 3072, 
 40 //  244: SP: 1, Load immediate, shift left 6 bits 3072, 
-01 //  245: SP: 1, load mem[0xc00], line 69
+01 //  245: SP: 1, load mem[0xc00], line 67
 81 //  246: SP: 2, Load immediate, sign extended 1, 
-20 //  247: SP: 1, ADD, line 69
+20 //  247: SP: 1, ADD, line 67
 b0 //  248: SP: 2, Load immediate, sign extended 3072, 
 40 //  249: SP: 2, Load immediate, shift left 6 bits 3072, 
-10 //  250: SP: 0, Store, line 25
+10 //  250: SP: 0, Store, line 67
 fc //  251: SP: 1, Load immediate, sign extended -229, 
 5b //  252: SP: 1, Load immediate, shift left 6 bits -229, 
-30 //  253: SP: 0, Jump 25, line 25
+30 //  253: SP: 0, Jump 25, line 23
 81 //  254: SP: 1, Load immediate, sign extended 99, 
 63 //  255: SP: 1, Load immediate, shift left 6 bits 99, 
-11 //  256: SP: 0, print, line 16
+11 //  256: SP: 0, print, line 14
 00
 00
 00

@@ -21,7 +21,6 @@ pixels driving a 640 x 480 60 Hz VGA monitor. Each visible pixel is 2 x 2 VGA pi
 
 Next steps:
 
-- Refactor var declartion, separate variables and I/O mapping
 - Motion sprite RAM
 - Separate playfield sprite RAM
 - RAM read address forwarding

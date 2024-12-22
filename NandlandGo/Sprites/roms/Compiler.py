@@ -126,6 +126,7 @@ class Parser(object):
         patterns = []
         patterns.append(Pattern('def', r'def'))
         patterns.append(Pattern('var', r'var'))
+        patterns.append(Pattern('ioport', r'ioport'))
         patterns.append(Pattern('if', r'if'))
         patterns.append(Pattern('else', r'else'))
         patterns.append(Pattern('loop', r'loop'))
@@ -197,11 +198,18 @@ class Parser(object):
             tree.add(self.parseExp())
             self.sc.expect(';')
             return tree
+        if self.sc.matches('ioport'):
+            tree = Tree(self.sc.terminal)
+            tree.add(self.sc.expect('ID'))
+            self.sc.expect(':')
+            tree.add(self.parseExp())
+            self.sc.expect(';')
+            return tree
         if self.sc.matches('var'):
             tree = Tree(self.sc.terminal)
             tree.add(self.sc.expect('ID'))
-            if self.sc.matches('='):
-                tree.add(self.parseExp())
+            while self.sc.matches(','):
+                tree.add(self.sc.expect('ID'))
             self.sc.expect(';')
             return tree
         tree = Tree(self.sc.expect('def'))
@@ -366,11 +374,12 @@ class Generator(object):
             if t.value == 'const':
                 name = t[0].value.value
                 self.constants[name] = self.eval(t[1])
-            if t.value == 'var':
+            if t.value == 'ioport':
                 name = t[0].value.value
-                if len(t) > 1:
-                    self.variables[name] = self.eval(t[1])
-                else:
+                self.variables[name] = self.eval(t[1])
+            if t.value == 'var':
+                for i in range(len(t)):
+                    name = t[i].value.value
                     self.variables[name] = self.variable_address
                     self.variable_address += 1
             if t.value == 'def':
@@ -430,7 +439,7 @@ class Generator(object):
                 opcodes.extend(self.genEval(stat[1]))
                 opcodes.extend(self.genLoadImm(self.variables[var_name]))
                 opcodes.append(OpCode(OPS_STORE_MEM, 'Store'))
-                opcodes[-1].lineNumber = tree.value.lineNumber
+                opcodes[-1].lineNumber = stat[1].value.lineNumber
             else:
                 raise Exception(f'{s0_name} not yet supported')
         return opcodes

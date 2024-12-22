@@ -1,16 +1,14 @@
 
-var sprite_num = 0x400;
-var sprite_x = 0x401;
-var sprite_y = 0x402;
-var leds_on_off = 0xc00;
-var leds_numeric = 0xc01;
-var switches = 0xc02;
-var vertical_int = 0xc03;
+ioport sprite_num: 0x400;
+ioport sprite_x: 0x401;
+ioport sprite_y: 0x402;
+ioport leds_on_off: 0xc00;
+ioport leds_numeric: 0xc01;
+ioport switches: 0xc02;
+ioport vertical_int: 0xc03;
 
-var x_frac;
-var dv_x_frac;
-var y_frac;
-var dv_y_frac;
+var x_frac, dv_x_frac;
+var y_frac, dv_y_frac;
 var gravity;
 
 def main {
