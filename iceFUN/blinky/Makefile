@@ -1,4 +1,8 @@
 
+# Windows instructions
+# . C:\oss-cad-suite\environment.ps1
+# make prog
+
 # WSL Ubuntu Instructions
 # On Windows, right-click Command Prompt | Run as Administrator
 # > usbipd wsl list
@@ -20,17 +24,15 @@ PROJ = blinky
 PIN_DEF = iceFUN.pcf
 DEVICE = hx8k
 PACKAGE = cb132
-
-# Comment QUIET for detailed output
-#QUIET = -q
+FREQ_MHz = 12
 
 all: $(PROJ).rpt $(PROJ).bin
 
 %.json: %.v Makefile *.v
-	yosys $(QUIET) -p 'synth_ice40 -top $(PROJ) -json $@' $<
+	yosys -q -p 'synth_ice40 -top $(PROJ) -json $@' $<
 
 %.asc: $(PIN_DEF) %.json
-	nextpnr-ice40 $(QUIET) --$(DEVICE) --package $(PACKAGE) --json $(word 2,$^) --pcf $(PIN_DEF) --asc $@
+	nextpnr-ice40 -q -l vcd/log.txt --freq $(FREQ_MHz) --$(DEVICE) --package $(PACKAGE) --json $(word 2,$^) --pcf $(PIN_DEF) --asc $@
 
 %.bin: %.asc
 	icepack $< $@
@@ -39,7 +41,7 @@ all: $(PROJ).rpt $(PROJ).bin
 	icetime -d $(DEVICE) -mtr $@ $<
 
 prog: $(PROJ).bin
-	sudo iceFUNprog $<
+	py icefunprog.py COM5 $<
 
 sudo-prog: $(PROJ).bin
 	@echo 'Executing prog as root!!!'
