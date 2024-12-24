@@ -6,7 +6,15 @@ ioport slow_int: 0xc03;
 var int_count;
 var direction;
 
+var i, j, k;
+
 def main {
+    i = 11;
+    j = 21;
+    k = 31;
+    print i;
+    print j;
+    print k;
     direction = 1;
     led_row = 0x1;
     led_column = 0x1;
