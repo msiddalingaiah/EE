@@ -40,10 +40,11 @@ module StackMachine(input wire reset, input wire clock, output reg [`CPU_WIDTHm1
     wire [7:0] opcode;
     reg [1:0] op;
     reg [3:0] op_fam, op_op;
-    reg [`CPU_WIDTHm1:0] S0, S1;
+    reg [`CPU_WIDTHm1:0] S0, S1, result;
     wire [`CPU_WIDTHm1:0] ram_rd_data;
     reg ram_write;
     reg decode_ram_io;
+    reg [11:0] ram_address;
 
     assign cpu_op = opcode;
 
@@ -83,7 +84,7 @@ module StackMachine(input wire reset, input wire clock, output reg [`CPU_WIDTHm1
 
 
     CodeROM rom(clock, codeAddress, opcode);
-    CPURAM ram(clock, S0[11:0], ram_rd_data, ram_write, S1);
+    CPURAM ram(clock, ram_address, ram_rd_data, ram_write, S1);
 
     // Guideline #3: When modeling combinational logic with an "always" 
     //              block, use blocking assignments.
@@ -128,6 +129,24 @@ module StackMachine(input wire reset, input wire clock, output reg [`CPU_WIDTHm1
             2'd2: begin codeAddress = pc+S0[11:0]; end // call
             2'd3: codeAddress = cStack[cSP1]; // return
         endcase
+
+        result = {`CPU_WIDTH{1'b0}};
+        if (opcode[7] == 1'b1) begin result = { {9{opcode[6]}}, opcode[6:0] }; end
+        if (opcode[7:6] == 2'b01) begin result = { S0[`CPU_WIDTHm1-6:0], opcode[5:0] }; end
+        if (op_fam == OPS_ALU) begin
+            if (op_op == OPS_ALU_ADD) begin result = S1 + S0; end
+            if (op_op == OPS_ALU_SUB) begin result = S1 - S0; end
+            if (op_op == OPS_ALU_AND) begin result = S1 & S0; end
+            if (op_op == OPS_ALU_OR)  begin result = S1 | S0; end
+            if (op_op == OPS_ALU_XOR) begin result = S1 ^ S0; end
+            if (op_op == OPS_ALU_SL)  begin result = { S0[`CPU_WIDTH-2:0], 1'b0 }; end
+            if (op_op == OPS_ALU_LSR) begin result = { 1'b0, S0[`CPU_WIDTHm1:1] }; end
+            if (op_op == OPS_ALU_ASR) begin result = { S0[`CPU_WIDTHm1], S0[`CPU_WIDTHm1:1] }; end
+            if (op_op == OPS_ALU_LT) begin result = { {`CPU_WIDTH-1{1'b0}}, S0[`CPU_WIDTH-1] }; end
+        end
+
+        // Address forwarding to account for RAM pipelining
+        ram_address = ram_write ? S0[11:0] : result;
     end
 
     // Guideline #1: When modeling sequential logic, use nonblocking 
@@ -141,18 +160,18 @@ module StackMachine(input wire reset, input wire clock, output reg [`CPU_WIDTHm1
         endcase
         pc <= codeAddress + 1;
 
-        if (opcode[7] == 1'b1) begin dStack[dSP1] <= { {9{opcode[6]}}, opcode[6:0] }; dSP <= dSP1; end
-        if (opcode[7:6] == 2'b01) begin dStack[dSP] <= { S0[`CPU_WIDTHm1-6:0], opcode[5:0] }; end
+        if (opcode[7] == 1'b1) begin dStack[dSP1] <= result; dSP <= dSP1; end
+        if (opcode[7:6] == 2'b01) begin dStack[dSP] <= result; end
         if (op_fam == OPS_ALU) begin
-            if (op_op == OPS_ALU_ADD) begin dStack[dSPm1] <= S1 + S0; dSP <= dSPm1; end
-            if (op_op == OPS_ALU_SUB) begin dStack[dSPm1] <= S1 - S0; dSP <= dSPm1; end
-            if (op_op == OPS_ALU_AND) begin dStack[dSPm1] <= S1 & S0; dSP <= dSPm1; end
-            if (op_op == OPS_ALU_OR)  begin dStack[dSPm1] <= S1 | S0; dSP <= dSPm1; end
-            if (op_op == OPS_ALU_XOR) begin dStack[dSPm1] <= S1 ^ S0; dSP <= dSPm1; end
-            if (op_op == OPS_ALU_SL)  begin dStack[dSP] <= { S0[`CPU_WIDTH-2:0], 1'b0 }; end
-            if (op_op == OPS_ALU_LSR) begin dStack[dSP] <= { 1'b0, S0[`CPU_WIDTHm1:1] }; end
-            if (op_op == OPS_ALU_ASR) begin dStack[dSP] <= { S0[`CPU_WIDTHm1], S0[`CPU_WIDTHm1:1] }; end
-            if (op_op == OPS_ALU_LT) begin dStack[dSP] <= { {`CPU_WIDTH-1{1'b0}}, S0[`CPU_WIDTH-1] }; end
+            if (op_op == OPS_ALU_ADD) begin dStack[dSPm1] <= result; dSP <= dSPm1; end
+            if (op_op == OPS_ALU_SUB) begin dStack[dSPm1] <= result; dSP <= dSPm1; end
+            if (op_op == OPS_ALU_AND) begin dStack[dSPm1] <= result; dSP <= dSPm1; end
+            if (op_op == OPS_ALU_OR)  begin dStack[dSPm1] <= result; dSP <= dSPm1; end
+            if (op_op == OPS_ALU_XOR) begin dStack[dSPm1] <= result; dSP <= dSPm1; end
+            if (op_op == OPS_ALU_SL)  begin dStack[dSP] <= result; end
+            if (op_op == OPS_ALU_LSR) begin dStack[dSP] <= result; end
+            if (op_op == OPS_ALU_ASR) begin dStack[dSP] <= result; end
+            if (op_op == OPS_ALU_LT) begin dStack[dSP] <= result; end
         end
         if (op_fam == OPS_LOAD) begin
             if (op_op == OPS_LOAD_MEM) begin

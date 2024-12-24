@@ -220,8 +220,6 @@ class CodeGenerator(object):
             if name in self.variables:
                 addr = self.variables[name]
                 opcodes = self.genLoadImm(addr)
-                if addr < 0x400:
-                    opcodes.append(OpCode(OPS_NOP, 'RAM read delay slot'))
                 opcodes.append(OpCode(OPS_LOAD_MEM, f'load mem[0x{addr:x}]'))
                 opcodes[-1].lineNumber = tree.value.lineNumber
                 return opcodes

@@ -16,14 +16,13 @@ pixels driving a 640 x 480 60 Hz VGA monitor. Each visible pixel is 2 x 2 VGA pi
 
 - Working [Lunar Lander](https://en.wikipedia.org/wiki/Lunar_Lander_(video_game_genre)) physics model
 - StackMachine 12-bit CPU, 512 bytes program memory, 512 x 16bit data memory
-- 658/1280 LCs, 7/16 RAM blocks, Timing estimate: 74.97 MHz
+- 694/1280 LCs, 7/16 RAM blocks, Timing estimate: 71.02 MHz
 - I/O functional, Single motion sprite
 
 Next steps:
 
 - Multiple motion sprites
 - Playfield rendering alignment
-- RAM read address forwarding
 
 ## Sprite Rendering
 
