@@ -27,7 +27,7 @@ Next steps:
 
 ![Video](images/video.png "Video")
 
-A full framebuffer would require significant memory, which was cost prohibitive back in the day. Instead, the screen is tiled using a fixed pallete of 8 x 8 sprites. Color depth is limited to two bits, 3 visible colors and black or transparent in the case of motion sprites. A color map is then applied to generate RGB signals.
+A full framebuffer would require significant memory, which was cost prohibitive back in the day. Instead, the screen is tiled using a fixed pallete of 8 x 8 pixel sprites. Pixels are limited to two bits, representing 3 visible colors and black or transparent in the case of motion sprites. A color map is then applied to generate RGB signals.
 
 Background playfield sprites are rendered at fixed locations. A limited number of motion sprites, up to 16 in many games, are rendered into a line buffer RAM. Line buffer pixels are rendered on top of playfield pixels giving the illusion of depth during each horizontal scan line. The CPU need only update playfield and motion sprite locations before the next vertical interrupt.
 
