@@ -90,7 +90,7 @@ if __name__ == '__main__':
     # show_all_sprites(sprites)
     bit_count = 0
     sprite_num = 0
-    with open('sprites.txt', 'wt') as f:
+    with open('roms/sprites.txt', 'wt') as f:
         word_count = 0
         sprite_list = np.array([(255, 0), (44, 0), (45, 0), (48, 0), (49, 0), (20, 0), (21, 0), (28, 3),
             (0, 4), (10, 4), (14, 4), (16, 4), (120, 0), (121, 0), (122, 0), (123, 0), (96, 0),

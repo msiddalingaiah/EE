@@ -22,7 +22,7 @@ FREQ_MHz = 25
 
 all: $(PROJ).rpt $(PROJ).bin
 
-%.json: %.v Makefile *.v sprites.py sprites.txt roms/code.txt
+%.json: %.v Makefile *.v roms/sprites2.py roms/sprites.txt roms/code.txt
 	yosys -q -p 'synth_ice40 -top $(PROJ) -json $@' $<
 
 %.asc: $(PIN_DEF) %.json

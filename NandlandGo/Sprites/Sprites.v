@@ -7,7 +7,7 @@
 module MotionSpriteROM(input wire clock, input wire [5:0] sprite_num, input wire [2:0] row_num, input wire [2:0] col_num, output reg [1:0] pixel);
     reg [1:0] memory[0:2047];
     initial begin
-        $readmemb("sprites.txt", memory);
+        $readmemb("roms/sprites.txt", memory);
         pixel = 0;
     end
 
@@ -21,7 +21,7 @@ endmodule
 module PlayfieldSpriteROM(input wire clock, input wire [5:0] sprite_num, input wire [2:0] row_num, input wire [2:0] col_num, output reg [1:0] pixel);
     reg [1:0] memory[0:2047];
     initial begin
-        $readmemb("sprites.txt", memory);
+        $readmemb("roms/sprites.txt", memory);
         pixel = 0;
     end
 
@@ -54,13 +54,20 @@ module PlayfieldRAM(input wire clock, input wire write, input wire [9:0] write_a
     input wire [9:0] read_addr, output reg [7:0] rd_data);
 
     reg[7:0] memory[0:1023];
-    integer i;
+    integer i, j;
     initial begin
         for (i=0; i<1024; i=i+1) begin
             memory[i] = 8'h00;
         end
-        memory[(29 << 5) | 16] = 26;
-        memory[(29 << 5) | 17] = 26;
+        j = 10;
+        for (i=0; i<1024; i=i+25) begin
+            if (j > 15) j = 10;
+            memory[i] = j;
+            j = j + 1;
+        end
+
+        memory[(29 << 5) | 16] = 8;
+        memory[(29 << 5) | 17] = 9;
     end
 
     always @(posedge clock) begin

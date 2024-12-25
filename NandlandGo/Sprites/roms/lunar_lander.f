@@ -6,6 +6,14 @@ ioport sprite_num: 0x4000;
 const X_LIMIT = 248;
 const Y_LIMIT = 232;
 
+# Sprites
+const SPR_DESCEND = 1;
+const SPR_ASCEND = 2;
+const SPR_LEFT = 4;
+const SPR_RIGHT = 3;
+const SPR_LAND = 7;
+const SPR_CRASH = 17;
+
 ioport sprite_x: 0x4001;
 ioport sprite_y: 0x4002;
 ioport leds_on_off: 0xc000;
@@ -26,13 +34,14 @@ def main {
 
     sprite_x = 8;
     sprite_y = 8;           
+    sprite_num = SPR_DESCEND;
     loop {
         if switches & 2 {
             x_frac = 0;
             y_frac = 0;
             dv_x_frac = 1;
             dv_y_frac = 1;
-            sprite_num = 13;
+            sprite_num = SPR_DESCEND;
             sprite_x = 8;
             sprite_y = 8;           
         }
@@ -45,29 +54,31 @@ def main {
             dv_y_frac = dv_y_frac + gravity;
             if switches & 8 {
                 dv_y_frac = dv_y_frac - 2;
-                sprite_num = 14;
+                sprite_num = SPR_ASCEND;
             } else {
-                sprite_num = 13;
+                sprite_num = SPR_DESCEND;
             }
             if switches & 4 {
                 dv_x_frac = dv_x_frac - 1;
+                sprite_num = SPR_LEFT;
             }
             if switches & 1 {
                 dv_x_frac = dv_x_frac + 1;
+                sprite_num = SPR_RIGHT;
             }
             y_frac = y_frac + dv_y_frac;
             sprite_y = (y_frac >> 6) + sprite_y;
             y_frac = y_frac & 0x3f;
         } else {
-            sprite_num = 15;
+            sprite_num = SPR_LAND;
             if dv_y_frac > 32 {
-                sprite_num = 30;
+                sprite_num = SPR_CRASH;
             }
             if (sprite_x > 144) | (sprite_x < 128) {
-                sprite_num = 30;
+                sprite_num = SPR_CRASH;
             }
             if (dv_x_frac > 32) | (dv_x_frac < -32) {
-                sprite_num = 30;
+                sprite_num = SPR_CRASH;
             }
             dv_x_frac = 0;
         }
