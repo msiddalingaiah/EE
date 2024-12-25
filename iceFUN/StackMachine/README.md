@@ -7,3 +7,4 @@
  * 149 byte test program
 * RAM address forwarding: 507 LCs
  * 143 byte test program
+* 16 bit CPU 607 LCs, 3 RAM blocks

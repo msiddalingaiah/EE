@@ -1,7 +1,7 @@
 
-ioport led_row: 0xc00;
-ioport led_column: 0xc01;
-ioport slow_int: 0xc03;
+ioport led_row: 0xc000;
+ioport led_column: 0xc001;
+ioport slow_int: 0xc003;
 
 var int_count;
 var direction;
@@ -20,6 +20,7 @@ def main {
     led_column = 0x1;
     int_count = 8;
     print led_row;
+    print led_column;
     loop {
         while 1 - slow_int {
         }
