@@ -116,7 +116,6 @@ module Sprites (
 	);
 `endif
 
-    reg [25:0] led_count = 0;
     wire [6:0] left_digit_segments, right_digit_segments;
     wire [3:0] switches = { i_Switch_1, i_Switch_2, i_Switch_3, i_Switch_4 };
 
@@ -135,7 +134,7 @@ module Sprites (
     reg [5:0] sprite_num;
     reg [2:0] sprite_row_num;
     reg [2:0] sprite_col_num;
-    reg [9:0] sprite_x, sprite_y, sprite_dx, sprite_dy;
+    reg [7:0] sprite_x, sprite_y, sprite_dx, sprite_dy;
     // Ping-pong every other line
     reg lr_write;
     wire [10:0] lr_read_addr = { 2'b00, ~row[1], column[8:1] };
@@ -159,7 +158,6 @@ module Sprites (
     reg [2:0] pf_sprite_row, pf_sprite_col;
 
     // LEDs are for operational display only, it's a nice sanity check
-    // assign { LED_1, LED_2, LED_3, LED_4 } = led_count[23:20];
     assign { LED_1, LED_2, LED_3, LED_4 } = leds_on_off;
 
     // 7-segment displays are used to display left/right score
@@ -186,8 +184,8 @@ module Sprites (
         hsync = 1'b1;
         vsync = 1'b1;
         sprite_num = 1;
-        sprite_x = 10'h00;
-        sprite_y = 10'h00;
+        sprite_x = 8'h00;
+        sprite_y = 8'h00;
         leds_on_off = 4'h0;
         leds_numeric = 8'h0;
         vertical_int = 1'b0;
@@ -229,12 +227,12 @@ module Sprites (
         out_pixel = playfield_sprite_pixel;
         lr_write = 1'b0;
         lr_wr_data = motion_sprite_pixel;
-        sprite_dx = column - sprite_x;
-        sprite_dy = row - sprite_y;
-        sprite_row_num = sprite_dy[3:1];
-        sprite_col_num = sprite_dx[3:1];
-        if (sprite_dy[9:4] == 6'h3f) begin
-            if (sprite_dx < 10'd16) begin
+        sprite_dx = column[9:1] - { 1'b0, sprite_x };
+        sprite_dy = row[9:1] - { 1'b0, sprite_y };
+        sprite_row_num = sprite_dy;
+        sprite_col_num = sprite_dx;
+        if (sprite_dy[7:3] == 5'h1f) begin
+            if (sprite_dx < 8'd8) begin
                 lr_write = 1'b1;
             end
         end else begin
@@ -258,8 +256,8 @@ module Sprites (
             case (cpu_addr[`CPU_WIDTHm1:`CPU_WIDTHm1-1])
                 2'h1: begin
                     if (cpu_addr[3:0] == 4'h0) cpu_rd_data = { {`CPU_WIDTH-6{1'b0}}, sprite_num };
-                    if (cpu_addr[3:0] == 4'h1) cpu_rd_data = { {`CPU_WIDTH-10{1'b0}}, sprite_x };
-                    if (cpu_addr[3:0] == 4'h2) cpu_rd_data = { {`CPU_WIDTH-10{1'b0}}, sprite_y };
+                    if (cpu_addr[3:0] == 4'h1) cpu_rd_data = { {`CPU_WIDTH-8{1'b0}}, sprite_x };
+                    if (cpu_addr[3:0] == 4'h2) cpu_rd_data = { {`CPU_WIDTH-8{1'b0}}, sprite_y };
                 end
                 2'h2: begin
                 end
@@ -295,8 +293,6 @@ module Sprites (
         if (row == V_ACTIVE+V_FPORCH-10'd1) vsync <= 1'b0;
         if (row == V_ACTIVE+V_FPORCH+V_PULSE-10'd1) vsync <= 1'b1;
 
-        led_count <= led_count + 1;
-
         pf_sprite_row <= row[3:1];
         pf_sprite_col <= column[3:1];
 
@@ -304,8 +300,8 @@ module Sprites (
             case (cpu_addr[`CPU_WIDTHm1:`CPU_WIDTHm1-1])
                 2'h1: begin
                     if (cpu_addr[3:0] == 4'h0) sprite_num = cpu_wr_data[5:0];
-                    if (cpu_addr[3:0] == 4'h1) sprite_x = cpu_wr_data[9:0];
-                    if (cpu_addr[3:0] == 4'h2) sprite_y = cpu_wr_data[9:0];
+                    if (cpu_addr[3:0] == 4'h1) sprite_x = cpu_wr_data[7:0];
+                    if (cpu_addr[3:0] == 4'h2) sprite_y = cpu_wr_data[7:0];
                 end
                 2'h2: begin
                 end

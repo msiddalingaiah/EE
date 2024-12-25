@@ -1,5 +1,7 @@
 
 ioport sprite_num: 0x400;
+
+# x, y are 8 bits
 ioport sprite_x: 0x401;
 ioport sprite_y: 0x402;
 ioport leds_on_off: 0xc00;
@@ -18,8 +20,8 @@ def main {
     dv_y_frac = 1;
     gravity = 1;
 
-    sprite_x = 50;
-    sprite_y = 30;           
+    sprite_x = 8;
+    sprite_y = 8;           
     loop {
         if switches & 2 {
             x_frac = 0;
@@ -27,15 +29,15 @@ def main {
             dv_x_frac = 1;
             dv_y_frac = 1;
             sprite_num = 13;
-            sprite_x = 50;
-            sprite_y = 30;           
+            sprite_x = 8;
+            sprite_y = 8;           
         }
-        if sprite_x < 500 {
+        if sprite_x < 248 {
             x_frac = x_frac + dv_x_frac;
             sprite_x = (x_frac >> 6) + sprite_x;
             x_frac = x_frac & 0x3f;
         }
-        if sprite_y < 464 {
+        if sprite_y < 232 {
             dv_y_frac = dv_y_frac + gravity;
             if switches & 8 {
                 dv_y_frac = dv_y_frac - 2;
@@ -54,7 +56,7 @@ def main {
             y_frac = y_frac & 0x3f;
         } else {
             dv_x_frac = 0;
-            if dv_y_frac > 128 {
+            if dv_y_frac > 32 {
                 sprite_num = 30;
             } else {
                 sprite_num = 15;
