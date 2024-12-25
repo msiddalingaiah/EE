@@ -25,13 +25,15 @@ Next steps:
 
 ## Sprite Rendering
 
-![Video](images/video.gif "Video")
+![Video](images/video.png "Video")
 
-- TBD
+A full framebuffer would require significant memory, which was cost prohibitive back in the day. Instead, the screen is tiled using a fixed pallete of 8 x 8 sprites. Color depth is limited to two bits, 3 visible colors and black or transparent in the case of motion sprites. A color map is then applied to generate RGB signals.
+
+Background playfield sprites are rendered at fixed locations. A limited number of motion sprites, up to 16 in many games, are rendered into a line buffer RAM. Line buffer pixels are rendered on top of playfield pixels giving the illusion of depth during each horizontal scan line. The CPU need only update playfield and motion sprite locations before the next vertical interrupt.
 
 ## CPU
 
-![StackMachine](images/stackmachine.gif "StackMachine")
+![StackMachine](images/stackmachine.png "StackMachine")
 
 12-bit stack machine with internal call stack. Stack is 4 words deep, labeled S3-S0, with S0 as top of stack.
 The following auxilliary registers are included to improve performance:
@@ -72,6 +74,10 @@ OPS_JUMP
 - 00110010: Jump if not zero: PC = S0 if S1 != 0
 - 00110011: Call: stack.push(PC), PC = S0
 - 00110100: Return: PC = stack.pop()
+
+## Compiler
+
+- A lightweight [compiler](roms/Compiler.py) and [code generator](roms/CodeGenerator.py) translate high live, C-like code into [machine code](roms/code.txt) suitable for execution by the CPU.
 
 ## Resource Utilization
 
