@@ -15,8 +15,8 @@ pixels driving a 640 x 480 60 Hz VGA monitor. Each visible pixel is 2 x 2 VGA pi
 ## Current status:
 
 - Working [Lunar Lander](https://en.wikipedia.org/wiki/Lunar_Lander_(video_game_genre)) physics model
-- StackMachine 12-bit CPU, 512 bytes program memory, 512 x 16bit data memory
-- 679/1280 LCs, 7/16 RAM blocks, Timing estimate: 67.47 MHz
+- StackMachine 16-bit CPU, 512 bytes program memory, 512 x 16bit data memory
+- 778/1280 LCs, 7/16 RAM blocks, Timing estimate: 66.60 MHz
 - I/O functional, Single motion sprite
 
 Next steps:
@@ -35,7 +35,7 @@ Background playfield sprites are rendered at fixed locations. A limited number o
 
 ![StackMachine](images/stackmachine.png "StackMachine")
 
-12-bit stack machine with internal call stack. Stack is 4 words deep, labeled S3-S0, with S0 as top of stack.
+16-bit stack machine with internal call stack. Stack is 4 words deep, labeled S3-S0, with S0 as top of stack.
 The following auxilliary registers are included to improve performance:
 
 - PC: 12 bit program counter

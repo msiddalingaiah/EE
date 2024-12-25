@@ -1,17 +1,17 @@
 
-ioport sprite_num: 0x400;
+ioport sprite_num: 0x4000;
 
 # x, y are 8 bits
 
 const X_LIMIT = 248;
 const Y_LIMIT = 232;
 
-ioport sprite_x: 0x401;
-ioport sprite_y: 0x402;
-ioport leds_on_off: 0xc00;
-ioport leds_numeric: 0xc01;
-ioport switches: 0xc02;
-ioport vertical_int: 0xc03;
+ioport sprite_x: 0x4001;
+ioport sprite_y: 0x4002;
+ioport leds_on_off: 0xc000;
+ioport leds_numeric: 0xc001;
+ioport switches: 0xc002;
+ioport vertical_int: 0xc003;
 
 var x_frac, dv_x_frac;
 var y_frac, dv_y_frac;

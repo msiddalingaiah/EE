@@ -1,5 +1,5 @@
 
-`define CPU_WIDTH 12
+`define CPU_WIDTH 16
 `define CPU_WIDTHm1 (`CPU_WIDTH-1)
 
 `include "StackMachine.v"
