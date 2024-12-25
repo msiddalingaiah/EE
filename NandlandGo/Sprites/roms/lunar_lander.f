@@ -2,6 +2,10 @@
 ioport sprite_num: 0x400;
 
 # x, y are 8 bits
+
+const X_LIMIT = 248;
+const Y_LIMIT = 232;
+
 ioport sprite_x: 0x401;
 ioport sprite_y: 0x402;
 ioport leds_on_off: 0xc00;
@@ -32,12 +36,12 @@ def main {
             sprite_x = 8;
             sprite_y = 8;           
         }
-        if sprite_x < 248 {
+        if sprite_x < X_LIMIT {
             x_frac = x_frac + dv_x_frac;
             sprite_x = (x_frac >> 6) + sprite_x;
             x_frac = x_frac & 0x3f;
         }
-        if sprite_y < 232 {
+        if sprite_y < Y_LIMIT {
             dv_y_frac = dv_y_frac + gravity;
             if switches & 8 {
                 dv_y_frac = dv_y_frac - 2;
