@@ -132,8 +132,6 @@ module Sprites (
     wire [1:0] motion_sprite_pixel, playfield_sprite_pixel;
     reg [1:0] out_pixel;
     reg [5:0] sprite_num;
-    reg [2:0] sprite_row_num;
-    reg [2:0] sprite_col_num;
     reg [7:0] sprite_x, sprite_y, sprite_dx, sprite_dy;
     // Ping-pong every other line
     reg lr_write;
@@ -209,7 +207,7 @@ module Sprites (
     PlayfieldRAM playfield_ram(i_Clk, pf_write, pf_write_addr, pf_wr_data, { row[8:4], column[8:4] }, pf_sprite);
     PlayfieldSpriteROM playfield_rom(i_Clk, pf_sprite[5:0], pf_sprite_row, pf_sprite_col, playfield_sprite_pixel);
 
-    MotionSpriteROM motion_rom(i_Clk, sprite_num, sprite_row_num, sprite_col_num, motion_sprite_pixel);
+    MotionSpriteROM motion_rom(i_Clk, sprite_num, sprite_dy[2:0], sprite_dx[2:0], motion_sprite_pixel);
     LineRAM line_ram(i_Clk, lr_write, lr_write_addr, lr_wr_data, lr_read_addr, lr_rd_data);
 
     StackMachine cpu(reset, i_Clk, cpu_addr, cpu_rd_data, cpu_write, cpu_wr_data, cpu_op);
@@ -224,25 +222,24 @@ module Sprites (
     always @(*) begin
         cpu_decode_io = cpu_addr[`CPU_WIDTHm1:`CPU_WIDTHm1-1] != 2'h0 ? 1'b1 : 1'b0;
 
-        out_pixel = playfield_sprite_pixel;
         lr_write = 1'b0;
-        lr_wr_data = motion_sprite_pixel;
+        lr_wr_data = 2'b0;
         sprite_dx = column[9:1] - { 1'b0, sprite_x };
         sprite_dy = row[9:1] - { 1'b0, sprite_y };
-        sprite_row_num = sprite_dy;
-        sprite_col_num = sprite_dx;
         if (sprite_dy[7:3] == 5'h1f) begin
             if (sprite_dx < 8'd8) begin
+                lr_wr_data = motion_sprite_pixel;
                 lr_write = 1'b1;
             end
         end else begin
-            lr_wr_data <= 0;
             lr_write = 1'b1;
         end
 
         pf_write = 0;
 
+        out_pixel = playfield_sprite_pixel;
         if (lr_rd_data != 0) out_pixel = lr_rd_data;
+
         color = 0;
         case (out_pixel)
             0: color = 9'b000000000;

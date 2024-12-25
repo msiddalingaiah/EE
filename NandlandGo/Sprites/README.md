@@ -16,7 +16,7 @@ pixels driving a 640 x 480 60 Hz VGA monitor. Each visible pixel is 2 x 2 VGA pi
 
 - Working [Lunar Lander](https://en.wikipedia.org/wiki/Lunar_Lander_(video_game_genre)) physics model
 - StackMachine 12-bit CPU, 512 bytes program memory, 512 x 16bit data memory
-- 680/1280 LCs, 7/16 RAM blocks, Timing estimate: 73.17 MHz
+- 679/1280 LCs, 7/16 RAM blocks, Timing estimate: 67.47 MHz
 - I/O functional, Single motion sprite
 
 Next steps:
@@ -25,9 +25,13 @@ Next steps:
 
 ## Sprite Rendering
 
+![Video](images/video.gif "Video")
+
 - TBD
 
 ## CPU
+
+![StackMachine](images/stackmachine.gif "StackMachine")
 
 12-bit stack machine with internal call stack. Stack is 4 words deep, labeled S3-S0, with S0 as top of stack.
 The following auxilliary registers are included to improve performance:
@@ -73,14 +77,15 @@ OPS_JUMP
 
 The code runs on a [Nandland Go Board](https://nandland.com/the-go-board/) with a Lattice [ICE40](https://www.latticesemi.com/ice40) HX1K FPGA containing 1280 LCs and 16 4kbit RAM blocks (8 kBytes total).
 
-- 1 4kbit BRAM (4096 bits): 32 8x8 pixel sprite table, 4 colors/pixel (2 bits each)
-- 1 4kbit BRAM (4096 bits): 2048 x 2 bit dual port line RAM, ping-pong buffer stores next line for motion objects
+- 1 4kbit BRAM (2048 x 2 bits): 32 8x8 motion pixel sprite table, 4 colors/pixel (2 bits each)
+- 1 4kbit BRAM (2048 x 2 bits): 32 8x8 playfield pixel sprite table, 4 colors/pixel (2 bits each)
+- 1 4kbit BRAM (2048 x 2 bits): dual port line RAM, ping-pong buffer stores next line for motion objects
     - Two buffers, 1024 x 2 bits each, alternate each line
-- 2 4kbit BRAM (4096 bits): 32 x 30 fixed playfield sprites
-- 1 4kbit BRAM 16 motion sprites
-- 4 4kbit BRAM (2 kB): CPU instruction ROM
-- 2 4kbit BRAM (1 kB): CPU RAM
-- 13/16 BRAMs used
+- 2 4kbit BRAM (1024 x 8 bits): 32 x 30 fixed playfield sprites
+    - address: row[4:0] << 5 | column[4:0]
+- 1 4kbit BRAM (512 x 8 bits): CPU instruction ROM
+- 2 4kbit BRAM (512 x 16 bits): CPU RAM
+- 8/16 BRAMs used
 
 ## Simulation
 
