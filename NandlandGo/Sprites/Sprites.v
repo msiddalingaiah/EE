@@ -59,7 +59,6 @@ module PlayfieldRAM(input wire clock, input wire write, input wire [9:0] write_a
         for (i=0; i<1024; i=i+1) begin
             memory[i] = 8'h00;
         end
-        memory[(29 << 5) | 15] = 26;
         memory[(29 << 5) | 16] = 26;
         memory[(29 << 5) | 17] = 26;
     end

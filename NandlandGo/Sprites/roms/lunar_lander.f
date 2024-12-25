@@ -59,12 +59,17 @@ def main {
             sprite_y = (y_frac >> 6) + sprite_y;
             y_frac = y_frac & 0x3f;
         } else {
-            dv_x_frac = 0;
+            sprite_num = 15;
             if dv_y_frac > 32 {
                 sprite_num = 30;
-            } else {
-                sprite_num = 15;
             }
+            if (sprite_x > 144) | (sprite_x < 128) {
+                sprite_num = 30;
+            }
+            if (dv_x_frac > 32) | (dv_x_frac < -32) {
+                sprite_num = 30;
+            }
+            dv_x_frac = 0;
         }
         while 1 - vertical_int {
         }
