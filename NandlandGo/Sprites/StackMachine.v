@@ -14,17 +14,17 @@ endmodule
 module CPURAM(input wire clock, input wire [11:0] address, output reg [`CPU_WIDTHm1:0] rd_data, input wire write,
     input wire [`CPU_WIDTHm1:0] wr_data);
 
-    reg [`CPU_WIDTHm1:0] memory[0:511];
+    reg [`CPU_WIDTHm1:0] memory[0:255];
     integer i;
     initial begin
-        for (i=0; i<512; i=i+1) begin
+        for (i=0; i<256; i=i+1) begin
             memory[i] = 0;
         end
     end
 
     always @(posedge clock) begin
-        rd_data <= memory[address[8:0]];
-        if (write == 1'b1) memory[address[8:0]] <= wr_data;
+        rd_data <= memory[address[7:0]];
+        if (write == 1'b1) memory[address[7:0]] <= wr_data;
     end
 endmodule
 

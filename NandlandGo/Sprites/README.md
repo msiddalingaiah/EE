@@ -16,7 +16,7 @@ pixels driving a 640 x 480 60 Hz VGA monitor. Each visible pixel is 2 x 2 VGA pi
 
 - Working [Lunar Lander](https://en.wikipedia.org/wiki/Lunar_Lander_(video_game_genre)) physics model
 - StackMachine 16-bit CPU, 512 bytes program memory, 512 x 16bit data memory
-- 778/1280 LCs, 7/16 RAM blocks, Timing estimate: 66.60 MHz
+- 780/1280 LCs, 6/16 RAM blocks, Timing estimate: 66.91 MHz
 - I/O functional, Single motion sprite
 
 Next steps:
@@ -90,8 +90,8 @@ The code runs on a [Nandland Go Board](https://nandland.com/the-go-board/) with 
 - 2 4kbit BRAM (1024 x 8 bits): 32 x 30 fixed playfield sprites
     - address: row[4:0] << 5 | column[4:0]
 - 1 4kbit BRAM (512 x 8 bits): CPU instruction ROM
-- 2 4kbit BRAM (512 x 16 bits): CPU RAM
-- 8/16 BRAMs used
+- 1 4kbit BRAM (256 x 16 bits): CPU RAM
+- 7/16 BRAMs used
 
 ## Simulation
 
