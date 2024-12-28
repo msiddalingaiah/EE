@@ -9,6 +9,7 @@ var direction;
 var i, j, k;
 
 def main {
+    print 1 + (2 + (3 + (4 + 5)));
     i = 11;
     j = 21;
     k = 31;
@@ -16,9 +17,9 @@ def main {
     print j;
     print k;
     direction = 1;
+    int_count = 8;
     led_row = 0x1;
     led_column = 0x1;
-    int_count = 8;
     print led_row;
     print led_column;
     loop {

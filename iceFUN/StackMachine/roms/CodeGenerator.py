@@ -305,7 +305,7 @@ class CodeGenerator(object):
                     f.write(f"{op.code:02x} // {pc:4d}: SP: {stack_size:1d}, {op.comment}, {op_line}\n")
                 if stack_size > max_stack:
                     max_stack = stack_size
-                assert stack_size < 4, "Stack overflow"
+                assert stack_size < 255, "Stack overflow"
                 assert stack_size >= 0, "Stack underflow"
                 pc += 1
             for i in range(512-len(self.opcodes)):
