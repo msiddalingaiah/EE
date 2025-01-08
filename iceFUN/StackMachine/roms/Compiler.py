@@ -2,15 +2,9 @@
 
 from collections import defaultdict
 import re
+import tokenize as tkn
+import io
 
-class Pattern(object):
-    def __init__(self, name, regex):
-        self.name = name
-        self.pattern = re.compile(regex)
-        
-    def match(self, input, index):
-        return self.pattern.match(input, index)
-    
 class Terminal(object):
     def __init__(self, name, value, lineNumber=0):
         self.name = name
@@ -59,47 +53,48 @@ class Tree(object):
             result = '%s %s' % (result, c)
         return '%s)' % result
 
-class Scanner(object):
-    def __init__(self, patterns):
-        self.patterns = patterns
+ESCAPE_CHARS = {'n': '\n', 'r': '\r', 't': '\t', 'f': '\f'}
+
+class TokenizeScanner(object):
+    def __init__(self, keywords):
+        self.keywords = keywords
 
     def setInput(self, input):
         self.lineNumber = 1
-        self.input = input
+        self.input = list(tkn.tokenize(io.BytesIO(input.encode()).readline))
         self.index = 0
         self.terminal = None
         self.lookAhead = self.next()
 
-    def skipWhiteSpace(self):
-        comment = False
-        while self.index < len(self.input) and (self.input[self.index].isspace() or self.input[self.index] == '#' or comment):
-            if self.input[self.index] == '#':
-                comment = True
-            if self.input[self.index] == '\n':
-                self.lineNumber += 1
-                comment = False
+    def skipUnused(self):
+        while self.index < len(self.input) and self.input[self.index].type not in [
+            tkn.NAME,tkn.NUMBER, tkn.OP, tkn.INDENT, tkn.DEDENT, tkn.NEWLINE]:
             self.index += 1
 
-    def skipComment(self):
-        if self.index < len(self.input) and self.input[self.index] == '#':
-            while self.index < len(self.input) and self.input[self.index] != '\n':
-                self.index += 1
-            self.lineNumber += 1
-            return True
-        return False
-
     def next(self):
-        self.skipWhiteSpace()
-        while self.skipComment():
-            self.skipWhiteSpace()
+        self.skipUnused()
         if self.index >= len(self.input):
             return None
-        for p in self.patterns:
-            match = p.match(self.input, self.index)
-            if match:
-                self.index = match.end()
-                return Terminal(p.name, match.group(), self.lineNumber)
-        raise Exception(f'line: {self.lineNumber}: unrecognized input: {self.input[self.index]}')
+        t = self.input[self.index]
+        self.index += 1
+        self.lineNumber = t.start[0]
+        if t.type == tkn.NAME:
+            if t.string in self.keywords:
+                return Terminal(t.string, t.string, t.start[0])
+            return Terminal('ID', t.string, t.start[0])
+        if t.type == tkn.NUMBER:
+            # TODO: reject non-integers
+            return Terminal('INT', t.string, t.start[0])
+        if t.type == tkn.NEWLINE:
+            return Terminal('EOL', t.string, t.start[0])
+        if t.type == tkn.INDENT:
+            return Terminal('INDENT', t.string, t.start[0])
+        if t.type == tkn.DEDENT:
+            return Terminal('DEDENT', t.string, t.start[0])
+        if t.type == tkn.OP:
+            # TODO: support &&, ||, >>>
+            return Terminal(t.string, t.string, t.start[0])
+        raise Exception(f'line: {t.start[0]}: unrecognized input: {t.string}')
         
     def matches(self, *types):
         if self.lookAhead == None:
@@ -119,61 +114,10 @@ class Scanner(object):
     def atEnd(self):
         return self.lookAhead == None
 
-ESCAPE_CHARS = {'n': '\n', 'r': '\r', 't': '\t', 'f': '\f'}
-
 class Parser(object):
     def __init__(self):
-        patterns = []
-        patterns.append(Pattern('def', r'def'))
-        patterns.append(Pattern('var', r'var'))
-        patterns.append(Pattern('ioport', r'ioport'))
-        patterns.append(Pattern('if', r'if'))
-        patterns.append(Pattern('else', r'else'))
-        patterns.append(Pattern('loop', r'loop'))
-        patterns.append(Pattern('while', r'while'))
-        patterns.append(Pattern('do', r'do'))
-        patterns.append(Pattern('if', r'if'))
-        patterns.append(Pattern('else', r'else'))
-        patterns.append(Pattern('const', r'const'))
-        patterns.append(Pattern('call', r'call'))
-        patterns.append(Pattern('return', r'return'))
-        patterns.append(Pattern('print', r'print'))
-        patterns.append(Pattern('ID', r'[a-zA-Z_][a-zA-Z0-9_\.]*'))
-        patterns.append(Pattern('INT', r'(0x)?[0-9a-fA-F]+'))
-        patterns.append(Pattern(';', r'\;'))
-        patterns.append(Pattern(',', r'\,'))
-        patterns.append(Pattern(':', r'\:'))
-        patterns.append(Pattern('{', r'\{'))
-        patterns.append(Pattern('}', r'\}'))
-        patterns.append(Pattern('[', r'\['))
-        patterns.append(Pattern(']', r'\]'))
-        patterns.append(Pattern('(', r'\('))
-        patterns.append(Pattern(')', r'\)'))
-        patterns.append(Pattern('+', r'\+'))
-        patterns.append(Pattern('-', r'\-'))
-        patterns.append(Pattern('*', r'\*'))
-        patterns.append(Pattern('/', r'\/'))
-        patterns.append(Pattern('<<', r'\<\<'))
-        patterns.append(Pattern('>>>', r'\>\>\>'))
-        patterns.append(Pattern('>>', r'\>\>'))
-        patterns.append(Pattern('<=', r'\<\='))
-        patterns.append(Pattern('>=', r'\>\='))
-        patterns.append(Pattern('==', r'\=\='))
-        patterns.append(Pattern('!=', r'\!\='))
-        patterns.append(Pattern('&&', r'\&\&'))
-        patterns.append(Pattern('&', r'\&'))
-        patterns.append(Pattern('||', r'\|\|'))
-        patterns.append(Pattern('|', r'\|'))
-        patterns.append(Pattern('^', r'\^'))
-        patterns.append(Pattern('=', r'\='))
-        patterns.append(Pattern('<', r'\<'))
-        patterns.append(Pattern('>', r'\>'))
-        patterns.append(Pattern('%', r'\%'))
-        patterns.append(Pattern(',', r'\,'))
-        patterns.append(Pattern('!', r'\!'))
-        patterns.append(Pattern("'", r"'(?:[^'\\]|\\.)'"))
-        patterns.append(Pattern('"', r'"(?:[^"\\]|\\.)*"'))
-        self.sc = Scanner(patterns)
+        keywords = ['def', 'var', 'ioport', 'if', 'else', 'loop', 'while', 'do', 'const', 'call', 'return', 'print', 'not', 'pass']
+        self.sc = TokenizeScanner(keywords)
         self.prec = [('&&','||'), ('<', '!=', '>'), ('<<', '>>>', '>>'), ('&','|'), ('+','-')]
 
     def parse(self, input):
@@ -196,81 +140,99 @@ class Parser(object):
             tree.add(self.sc.expect('ID'))
             self.sc.expect('=')
             tree.add(self.parseExp())
-            self.sc.expect(';')
+            self.sc.expect('EOL')
             return tree
         if self.sc.matches('ioport'):
             tree = Tree(self.sc.terminal)
             tree.add(self.sc.expect('ID'))
             self.sc.expect(':')
             tree.add(self.parseExp())
-            self.sc.expect(';')
+            self.sc.expect('EOL')
             return tree
         if self.sc.matches('var'):
             tree = Tree(self.sc.terminal)
             tree.add(self.sc.expect('ID'))
             while self.sc.matches(','):
                 tree.add(self.sc.expect('ID'))
-            self.sc.expect(';')
+            self.sc.expect('EOL')
             return tree
         tree = Tree(self.sc.expect('def'))
         tree.add(self.sc.expect('ID'))
+        self.sc.expect(':')
+        self.sc.expect('EOL')
         tree.add(self.parseStatList())
         return tree
 
     def parseStatList(self):
-        tree = Tree(self.sc.expect('{'))
-        while not self.sc.matches('}'):
-            tree.add(self.parseStatement())
+        tree = Tree(self.sc.expect('INDENT'))
+        while not self.sc.matches('DEDENT'):
+            t = self.parseStatement()
+            if t.value.name != 'pass':
+                tree.add(t)
         return tree
 
     def parseStatement(self):
+        if self.sc.matches('pass'):
+            tree = Tree(self.sc.terminal)
+            self.sc.expect('EOL')
+            return tree
         if self.sc.matches('loop'):
             tree = Tree(self.sc.terminal)
+            self.sc.expect(':')
+            self.sc.expect('EOL')
             tree.add(self.parseStatList())
             return tree
         if self.sc.matches('do'):
             tree = Tree(self.sc.terminal)
+            self.sc.expect(':')
+            self.sc.expect('EOL')
             tree.add(self.parseStatList())
             self.sc.expect('while')
             if self.sc.matches('not'):
                 tree.add(self.sc.terminal)
             tree.add(self.parseExp())
-            self.sc.expect(';')
+            self.sc.expect('EOL')
             return tree
         if self.sc.matches('ID'):
             var = self.sc.terminal
             tree = Tree(self.sc.expect('='))
             tree.add(var)
             tree.add(self.parseExp())
-            self.sc.expect(';')
+            self.sc.expect('EOL')
             return tree
         if self.sc.matches('if'):
             tree = Tree(self.sc.terminal)
             tree.add(self.parseExp())
+            self.sc.expect(':')
+            self.sc.expect('EOL')
             tree.add(self.parseStatList())
             if self.sc.matches('else'):
+                self.sc.expect(':')
+                self.sc.expect('EOL')
                 tree.add(self.parseStatList())
             return tree
         if self.sc.matches('while'):
             tree = Tree(self.sc.terminal)
             tree.add(self.parseExp())
+            self.sc.expect(':')
+            self.sc.expect('EOL')
             tree.add(self.parseStatList())
             return tree
         if self.sc.matches('call'):
             tree = Tree(self.sc.terminal)
             tree.add(self.sc.expect('ID'))
-            self.sc.expect(';')
+            self.sc.expect('EOL')
             return tree
         if self.sc.matches('return'):
             tree = Tree(self.sc.terminal)
-            self.sc.expect(';')
+            self.sc.expect('EOL')
             return tree
         if self.sc.matches('print'):
             tree = Tree(self.sc.terminal)
             tree.add(self.parseExp())
-            self.sc.expect(';')
+            self.sc.expect('EOL')
             return tree
-        self.sc.expect('if', 'do', 'while', 'ID', 'call', 'return', 'continue', 'print')
+        self.sc.expect('if', 'do', 'while', 'ID', 'call', 'return', 'print', 'pass')
 
     def parseExp(self, index=0):
         result = self.parseTail(index)
