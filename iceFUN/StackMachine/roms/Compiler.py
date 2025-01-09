@@ -18,7 +18,7 @@ class Terminal(object):
         if self.name.lower() == self.value:
             return self.name
         return '%s(%s)' % (self.name, self.value)
-        
+
 class Tree(object):
     def __init__(self, *values):
         self.value = None
@@ -55,7 +55,100 @@ class Tree(object):
 
 ESCAPE_CHARS = {'n': '\n', 'r': '\r', 't': '\t', 'f': '\f'}
 
-class TokenizeScanner(object):
+class Scanner(object):
+    def next(self):
+        raise NotImplementedError()
+        
+    def matches(self, *types):
+        if self.lookAhead == None:
+            return False
+        for t in types:
+            if t == self.lookAhead.name:
+                self.terminal = self.lookAhead
+                self.lookAhead = self.next()
+                return True
+        return False
+
+    def expect(self, *types):
+        if self.matches(*types):
+            return self.terminal
+        raise Exception(f'line: {self.lineNumber}: expected {",".join(types)}, found {self.lookAhead}')
+
+    def atEnd(self):
+        return self.lookAhead == None
+
+class Pattern(object):
+    def __init__(self, name, regex):
+        self.name = name
+        self.pattern = re.compile(regex)
+        
+    def match(self, input, index):
+        return self.pattern.match(input, index)
+
+class LineScanner(Scanner):
+    def __init__(self, patterns):
+        self.patterns = patterns
+        self.spaces = Pattern('SPACES', r'[ \t]+')
+
+    def setInput(self, lines):
+        self.lines = [x.rstrip() for x in lines]
+        self.index = 0
+        self.indentStack = ['']
+        self.terminal = None
+        self.terminals = []
+        self.appendTerminals()
+        self.index = 0
+        self.lookAhead = self.next()
+
+    def next(self):
+        if self.index < len(self.terminals):
+            t = self.terminals[self.index]
+            self.index += 1
+            return t
+        return None
+
+    def appendTerminals(self):
+        self.lineNumber = 1
+        for line in self.lines:
+            ls = line.strip()
+            if len(ls) > 0 and ls[0] != '#':
+                self.index = 0
+                while self.index < len(line):
+                    self.nextLine(line)
+                self.terminals.append(Terminal('EOL', '', self.lineNumber))
+            self.lineNumber += 1
+        while len(self.indentStack) > 1:
+            self.terminals.append(Terminal('DEDENT', '', self.lineNumber))
+            self.indentStack.pop()
+
+    def nextLine(self, line):
+        match = self.spaces.match(line, self.index)
+        if match:
+            if self.index == 0:
+                self.index = match.end()
+                text = match.group()
+                if len(text) > len(self.indentStack[-1]):
+                    self.indentStack.append(text)
+                    self.terminals.append(Terminal('INDENT', text, self.lineNumber))
+                    return
+                if len(self.indentStack) and len(text) < len(self.indentStack[-1]):
+                    while len(self.indentStack) and len(text) < len(self.indentStack[-1]):
+                        self.terminals.append(Terminal('DEDENT', text, self.lineNumber))
+                        self.indentStack.pop()
+                    return
+            self.index = match.end()
+        if line[self.index] == '#':
+            self.index = len(line)
+            return
+        for p in self.patterns:
+            match = p.match(line, self.index)
+            if match:
+                self.index = match.end()
+                self.terminals.append(Terminal(p.name, match.group(), self.lineNumber))
+                return
+        raise Exception(f'line: {self.lineNumber}: unrecognized input: {line[self.index:]}')
+
+class TokenizeScanner(Scanner):
     def __init__(self, keywords):
         self.keywords = keywords
 
@@ -95,29 +188,63 @@ class TokenizeScanner(object):
             # TODO: support &&, ||, >>>
             return Terminal(t.string, t.string, t.start[0])
         raise Exception(f'line: {t.start[0]}: unrecognized input: {t.string}')
-        
-    def matches(self, *types):
-        if self.lookAhead == None:
-            return False
-        for t in types:
-            if t == self.lookAhead.name:
-                self.terminal = self.lookAhead
-                self.lookAhead = self.next()
-                return True
-        return False
-
-    def expect(self, *types):
-        if self.matches(*types):
-            return self.terminal
-        raise Exception(f'line: {self.lineNumber}: expected {",".join(types)}, found {self.lookAhead}')
-
-    def atEnd(self):
-        return self.lookAhead == None
 
 class Parser(object):
     def __init__(self):
+        patterns = []
+        patterns.append(Pattern('def', r'def'))
+        patterns.append(Pattern('var', r'var'))
+        patterns.append(Pattern('ioport', r'ioport'))
+        patterns.append(Pattern('if', r'if'))
+        patterns.append(Pattern('else', r'else'))
+        patterns.append(Pattern('loop', r'loop'))
+        patterns.append(Pattern('while', r'while'))
+        patterns.append(Pattern('do', r'do'))
+        patterns.append(Pattern('if', r'if'))
+        patterns.append(Pattern('else', r'else'))
+        patterns.append(Pattern('const', r'const'))
+        patterns.append(Pattern('call', r'call'))
+        patterns.append(Pattern('return', r'return'))
+        patterns.append(Pattern('print', r'print'))
+        patterns.append(Pattern('pass', r'pass'))
+        patterns.append(Pattern('ID', r'[a-zA-Z_][a-zA-Z0-9_\.]*'))
+        patterns.append(Pattern('INT', r'(0x)?[0-9a-fA-F]+'))
+        patterns.append(Pattern(';', r'\;'))
+        patterns.append(Pattern(',', r'\,'))
+        patterns.append(Pattern(':', r'\:'))
+        patterns.append(Pattern('{', r'\{'))
+        patterns.append(Pattern('}', r'\}'))
+        patterns.append(Pattern('[', r'\['))
+        patterns.append(Pattern(']', r'\]'))
+        patterns.append(Pattern('(', r'\('))
+        patterns.append(Pattern(')', r'\)'))
+        patterns.append(Pattern('+', r'\+'))
+        patterns.append(Pattern('-', r'\-'))
+        patterns.append(Pattern('*', r'\*'))
+        patterns.append(Pattern('/', r'\/'))
+        patterns.append(Pattern('<<', r'\<\<'))
+        patterns.append(Pattern('>>>', r'\>\>\>'))
+        patterns.append(Pattern('>>', r'\>\>'))
+        patterns.append(Pattern('<=', r'\<\='))
+        patterns.append(Pattern('>=', r'\>\='))
+        patterns.append(Pattern('==', r'\=\='))
+        patterns.append(Pattern('!=', r'\!\='))
+        patterns.append(Pattern('&&', r'\&\&'))
+        patterns.append(Pattern('&', r'\&'))
+        patterns.append(Pattern('||', r'\|\|'))
+        patterns.append(Pattern('|', r'\|'))
+        patterns.append(Pattern('^', r'\^'))
+        patterns.append(Pattern('=', r'\='))
+        patterns.append(Pattern('<', r'\<'))
+        patterns.append(Pattern('>', r'\>'))
+        patterns.append(Pattern('%', r'\%'))
+        patterns.append(Pattern(',', r'\,'))
+        patterns.append(Pattern('!', r'\!'))
+        patterns.append(Pattern("'", r"'(?:[^'\\]|\\.)'"))
+        patterns.append(Pattern('"', r'"(?:[^"\\]|\\.)*"'))
         keywords = ['def', 'var', 'ioport', 'if', 'else', 'loop', 'while', 'do', 'const', 'call', 'return', 'print', 'not', 'pass']
-        self.sc = TokenizeScanner(keywords)
+        # self.sc = TokenizeScanner(keywords)
+        self.sc = LineScanner(patterns)
         self.prec = [('&&','||'), ('<', '!=', '>'), ('<<', '>>>', '>>'), ('&','|'), ('+','-')]
 
     def parse(self, input):
@@ -295,6 +422,6 @@ if __name__ == '__main__':
 
     cp = Parser()
     with open(sys.argv[1]) as f:
-        tree = cp.parse(f.read())
+        tree = cp.parse(f.readlines())
     g = CodeGenerator(tree)
     g.write(sys.argv[2])
