@@ -90,13 +90,13 @@ class LineScanner(Scanner):
         self.patterns = patterns
         self.spaces = Pattern('SPACES', r'[ \t]+')
 
-    def setInput(self, lines):
-        self.lines = [x.rstrip() for x in lines]
+    def setInput(self, input):
+        self.lines = input.split('\n')
         self.index = 0
         self.indentStack = ['']
         self.terminal = None
         self.terminals = []
-        self.appendTerminals()
+        self.collectTerminals()
         self.index = 0
         self.lookAhead = self.next()
 
@@ -107,7 +107,7 @@ class LineScanner(Scanner):
             return t
         return None
 
-    def appendTerminals(self):
+    def collectTerminals(self):
         self.lineNumber = 1
         for line in self.lines:
             ls = line.strip()
@@ -422,6 +422,6 @@ if __name__ == '__main__':
 
     cp = Parser()
     with open(sys.argv[1]) as f:
-        tree = cp.parse(f.readlines())
+        tree = cp.parse(f.read())
     g = CodeGenerator(tree)
     g.write(sys.argv[2])
