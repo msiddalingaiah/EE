@@ -28,23 +28,68 @@ module CPURAM(input wire clock, input wire [11:0] address, output reg [`CPU_WIDT
     end
 endmodule
 
+module Stack(input wire reset, input wire clock, input wire push, input wire [`CPU_WIDTHm1:0] push_data,
+    input wire[7:0] pop_num, output reg [`CPU_WIDTHm1:0] top);
+
+    reg read_shadow;
+    reg [7:0] sp;
+    reg [`CPU_WIDTHm1:0] shadow, rd_data;
+    reg [`CPU_WIDTHm1:0] memory[0:255];
+
+    integer i;
+    initial begin
+        for (i=0; i<256; i=i+1) begin
+            memory[i] = 0;
+        end
+        sp = 8'hff;
+        read_shadow = 1'b0;
+        shadow = 0;
+        rd_data = 0;
+    end
+
+    always @(*) begin
+        top = rd_data;
+        if (read_shadow) top = shadow;
+    end
+
+    always @(posedge clock) begin
+        read_shadow = 1'b0;
+        rd_data <= memory[sp + {7'b0, push} - pop_num];
+        if (push) begin
+            memory[sp + {7'b0, push} - pop_num] <= push_data;
+            shadow <= push_data;
+            read_shadow = 1'b1;
+        end
+        sp <= sp + {7'b0, push} - pop_num;
+        if (reset) begin
+            sp <= 8'hff;
+            read_shadow <= 0;
+            shadow <= 0;
+            rd_data <= 0;
+        end
+    end
+endmodule
+
 module StackMachine(input wire reset, input wire clock, output reg [`CPU_WIDTHm1:0] io_addr, input wire [`CPU_WIDTHm1:0] io_rd_data,
     output reg io_write, output reg [`CPU_WIDTHm1:0] io_wr_data, output wire [7:0] cpu_op);
 
     reg [11:0] pc;
     reg [1:0] cSP, cSP1;
-    reg [1:0] dSP, dSP1, dSPm1, dSPm2;
     reg [11:0] codeAddress;
     reg [11:0] cStack[0:3];
-    reg [`CPU_WIDTHm1:0] dStack[0:3];
     wire [7:0] opcode;
     reg [1:0] op;
     reg [3:0] op_fam, op_op;
-    reg [`CPU_WIDTHm1:0] S0, S1, result;
     wire [`CPU_WIDTHm1:0] ram_rd_data;
     reg ram_write;
     reg decode_ram_io;
     reg [11:0] ram_address;
+
+    reg [`CPU_WIDTHm1:0] S0, result;
+    wire [`CPU_WIDTHm1:0] S1;
+    reg [7:0] pop_num;
+    reg push;
+
 
     assign cpu_op = opcode;
 
@@ -52,9 +97,8 @@ module StackMachine(input wire reset, input wire clock, output reg [`CPU_WIDTHm1
     initial begin
         pc = 0;
         cSP = 3;
-        dSP = 3;
         for (i=0;i<4;i=i+1) cStack[i] = 0;
-        for (i=0;i<4;i=i+1) dStack[i] = 0;
+        S0 = 0;
     end
 
     localparam OPS_LOAD  = 4'b0000;
@@ -85,19 +129,13 @@ module StackMachine(input wire reset, input wire clock, output reg [`CPU_WIDTHm1
 
     CodeROM rom(clock, codeAddress, opcode);
     CPURAM ram(clock, ram_address, ram_rd_data, ram_write, S1);
+    Stack dstack(reset, clock, push, S0, pop_num, S1);
 
     // Guideline #3: When modeling combinational logic with an "always" 
     //              block, use blocking assignments.
     always @(*) begin
         op_fam = opcode[7:4];
         op_op = opcode[3:0];
-
-        dSP1 = dSP + 1'b1;
-        dSPm1 = dSP - 1'b1;
-        dSPm2 = dSP - 2'b10;
-
-        S0 = dStack[dSP];
-        S1 = dStack[dSPm1];
 
         decode_ram_io = S0[`CPU_WIDTHm1:`CPU_WIDTHm1-1] == 2'h0 ? 1'b0 : 1'b1;
 
@@ -130,19 +168,43 @@ module StackMachine(input wire reset, input wire clock, output reg [`CPU_WIDTHm1
             2'd3: codeAddress = cStack[cSP1]; // return
         endcase
 
+        push = 1'b0;
+        pop_num = 7'h0;
         result = {`CPU_WIDTH{1'b0}};
-        if (opcode[7] == 1'b1) begin result = { {9{opcode[6]}}, opcode[6:0] }; end
+        if (opcode[7] == 1'b1) begin result = { {9{opcode[6]}}, opcode[6:0] }; push = 1'b1; end
         if (opcode[7:6] == 2'b01) begin result = { S0[`CPU_WIDTHm1-6:0], opcode[5:0] }; end
         if (op_fam == OPS_ALU) begin
-            if (op_op == OPS_ALU_ADD) begin result = S1 + S0; end
-            if (op_op == OPS_ALU_SUB) begin result = S1 - S0; end
-            if (op_op == OPS_ALU_AND) begin result = S1 & S0; end
-            if (op_op == OPS_ALU_OR)  begin result = S1 | S0; end
-            if (op_op == OPS_ALU_XOR) begin result = S1 ^ S0; end
+            if (op_op == OPS_ALU_ADD) begin result = S1 + S0; pop_num = 8'd1; end
+            if (op_op == OPS_ALU_SUB) begin result = S1 - S0; pop_num = 8'd1; end
+            if (op_op == OPS_ALU_AND) begin result = S1 & S0; pop_num = 8'd1; end
+            if (op_op == OPS_ALU_OR)  begin result = S1 | S0; pop_num = 8'd1; end
+            if (op_op == OPS_ALU_XOR) begin result = S1 ^ S0; pop_num = 8'd1; end
             if (op_op == OPS_ALU_SL)  begin result = { S0[`CPU_WIDTH-2:0], 1'b0 }; end
             if (op_op == OPS_ALU_LSR) begin result = { 1'b0, S0[`CPU_WIDTHm1:1] }; end
             if (op_op == OPS_ALU_ASR) begin result = { S0[`CPU_WIDTHm1], S0[`CPU_WIDTHm1:1] }; end
             if (op_op == OPS_ALU_LT) begin result = { {`CPU_WIDTH-1{1'b0}}, S0[`CPU_WIDTH-1] }; end
+        end
+
+        if (op_fam == OPS_LOAD) begin
+            if (op_op == OPS_LOAD_SWAP) begin
+                push = 1'b1;
+                pop_num = 8'd1;
+            end
+        end
+        if (op_fam == OPS_STORE) begin
+            if (op_op == OPS_STORE_MEM) begin
+                pop_num = 8'd2;
+            end
+            if (op_op == OPS_STORE_PRINT) begin
+                pop_num = 8'd1;
+            end
+        end
+        if (op_fam == OPS_JUMP) begin
+            case (op_op)
+                OPS_JUMP_JUMP: pop_num = 8'd1;
+                OPS_JUMP_ZERO: pop_num = 8'd2;
+                OPS_JUMP_NOT_ZERO: pop_num = 8'd2;
+            endcase
         end
 
         // Address forwarding to account for RAM pipelining
@@ -160,53 +222,42 @@ module StackMachine(input wire reset, input wire clock, output reg [`CPU_WIDTHm1
         endcase
         pc <= codeAddress + 1;
 
-        if (opcode[7] == 1'b1) begin dStack[dSP1] <= result; dSP <= dSP1; end
-        if (opcode[7:6] == 2'b01) begin dStack[dSP] <= result; end
+        if (opcode[7] == 1'b1) begin S0 <= result; end
+        if (opcode[7:6] == 2'b01) begin S0 <= result; end
         if (op_fam == OPS_ALU) begin
-            if (op_op == OPS_ALU_ADD) begin dStack[dSPm1] <= result; dSP <= dSPm1; end
-            if (op_op == OPS_ALU_SUB) begin dStack[dSPm1] <= result; dSP <= dSPm1; end
-            if (op_op == OPS_ALU_AND) begin dStack[dSPm1] <= result; dSP <= dSPm1; end
-            if (op_op == OPS_ALU_OR)  begin dStack[dSPm1] <= result; dSP <= dSPm1; end
-            if (op_op == OPS_ALU_XOR) begin dStack[dSPm1] <= result; dSP <= dSPm1; end
-            if (op_op == OPS_ALU_SL)  begin dStack[dSP] <= result; end
-            if (op_op == OPS_ALU_LSR) begin dStack[dSP] <= result; end
-            if (op_op == OPS_ALU_ASR) begin dStack[dSP] <= result; end
-            if (op_op == OPS_ALU_LT) begin dStack[dSP] <= result; end
+            if (op_op == OPS_ALU_ADD) begin S0 <= result; end
+            if (op_op == OPS_ALU_SUB) begin S0 <= result; end
+            if (op_op == OPS_ALU_AND) begin S0 <= result; end
+            if (op_op == OPS_ALU_OR)  begin S0 <= result; end
+            if (op_op == OPS_ALU_XOR) begin S0 <= result; end
+            if (op_op == OPS_ALU_SL)  begin S0 <= result; end
+            if (op_op == OPS_ALU_LSR) begin S0 <= result; end
+            if (op_op == OPS_ALU_ASR) begin S0 <= result; end
+            if (op_op == OPS_ALU_LT) begin S0 <= result; end
         end
         if (op_fam == OPS_LOAD) begin
             if (op_op == OPS_LOAD_MEM) begin
-                if (decode_ram_io == 1'b0) dStack[dSP] <= ram_rd_data;
-                else dStack[dSP] <= io_rd_data;
+                if (decode_ram_io == 1'b0) S0 <= ram_rd_data;
+                else S0 <= io_rd_data;
             end
             if (op_op == OPS_LOAD_SWAP) begin
-                dStack[dSP] <= dStack[dSPm1];
-                dStack[dSPm1] <= dStack[dSP];
+                S0 <= S1;
             end
         end
         if (op_fam == OPS_STORE) begin
-            if (op_op == OPS_STORE_MEM) begin
-                dSP <= dSPm2;
-            end
             if (op_op == OPS_STORE_PRINT) begin
 `ifdef TESTBENCH
                 $display("%d, %d", S1, S0);
 `endif
-                dSP <= dSPm1;
             end
         end
-        if (op_fam == OPS_JUMP) begin
-            case (op_op)
-                OPS_JUMP_JUMP: dSP <= dSPm1;
-                OPS_JUMP_ZERO: dSP <= dSPm2;
-                OPS_JUMP_NOT_ZERO: dSP <= dSPm2;
-            endcase
-        end
+
         // https://blog.award-winning.me/2017/11/resetting-reset-handling.html
         // Synchronous reset saves routing resources
 		if (reset == 1'b1) begin
             pc <= 0;
             cSP <= 3;
-            dSP <= 3;
+            S0 <= 0;
 		end 
     end
 endmodule
