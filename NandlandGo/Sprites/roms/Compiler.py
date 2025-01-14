@@ -286,17 +286,18 @@ class Parser(object):
             return tree
         tree = Tree(self.sc.expect('def'))
         tree.add(self.sc.expect('ID'))
-        self.sc.expect(':')
-        self.sc.expect('EOL')
         tree.add(self.parseStatList())
         return tree
 
     def parseStatList(self):
+        colon = self.sc.expect(':')
+        if not self.sc.matches('EOL'):
+            tree = Tree(Terminal('INDENT', '', colon.lineNumber))
+            tree.add(self.parseStatement())
+            return tree
         tree = Tree(self.sc.expect('INDENT'))
         while not self.sc.matches('DEDENT'):
-            t = self.parseStatement()
-            if t.value.name != 'pass':
-                tree.add(t)
+            tree.add(self.parseStatement())
         return tree
 
     def parseStatement(self):
@@ -306,14 +307,10 @@ class Parser(object):
             return tree
         if self.sc.matches('loop'):
             tree = Tree(self.sc.terminal)
-            self.sc.expect(':')
-            self.sc.expect('EOL')
             tree.add(self.parseStatList())
             return tree
         if self.sc.matches('do'):
             tree = Tree(self.sc.terminal)
-            self.sc.expect(':')
-            self.sc.expect('EOL')
             tree.add(self.parseStatList())
             self.sc.expect('while')
             if self.sc.matches('not'):
@@ -331,19 +328,13 @@ class Parser(object):
         if self.sc.matches('if'):
             tree = Tree(self.sc.terminal)
             tree.add(self.parseExp())
-            self.sc.expect(':')
-            self.sc.expect('EOL')
             tree.add(self.parseStatList())
             if self.sc.matches('else'):
-                self.sc.expect(':')
-                self.sc.expect('EOL')
                 tree.add(self.parseStatList())
             return tree
         if self.sc.matches('while'):
             tree = Tree(self.sc.terminal)
             tree.add(self.parseExp())
-            self.sc.expect(':')
-            self.sc.expect('EOL')
             tree.add(self.parseStatList())
             return tree
         if self.sc.matches('call'):

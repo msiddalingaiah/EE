@@ -73,8 +73,7 @@ def main:
             if (dv_x_frac > 32) | (dv_x_frac < -32):
                 sprite_num = SPR_CRASH
             dv_x_frac = 0
-        while 1 - vertical_int:
-            pass
+        while 1 - vertical_int: pass
         vertical_int = 0
         leds_numeric = dv_y_frac
         leds_on_off = leds_on_off + 1

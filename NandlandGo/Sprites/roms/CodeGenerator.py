@@ -116,6 +116,8 @@ class CodeGenerator(object):
                 opcodes.extend(self.genLoadImm(self.variables[var_name]))
                 opcodes.append(OpCode(OPS_STORE_MEM, 'Store'))
                 opcodes[-1].lineNumber = stat[1].value.lineNumber
+            elif s0_name == 'pass':
+                pass
             else:
                 raise Exception(f'{s0_name} not yet supported')
         return opcodes
