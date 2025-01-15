@@ -291,13 +291,13 @@ class Parser(object):
 
     def parseStatList(self):
         colon = self.sc.expect(':')
-        if not self.sc.matches('EOL'):
-            tree = Tree(Terminal('INDENT', '', colon.lineNumber))
-            tree.add(self.parseStatement())
+        if self.sc.matches('EOL'):
+            tree = Tree(self.sc.expect('INDENT'))
+            while not self.sc.matches('DEDENT'):
+                tree.add(self.parseStatement())
             return tree
-        tree = Tree(self.sc.expect('INDENT'))
-        while not self.sc.matches('DEDENT'):
-            tree.add(self.parseStatement())
+        tree = Tree(Terminal('INDENT', '', colon.lineNumber))
+        tree.add(self.parseStatement())
         return tree
 
     def parseStatement(self):
@@ -313,8 +313,6 @@ class Parser(object):
             tree = Tree(self.sc.terminal)
             tree.add(self.parseStatList())
             self.sc.expect('while')
-            if self.sc.matches('not'):
-                tree.add(self.sc.terminal)
             tree.add(self.parseExp())
             self.sc.expect('EOL')
             return tree
