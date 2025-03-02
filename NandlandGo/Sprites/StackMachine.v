@@ -1,4 +1,9 @@
 
+/*
+ * Copyright (c) 2025 Madhu Siddalingaiah
+ * See https://github.com/msiddalingaiah/EE/blob/main/LICENSE
+ */
+
 module CodeROM(input wire clock, input wire [11:0] rd_address, output reg [7:0] rd_data);
     reg [7:0] memory[0:511];
     integer i;

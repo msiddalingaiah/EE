@@ -1,4 +1,6 @@
 
+# Copyright (c) 2025 Madhu Siddalingaiah
+# See https://github.com/msiddalingaiah/EE/blob/main/LICENSE
 
 from collections import defaultdict
 import re

@@ -1,4 +1,7 @@
 
+# Copyright (c) 2025 Madhu Siddalingaiah
+# See https://github.com/msiddalingaiah/EE/blob/main/LICENSE
+
 OPS_NOP = 0x00
 
 OPS_LOAD_MEM = 0x01

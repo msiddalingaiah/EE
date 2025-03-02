@@ -1,4 +1,9 @@
 
+/*
+ * Copyright (c) 2025 Madhu Siddalingaiah
+ * See https://github.com/msiddalingaiah/EE/blob/main/LICENSE
+ */
+
 `timescale 1 ns/10 ps  // time-unit = 1 ns, precision = 10 ps
 
 `define TESTBENCH

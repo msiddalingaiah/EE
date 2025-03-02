@@ -1,4 +1,9 @@
 
+/*
+ * Copyright (c) 2025 Madhu Siddalingaiah
+ * See https://github.com/msiddalingaiah/EE/blob/main/LICENSE
+ */
+
 `define CPU_WIDTH 16
 `define CPU_WIDTHm1 (`CPU_WIDTH-1)
 

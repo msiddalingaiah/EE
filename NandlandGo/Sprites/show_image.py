@@ -1,4 +1,7 @@
 
+# Copyright (c) 2025 Madhu Siddalingaiah
+# See https://github.com/msiddalingaiah/EE/blob/main/LICENSE
+
 import numpy as np
 
 import matplotlib.pyplot as plt

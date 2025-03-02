@@ -1,4 +1,7 @@
 
+# Copyright (c) 2025 Madhu Siddalingaiah
+# See https://github.com/msiddalingaiah/EE/blob/main/LICENSE
+
 ioport sprite_num: 0x4000
 
 # x, y are 8 bits
