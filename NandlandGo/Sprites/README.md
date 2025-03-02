@@ -46,6 +46,8 @@ SOFTWARE.
 Next steps:
 
 - Multiple motion sprites
+- Function calls
+- Local variables
 
 ## Sprite Rendering
 
@@ -101,7 +103,7 @@ OPS_JUMP
 
 ## Compiler
 
-A lightweight [compiler](roms/Compiler.py) and [code generator](roms/CodeGenerator.py) translate high live, [C-like code](roms/lunar_lander.f) into [machine code](roms/code.txt) suitable for execution by the CPU.
+A lightweight [compiler](roms/Compiler.py) and [code generator](roms/CodeGenerator.py) translate high live, [Python-like code](roms/lunar_lander.f) into [machine code](roms/code.txt) suitable for execution by the CPU.
 
 ## Resource Utilization
 
