@@ -26,7 +26,8 @@ Sketch | Upload Using Programmer
 
  */
 
-#define LED PIN_PA1
+#define LED  PIN_PA1
+#define TRIG PIN_PA2
 
 #define PIN_DAC       PIN_PA6         // audio output pin
 #define PIN_ADC       PIN_PA7         // audio input pin
@@ -42,21 +43,18 @@ void TCB_init(void) {
   TCB0.CTRLA   = TCB_CLKSEL_CLKDIV1_gc  // set prescaler
                | TCB_ENABLE_bm;         // enable timer
   TCB0.CTRLB   = TCB_CNTMODE_INT_gc;    // set timer to periodic interrupt mode
-  TCB0.CCMP    = 200;                   // set TOP value
+  TCB0.CCMP    = 1000;                  // set TOP value (200 == 100kHz, 2000 == 10kHz)
   TCB0.INTCTRL = TCB_CAPT_bm;           // enable interrupt
 }
 
 // Init analog to digital converter (ADC)
 void ADC_init(void) {
   pinDisable(PIN_ADC);                          // disable digital input buffer
-  ADC0.CTRLA   = ADC_FREERUN_bm                 // free running mode
-               | ADC_ENABLE_bm;                 // enable ADC
+  ADC0.CTRLA   = ADC_ENABLE_bm;                 // enable ADC
   ADC0.CTRLC   = ADC_SAMPCAP_bm                 // select sample capacitance
                | ADC_REFSEL_VDDREF_gc           // set Vdd as reference
-               | ADC_PRESC_DIV16_gc;            // set prescaler -> 1.25MHz ADC clock
-  ADC0.MUXPOS  = PIN_ADC;                       // set the input pin
-  ADC0.INTCTRL = ADC_RESRDY_bm;                 // enable result ready interrupt
-  ADC0.COMMAND = ADC_STCONV_bm;                 // start first conversion
+               | ADC_PRESC_DIV16_gc;            // set prescaler -> 1.25 MHz ADC clock
+  ADC0.MUXPOS  = ADC_MUXPOS_AIN7_gc;            // set the input pin
 }
 
 // Init digital to analog converter (DAC)
@@ -70,35 +68,30 @@ void DAC_init(void) {
 void setup() {
   count = 0;
   pinMode(LED, OUTPUT);
-  // TCB_init();
+  pinMode(TRIG, OUTPUT);
   DAC_init();
   ADC_init();
+  TCB_init();
+  sei();
 }
 
 // Timer interrupt service routine
 ISR(TCB0_INT_vect) {
-  int_trigger = 1;
+  ADC0.COMMAND = ADC_STCONV_bm;
+  DAC0.DATA = adc_voltage >> 2;
+  VPORTA.OUT |=  4;
+  adc_voltage = ADC0.RES;
+  VPORTA.OUT &= ~(4);
   TCB0.INTFLAGS = TCB_CAPT_bm;                  // clear interrupt flag
 }
 
 // ADC result ready interrupt service routine
 ISR(ADC0_RESRDY_vect) {
-  adc_voltage = ADC0.RES;
-  int_trigger = 1;
+  // VPORTA.OUT |=  4;
+  // DAC0.DATA = ADC0.RESL;
+  // VPORTA.OUT &= ~(4);
 }
 
 // the loop function runs over and over again forever
 void loop() {
-  if (int_trigger) {
-    DAC0.DATA = adc_voltage >> 2;
-    count += 1;
-    if (count == 100000L) {
-      VPORTA.OUT |=  2;
-      count = 0;
-    }
-    if (count == 1000L) {
-      VPORTA.OUT &= ~(2);
-    }
-    int_trigger = 0;
-  }
 }
