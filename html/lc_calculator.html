@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LC Resonant Frequency Calculator</title>
+    <meta name="description" content="Calculate the resonant frequency of LC circuits with this professional electronics calculator tool">
+    <style>
+        :root {
+            --background: hsl(240, 10%, 3.9%);
+            --foreground: hsl(0, 0%, 98%);
+            --card: hsl(240, 10%, 3.9%);
+            --card-foreground: hsl(0, 0%, 98%);
+            --primary: hsl(263, 70%, 50%);
+            --primary-foreground: hsl(0, 0%, 98%);
+            --primary-glow: hsl(263, 70%, 65%);
+            --secondary: hsl(240, 4%, 16%);
+            --secondary-foreground: hsl(0, 0%, 98%);
+            --muted: hsl(240, 4%, 16%);
+            --muted-foreground: hsl(240, 5%, 65%);
+            --border: hsl(240, 6%, 20%);
+            --input: hsl(240, 6%, 20%);
+            --gradient-primary: linear-gradient(135deg, hsl(263, 70%, 50%), hsl(220, 70%, 55%));
+            --gradient-secondary: linear-gradient(135deg, hsl(240, 4%, 16%), hsl(240, 6%, 20%));
+            --gradient-glow: linear-gradient(135deg, hsl(263, 70%, 50%, 0.1), hsl(220, 70%, 55%, 0.1));
+            --shadow-card: 0 10px 30px -10px hsl(0, 0%, 0%, 0.5);
+            --radius: 0.5rem;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            background: var(--background);
+            color: var(--foreground);
+            min-height: 100vh;
+            padding: 1rem;
+            line-height: 1.5;
+        }
+
+        .container {
+            max-width: 48rem;
+            margin: 0 auto;
+            padding: 2rem 0;
+        }
+
+        .card {
+            background: var(--gradient-secondary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow-card);
+            padding: 2rem;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .header-flex {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .icon {
+            width: 2rem;
+            height: 2rem;
+            color: var(--primary);
+        }
+
+        .title {
+            font-size: 1.875rem;
+            font-weight: 700;
+            background: var(--gradient-primary);
+            background-clip: text;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin: 0;
+        }
+
+        .description {
+            color: var(--muted-foreground);
+            margin: 0;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        @media (min-width: 768px) {
+            .grid {
+                grid-template-columns: 1fr 1fr;
+            }
+            
+            body {
+                padding: 2rem;
+            }
+        }
+
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .label {
+            font-size: 1.125rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: var(--foreground);
+        }
+
+        .capacitor-icon {
+            width: 1rem;
+            height: 1rem;
+            border: 2px solid var(--primary);
+            border-radius: 0.125rem;
+        }
+
+        .input-flex {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .input {
+            flex: 1;
+            padding: 0.75rem;
+            background: var(--muted);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            color: var(--foreground);
+            font-size: 1rem;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .input:focus {
+            border-color: var(--primary);
+        }
+
+        .select {
+            width: 5rem;
+            padding: 0.75rem;
+            background: var(--muted);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            color: var(--foreground);
+            font-size: 1rem;
+            outline: none;
+            cursor: pointer;
+        }
+
+        .select:focus {
+            border-color: var(--primary);
+        }
+
+        .results-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        @media (min-width: 768px) {
+            .results-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+
+        .result-container {
+            text-align: center;
+        }
+
+        .result-card {
+            background: var(--gradient-glow);
+            border: 1px solid hsl(var(--primary) / 0.2);
+            border-radius: var(--radius);
+            padding: 1.5rem;
+        }
+
+        .result-label {
+            font-size: 1.125rem;
+            font-weight: 600;
+            color: var(--muted-foreground);
+            margin-bottom: 0.5rem;
+        }
+
+        .result-value {
+            font-size: 2.25rem;
+            font-weight: 700;
+            background: var(--gradient-primary);
+            background-clip: text;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 0.5rem;
+        }
+
+        .result-scientific {
+            font-size: 0.875rem;
+            color: var(--muted-foreground);
+        }
+
+        .formula-container {
+            background: hsl(var(--muted) / 0.5);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 1rem;
+            text-align: center;
+        }
+
+        .formula-title {
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+
+        .formula {
+            font-family: 'Courier New', monospace;
+            font-size: 1.125rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .formula-description {
+            font-size: 0.875rem;
+            color: var(--muted-foreground);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="card">
+            <div class="header">
+                <div class="header-flex">
+                    <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <rect width="16" height="10" x="2" y="3" rx="2"/>
+                        <path d="m7 11 2-2-2-2"/>
+                        <path d="M11 13h4"/>
+                    </svg>
+                    <h1 class="title">LC Resonant Frequency Calculator</h1>
+                </div>
+                <p class="description">
+                    Calculate the resonant frequency of an LC circuit using the formula: f = 1/(2π√LC)
+                </p>
+            </div>
+
+            <div class="grid">
+                <div class="input-group">
+                    <label for="inductance" class="label">
+                        <svg class="icon" style="width: 1rem; height: 1rem;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path d="m6 9 6 6 6-6"/>
+                        </svg>
+                        Inductance (L)
+                    </label>
+                    <div class="input-flex">
+                        <input id="inductance" type="number" class="input" placeholder="Enter value" value="100">
+                        <select id="inductanceUnit" class="select">
+                            <option value="H">H</option>
+                            <option value="mH">mH</option>
+                            <option value="µH" selected>µH</option>
+                            <option value="nH">nH</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="input-group">
+                    <label for="capacitance" class="label">
+                        <div class="capacitor-icon"></div>
+                        Capacitance (C)
+                    </label>
+                    <div class="input-flex">
+                        <input id="capacitance" type="number" class="input" placeholder="Enter value" value="100">
+                        <select id="capacitanceUnit" class="select">
+                            <option value="F">F</option>
+                            <option value="µF">µF</option>
+                            <option value="nF" selected>nF</option>
+                            <option value="pF">pF</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div class="results-grid">
+                <div class="result-container">
+                    <div class="result-card">
+                        <h3 class="result-label">Resonant Frequency</h3>
+                        <div id="frequencyResult" class="result-value">
+                            Enter values
+                        </div>
+                        <div id="scientificResult" class="result-scientific"></div>
+                    </div>
+                </div>
+                
+                <div class="result-container">
+                    <div class="result-card">
+                        <h3 class="result-label">Impedance (XL = XC)</h3>
+                        <div id="impedanceResult" class="result-value">
+                            Enter values
+                        </div>
+                        <div id="impedanceScientific" class="result-scientific"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="formula-container">
+                <h4 class="formula-title">Formula</h4>
+                <div class="formula">f = 1 / (2π√LC)</div>
+                <div class="formula-description">
+                    Where f is frequency (Hz), L is inductance (H), and C is capacitance (F)
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const inductanceMultipliers = {
+            "H": 1,
+            "mH": 1e-3,
+            "µH": 1e-6,
+            "nH": 1e-9
+        };
+
+        const capacitanceMultipliers = {
+            "F": 1,
+            "µF": 1e-6,
+            "nF": 1e-9,
+            "pF": 1e-12
+        };
+
+        function formatFrequency(freq) {
+            if (freq >= 1e9) {
+                return `${(freq / 1e9).toFixed(3)} GHz`;
+            } else if (freq >= 1e6) {
+                return `${(freq / 1e6).toFixed(3)} MHz`;
+            } else if (freq >= 1e3) {
+                return `${(freq / 1e3).toFixed(3)} kHz`;
+            } else {
+                return `${freq.toFixed(3)} Hz`;
+            }
+        }
+
+        function formatImpedance(imp) {
+            if (imp >= 1e6) {
+                return `${(imp / 1e6).toFixed(3)} MΩ`;
+            } else if (imp >= 1e3) {
+                return `${(imp / 1e3).toFixed(3)} kΩ`;
+            } else {
+                return `${imp.toFixed(3)} Ω`;
+            }
+        }
+
+        function calculateFrequency() {
+            const inductanceValue = parseFloat(document.getElementById('inductance').value);
+            const inductanceUnit = document.getElementById('inductanceUnit').value;
+            const capacitanceValue = parseFloat(document.getElementById('capacitance').value);
+            const capacitanceUnit = document.getElementById('capacitanceUnit').value;
+
+            const L = inductanceValue * inductanceMultipliers[inductanceUnit];
+            const C = capacitanceValue * capacitanceMultipliers[capacitanceUnit];
+
+            const frequencyResult = document.getElementById('frequencyResult');
+            const scientificResult = document.getElementById('scientificResult');
+            const impedanceResult = document.getElementById('impedanceResult');
+            const impedanceScientific = document.getElementById('impedanceScientific');
+
+            if (L > 0 && C > 0 && !isNaN(L) && !isNaN(C)) {
+                const f = 1 / (2 * Math.PI * Math.sqrt(L * C));
+                const Z = 2 * Math.PI * f * L; // XL = XC at resonance
+                
+                frequencyResult.textContent = formatFrequency(f);
+                scientificResult.textContent = f.toExponential(3) + ' Hz';
+                impedanceResult.textContent = formatImpedance(Z);
+                impedanceScientific.textContent = Z.toExponential(3) + ' Ω';
+            } else {
+                frequencyResult.textContent = 'Enter values';
+                scientificResult.textContent = '';
+                impedanceResult.textContent = 'Enter values';
+                impedanceScientific.textContent = '';
+            }
+        }
+
+        // Add event listeners
+        document.getElementById('inductance').addEventListener('input', calculateFrequency);
+        document.getElementById('inductanceUnit').addEventListener('change', calculateFrequency);
+        document.getElementById('capacitance').addEventListener('input', calculateFrequency);
+        document.getElementById('capacitanceUnit').addEventListener('change', calculateFrequency);
+
+        // Calculate initial frequency
+        calculateFrequency();
+    </script>
+</body>
+</html>
