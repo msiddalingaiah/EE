@@ -30,7 +30,8 @@ Sketch | Upload Using Programmer
 #define TRIG PIN_PA2
 
 #define PIN_DAC       PIN_PA6         // audio output pin
-#define PIN_ADC       PIN_PA7         // audio input pin
+#define PIN_ADC_I     PIN_PA3         // In phase input pin
+#define PIN_ADC_Q     PIN_PA7         // Quadrature input pin
 
 #define pinDisable(x)     (&PORTA.PIN0CTRL)[x] |= PORT_ISC_INPUT_DISABLE_gc
 
@@ -43,18 +44,20 @@ void TCB_init(void) {
   TCB0.CTRLA   = TCB_CLKSEL_CLKDIV1_gc  // set prescaler
                | TCB_ENABLE_bm;         // enable timer
   TCB0.CTRLB   = TCB_CNTMODE_INT_gc;    // set timer to periodic interrupt mode
-  TCB0.CCMP    = 1000;                  // set TOP value (200 == 100kHz, 2000 == 10kHz)
+  TCB0.CCMP    = 2000;                  // set TOP value (200 == 100kHz, 2000 == 10kHz)
   TCB0.INTCTRL = TCB_CAPT_bm;           // enable interrupt
 }
 
 // Init analog to digital converter (ADC)
 void ADC_init(void) {
-  pinDisable(PIN_ADC);                          // disable digital input buffer
+  pinDisable(PIN_ADC_I);                          // disable digital input buffer
+  pinDisable(PIN_ADC_Q);                          // disable digital input buffer
   ADC0.CTRLA   = ADC_ENABLE_bm;                 // enable ADC
+  ADC0.CTRLB   = ADC_SAMPNUM_ACC1_gc;
   ADC0.CTRLC   = ADC_SAMPCAP_bm                 // select sample capacitance
                | ADC_REFSEL_VDDREF_gc           // set Vdd as reference
-               | ADC_PRESC_DIV16_gc;            // set prescaler -> 1.25 MHz ADC clock
-  ADC0.MUXPOS  = ADC_MUXPOS_AIN7_gc;            // set the input pin
+               | ADC_PRESC_DIV8_gc;            // set ADC clock = CLK_PER/8. This doesn't seem right, but results in 12.6 us conversion time
+  ADC0.MUXPOS  = ADC_MUXPOS_AIN3_gc;            // set the input pin
 }
 
 // Init digital to analog converter (DAC)
@@ -75,12 +78,35 @@ void setup() {
   sei();
 }
 
+// Timing varies a *lot*
+int32_t isqrt(int32_t y) {
+  int32_t L = 0;
+  int32_t M;
+  int32_t R = y + 1;
+
+  while (L != R - 1) {
+    M = (L + R) / 2;
+    if (M * M <= y) L = M;
+    else R = M;
+  }
+  return L;
+}
+
 // Timer interrupt service routine
+// 25 us with pipelined ADC read and no square root
+// 704 us with pipelined ADC read and square root
 ISR(TCB0_INT_vect) {
-  ADC0.COMMAND = ADC_STCONV_bm;
-  DAC0.DATA = adc_voltage >> 2;
+  int32_t adc_I, adc_Q;
   VPORTA.OUT |=  4;
-  adc_voltage = ADC0.RES;
+  adc_I = ADC0.RES;
+  adc_I -= 512;
+  adc_Q = analogRead(PIN_ADC_Q);
+  adc_Q -= 512;
+  // Pipeline ADC read to save another 12 us
+  ADC0.MUXPOS  = ADC_MUXPOS_AIN3_gc;            // set ADC input to I
+  ADC0.COMMAND = ADC_STCONV_bm;
+  DAC0.DATA = (adc_I*adc_I + adc_Q*adc_Q) >> 12;
+  // DAC0.DATA = isqrt(adc_I*adc_I + adc_Q*adc_Q) >> 2;
   VPORTA.OUT &= ~(4);
   TCB0.INTFLAGS = TCB_CAPT_bm;                  // clear interrupt flag
 }
