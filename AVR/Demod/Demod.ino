@@ -78,23 +78,32 @@ void setup() {
   sei();
 }
 
-// Timing varies a *lot*
-int32_t isqrt(int32_t y) {
-  int32_t L = 0;
-  int32_t M;
-  int32_t R = y + 1;
+#define TABLE_SIZE 19
+#define ITERATIONS 5
+int32_t value_table[] = { 1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768, 65536, 131072, 262144 };
+int32_t root_table[] = { 1, 1, 2, 2, 4, 5, 8, 11, 16, 22, 32, 45, 64, 90, 128, 181, 256, 362, 512 };
 
-  while (L != R - 1) {
-    M = (L + R) / 2;
-    if (M * M <= y) L = M;
-    else R = M;
-  }
-  return L;
+uint16_t isqrt(int32_t x) {
+    uint8_t index;
+    while (index < TABLE_SIZE-1 and value_table[index] < x) index += 1;
+    int32_t guess = root_table[index];
+    int32_t delta = guess >> 1;
+    for (uint8_t i=0; i<ITERATIONS; i+=1) {
+        int32_t x2 = guess * guess;
+        if (x2 == x || delta == 0) return guess;
+        if (x2 < x) guess += delta;
+        else guess -= delta;
+        delta >>= 1;
+    }
+    return guess;
 }
 
 // Timer interrupt service routine
 // 25 us with pipelined ADC read and no square root
-// 704 us with pipelined ADC read and square root
+// 1 iteration 48 us total
+// 3 iterations 58 us total
+// 5 iterations 68 us total
+// 10 us/iteration?
 ISR(TCB0_INT_vect) {
   int32_t adc_I, adc_Q;
   VPORTA.OUT |=  4;
@@ -105,8 +114,8 @@ ISR(TCB0_INT_vect) {
   // Pipeline ADC read to save another 12 us
   ADC0.MUXPOS  = ADC_MUXPOS_AIN3_gc;            // set ADC input to I
   ADC0.COMMAND = ADC_STCONV_bm;
-  DAC0.DATA = (adc_I*adc_I + adc_Q*adc_Q) >> 12;
-  // DAC0.DATA = isqrt(adc_I*adc_I + adc_Q*adc_Q) >> 2;
+  // DAC0.DATA = (adc_I*adc_I + adc_Q*adc_Q) >> 12;
+  DAC0.DATA = isqrt(adc_I*adc_I + adc_Q*adc_Q) >> 2;
   VPORTA.OUT &= ~(4);
   TCB0.INTFLAGS = TCB_CAPT_bm;                  // clear interrupt flag
 }
