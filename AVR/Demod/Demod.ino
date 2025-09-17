@@ -80,22 +80,22 @@ void setup() {
 
 #define TABLE_SIZE 19
 #define ITERATIONS 5
-int32_t value_table[] = { 1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768, 65536, 131072, 262144 };
-int32_t root_table[] = { 1, 1, 2, 2, 4, 5, 8, 11, 16, 22, 32, 45, 64, 90, 128, 181, 256, 362, 512 };
+uint32_t value_table[] = { 1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768, 65536, 131072, 262144 };
+uint32_t root_table[] = { 1, 1, 2, 2, 4, 5, 8, 11, 16, 22, 32, 45, 64, 90, 128, 181, 256, 362, 512 };
 
-uint16_t isqrt(int32_t x) {
-    uint8_t index;
-    while (index < TABLE_SIZE-1 and value_table[index] < x) index += 1;
-    int32_t guess = root_table[index];
-    int32_t delta = guess >> 1;
-    for (uint8_t i=0; i<ITERATIONS; i+=1) {
-        int32_t x2 = guess * guess;
-        if (x2 == x || delta == 0) return guess;
-        if (x2 < x) guess += delta;
-        else guess -= delta;
-        delta >>= 1;
-    }
-    return guess;
+uint16_t isqrt(uint32_t x) {
+  uint8_t index;
+  while (index < TABLE_SIZE-1 and value_table[index] < x) index += 1;
+  uint32_t guess = root_table[index];
+  uint32_t delta = guess >> 1;
+  for (uint8_t i=0; i<ITERATIONS; i+=1) {
+    uint32_t x2 = guess * guess;
+    if (x2 == x || delta == 0) return guess;
+    if (x2 < x) guess += delta;
+    else guess -= delta;
+    delta >>= 1;
+  }
+  return guess;
 }
 
 // Timer interrupt service routine
