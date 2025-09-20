@@ -98,14 +98,31 @@ uint16_t isqrt(uint32_t x) {
   return guess;
 }
 
+#define ABS(x) (x < 0 ? -x : x)
+#define MIN(x, y) (x < y ? x : y)
+#define MAX(x, y) (x > y ? x : y)
+
+int16_t imag1(int16_t a, int16_t b) {
+  int16_t _max = MAX(ABS(a), ABS(b));
+  int16_t _min = MIN(ABS(a), ABS(b));
+  _min >>= 2;
+  _max += _min;
+  _min >>= 2;
+  _max += _min;
+  _min >>= 1;
+  _max += _min;
+  return _max;
+}
+
 // Timer interrupt service routine
 // 25 us with pipelined ADC read and no square root
 // 1 iteration 48 us total
 // 3 iterations 58 us total
 // 5 iterations 68 us total
 // 10 us/iteration?
+// 16.6 us total using imag1 (min/max 1)
 ISR(TCB0_INT_vect) {
-  int32_t adc_I, adc_Q;
+  int16_t adc_I, adc_Q;
   VPORTA.OUT |=  4;
   adc_I = ADC0.RES;
   adc_I -= 512;
@@ -115,7 +132,8 @@ ISR(TCB0_INT_vect) {
   ADC0.MUXPOS  = ADC_MUXPOS_AIN3_gc;            // set ADC input to I
   ADC0.COMMAND = ADC_STCONV_bm;
   // DAC0.DATA = (adc_I*adc_I + adc_Q*adc_Q) >> 12;
-  DAC0.DATA = isqrt(adc_I*adc_I + adc_Q*adc_Q) >> 2;
+  // DAC0.DATA = isqrt(adc_I*adc_I + adc_Q*adc_Q) >> 2;
+  DAC0.DATA = imag1(adc_I, adc_Q) >> 2;
   VPORTA.OUT &= ~(4);
   TCB0.INTFLAGS = TCB_CAPT_bm;                  // clear interrupt flag
 }
