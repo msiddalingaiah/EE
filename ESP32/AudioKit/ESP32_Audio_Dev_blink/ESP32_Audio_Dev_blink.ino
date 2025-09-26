@@ -29,13 +29,38 @@ Crystal is 40MHz
 void setup() {
   pinMode(19, OUTPUT);
   pinMode(22, OUTPUT);
+  Serial.begin(115200);
 }
 
+// double magnitude: ~4.58 us, 218 kHz
+// float magnitude:  ~334 ns, 2.99 MHz
 void loop() {
-  digitalWrite(19, HIGH);  
-  digitalWrite(22, LOW); 
-  delay(200);
-  digitalWrite(19, LOW);  
-  digitalWrite(22, HIGH);
-  delay(500); 
+  uint32_t i;
+  float a = 3.0, b = 4.0, result, t, phi = 0.0;
+
+  while (1) {
+    digitalWrite(19, HIGH);  
+    digitalWrite(22, LOW); 
+    delay(200);
+    t = micros();
+    for (i=0; i<2990000; i++) {
+      result = sqrt(a*a + b*b);
+    }
+    t = micros() - t;
+    t /= 1e6;
+    a += 1.0;
+    b += 1.0;
+    Serial.print("Time: ");
+    Serial.println(t);
+    Serial.print("result: ");
+    Serial.println(result);
+    // for (float dt = 0; dt < 50; dt += 1) {
+    //   float Sine1 = 100 * sin((M_PI * dt / 25) + phi);
+    //   Serial.println(Sine1);
+    // }
+    phi += M_PI/10.0;
+    digitalWrite(19, LOW);  
+    digitalWrite(22, HIGH);
+    delay(500); 
+  }
 }
