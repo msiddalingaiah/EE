@@ -97,9 +97,10 @@ module Gigatron (
     reg [15:0] pc;
 
     // ROM
+    reg [15:0] rom_address;
     wire [15:0] rom_rd_data;
 
-    ROM rom(i_Clk, pc, rom_rd_data);
+    ROM rom(i_Clk, rom_address, rom_rd_data);
 
     // RAM
     reg ram_write;
@@ -117,6 +118,7 @@ module Gigatron (
     wire [2:0] op = ir[7:5];
     wire [2:0] mode = ir[4:2];
     wire [1:0] bus = ir[1:0];
+
 
     initial begin
         reset = 1'b0;
@@ -146,6 +148,14 @@ module Gigatron (
             2: source = a;
             3: source = 0; // IN not implemented
         endcase
+        ram_addr = 15'h0;
+        case (mode)
+            1: ram_addr = { 8'h0, x };
+            2: ram_addr = { y, d };
+            3: ram_addr = { y, x };
+            7: ram_addr = { y, x };
+        endcase
+        rom_address = pc;
         case (op)
             OP_LOAD: alu = source;
             OP_AND: alu = a & source;
@@ -154,14 +164,10 @@ module Gigatron (
             OP_ADD: alu = a + source;
             OP_SUB: alu = a - source;
             OP_STORE: alu = a;
-            OP_JUMP: alu = -a;
-        endcase
-        ram_addr = 15'h0;
-        case (mode)
-            1: ram_addr = { 8'h0, x };
-            2: ram_addr = { y, d };
-            3: ram_addr = { y, x };
-            7: ram_addr = { y, x };
+            OP_JUMP: begin
+                    alu = -a;
+                    if (mode == 3'h7) rom_address = source;
+                end
         endcase
     end
 
@@ -172,11 +178,10 @@ module Gigatron (
         reset <= 0;
 `endif
         if (~reset & ~reset_inhibit) begin reset <= 1'b1; reset_inhibit <= 1'b1; end
-        pc <= pc + 1;
+        pc <= rom_address + 1;
         case (op)
             OP_STORE: ;
             OP_JUMP: begin
-                    if (mode == 3'h7) pc <= source;
                 end
             default:
                 case (mode)

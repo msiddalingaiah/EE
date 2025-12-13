@@ -1,7 +1,7 @@
-0001
-8001
-fc01
-8001
+0001    // 0: load A register with constant value 1
+8001    // 1: Add constant value 1 to A register
+fc01    // 2: Jump to address 1 (previous instruction)
+8002    // 3: Add constant value 2 to A register
 0000
 0000
 0000
