@@ -32,11 +32,11 @@ while True:
 A = A + 2
 ```
 
-The timing diagram below shows how the instruction after the jump (delay slot) executes before the jump:
+The timing diagram below shows how the instruction after the jump (delay slot) unexpectedly executes before the jump:
 
 ![Delay slot](images/delay_slot.png)
 
-Notice the A register increases by one prior to the branch, and two prior to the branch. This happens because the program memory address changes after the program counter is updated with the branch address. This results in a one instruction delay due to the instruction pipeline register.
+Notice the A register increases by one prior to the branch, and two during the branch. This happens because the program memory address changes after the program counter is updated with the branch address. This results in a one instruction delay due to the instruction pipeline register.
 
 ## Address Forwarding
 
@@ -49,4 +49,6 @@ In both cases, the program counter is loaded with the rom address + 1 on the ris
 
 ![Address forwarding](images/address_forwarding.png)
 
-Notice the A register increments by one every other cycle, which is what we would expect. This design is borrowed from the techniques described in Chapter II of the classic book by John Mick and James Brick: [Bit-Slice Microprocessor Design](http://www.bitsavers.org/components/amd/bitslice/Mick_Bit-Slice_Microprocessor_Design_1980.pdf). Specifically, pages 13-15 explain how pipelining and appropriate wiring of an "incrementer" achieves optimal performance.
+Notice the A register increments by one every other cycle, which is what we would expect. This design borrows from techniques described in Chapter II of the classic book by John Mick and James Brick: [Bit-Slice Microprocessor Design](http://www.bitsavers.org/components/amd/bitslice/Mick_Bit-Slice_Microprocessor_Design_1980.pdf). Specifically, pages 13-15 explain how pipelining and appropriate wiring of an "incrementer" achieves zero side effect branching.
+
+Forwarding does introduce some complexity. In this case, an additional multiplexor is needed select the next instruction address source. In a discrete design like the Gigatron, minimizing parts is the first priority, so a simpler design with a delay slot makes sense. It is also possible that the forwarding multiplexor increases propagation delays, reducing the maximim reliable clock rate.
