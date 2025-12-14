@@ -9,6 +9,17 @@ Other Verilog implementations exists. This one support both delayed branch (simi
 
 Most instructions are implemented, although not fully tested.
 
+Device utilisation (address forwarding):
+
+```
+ ICESTORM_LC:     127/   1280     9%
+ICESTORM_RAM:       2/     16    12%
+       SB_IO:      34/    112    30%
+       SB_GB:       2/      8    25%
+ICESTORM_PLL:       0/      1     0%
+ SB_WARMBOOT:       0/      1     0%
+```
+
 ## Next Steps
 
 * Comprehensive testing
@@ -61,11 +72,11 @@ In both cases, the program counter is loaded with the rom address + 1 on the ris
 
 Notice the A register increments by one every other cycle, which is what we would expect. This design borrows from techniques described in Chapter II of the classic book by John Mick and James Brick: [Bit-Slice Microprocessor Design](http://www.bitsavers.org/components/amd/bitslice/Mick_Bit-Slice_Microprocessor_Design_1980.pdf). Specifically, pages 13-15 explain how pipelining and appropriate wiring of an "incrementer" achieves zero side effect branching.
 
-Forwarding does introduce some complexity. In this case, an additional multiplexor is needed select the next instruction address source. In a discrete design like the Gigatron, minimizing parts is the first priority, so a simpler design with a delay slot makes sense. It is also possible that the forwarding multiplexor increases propagation delays, reducing the maximim reliable clock rate.
+Forwarding does introduce some complexity. In this case, an additional multiplexor is needed select the next instruction address source. In a discrete design like the Gigatron, minimizing parts was the highest priority, so a simpler design with a delay slot makes sense. It is also possible that the forwarding multiplexor increases propagation delays, reducing the maximim reliable clock rate.
 
-Timing estimates for Lattice Ice 40 FPGAs suggests that delayed branch does perform slightly better than address forwarding:
+Timing estimates for Lattice Ice 40 FPGAs suggests that delayed branch does perform better than address forwarding:
 
-* Delayed branch: 7.22 ns (138.53 MHz)
-* Address forwarding: 7.48 ns (133.72 MHz)
+* Delayed branch: 9.21 ns (108.57 MHz)
+* Address forwarding: 10.40 ns (96.13 MHz)
 
-The difference is about 3.5% in favor of delayed branch. Your mileage may vary.
+The difference is about 11.4% in favor of delayed branch. Your mileage may vary.
