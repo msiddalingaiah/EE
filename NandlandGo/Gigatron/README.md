@@ -5,6 +5,25 @@ This is a alternative implementation of the [Gigatron](https://gigatron.io/) ins
 
 Other Verilog implementations exists. This one support both delayed branch (similar to the TTL version) and non-delayed branch using program address forwarding. The DELAYED_BRANCH macro can be defined as needed. See below for details.
 
+## Tools
+
+This was built using open source tools on Windows 11. Similar tools are available for Mac/Linux.
+
+* make (winget install ezwinports.make)
+* [OSS Cad Suite](https://github.com/YosysHQ/oss-cad-suite-build) contains pre-built binaries for Windows
+* Install [OSS Cad Suite](https://github.com/YosysHQ/oss-cad-suite-build)
+* Run ```oss-cad-suite\environment.ps1``` or ```oss-cad-suite\environment.bat``` to set up paths and environment variables
+
+Create the vcd directory if it does not exist:
+
+```
+md vcd
+```
+
+Make targets:
+* ```make simulation```
+* ```make synthesis```
+
 ## Status
 
 Most instructions are implemented, although not fully tested.
