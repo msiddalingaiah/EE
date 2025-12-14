@@ -10,10 +10,11 @@ DEVICE = hx1k
 PACKAGE = vq100
 FREQ_MHz = 25
 
-all: test
-# all: $(PROJ).rpt $(PROJ).bin
+all: simulation
 
-%.json: %.v Makefile *.v roms/sprites2.py roms/sprites.txt roms/code.txt
+synthesis: $(PROJ).rpt $(PROJ).bin
+
+%.json: %.v Makefile *.v roms/rom.txt
 	yosys -q -p 'synth_ice40 -top $(PROJ) -json $@' $<
 
 %.asc: $(PIN_DEF) %.json
@@ -31,7 +32,7 @@ prog: $(PROJ).bin
 sudo-prog: $(PROJ).bin
 	iceprog $<
 
-test: TestBench # roms/code.txt
+simulation: TestBench roms/rom.txt
 	vvp vcd/TestBench
 
 TestBench: *.v

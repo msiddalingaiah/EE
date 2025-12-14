@@ -4,6 +4,8 @@
  * See https://github.com/msiddalingaiah/EE/blob/main/LICENSE
  */
 
+// `define DELAYED_BRANCH 1 // Uncomment for TTL version compatibility
+
 module ROM(input wire clock, input wire [15:0] address, output reg [15:0] data);
     reg [15:0] memory[0:1023];
     initial begin
@@ -100,17 +102,20 @@ module Gigatron (
     reg [15:0] rom_address;
     wire [15:0] rom_rd_data;
 
+`ifdef DELAYED_BRANCH
+    ROM rom(i_Clk, pc, rom_rd_data);
+`else
     ROM rom(i_Clk, rom_address, rom_rd_data);
+`endif
 
     // RAM
     reg ram_write;
-    reg [15:0] ram_addr = 10'h00;
-    reg [7:0] ram_wr_data = 8'h00;
-    wire [7:0] ram_rd_data = 8'h00;
-
-    RAM ram(i_Clk, ram_write, ram_addr, ram_wr_data, ram_rd_data);
+    reg [15:0] ram_addr;
+    wire [7:0] ram_rd_data;
 
     reg [7:0] source, alu;
+
+    RAM ram(i_Clk, ram_write, ram_addr, source, ram_rd_data);
 
     wire [7:0] ir = rom_rd_data[15:8];
     wire [7:0] d = rom_rd_data[7:0];
@@ -148,7 +153,7 @@ module Gigatron (
             2: source = a;
             3: source = 0; // IN not implemented
         endcase
-        ram_addr = 15'h0;
+        ram_addr = { 8'h00, d };
         case (mode)
             1: ram_addr = { 8'h0, x };
             2: ram_addr = { y, d };
@@ -166,7 +171,16 @@ module Gigatron (
             OP_STORE: alu = a;
             OP_JUMP: begin
                     alu = -a;
-                    if (mode == 3'h7) rom_address = source;
+                    case (mode)
+                        0: rom_address = { y, source };
+                        1: if (~a[0] & (a[6:0] != 0)) rom_address = { pc[15:8], source };
+                        2: if (~a[0]) rom_address = { pc[15:8], source };
+                        3: if (a[7:0] != 0) rom_address = { pc[15:8], source };
+                        4: if (a[7:0] == 0) rom_address = { pc[15:8], source };
+                        5: if (~a[0]) rom_address = { pc[15:8], source };
+                        6: if (a[0] | (a[6:0] == 0)) rom_address = { pc[15:8], source };
+                        7: rom_address = source;
+                    endcase
                 end
         endcase
     end
@@ -178,10 +192,26 @@ module Gigatron (
         reset <= 0;
 `endif
         if (~reset & ~reset_inhibit) begin reset <= 1'b1; reset_inhibit <= 1'b1; end
+`ifdef DELAYED_BRANCH
+        pc <= pc + 1;
+`else
         pc <= rom_address + 1;
+`endif
         case (op)
             OP_STORE: ;
             OP_JUMP: begin
+`ifdef DELAYED_BRANCH
+                case (mode)
+                    0: pc <= { y, source };
+                    1: if (~a[0] & (a[6:0] != 0)) pc <= { pc[15:8], source };
+                    2: if (~a[0]) pc <= { pc[15:8], source };
+                    3: if (a[7:0] != 0) pc <= { pc[15:8], source };
+                    4: if (a[7:0] == 0) pc <= { pc[15:8], source };
+                    5: if (~a[0]) pc <= { pc[15:8], source };
+                    6: if (a[0] | (a[6:0] == 0)) pc <= { pc[15:8], source };
+                    7: pc <= source;
+                endcase
+`endif
                 end
             default:
                 case (mode)
@@ -195,6 +225,7 @@ module Gigatron (
                     7: x <= x + 1; // OUT not implemented
                 endcase
         endcase
+        leds_numeric <= a;
     end
 endmodule
 

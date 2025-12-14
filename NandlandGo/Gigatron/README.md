@@ -1,11 +1,21 @@
 
 # Gigatron Variant
 
-This is a alternative implementation of the [Gigatron](https://gigatron.io/) instructions set in Verilog. The Gigatron is a minimalist 8-bit retro CPU originally built with [TTL](https://en.wikipedia.org/wiki/Transistor%E2%80%93transistor_logic) logic. It is designed with as few parts as possible.
+This is a alternative implementation of the [Gigatron](https://gigatron.io/) instructions set in Verilog. The Gigatron is a minimalist 8-bit retro CPU originally built with [TTL](https://en.wikipedia.org/wiki/Transistor%E2%80%93transistor_logic) logic. It was designed with as few parts as possible.
 
-The implementation is not yet 100% complete. However, it is capable of basic execution and unconditional branching.
+Other Verilog implementations exists. This one support both delayed branch (similar to the TTL version) and non-delayed branch using program address forwarding. The DELAYED_BRANCH macro can be defined as needed. See below for details.
 
-## Delay Slot
+## Status
+
+Most instructions are implemented, although not fully tested.
+
+## Next Steps
+
+* Comprehensive testing
+* IN/OUT ports
+* Nandland Go I/O: buttons, LEDs, VGA, and 7-segment displays
+
+## Delayed Branch
 
 The official Gigatron is a [pipelined](https://en.wikipedia.org/wiki/Pipeline_(computing)) [Harvard architecture](https://en.wikipedia.org/wiki/Harvard_architecture) CPU. It has the following characteristics:
 
@@ -52,3 +62,10 @@ In both cases, the program counter is loaded with the rom address + 1 on the ris
 Notice the A register increments by one every other cycle, which is what we would expect. This design borrows from techniques described in Chapter II of the classic book by John Mick and James Brick: [Bit-Slice Microprocessor Design](http://www.bitsavers.org/components/amd/bitslice/Mick_Bit-Slice_Microprocessor_Design_1980.pdf). Specifically, pages 13-15 explain how pipelining and appropriate wiring of an "incrementer" achieves zero side effect branching.
 
 Forwarding does introduce some complexity. In this case, an additional multiplexor is needed select the next instruction address source. In a discrete design like the Gigatron, minimizing parts is the first priority, so a simpler design with a delay slot makes sense. It is also possible that the forwarding multiplexor increases propagation delays, reducing the maximim reliable clock rate.
+
+Timing estimates for Lattice Ice 40 FPGAs suggests that delayed branch does perform slightly better than address forwarding:
+
+* Delayed branch: 7.22 ns (138.53 MHz)
+* Address forwarding: 7.48 ns (133.72 MHz)
+
+The difference is about 3.5% in favor of delayed branch. Your mileage may vary.
