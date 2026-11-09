@@ -8,6 +8,7 @@ import type { Layer } from './eagle/types';
 import type { Point } from './geom/transform';
 import { componentName, ProjectIndex } from './model/derive';
 import { readProject } from './model/file';
+import { exportEagle } from './model/export-eagle';
 import { importEagle, importLibrary } from './model/import-eagle';
 import type * as O from './model/types';
 import { buildBoardScene } from './scene/board';
@@ -55,6 +56,7 @@ const statusHint = $<HTMLSpanElement>('status-hint');
 const undoBtn = $<HTMLButtonElement>('undo-btn');
 const redoBtn = $<HTMLButtonElement>('redo-btn');
 const saveBtn = $<HTMLButtonElement>('save-btn');
+const exportBtn = $<HTMLButtonElement>('export-btn');
 const viewToggle = $<HTMLDivElement>('view-toggle');
 const projectPanel = $<HTMLElement>('project-panel');
 
@@ -248,6 +250,24 @@ async function save(): Promise<void> {
   }
 }
 
+/** Export the project as an Eagle schematic and board (one save dialog or download each). */
+async function exportToEagle(): Promise<void> {
+  if (!project) return;
+  if (move) commitMove();
+  try {
+    const { files } = exportEagle(project);
+    const done: string[] = [];
+    for (const [name, text] of files) {
+      const result = await saveFile(text, name, undefined, 'eagle');
+      if (!result) break; // cancelled
+      done.push(result.handle?.name ?? name);
+    }
+    if (done.length) flash(`Exported ${done.join(' and ')}`);
+  } catch (e) {
+    showError(`Could not export: ${e instanceof Error ? e.message : String(e)}`);
+  }
+}
+
 function confirmDiscard(): boolean {
   return !editor?.history.dirty || window.confirm(`Discard unsaved changes to ${saveName}?`);
 }
@@ -299,6 +319,7 @@ function updateChrome(): void {
   undoBtn.title = h?.undoLabel ? `Undo ${h.undoLabel} (Ctrl+Z)` : 'Undo (Ctrl+Z)';
   redoBtn.title = h?.redoLabel ? `Redo ${h.redoLabel} (Ctrl+Y)` : 'Redo (Ctrl+Y)';
   saveBtn.disabled = !editor;
+  exportBtn.disabled = !project;
   saveBtn.textContent = dirty ? 'Save •' : 'Save';
   saveBtn.title = project ? `Save ${saveName} (Ctrl+S)` : 'Save (Ctrl+S)';
 }
@@ -1247,6 +1268,7 @@ $('fit-btn').addEventListener('click', fitView);
 undoBtn.addEventListener('click', undoCmd);
 redoBtn.addEventListener('click', redoCmd);
 saveBtn.addEventListener('click', () => void save());
+exportBtn.addEventListener('click', () => void exportToEagle());
 sheetSelect.addEventListener('change', () => {
   rebuildScene({ fit: true, keepSelection: false });
   canvas.focus({ preventScroll: true });

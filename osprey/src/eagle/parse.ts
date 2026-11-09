@@ -637,6 +637,17 @@ export function serializeEagle(file: EagleFile): string {
   return file.prolog + (file.lineEnding === '\r\n' ? body.replace(/\n/g, '\r\n') : body) + file.epilog;
 }
 
+/**
+ * Write a freshly built Eagle document as Eagle does: XML declaration, DOCTYPE, one element
+ * per line, CRLF line endings, and a final line break.
+ */
+export function writeEagleDocument(root: Element_, lineEnding: '\n' | '\r\n' = '\r\n'): string {
+  const out: string[] = [];
+  writeNode(root, out);
+  const text = `<?xml version="1.0" encoding="utf-8"?>\n<!DOCTYPE eagle SYSTEM "eagle.dtd">\n${out.join('')}\n`;
+  return lineEnding === '\r\n' ? text.replace(/\r?\n/g, '\r\n') : text;
+}
+
 /** Escape as Eagle does: & < > (plus " inside attribute values). */
 function escapeXml(s: string, attr = false): string {
   return s.replace(attr ? /[&<>"]/g : /[&<>]/g, (c) => (c === "&" ? "&amp;" : c === "<" ? "&lt;" : c === ">" ? "&gt;" : "&quot;"));

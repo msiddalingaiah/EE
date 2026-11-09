@@ -396,9 +396,12 @@ version bump if it changes meaning). Projects created in Osprey have no `eagle` 
    first. If the pair disagrees, the import lists the differences and asks whether to
    import with the schematic as the authority for the netlist.
 
-**Export** writes a `.sch` and a `.brd` that Eagle (9.x) opens, with contactrefs and
-airwires regenerated. A test imports, exports and re-imports the sample and every
-available design pair, and compares the results.
+**Export** writes a `.sch` and a `.brd` in Eagle 9's format (element order, one element per
+line, CRLF), with contactrefs, airwires, the layer table and each file's library copies
+regenerated, and the passthrough written back where it came from. Importing the exported
+files gives the same project: a test checks this on the sample and every available design
+pair. Exported files mean the same as the originals but aren't byte-identical: the order of
+graphics within a footprint or symbol, and of items within a library, is Osprey's.
 
 ## Decisions
 

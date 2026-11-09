@@ -565,12 +565,13 @@ function documentExtras(file: E.EagleFile, kind: 'schematic' | 'board'): O.JsonM
   if (userLayers.length) out.push(['layers', ...userLayers]);
   if (kind === 'schematic') group(body, ['libraries', 'classes', 'parts', 'sheets']);
   else group(body, ['libraries', 'classes', 'plain', 'elements', 'signals']);
-  // Library-level extras (descriptions, 3D package lists, URNs) per library.
+  // Every library, in file order, with its attributes (name, URN) and extras (descriptions,
+  // 3D package lists). The order and URNs identify libraries that share a name.
   for (const libEl of Array.from(body?.querySelectorAll(':scope > libraries > library') ?? [])) {
     const kids = unknownChildren(libEl, ['packages', 'symbols', 'devicesets']);
     const attrs: Record<string, string> = {};
     for (const a of Array.from(libEl.attributes)) attrs[a.name] = a.value;
-    if (kids.length || Object.keys(attrs).length > 1) out.push(['library', attrs, ...kids]);
+    out.push(['library', attrs, ...kids]);
   }
   // The grid's display settings (the model keeps only the spacing).
   const grid = drawing?.querySelector(':scope > grid');

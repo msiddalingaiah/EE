@@ -11,6 +11,9 @@ native model (see [docs/format.md](docs/format.md)). Eagle files are imported in
   drop both on the canvas). Eagle libraries (`.lbr`) open read-only for browsing.
 - **Save** (Ctrl+S) writes one `.osprey` file: JSON in a canonical, diff-friendly layout.
   In Chromium browsers a project opened with Open… is saved in place.
+- **Export Eagle…** writes the project back as an Eagle 9 `.sch` + `.brd`, with pad lists and
+  airwires regenerated and the Eagle data Osprey doesn't model written back. Importing the
+  exported files gives the same project again (checked on 152 real pairs).
 - **Views:** schematic and board, switched with Tab or the toolbar toggle; each keeps its own
   zoom, layers and selection. Selected parts and nets carry across (cross-probing).
 - **Selection** (the noun): click, Shift-click to add, Ctrl-click to toggle, box-select
@@ -29,7 +32,7 @@ native model (see [docs/format.md](docs/format.md)). Eagle files are imported in
   and reports any disagreement between schematic and board. Verified on 152 real pairs: every
   net's derived pads match the pads Eagle stored.
 
-Not yet: Eagle export, routing new traces, placing parts, drawing wires, joining nets,
+Not yet: routing new traces, placing parts, drawing wires, joining nets,
 library editing, polygon pour computation (outlines only; airwires treat a pour as its whole
 outline), Eagle's vector font (text uses a system sans-serif), busses beyond wires.
 
@@ -48,11 +51,11 @@ npm run build
 A sample can be opened directly by URL: `http://localhost:5173/#TA7358A` (or `#TA7358A.brd`
 for the board view).
 
-To also check the importer and airwires against a folder of your own Eagle designs (every
+To also check import, airwires and export against a folder of your own Eagle designs (every
 `.sch` with a `.brd` of the same name), point `OSPREY_CORPUS` at it:
 
 ```sh
-OSPREY_CORPUS=~/designs npx vitest run test/model.test.ts -t corpus
+OSPREY_CORPUS=~/designs npx vitest run -t corpus
 ```
 
 ### Controls
@@ -80,9 +83,9 @@ OSPREY_CORPUS=~/designs npx vitest run test/model.test.ts -t corpus
 - `docs/format.md`: the `.osprey` project format
 - `samples/eagle/`: sample Eagle files (`.sch`, `.brd`, `.lbr`)
 - `src/model/`: the native project model (`types.ts`), `.osprey` reading and writing
-  (`file.ts`), Eagle import (`import-eagle.ts`, `passthrough.ts`, `layers.ts`), derived facts
+  (`file.ts`), Eagle import and export (`import-eagle.ts`, `export-eagle.ts`, `passthrough.ts`, `layers.ts`), derived facts
   such as net pads (`derive.ts`), geometry (`geometry.ts`) and the ratsnest (`ratsnest.ts`)
-- `src/eagle/`: Eagle XML parser (`parse.ts`, `types.ts`), used by import
+- `src/eagle/`: Eagle XML parser and writer (`parse.ts`, `types.ts`), used by import and export
 - `src/edit/`: undoable operations and history (`ops.ts`), move/rotate/mirror with
   rubber-banding (`transform.ts`), delete (`delete.ts`) and property edits (`properties.ts`)
 - `src/scene/`: turns the model into drawable primitives in world space (mm, y-up), each tagged

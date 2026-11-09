@@ -15,7 +15,10 @@ interface FsWindow {
 const PICKER_TYPES = [
   { description: 'Osprey projects and Eagle files', accept: { 'application/octet-stream': ['.osprey', '.sch', '.brd', '.lbr'] } },
 ];
-const SAVE_TYPES = [{ description: 'Osprey project', accept: { 'application/json': ['.osprey'] } }];
+const SAVE_TYPES = {
+  osprey: [{ description: 'Osprey project', accept: { 'application/json': ['.osprey'] } }],
+  eagle: [{ description: 'Eagle file', accept: { 'application/xml': ['.sch', '.brd'] } }],
+};
 
 export interface OpenedFile {
   name: string;
@@ -54,12 +57,12 @@ export async function pickFiles(): Promise<OpenedFile[]> {
  * (Chromium) or downloads the file. Returns the handle used, if any, or undefined if cancelled.
  */
 export async function saveFile(
-  text: string, name: string, handle: FileHandle | undefined,
+  text: string, name: string, handle: FileHandle | undefined, kind: 'osprey' | 'eagle' = 'osprey',
 ): Promise<{ handle?: FileHandle; method: 'written' | 'downloaded' } | undefined> {
   const w = window as FsWindow;
   try {
     if (!handle && typeof w.showSaveFilePicker === 'function') {
-      handle = await w.showSaveFilePicker({ suggestedName: name, types: SAVE_TYPES });
+      handle = await w.showSaveFilePicker({ suggestedName: name, types: SAVE_TYPES[kind] });
     }
     if (handle) {
       const out = await handle.createWritable();
@@ -71,7 +74,7 @@ export async function saveFile(
     if (e instanceof DOMException && e.name === 'AbortError') return undefined;
     throw e;
   }
-  const url = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
+  const url = URL.createObjectURL(new Blob([text], { type: kind === 'eagle' ? 'application/xml' : 'application/json' }));
   const a = document.createElement('a');
   a.href = url;
   a.download = name;
