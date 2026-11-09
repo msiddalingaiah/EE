@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { Editor } from '../src/app/editor';
 import { anchors, bend45, traceWidth, viaDrill } from '../src/edit/route';
+import { drc } from '../src/model/drc';
 import { readProject, writeProject } from '../src/model/file';
 import { ratsnest } from '../src/model/ratsnest';
 import type * as O from '../src/model/types';
@@ -105,6 +106,7 @@ describe('routing', () => {
   it('Esc keeps the legs drawn so far; the airwire remains until connected', () => {
     const [a] = padsOf('N$1');
     const s = editor.beginRoute(() => 0.127)!;
+    s.avoid = false;
     s.moveTo(at(a!.at), false, 0.5);
     s.click();
     s.moveTo({ x: a!.at[0] + 5, y: a!.at[1] }, false, 0.01);
@@ -116,9 +118,10 @@ describe('routing', () => {
 
 describe('clearance while routing', () => {
   // N$1 runs from IC1 pin 4 to C2 pin 2; C2's other pad (N$3) sits beside the straight line.
-  const start = () => {
+  const start = (avoid = false) => {
     const [a] = padsOf('N$1');
     const s = editor.beginRoute(() => 0.127)!;
+    s.avoid = avoid;
     s.moveTo(at(a!.at), false, 0.5);
     s.click();
     return { s, a: a! };
@@ -171,5 +174,91 @@ describe('clearance while routing', () => {
     const { s, a } = start();
     s.moveTo({ x: 0.1, y: a.at[1] }, false, 0.001);
     expect(s.conflicts.some((c) => c.other === 'the board edge')).toBe(true);
+  });
+});
+
+describe('routing around obstacles', () => {
+  const grid = () => 1.27; // the board's 50 mil grid: the search raster is 6.25 mil
+  const start = (g = grid) => {
+    const [a] = padsOf('N$1');
+    const s = editor.beginRoute(g)!;
+    s.moveTo(at(a!.at), false, 0.5);
+    s.click();
+    return { s, a: a! };
+  };
+  const is45 = (a: { x: number; y: number }, b: { x: number; y: number }) => {
+    const dx = Math.abs(b.x - a.x);
+    const dy = Math.abs(b.y - a.y);
+    return dx < 1e-6 || dy < 1e-6 || Math.abs(dx - dy) < 1e-6;
+  };
+
+  it("a blocked leg detours around the other net's pad, and the result passes the DRC", () => {
+    // On a 5 mil grid, so the cursor lands at a free spot just past C2.1.
+    const { s, a } = start(() => 0.127);
+    s.moveTo({ x: a.at[0] + 5, y: a.at[1] }, false, 0.01);
+    expect(s.detour).toBe(true);
+    expect(s.conflicts).toEqual([]);
+    const leg = s.preview.paths.at(-1)!.points;
+    expect(leg[0]).toEqual(at(a.at));
+    expect(leg.at(-1)).toEqual(s.at);
+    // 45° segments, apart from the short stubs at the ends.
+    for (let i = 2; i < leg.length - 1; i++) expect(is45(leg[i - 1]!, leg[i]!)).toBe(true);
+    expect(leg.length).toBeLessThanOrEqual(8);
+    expect(s.click()).toBe('added');
+    s.finish();
+    expect(drc(p).violations).toEqual([]);
+  });
+
+  it('routes pad to pad around obstacles, connecting the net', () => {
+    // Make the direct route impossible: a GND trace across the straight line between the pads.
+    const [a, b] = padsOf('N$1');
+    const mx = (a!.at[0] + b!.at[0]) / 2;
+    p.nets.find((n) => n.name === 'GND')!.traces!.push({ line: [[mx, a!.at[1] - 1.5], [mx, b!.at[1] + 1.5]], width: 0.254, layer: 'copper.top' });
+    // (That trace itself crosses an N$3 trace: the route must add nothing to the DRC's list.)
+    const before = drc(p).violations.map((v) => v.message);
+    const s = editor.beginRoute(grid)!;
+    s.moveTo(at(a!.at), false, 0.5);
+    s.click();
+    s.moveTo(at(b!.at), false, 0.5);
+    expect(s.detour).toBe(true);
+    expect(s.click()).toBe('finish');
+    s.finish();
+    expect(airwires('N$1')).toHaveLength(0);
+    expect(drc(p).violations.map((v) => v.message)).toEqual(before);
+  });
+
+  it('with no way through, the direct leg stays blocked', () => {
+    const { s } = start();
+    const other = anchors(p).find((x) => x.pad?.part === 'C2' && x.pad.pad === '1')!;
+    s.moveTo(at(other.at), false, 0.001); // the cursor on another net's pad
+    expect(s.detour).toBe(false);
+    expect(s.conflicts.length).toBeGreaterThan(0);
+    expect(s.click()).toBe('blocked');
+  });
+
+  it('a second route on another net detours too (obstacles are per net)', () => {
+    // First a detour on N$1 (its obstacle map counts C2.1, of N$3, as an obstacle) …
+    const { s, a } = start(() => 0.127);
+    s.moveTo({ x: a.at[0] + 5, y: a.at[1] }, false, 0.01);
+    expect(s.detour).toBe(true);
+    s.cancel();
+    // … then a route from C2.1 itself, aimed past C2.2 (N$1): it must find its way round.
+    const c21 = anchors(p).find((x) => x.pad?.part === 'C2' && x.pad.pad === '1')!;
+    const c22 = anchors(p).find((x) => x.pad?.part === 'C2' && x.pad.pad === '2')!;
+    s.moveTo(at(c21.at), false, 0.3);
+    expect(s.click()).toBe('started');
+    expect(s.netName).toBe('N$3');
+    const dx = c22.at[0] - c21.at[0];
+    const dy = c22.at[1] - c21.at[1];
+    const len = Math.hypot(dx, dy);
+    s.moveTo({ x: c22.at[0] + (dx / len) * 2.5, y: c22.at[1] + (dy / len) * 2.5 }, false, 0.001);
+    expect(s.conflicts).toEqual([]);
+  });
+
+  it('is quick enough to follow the mouse', () => {
+    const { s, a } = start();
+    const t0 = performance.now();
+    for (let i = 0; i < 20; i++) s.moveTo({ x: a.at[0] + 5 + i * 0.3, y: a.at[1] + (i % 3) * 0.6 }, false, 0.01);
+    expect((performance.now() - t0) / 20).toBeLessThan(50);
   });
 });

@@ -395,6 +395,19 @@ export function drc(project: O.Project): DrcResult {
 // ---------------------------------------------------------------------------
 // Checking new copper as it is drawn
 
+/** A raster of cells a trace centre can't enter (1 = blocked); cell (i, j) is at (x0 + i·step, y0 + j·step). */
+export interface ObstacleGrid {
+  x0: number;
+  y0: number;
+  w: number;
+  h: number;
+  step: number;
+  blocked: Uint8Array;
+}
+
+const EMPTY: Box = { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity };
+const union = (a: Box, b: Box): Box => ({ minX: Math.min(a.minX, b.minX), minY: Math.min(a.minY, b.minY), maxX: Math.max(a.maxX, b.maxX), maxY: Math.max(a.maxY, b.maxY) });
+
 /** A rule a piece of new copper would break. */
 export interface Conflict {
   message: string;
@@ -437,6 +450,80 @@ export class ClearanceChecker {
     const c = { x: at[0], y: at[1] };
     const shapes: Shape[] = [{ t: 'cap', a: c, b: c, r: D / 2 }];
     return this.check({ kind: 'via', net, label: `via on ${net}`, layers: new Set(this.stack), shapes, box: boxOf(shapes), obj: {} });
+  }
+
+  /** Can a trace of `net` run straight from a to b on `layer`? (Exact, like `trace`.) */
+  clear(net: string, a: O.Pt, b: O.Pt, layer: string, width: number): boolean {
+    return this.trace(net, [a, b], layer, width).length === 0;
+  }
+
+  /**
+   * Where the centre line of a trace of `net` (on `layer`, `width` wide) can't go, as a raster
+   * of `step` cells aligned to multiples of `step`. A cell is blocked when a trace centre there
+   * would come within the clearance of other nets' copper or the board edge, with `slack` added
+   * so that straight and diagonal moves between free cells are clear too; cells outside the
+   * board outline are blocked. Used to search for routes around obstacles.
+   */
+  obstacles(net: string, layer: string, width: number, step: number): ObstacleGrid {
+    const slack = step * Math.SQRT1_2 + EPS;
+    // Region: the board outline's bounds (else all copper), on the grid.
+    let box = this.edges.length ? this.edges.map((e) => e.box).reduce(union) : this.items.map((i) => i.box).reduce(union, EMPTY);
+    if (!Number.isFinite(box.minX)) box = { minX: 0, minY: 0, maxX: 0, maxY: 0 };
+    const x0 = Math.floor(box.minX / step) * step;
+    const y0 = Math.floor(box.minY / step) * step;
+    const w = Math.max(1, Math.ceil((box.maxX - x0) / step) + 1);
+    const h = Math.max(1, Math.ceil((box.maxY - y0) / step) + 1);
+    const blocked = new Uint8Array(w * h);
+    const half = width / 2;
+
+    const mark = (shapes: Shape[], bounds: Box, reach: number) => {
+      const i0 = Math.max(0, Math.floor((bounds.minX - reach - x0) / step));
+      const i1 = Math.min(w - 1, Math.ceil((bounds.maxX + reach - x0) / step));
+      const j0 = Math.max(0, Math.floor((bounds.minY - reach - y0) / step));
+      const j1 = Math.min(h - 1, Math.ceil((bounds.maxY + reach - y0) / step));
+      for (let j = j0; j <= j1; j++) {
+        for (let i = i0; i <= i1; i++) {
+          const k = j * w + i;
+          if (blocked[k]) continue;
+          const c = { x: x0 + i * step, y: y0 + j * step };
+          const p: Shape = { t: 'cap', a: c, b: c, r: 0 };
+          for (const s of shapes) {
+            if (coreDistance(p, s).d - s.r < reach) {
+              blocked[k] = 1;
+              break;
+            }
+          }
+        }
+      }
+    };
+    for (const other of this.items) {
+      if (other.net === net || !other.layers.has(layer)) continue;
+      mark(other.shapes, other.box, this.rules.clearance('wire', other.kind) + half + slack);
+    }
+    const dim = this.rules.copperDimension + half + slack;
+    const outline: [Point, Point][] = [];
+    for (const e of this.edges) {
+      mark(e.shapes, e.box, dim);
+      for (const s of e.shapes) if (s.t === 'cap' && s.r < 1) outline.push([s.a, s.b]);
+    }
+    // Outside the outline (when it encloses anything): odd-even test along each row.
+    if (outline.length >= 3) {
+      for (let j = 0; j < h; j++) {
+        const y = y0 + j * step + 1e-7;
+        const xs: number[] = [];
+        for (const [a, b] of outline) {
+          if ((a.y > y) !== (b.y > y)) xs.push(a.x + ((y - a.y) / (b.y - a.y)) * (b.x - a.x));
+        }
+        xs.sort((p, q) => p - q);
+        for (let i = 0; i < w; i++) {
+          const x = x0 + i * step;
+          let n = 0;
+          for (const v of xs) if (v < x) n++;
+          if (n % 2 === 0) blocked[j * w + i] = 1;
+        }
+      }
+    }
+    return { x0, y0, w, h, step, blocked };
   }
 
   private check(item: Item): Conflict[] {

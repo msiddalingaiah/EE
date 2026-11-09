@@ -39,8 +39,10 @@ native model (see [docs/format.md](docs/format.md)). Eagle files are imported in
   Legs bend at 45°; changing layer adds a via. The route ends on copper of the same net, and
   the airwire it replaces disappears. Width and via drill come from the net class, else the
   board's most common ones. Each leg is checked against other nets' copper and the board edge
-  as you route: a leg or via that would break a clearance rule shows red and isn't placed
-  (Shift+click or Shift+L places it anyway).
+  as you route. When the direct leg would break a clearance rule, the route goes around the
+  obstacles instead (like Eagle's follow-me routing): a 45° path that keeps clear, found on a
+  grid an eighth of the routing grid. Where there is no way through, the leg shows red and
+  isn't placed (Shift+click places the direct leg anyway; Shift+L a via).
 - **Design-rule check** (board): the Design rules panel checks copper clearance between
   nets (Eagle's wire/pad/SMD/via distances), shorts, minimum trace width and drill, and copper
   near the board edge or holes. Problems are listed and marked on the board; clicking one zooms
@@ -123,7 +125,8 @@ OSPREY_CORPUS=~/designs npx vitest run -t corpus
 - `src/edit/`: undoable operations and history (`ops.ts`), move/rotate/mirror with
   rubber-banding (`transform.ts`), delete (`delete.ts`), property edits (`properties.ts`) and
   adding parts (`place.ts`), wires, which join nets (`wire.ts`), copy and paste (`clipboard.ts`),
-  routing traces (`route.ts`) and loading design rules (`rules.ts`)
+  routing traces (`route.ts`, with `walkaround.ts` finding paths around obstacles) and loading
+  design rules (`rules.ts`)
 - `src/scene/`: turns the model into drawable primitives in world space (mm, y-up), each tagged
   with its **owner**, the selectable object: `schematic.ts`, `board.ts`, `library.ts`, with
   shared `builder.ts` (graphics, pads, text) and `symbol.ts` (symbols and pins)
