@@ -238,7 +238,10 @@ What is **derived, not stored**:
 - **Implicit power connections:** supply pins not wired anywhere join the net named after
   the pin (Eagle's rule), as today.
 - **Airwires** (Eagle's layer-19 "unrouted" wires): the ratsnest is computed from pads and
-  traces, and regenerated on export. Eagle's stored airwires are not imported.
+  traces, and regenerated on export. Eagle's stored airwires are not imported. As in Eagle,
+  copper connects through traces, vias (including a via on a pad) and pours, not through
+  overlapping pads. Until poured copper is computed, a pour counts as its whole outline, so
+  a pour that Eagle splits into islands can show fewer airwires than Eagle would.
 
 ### Busses
 

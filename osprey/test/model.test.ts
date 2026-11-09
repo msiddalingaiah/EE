@@ -7,6 +7,7 @@ import { netPads, ProjectIndex } from '../src/model/derive';
 import { OspreyFormatError, readProject, writeProject } from '../src/model/file';
 import { importEagle } from '../src/model/import-eagle';
 import { layerName, layerNumber } from '../src/model/layers';
+import { ratsnest } from '../src/model/ratsnest';
 
 const raw = (name: string) => readFileSync(join(__dirname, '..', 'samples', 'eagle', name), 'utf8');
 const importSample = () =>
@@ -187,4 +188,22 @@ describe.skipIf(!corpus || !existsSync(corpus))('corpus', () => {
     expect(count).toBeGreaterThan(0);
     expect(failures).toEqual([]);
   }, 300_000);
+
+  it('computes the same airwires as Eagle stored, for every net without a pour', () => {
+    // Pours are approximated by their outline (the poured copper isn't computed), so nets
+    // with pours may differ where Eagle's pour is split into islands.
+    const failures: string[] = [];
+    for (const [s, b] of pairs(corpus!)) {
+      const bf = parseEagle(readFileSync(b, 'utf8'));
+      const { project } = importEagle([{ name: 's.sch', file: parseEagle(readFileSync(s, 'utf8')) }, { name: 'b.brd', file: bf }]);
+      const ours = new Map<string, number>();
+      for (const a of ratsnest(project)) ours.set(a.net, (ours.get(a.net) ?? 0) + 1);
+      for (const sig of bf.board!.signals) {
+        if (sig.polygons.length) continue;
+        const eagle = sig.wires.filter((w) => w.layer === 19).length;
+        if ((ours.get(sig.name) ?? 0) !== eagle) failures.push(`${b} ${sig.name}: Eagle ${eagle}, ours ${ours.get(sig.name) ?? 0}`);
+      }
+    }
+    expect(failures).toEqual([]);
+  }, 600_000);
 });
