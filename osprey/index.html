@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Osprey</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <header class="toolbar">
+      <span class="brand">Osprey</span>
+      <button id="open-btn" type="button" title="Open an Eagle .sch, .brd or .lbr file (or drop one on the canvas)">Open…</button>
+      <input id="file-input" type="file" accept=".sch,.brd,.lbr" hidden />
+      <label class="field">
+        <span>Sample</span>
+        <select id="sample-select"></select>
+      </label>
+      <label class="field" id="sheet-field" hidden>
+        <span>Sheet</span>
+        <select id="sheet-select"></select>
+      </label>
+      <button id="fit-btn" type="button" title="Zoom to fit (F)">Fit</button>
+      <span id="doc-title" class="doc-title"></span>
+    </header>
+
+    <main class="workspace">
+      <aside class="panel left">
+        <section id="library-panel" hidden>
+          <h2>Library</h2>
+          <input id="library-filter" type="search" placeholder="Filter…" />
+          <div id="library-list" class="library-list"></div>
+        </section>
+        <section id="layers-panel">
+          <h2>
+            Layers
+            <span class="panel-actions">
+              <button id="layers-all" type="button">All</button>
+              <button id="layers-none" type="button">None</button>
+            </span>
+          </h2>
+          <ul id="layer-list" class="layer-list"></ul>
+        </section>
+      </aside>
+
+      <div id="stage" class="stage">
+        <canvas id="canvas"></canvas>
+        <div id="error" class="error" hidden></div>
+        <div id="drop-overlay" class="drop-overlay" hidden>Drop an Eagle file to open it</div>
+      </div>
+
+      <aside class="panel right">
+        <h2>Selection</h2>
+        <div id="inspector"></div>
+      </aside>
+    </main>
+
+    <footer class="status">
+      <span id="status-pos"></span>
+      <span id="status-zoom"></span>
+      <span id="status-sel"></span>
+      <span class="status-hint">Click to select · Shift/Ctrl adds · drag to box-select · wheel zooms · right/middle-drag pans · F fits · Esc clears</span>
+    </footer>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
