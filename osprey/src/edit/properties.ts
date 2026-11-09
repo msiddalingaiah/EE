@@ -1,15 +1,14 @@
-// Property edits: rename parts and nets, change values, smash/unsmash part labels.
-// Each updates the schematic and the board together when both are open. Validation runs
-// first and returns a message instead of changing anything when the edit isn't allowed.
+// Property edits on the native model: rename parts and nets, change values, smash/unsmash.
+// Each part and net is stored once, so a rename updates its references in one place each,
+// and schematic and board stay in step by construction. Validation runs first and returns
+// a message instead of changing anything when the edit isn't allowed.
 
-import { domOf, fmtCoord } from '../eagle/dom';
-import { findLibrary } from '../eagle/parse';
-import type { Board, Element, Instance, PlacedAttribute, Schematic, Text } from '../eagle/types';
-import type { Transform } from '../geom/transform';
-import { apply, composeRotation, placement } from '../geom/transform';
-import { mirrorLayer } from '../scene/board';
-import { rotAttr } from './common';
-import { insertChild, removeItem, renameMapKey, setFields, type Transaction } from './ops';
+import { composeRotation } from '../geom/transform';
+import { componentName, ProjectIndex } from '../model/derive';
+import { footprintTransform, gateTransform, mirrorLayer, rotation } from '../model/geometry';
+import type * as O from '../model/types';
+import { apply } from '../geom/transform';
+import { dropIfEmpty, insert, remove, set, type Transaction } from './ops';
 
 /** Eagle stores part and net names in upper case and doesn't allow white space in them. */
 export function normalizeName(raw: string): string {
@@ -22,142 +21,77 @@ function nameProblem(name: string, what: string): string | undefined {
   return undefined;
 }
 
-export interface Docs {
-  sch: Schematic | undefined;
-  brd: Board | undefined;
-}
-
-export interface Touched {
-  schematic: boolean;
-  board: boolean;
-}
-
-// ---------------------------------------------------------------------------
-// Part name
-
-/**
- * Rename a part everywhere it is referenced: the schematic part, its gates and pinrefs,
- * and the board element and its contactrefs. Returns an error message, or undefined.
- */
-export function renamePart(docs: Docs, oldName: string, raw: string, tx: Transaction): string | Touched {
+/** Rename a part and every reference to it. Returns an error message, or undefined. */
+export function renamePart(project: O.Project, oldName: string, raw: string, tx: Transaction): string | undefined {
   const name = normalizeName(raw);
   const problem = nameProblem(name, 'part');
   if (problem) return problem;
-  if (name === oldName) return { schematic: false, board: false };
-  const taken = docs.sch?.parts.has(name) || docs.brd?.elements.some((e) => e.name === name);
-  if (taken) return `There is already a part named ${name}`;
+  if (name === oldName) return undefined;
+  if (project.parts.some((p) => p.name === name)) return `There is already a part named ${name}`;
+  const part = project.parts.find((p) => p.name === oldName);
+  if (!part) return `No part named ${oldName}`;
 
-  const touched = { schematic: false, board: false };
-  const { sch, brd } = docs;
-  if (sch?.parts.has(oldName)) {
-    const part = sch.parts.get(oldName)!;
-    tx.run(renameMapKey(sch.parts, oldName, name));
-    tx.run(setFields(part, { name }, { name }));
-    for (const sheet of sch.sheets) {
-      for (const inst of sheet.instances) if (inst.part === oldName) tx.run(setFields(inst, { part: name }, { part: name }));
-      for (const net of [...sheet.nets, ...sheet.busses]) {
-        for (const seg of net.segments) {
-          for (const pr of seg.pinrefs) if (pr.part === oldName) tx.run(setFields(pr, { part: name }, { part: name }));
-        }
-      }
-    }
-    touched.schematic = true;
+  tx.run(set(part, { name }));
+  for (const sheet of project.schematic?.sheets ?? []) {
+    for (const g of sheet.gates) if (g.part === oldName) tx.run(set(g, { part: name }));
   }
-  const el = brd?.elements.find((e) => e.name === oldName);
-  if (brd && el) {
-    tx.run(setFields(el, { name }, { name }));
-    for (const s of brd.signals) {
-      for (const cr of s.contactrefs) if (cr.element === oldName) tx.run(setFields(cr, { element: name }, { element: name }));
-    }
-    touched.board = true;
+  for (const f of project.board?.footprints ?? []) if (f.part === oldName) tx.run(set(f, { part: name }));
+  for (const net of project.nets) {
+    for (const seg of net.segments ?? []) for (const pr of seg.pins) if (pr.part === oldName) tx.run(set(pr, { part: name }));
+    for (const pad of net.pads ?? []) if (pad.part === oldName) tx.run(set(pad, { part: name }));
   }
-  return touched;
+  return undefined;
 }
 
-// ---------------------------------------------------------------------------
-// Value
-
-/**
- * Set a part's value in the schematic and on the board. Parts whose device set fixes the
- * value (e.g. 74*151 → 74LS151D) can't take a user value, as in Eagle.
- */
-export function setPartValue(docs: Docs, partName: string, value: string, tx: Transaction): string | Touched {
-  const { sch, brd } = docs;
-  const part = sch?.parts.get(partName);
-  if (sch && part) {
-    const ds = findLibrary(sch.libraries, part.library, part.libraryUrn)?.devicesets.get(part.deviceset);
-    if (ds && !ds.uservalue) return `${partName}'s value is fixed by its device (${ds.name}); change the device instead`;
-  }
-  const touched = { schematic: false, board: false };
-  if (part && part.value !== value) {
-    tx.run(setFields(part, { value }, { value }));
-    touched.schematic = true;
-  }
-  const el = brd?.elements.find((e) => e.name === partName);
-  if (el && el.value !== value) {
-    tx.run(setFields(el, { value }, { value }));
-    touched.board = true;
-  }
-  return touched;
+/** Set a part's value. Parts whose component fixes the value (e.g. 74*151 → 74LS151D) refuse, as in Eagle. */
+export function setPartValue(project: O.Project, partName: string, value: string, tx: Transaction, index = new ProjectIndex(project)): string | undefined {
+  const part = index.parts.get(partName);
+  if (!part) return `No part named ${partName}`;
+  const component = index.components.get(part.component);
+  const fixed = component && !component.userValue && component.gates.length > 0;
+  if (fixed) return `${partName}'s value is fixed by its component (${componentName(component.id)}); change the variant instead`;
+  if (part.value !== value) tx.run(set(part, { value }));
+  return undefined;
 }
 
-// ---------------------------------------------------------------------------
-// Net name
-
 /**
- * Rename a net: every schematic net of that name (on all sheets) and the board signal.
- * Refused when the new name is taken (that would merge nets, a connectivity change) or
- * when the net's name comes from a supply symbol or implicit power pins.
+ * Rename a net. Refused when the new name is taken (that would join nets, a connectivity
+ * change) or when the net's name comes from a supply symbol or implicit power pins.
  */
-export function renameNet(docs: Docs, oldName: string, raw: string, tx: Transaction): string | Touched {
+export function renameNet(project: O.Project, oldName: string, raw: string, tx: Transaction, index = new ProjectIndex(project)): string | undefined {
   const name = normalizeName(raw);
   const problem = nameProblem(name, 'net');
   if (problem) return problem;
-  const { sch, brd } = docs;
-  if (name === oldName) return { schematic: false, board: false };
-  const schTaken = sch?.sheets.some((s) => s.nets.some((n) => n.name === name));
-  const brdTaken = brd?.signals.some((s) => s.name === name);
-  if (schTaken || brdTaken) return `Net ${name} already exists; joining nets isn't supported yet`;
-  if (sch) {
-    const supply = supplyReason(sch, oldName);
-    if (supply) return supply;
-  }
+  if (name === oldName) return undefined;
+  if (project.nets.some((n) => n.name === name)) return `Net ${name} already exists; joining nets isn't supported yet`;
+  const net = project.nets.find((n) => n.name === oldName);
+  if (!net) return `No net named ${oldName}`;
+  const supply = supplyReason(project, net, index);
+  if (supply) return supply;
+  tx.run(set(net, { name }));
+  return undefined;
+}
 
-  const touched = { schematic: false, board: false };
-  for (const sheet of sch?.sheets ?? []) {
-    for (const net of sheet.nets) {
-      if (net.name !== oldName) continue;
-      tx.run(setFields(net, { name }, { name }));
-      touched.schematic = true;
-    }
-  }
-  for (const s of brd?.signals ?? []) {
-    if (s.name !== oldName) continue;
-    tx.run(setFields(s, { name }, { name }));
-    touched.board = true;
-  }
-  return touched;
+function pinOf(index: ProjectIndex, partName: string, gateName: string, pinName: string): O.Pin | undefined {
+  const component = index.components.get(index.parts.get(partName)?.component ?? '');
+  const gate = component?.gates.find((g) => g.name === gateName);
+  return gate ? index.symbols.get(gate.symbol)?.pins.find((p) => p.name === pinName) : undefined;
 }
 
 /** Why a net's name is fixed by power connections, if it is. */
-function supplyReason(sch: Schematic, netName: string): string | undefined {
-  for (const sheet of sch.sheets) {
-    for (const net of sheet.nets.filter((n) => n.name === netName)) {
-      for (const seg of net.segments) {
-        for (const pr of seg.pinrefs) {
-          const pin = pinOf(sch, pr.part, pr.gate, pr.pin);
-          if (pin?.direction === 'sup') return `${netName} is named by its supply symbol (${pr.part}); it can't be renamed`;
-        }
+function supplyReason(project: O.Project, net: O.Net, index: ProjectIndex): string | undefined {
+  for (const seg of net.segments ?? []) {
+    for (const pr of seg.pins) {
+      if (pinOf(index, pr.part, pr.gate, pr.pin)?.direction === 'supply') {
+        return `${net.name} is named by its supply symbol (${pr.part}); it can't be renamed`;
       }
     }
   }
-  // Unwired power pins join the net with their own name.
-  for (const part of sch.parts.values()) {
-    const lib = findLibrary(sch.libraries, part.library, part.libraryUrn);
-    for (const gate of lib?.devicesets.get(part.deviceset)?.gates ?? []) {
-      for (const pin of lib?.symbols.get(gate.symbol)?.pins ?? []) {
-        if (pin.direction === 'pwr' && pin.name.replace(/@.*$/, '') === netName) {
-          return `${netName} is a supply net (power pins of ${part.name} connect to it by name); it can't be renamed`;
+  for (const part of project.parts) {
+    for (const gate of index.components.get(part.component)?.gates ?? []) {
+      for (const pin of index.symbols.get(gate.symbol)?.pins ?? []) {
+        if (pin.direction === 'power' && pin.name.replace(/@.*$/, '') === net.name) {
+          return `${net.name} is a supply net (power pins of ${part.name} connect to it by name); it can't be renamed`;
         }
       }
     }
@@ -165,83 +99,65 @@ function supplyReason(sch: Schematic, netName: string): string | undefined {
   return undefined;
 }
 
-function pinOf(sch: Schematic, partName: string, gateName: string, pinName: string) {
-  const part = sch.parts.get(partName);
-  const lib = part && findLibrary(sch.libraries, part.library, part.libraryUrn);
-  const gate = lib?.devicesets.get(part!.deviceset)?.gates.find((g) => g.name === gateName);
-  return gate && lib?.symbols.get(gate.symbol)?.pins.find((p) => p.name === pinName);
-}
-
 // ---------------------------------------------------------------------------
 // Smash / unsmash
 
 /**
- * Smash a gate or element: give its name/value (and attribute) placeholders their own
- * positioned texts, where they are drawn now, so they can be moved independently.
+ * Smash a gate or footprint: give its name/value (and attribute) placeholders their own
+ * labels, where they are drawn now, so they can be moved independently.
  */
-export function smash(docs: Docs, target: Instance | Element, tx: Transaction): boolean {
-  if (target.smashed) return false;
-  const placeholders = placeholderTexts(docs, target);
-  if (!placeholders) return false;
-  const { texts, T, mirrored } = placeholders;
-  const have = new Set(target.attributes.map((a) => a.name.toUpperCase()));
+export function smash(project: O.Project, placement: O.GatePlacement | O.FootprintPlacement, tx: Transaction, index = new ProjectIndex(project)): boolean {
+  if (placement.smashed || placement.labels?.length) return false;
+  const isGate = 'gate' in placement;
+  let texts: O.TextShape[] = [];
+  if (isGate) {
+    const component = index.components.get(index.parts.get(placement.part)?.component ?? '');
+    const gate = component?.gates.find((g) => g.name === (placement as O.GatePlacement).gate);
+    texts = (gate ? index.symbols.get(gate.symbol)?.graphics ?? [] : []).filter((g): g is O.TextShape => 'text' in g);
+  } else {
+    const part = index.parts.get(placement.part);
+    const fpId = part && index.variantOf(part)?.footprint;
+    texts = (fpId ? index.footprints.get(fpId)?.graphics ?? [] : []).filter((g): g is O.TextShape => 'text' in g);
+  }
+  texts = texts.filter((t) => t.text.startsWith('>'));
+  if (!texts.length) return false;
+
+  const T = isGate ? gateTransform(placement as O.GatePlacement) : footprintTransform(placement as O.FootprintPlacement);
+  const bottom = !isGate && (placement as O.FootprintPlacement).side === 'bottom';
+  const labels: O.Label[] = [];
+  const seen = new Set<string>();
   for (const t of texts) {
-    const name = t.text.slice(1).trim().toUpperCase();
-    if (have.has(name)) continue;
-    have.add(name);
-    const p = apply(T, t.x, t.y);
-    const rot = composeRotation(T, t.rot);
-    const layer = mirrored ? mirrorLayer(t.layer) : t.layer;
-    const attr: PlacedAttribute = {
-      name, value: undefined, x: p.x, y: p.y, size: t.size, layer, rot, ratio: t.ratio,
-      align: t.align, display: 'value',
+    const attr = t.text.slice(1).trim().toUpperCase();
+    if (seen.has(attr)) continue;
+    seen.add(attr);
+    const p = apply(T, t.at[0], t.at[1]);
+    const r = composeRotation(T, rotation(t.rot, t.mirror, t.spin));
+    const l: O.Label = {
+      attr,
+      at: [Math.round(p.x * 1e6) / 1e6, Math.round(p.y * 1e6) / 1e6],
+      size: t.size,
+      layer: bottom ? mirrorLayer(t.layer) : t.layer,
     };
-    const attrs: Record<string, string> = {
-      name, x: fmtCoord(p.x), y: fmtCoord(p.y), size: fmtCoord(t.size), layer: String(layer),
-    };
-    if (t.ratio !== 8) attrs.ratio = String(t.ratio);
-    const r = rotAttr(rot);
-    if (r) attrs.rot = r;
-    if (t.align !== 'bottom-left') attrs.align = t.align;
-    tx.run(insertChild(target.attributes, attr, domParent(target), 'attribute', attrs));
+    if (r.angle) l.rot = r.angle;
+    if (r.mirror) l.mirror = true;
+    if (t.spin) l.spin = true;
+    if (t.ratio !== undefined) l.ratio = t.ratio;
+    if (t.align) l.align = t.align;
+    if (t.font) l.font = t.font;
+    labels.push(l);
   }
-  tx.run(setFields(target as { smashed: boolean }, { smashed: true }, { smashed: 'yes' }));
+  if (!placement.labels) tx.run(set(placement, { labels: [] }));
+  for (const l of labels) tx.run(insert(placement.labels!, l));
+  tx.run(set(placement, { smashed: true }));
   return true;
 }
 
-/** Unsmash: drop the positioned name/value texts so the part's own placeholders show again. */
-export function unsmash(target: Instance | Element, tx: Transaction): boolean {
-  if (!target.smashed) return false;
-  // Positioned attributes without a value of their own are just label placements.
-  for (const a of target.attributes.filter((x) => x.value === undefined && x.x !== undefined)) {
-    tx.run(removeItem(target.attributes, a));
-  }
-  tx.run(setFields(target as { smashed: boolean }, { smashed: false }, { smashed: null }));
+/** Unsmash: drop the placed name/value labels so the part's own placeholders show again. */
+export function unsmash(placement: O.GatePlacement | O.FootprintPlacement, tx: Transaction): boolean {
+  if (!placement.smashed && !placement.labels?.length) return false;
+  // Labels carrying their own value are attribute data, not just placements: keep them.
+  for (const l of (placement.labels ?? []).filter((x) => x.value === undefined)) tx.run(remove(placement.labels!, l));
+  if (placement.labels) tx.run(dropIfEmpty(placement, 'labels'));
+  tx.run(set(placement, { smashed: undefined }));
   return true;
-}
-
-function domParent(obj: object): globalThis.Element {
-  const el = domOf(obj);
-  if (!el) throw new Error('Object is not linked to the document');
-  return el;
-}
-
-/** Placeholder texts (">NAME", ">VALUE", attributes) of a gate's symbol or element's package. */
-function placeholderTexts(docs: Docs, target: Instance | Element): { texts: Text[]; T: Transform; mirrored: boolean } | undefined {
-  const isText = (g: { kind: string }): g is Text => g.kind === 'text';
-  if ('gate' in target) {
-    const sch = docs.sch;
-    const part = sch?.parts.get(target.part);
-    const lib = part && findLibrary(sch!.libraries, part.library, part.libraryUrn);
-    const gate = lib?.devicesets.get(part!.deviceset)?.gates.find((g) => g.name === target.gate);
-    const symbol = gate && lib?.symbols.get(gate.symbol);
-    if (!symbol) return undefined;
-    const texts = symbol.graphics.filter(isText).filter((t) => t.text.startsWith('>'));
-    return { texts, T: placement(target.x, target.y, target.rot), mirrored: false };
-  }
-  const brd = docs.brd;
-  const pkg = brd && findLibrary(brd.libraries, target.library, target.libraryUrn)?.packages.get(target.package);
-  if (!pkg) return undefined;
-  const texts = pkg.graphics.filter(isText).filter((t) => t.text.startsWith('>'));
-  return { texts, T: placement(target.x, target.y, target.rot), mirrored: target.rot.mirror };
 }

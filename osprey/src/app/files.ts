@@ -13,11 +13,9 @@ interface FsWindow {
 }
 
 const PICKER_TYPES = [
-  {
-    description: 'Eagle files',
-    accept: { 'application/xml': ['.sch', '.brd', '.lbr'] },
-  },
+  { description: 'Osprey projects and Eagle files', accept: { 'application/octet-stream': ['.osprey', '.sch', '.brd', '.lbr'] } },
 ];
+const SAVE_TYPES = [{ description: 'Osprey project', accept: { 'application/json': ['.osprey'] } }];
 
 export interface OpenedFile {
   name: string;
@@ -61,7 +59,7 @@ export async function saveFile(
   const w = window as FsWindow;
   try {
     if (!handle && typeof w.showSaveFilePicker === 'function') {
-      handle = await w.showSaveFilePicker({ suggestedName: name, types: PICKER_TYPES });
+      handle = await w.showSaveFilePicker({ suggestedName: name, types: SAVE_TYPES });
     }
     if (handle) {
       const out = await handle.createWritable();
@@ -73,7 +71,7 @@ export async function saveFile(
     if (e instanceof DOMException && e.name === 'AbortError') return undefined;
     throw e;
   }
-  const url = URL.createObjectURL(new Blob([text], { type: 'application/xml' }));
+  const url = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
   const a = document.createElement('a');
   a.href = url;
   a.download = name;

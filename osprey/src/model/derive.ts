@@ -2,17 +2,19 @@
 // which board pads each net connects, including Eagle's implicit power connections.
 
 import { generatedValue } from '../eagle/parse';
-import type { Component, Net, Part, Project, Symbol, Variant } from './types';
+import type { Component, Footprint, Net, Part, Project, Symbol, Variant } from './types';
 
 /** Lookup tables for a project's library and parts. */
 export class ProjectIndex {
   readonly components = new Map<string, Component>();
   readonly symbols = new Map<string, Symbol>();
+  readonly footprints = new Map<string, Footprint>();
   readonly parts = new Map<string, Part>();
 
   constructor(readonly project: Project) {
     for (const c of project.library.components) this.components.set(c.id, c);
     for (const s of project.library.symbols) this.symbols.set(s.id, s);
+    for (const f of project.library.footprints) this.footprints.set(f.id, f);
     for (const p of project.parts) this.parts.set(p.name, p);
   }
 

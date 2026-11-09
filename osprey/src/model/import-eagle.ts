@@ -179,6 +179,15 @@ export function importEagle(sources: ImportSource[], date = new Date().toISOStri
   return { project, report };
 }
 
+/** Import an Eagle library (.lbr) as a native library, keyed by the library's file name. */
+export function importLibrary(name: string, file: E.EagleFile): O.Library {
+  if (!file.library) throw new Error(`${name} is not an Eagle library`);
+  const builder = new LibraryBuilder([]);
+  // A .lbr file's <library> element has no name; the file name stands in for it.
+  builder.addSchematicLibrary({ ...file.library, name: file.library.name || name.replace(/\.[^.]*$/, '') });
+  return builder.result();
+}
+
 // ---------------------------------------------------------------------------
 // Library
 

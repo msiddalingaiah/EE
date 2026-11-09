@@ -1,82 +1,80 @@
-// Build a Scene showing one item (symbol, package or device set) from a library.
+// Build a Scene showing one item (component, symbol or footprint) of a library (native model).
 
-import type { EagleFile } from '../eagle/types';
-import type { Transform } from '../geom/transform';
+import type { Layer } from '../eagle/types';
 import { IDENTITY, placement } from '../geom/transform';
+import { componentName } from '../model/derive';
+import type * as O from '../model/types';
 import { DesignRules } from './board';
 import { SceneBuilder, type EmitContext } from './builder';
+import { splitPinKey } from './schematic';
 import { buildSymbolInto } from './symbol';
 import type { Scene } from './types';
 
-export type LibraryItemKind = 'deviceset' | 'symbol' | 'package';
+export type LibraryItemKind = 'component' | 'symbol' | 'footprint';
 
 export interface LibraryItemRef {
   kind: LibraryItemKind;
-  name: string;
+  /** Item id ("library/name"). */
+  id: string;
 }
 
-
-export function buildLibraryScene(file: EagleFile, item: LibraryItemRef): Scene {
-  const lib = file.library;
-  if (!lib) throw new Error('Not a library');
-  const b = new SceneBuilder('library', file.layers);
-  const id = `library-item:${item.kind}:${item.name}`;
+export function buildLibraryScene(lib: O.Library, layers: Layer[], item: LibraryItemRef): Scene {
+  const b = new SceneBuilder('library', layers);
+  const owner = `library-item:${item.kind}:${item.id}`;
+  const name = componentName(item.id);
 
   switch (item.kind) {
     case 'symbol': {
-      const sym = lib.symbols.get(item.name);
+      const sym = lib.symbols.find((s) => s.id === item.id);
       if (!sym) break;
       b.addOwner({
-        id, kind: 'library-item', label: `Symbol ${sym.name}`,
-        props: [['Symbol', sym.name], ['Pins', String(sym.pins.length)], ['Description', plain(sym.description)]],
+        id: owner, kind: 'library-item', label: `Symbol ${name}`,
+        props: [['Symbol', name], ['Pins', String(sym.pins.length)], ['Description', plain(sym.description)]],
       });
-      buildSymbolInto(b, sym, IDENTITY, id, new Map(), (t) => t);
+      buildSymbolInto(b, sym, IDENTITY, owner, new Map(), (t) => t);
       break;
     }
-    case 'package': {
-      const pkg = lib.packages.get(item.name);
-      if (!pkg) break;
+    case 'footprint': {
+      const fp = lib.footprints.find((f) => f.id === item.id);
+      if (!fp) break;
       b.addOwner({
-        id, kind: 'library-item', label: `Package ${pkg.name}`,
-        props: [['Package', pkg.name], ['Pads', String(pkg.pads.length)], ['Description', plain(pkg.description)]],
+        id: owner, kind: 'library-item', label: `Footprint ${name}`,
+        props: [['Footprint', name], ['Pads', String(fp.pads.length)], ['Description', plain(fp.description)]],
       });
       const rules = new DesignRules(new Map());
-      const ctx: EmitContext = { owner: id, transform: IDENTITY, textContext: 'board' };
-      b.graphics(pkg.graphics, ctx);
-      for (const p of pkg.pads) {
-        if (p.kind === 'smd') b.smd(p, ctx);
-        else {
-          const elong = p.shape === 'long' || p.shape === 'offset' ? rules.elongation(p.shape) : 0;
-          b.pad(p, rules.padDiameter(p.drill, p.diameter), elong, ctx);
-        }
-      }
+      const ctx: EmitContext = { owner, transform: IDENTITY, textContext: 'board' };
+      b.graphics(fp.graphics, ctx);
+      for (const pad of fp.pads) b.pad(pad, ctx, (d, dia) => rules.padDiameter(d, dia), (s) => rules.elongation(s));
       break;
     }
-    case 'deviceset': {
-      const ds = lib.devicesets.get(item.name);
-      if (!ds) break;
-      const device = ds.devices[0];
+    case 'component': {
+      const c = lib.components.find((x) => x.id === item.id);
+      if (!c) break;
+      const variant = c.variants[0];
       b.addOwner({
-        id, kind: 'library-item', label: `Device set ${ds.name}`,
+        id: owner, kind: 'library-item', label: `Component ${name}`,
         props: [
-          ['Device set', ds.name],
-          ['Prefix', ds.prefix],
-          ['Gates', ds.gates.map((g) => g.name).join(', ')],
-          ['Devices', ds.devices.map((d) => `${d.name || "''"}${d.package ? ` (${d.package})` : ''}`).join(', ')],
-          ['Description', plain(ds.description)],
+          ['Component', name],
+          ['Prefix', c.prefix ?? ''],
+          ['Gates', c.gates.map((g) => g.name).join(', ')],
+          ['Variants', c.variants.map((v) => `${v.name || "''"}${v.footprint ? ` (${componentName(v.footprint)})` : ''}`).join(', ')],
+          ['Description', plain(c.description)],
         ],
       });
-      for (const gate of ds.gates) {
-        const sym = lib.symbols.get(gate.symbol);
+      for (const gate of c.gates) {
+        const sym = lib.symbols.find((s) => s.id === gate.symbol);
         if (!sym) continue;
-        const T: Transform = placement(gate.x, gate.y, { angle: 0, mirror: false, spin: false });
         const pads = new Map<string, string>();
-        for (const c of device?.connects ?? []) if (c.gate === gate.name) pads.set(c.pin, c.pads.join(' '));
-        const name = ds.gates.length > 1 ? `${ds.prefix}1${gate.name}` : `${ds.prefix}1`;
-        buildSymbolInto(b, sym, T, id, pads, (t) => {
+        for (const [key, list] of Object.entries(variant?.pads ?? {})) {
+          const [g, pin] = splitPinKey(key);
+          if (g === gate.name) pads.set(pin, list.join(' '));
+        }
+        const prefix = c.prefix ?? '';
+        const shown = c.gates.length > 1 ? `${prefix}1${gate.name}` : `${prefix}1`;
+        buildSymbolInto(b, sym, placement(gate.at[0], gate.at[1], { angle: 0, mirror: false, spin: false }), owner, pads, (t) => {
           const k = t.toUpperCase();
-          if (k === '>NAME') return name;
-          if (k === '>VALUE') return ds.name;
+          if (k === '>NAME') return shown;
+          if (k === '>VALUE') return name;
           if (k === '>GATE') return gate.name;
           return t;
         });
@@ -87,7 +85,7 @@ export function buildLibraryScene(file: EagleFile, item: LibraryItemRef): Scene 
   return b.finish();
 }
 
-/** Strip HTML tags from Eagle descriptions for display. */
-function plain(html: string): string {
-  return html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 200);
+/** Strip HTML tags from descriptions for display. */
+function plain(html: string | undefined): string {
+  return (html ?? '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 200);
 }

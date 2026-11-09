@@ -1,7 +1,7 @@
-// Text helpers: placeholder substitution and formatting.
+// Text helpers: placeholder substitution, smashed labels, and formatting.
 
 import { objId } from '../eagle/dom';
-import type { Element, Instance, PlacedAttribute, Rotation } from '../eagle/types';
+import type * as O from '../model/types';
 import type { Owner } from './types';
 
 /**
@@ -17,13 +17,13 @@ export function placeholderResolver(values: Record<string, string>): (text: stri
   };
 }
 
-/** The visible text of a smashed attribute according to its display mode. */
-export function placedAttributeText(a: PlacedAttribute, value: string | undefined): string | undefined {
-  switch (a.display) {
-    case 'off': return undefined;
-    case 'name': return a.name;
-    case 'both': return `${a.name} = ${value ?? ''}`;
-    case 'value': return value || undefined;
+/** The visible text of a smashed label according to its display mode. */
+export function labelText(l: O.Label, value: string | undefined): string | undefined {
+  switch (l.display) {
+    case 'none': return undefined;
+    case 'name': return l.attr;
+    case 'both': return `${l.attr} = ${value ?? ''}`;
+    default: return value || undefined;
   }
 }
 
@@ -35,27 +35,27 @@ export function fmtXY(x: number, y: number): string {
   return `(${fmtNum(x)}, ${fmtNum(y)}) mm`;
 }
 
-export function fmtRot(r: Rotation): string {
-  return `${r.spin ? 'S' : ''}${r.mirror ? 'M' : ''}R${fmtNum(r.angle)}`;
+export function fmtRot(rot: number | undefined, mirror?: boolean, spin?: boolean): string {
+  return `${spin ? 'S' : ''}${mirror ? 'M' : ''}R${fmtNum(rot ?? 0)}`;
 }
 
 /** Owner for a smashed name/value text of a part. */
-export function attributeOwner(
-  a: PlacedAttribute, partName: string, doc: 'schematic' | 'board', parent: Instance | Element,
+export function labelOwner(
+  l: O.Label, partName: string, doc: 'schematic' | 'board', placement: O.GatePlacement | O.FootprintPlacement,
 ): Owner {
   return {
-    id: `attribute:${objId(a)}`,
-    kind: 'attribute',
-    label: `${partName} ${a.name.toLowerCase()}`,
+    id: `label:${objId(l)}`,
+    kind: 'label',
+    label: `${partName} ${l.attr.toLowerCase()}`,
     props: [
       ['Part', partName],
-      ['Attribute', a.name],
-      ['Position', fmtXY(a.x ?? 0, a.y ?? 0)],
-      ['Rotation', fmtRot(a.rot)],
-      ['Size', `${fmtNum(a.size ?? 0)} mm`],
-      ['Layer', String(a.layer ?? '')],
+      ['Attribute', l.attr],
+      ['Position', fmtXY(l.at[0], l.at[1])],
+      ['Rotation', fmtRot(l.rot, l.mirror, l.spin)],
+      ['Size', `${fmtNum(l.size)} mm`],
+      ['Layer', l.layer],
     ],
-    target: { kind: 'attribute', doc, parent, attribute: a },
-    origin: { x: a.x ?? 0, y: a.y ?? 0 },
+    target: { kind: 'label', doc, placement, label: l },
+    origin: { x: l.at[0], y: l.at[1] },
   };
 }

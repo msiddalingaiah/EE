@@ -71,7 +71,7 @@ export function pick(index: SceneIndex, p: Point, tol: number, visible: (layer: 
   let body: { owner: string; area: number } | undefined;
   for (const [owner, b] of index.ownerBounds) {
     const kind = index.scene.owners.get(owner)?.kind;
-    if (kind !== 'instance' && kind !== 'element') continue;
+    if (kind !== 'gate' && kind !== 'footprint') continue;
     if (p.x < b.minX || p.x > b.maxX || p.y < b.minY || p.y > b.maxY) continue;
     const ids = index.ownerPrims.get(owner) ?? [];
     // Body = the extent of the owner's non-text graphics (labels can sit far away).
@@ -104,7 +104,7 @@ export function pickBox(
     // Parts count as inside when their origin is (as in Eagle), so a name or value
     // text sticking out of the box doesn't silently leave the part behind.
     const o = index.scene.owners.get(owner);
-    if (!crossing && o?.origin && (o.kind === 'instance' || o.kind === 'element')) {
+    if (!crossing && o?.origin && (o.kind === 'gate' || o.kind === 'footprint')) {
       if (o.origin.x >= box.minX && o.origin.x <= box.maxX && o.origin.y >= box.minY && o.origin.y <= box.maxY) out.push(owner);
       continue;
     }

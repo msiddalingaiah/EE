@@ -1,20 +1,15 @@
-// Editing controller: turns selected targets + a verb into undoable transactions.
-// Works on a project (schematic and/or board): geometry edits apply to the document the
-// targets live in; netlist edits (delete) are annotated to the other document too.
+// Editing controller: turns selected targets + a verb into undoable transactions on the
+// native project. Schematic and board are one model, so every command keeps them in step.
 
-import { gridSpacing, serializeEagle } from '../eagle/parse';
-import type { EagleFile } from '../eagle/types';
-import { isEditable, transformBoardTargets } from '../edit/board';
-import { mirrorAbout, rotationAbout, translation } from '../edit/common';
-import { History, Transaction } from '../edit/ops';
-import { transformSchematicTargets } from '../edit/schematic';
-import {
-  renameNet, renamePart, setPartValue, smash, unsmash, type Docs, type Touched,
-} from '../edit/properties';
 import type { Point, Transform } from '../geom/transform';
 import { compose } from '../geom/transform';
-import { deletableTargets, deleteAnnotated, splitTargets } from '../project/annotate';
-import type { Project } from '../project/project';
+import { ProjectIndex } from '../model/derive';
+import { writeProject } from '../model/file';
+import type { Grid, Project } from '../model/types';
+import { deleteTargets } from '../edit/delete';
+import { History, Transaction } from '../edit/ops';
+import { renameNet, renamePart, setPartValue, smash, unsmash } from '../edit/properties';
+import { isEditable, mirrorAbout, rotationAbout, transformTargets, translation } from '../edit/transform';
 import type { Target } from '../scene/types';
 
 export class Editor {
@@ -22,101 +17,38 @@ export class Editor {
 
   constructor(readonly project: Project, private readonly onChange: () => void) {}
 
-  private get sch() {
-    return this.project.schematic?.file.schematic;
+  /** A fresh index: the project changes with every edit. */
+  index(): ProjectIndex {
+    return new ProjectIndex(this.project);
   }
 
-  private get brd() {
-    return this.project.board?.file.board;
+  /** Grid spacing in mm of the schematic or board; `alt` = the fine grid (Alt held). */
+  grid(view: 'schematic' | 'board', alt = false): number {
+    const g: Grid | undefined = view === 'board' ? this.project.board?.grid : this.project.schematic?.grid;
+    return (alt ? g?.fine : g?.step) ?? (alt ? 0.127 : 1.27);
   }
 
-  /** Whether the project can be edited (libraries can't yet). */
-  get canEdit(): boolean {
-    return !!(this.sch || this.brd);
-  }
-
-  /** Grid spacing in mm of a document; `alt` = the fine grid (Alt held). */
-  grid(file: EagleFile, alt = false): number {
-    return gridSpacing(file.grid, alt);
-  }
-
-  /** Targets that commands may change (locked board parts are excluded). */
+  /** Targets that commands may change (locked footprints are excluded). */
   editable(targets: Target[]): Target[] {
-    return this.canEdit ? targets.filter(isEditable) : [];
+    return targets.filter(isEditable);
   }
 
   rotate(targets: Target[], pivot: Point, quarterTurns: number): void {
     this.commit(quarterTurns > 0 ? 'Rotate' : 'Rotate clockwise', targets, rotationAbout(pivot, quarterTurns));
   }
 
-  /** Mirror about the vertical line through the pivot (on boards: flip to the other side). */
+  /** Mirror about the vertical line through the pivot (on the board: flip to the other side). */
   mirror(targets: Target[], pivot: Point, verb: string): void {
     this.commit(verb, targets, mirrorAbout(pivot.x));
   }
 
-  /**
-   * Delete targets, keeping schematic and board consistent when both are open.
-   * Returns the names of parts that weren't deleted because their board element is locked.
-   */
+  /** Delete targets; returns the names of parts kept because their footprint is locked. */
   delete(targets: Target[]): string[] {
-    const { ok, locked } = deletableTargets(this.editable(targets), this.brd);
-    if (!ok.length) return locked;
-    const tx = new Transaction(`Delete ${describe(ok)}`);
-    tx.subjects = ok.map(subject);
-    const touched = deleteAnnotated(this.sch, this.brd, ok, tx);
-    if (touched.schematic) tx.files.add(this.project.schematic!.file);
-    if (touched.board) tx.files.add(this.project.board!.file);
+    const tx = new Transaction(`Delete ${describe(targets)}`);
+    tx.subjects = targets.map(subject);
+    const locked = deleteTargets(this.project, targets, tx, this.index());
     this.push(tx);
     return locked;
-  }
-
-  // -------------------------------------------------------------------------
-  // Properties. Each returns an error message when the change isn't allowed.
-
-  renamePart(oldName: string, newName: string): string | undefined {
-    return this.property(`Rename ${oldName}`, (tx) => renamePart(this.docs, oldName, newName, tx));
-  }
-
-  setValue(partName: string, value: string): string | undefined {
-    return this.property(`Set value of ${partName}`, (tx) => setPartValue(this.docs, partName, value, tx));
-  }
-
-  renameNet(oldName: string, newName: string): string | undefined {
-    return this.property(`Rename net ${oldName}`, (tx) => renameNet(this.docs, oldName, newName, tx));
-  }
-
-  /** Smash (detach name/value texts) or unsmash gates and elements. Returns how many changed. */
-  setSmashed(targets: Target[], on: boolean): number {
-    const tx = new Transaction(on ? 'Smash' : 'Unsmash');
-    let n = 0;
-    for (const t of this.editable(targets)) {
-      if (t.kind !== 'instance' && t.kind !== 'element') continue;
-      const obj = t.kind === 'instance' ? t.instance : t.element;
-      const changed = on ? smash(this.docs, obj, tx) : unsmash(obj, tx);
-      if (!changed) continue;
-      n++;
-      tx.subjects.push(obj);
-      tx.files.add(t.kind === 'instance' ? this.project.schematic!.file : this.project.board!.file);
-    }
-    if (n) this.push(tx);
-    return n;
-  }
-
-  private get docs(): Docs {
-    return { sch: this.sch, brd: this.brd };
-  }
-
-  private property(label: string, run: (tx: Transaction) => string | Touched): string | undefined {
-    const tx = new Transaction(label);
-    const result = run(tx);
-    if (typeof result === 'string') {
-      tx.revert();
-      return result;
-    }
-    if (result.schematic) tx.files.add(this.project.schematic!.file);
-    if (result.board) tx.files.add(this.project.board!.file);
-    if (!tx.empty) this.push(tx);
-    return undefined;
   }
 
   /**
@@ -130,7 +62,37 @@ export class Editor {
     return new MoveSession(this, ts, grid, pivot, reference);
   }
 
-  /** Undo the last step; returns the objects it affected (for reselection). */
+  // Properties. Each returns an error message when the change isn't allowed.
+
+  renamePart(oldName: string, newName: string): string | undefined {
+    return this.property(`Rename ${oldName}`, (tx) => renamePart(this.project, oldName, newName, tx));
+  }
+
+  setValue(partName: string, value: string): string | undefined {
+    return this.property(`Set value of ${partName}`, (tx) => setPartValue(this.project, partName, value, tx, this.index()));
+  }
+
+  renameNet(oldName: string, newName: string): string | undefined {
+    return this.property(`Rename net ${oldName}`, (tx) => renameNet(this.project, oldName, newName, tx, this.index()));
+  }
+
+  /** Smash (detach name/value texts) or unsmash gates and footprints. Returns how many changed. */
+  setSmashed(targets: Target[], on: boolean): number {
+    const tx = new Transaction(on ? 'Smash' : 'Unsmash');
+    const index = this.index();
+    let n = 0;
+    for (const t of this.editable(targets)) {
+      const placement = t.kind === 'gate' ? t.gate : t.kind === 'footprint' ? t.footprint : undefined;
+      if (!placement) continue;
+      if (on ? smash(this.project, placement, tx, index) : unsmash(placement, tx)) {
+        n++;
+        tx.subjects.push(placement);
+      }
+    }
+    if (n) this.push(tx);
+    return n;
+  }
+
   undo(): object[] {
     const tx = this.history.undo();
     if (tx) this.onChange();
@@ -143,35 +105,31 @@ export class Editor {
     return tx?.subjects ?? [];
   }
 
-  isDirty(file: EagleFile): boolean {
-    return this.history.isDirty(file);
+  /** The project as `.osprey` text. */
+  serialize(): string {
+    return writeProject(this.project);
   }
 
-  get anyDirty(): boolean {
-    return this.project.files.some((f) => this.history.isDirty(f.file));
-  }
-
-  serialize(file: EagleFile): string {
-    return serializeEagle(file);
-  }
-
-  /** Apply an edit transform to targets within `tx`, each in the document it belongs to. */
+  /** Apply an edit transform to targets within `tx`. */
   transform(targets: Target[], E: Transform, tx: Transaction): void {
-    const { board, schematic } = splitTargets(targets, this.brd);
-    if (board.length && this.brd) {
-      transformBoardTargets(this.brd, board, E, tx);
-      tx.files.add(this.project.board!.file);
-    }
-    if (schematic.length && this.sch) {
-      transformSchematicTargets(this.sch, schematic, E, tx);
-      tx.files.add(this.project.schematic!.file);
-    }
+    transformTargets(this.project, targets, E, tx, this.index());
   }
 
   /** @internal */
   push(tx: Transaction): void {
     this.history.push(tx);
     this.onChange();
+  }
+
+  private property(label: string, run: (tx: Transaction) => string | undefined): string | undefined {
+    const tx = new Transaction(label);
+    const err = run(tx);
+    if (err) {
+      tx.revert();
+      return err;
+    }
+    if (!tx.empty) this.push(tx);
+    return undefined;
   }
 
   private commit(verb: string, targets: Target[], E: Transform): void {
@@ -197,7 +155,6 @@ export class MoveSession {
   constructor(
     private readonly editor: Editor,
     readonly targets: Target[],
-    /** Grid spacing of the document being edited (`alt` = fine grid). */
     private readonly grid: (alt: boolean) => number,
     /** Rotation and mirroring happen about this point (before the displacement). */
     private readonly pivot: Point,
@@ -216,10 +173,10 @@ export class MoveSession {
     const g = this.grid(fineGrid);
     const snap = (v: number) => Math.round(v / g) * g;
     const r = this.reference ?? { x: 0, y: 0 };
-    const tx = snap(r.x + raw.x) - r.x;
-    const ty = snap(r.y + raw.y) - r.y;
-    if (tx === this.delta.x && ty === this.delta.y) return;
-    this.delta = { x: tx, y: ty };
+    const dx = snap(r.x + raw.x) - r.x;
+    const dy = snap(r.y + raw.y) - r.y;
+    if (dx === this.delta.x && dy === this.delta.y) return;
+    this.delta = { x: dx, y: dy };
     this.preview();
   }
 
@@ -269,16 +226,16 @@ function describe(ts: Target[]): string {
   if (ts.length === 1) {
     const t = ts[0]!;
     switch (t.kind) {
-      case 'element': return t.element.name;
-      case 'signal-wire': return `trace on ${t.signal.name}`;
-      case 'via': return `via on ${t.signal.name}`;
-      case 'signal-polygon': return `polygon on ${t.signal.name}`;
-      case 'instance': return t.instance.part;
-      case 'net-wire': return `wire on ${t.net.name}`;
+      case 'gate': return t.gate.part;
+      case 'footprint': return t.footprint.part;
+      case 'wire': return `wire on ${t.net.name}`;
       case 'junction': return `junction on ${t.net.name}`;
-      case 'label': return `label ${t.net.name}`;
-      case 'plain': return t.graphic.kind;
-      case 'attribute': return `${'gate' in t.parent ? t.parent.part : t.parent.name} ${t.attribute.name.toLowerCase()}`;
+      case 'netlabel': return `label ${t.net.name}`;
+      case 'trace': return `trace on ${t.net.name}`;
+      case 'via': return `via on ${t.net.name}`;
+      case 'pour': return `pour on ${t.net.name}`;
+      case 'drawing': return 'drawing';
+      case 'label': return `${t.placement.part} ${t.label.attr.toLowerCase()}`;
     }
   }
   return `${ts.length} objects`;
@@ -287,15 +244,15 @@ function describe(ts: Target[]): string {
 /** The model object a target stands for. */
 export function subject(t: Target): object {
   switch (t.kind) {
-    case 'element': return t.element;
-    case 'signal-wire': return t.wire;
-    case 'via': return t.via;
-    case 'signal-polygon': return t.polygon;
-    case 'instance': return t.instance;
-    case 'net-wire': return t.wire;
+    case 'gate': return t.gate;
+    case 'footprint': return t.footprint;
+    case 'wire': return t.wire;
     case 'junction': return t.junction;
+    case 'netlabel': return t.label;
+    case 'trace': return t.trace;
+    case 'via': return t.via;
+    case 'pour': return t.pour;
+    case 'drawing': return t.graphic;
     case 'label': return t.label;
-    case 'plain': return t.graphic;
-    case 'attribute': return t.attribute;
   }
 }

@@ -1,28 +1,31 @@
-// Build a Scene for an Eagle board.
+// Build a Scene for a project's board (native model), including the computed airwires.
 
-import type { Board, EagleFile, Element, Graphic } from '../eagle/types';
-import { attributeOwner } from './text';
 import { objId } from '../eagle/dom';
-import { findLibrary, parseDistance } from '../eagle/parse';
-import { IDENTITY, placement } from '../geom/transform';
-import { SceneBuilder, type EmitContext } from './builder';
-import { fmtNum, fmtRot, fmtXY, placeholderResolver, placedAttributeText } from './text';
+import { parseDistance } from '../eagle/parse';
+import type { Layer } from '../eagle/types';
+import { ProjectIndex } from '../model/derive';
+import { designRules, footprintTransform, rotation } from '../model/geometry';
+import { layerNumber } from '../model/layers';
+import { ratsnest } from '../model/ratsnest';
+import type * as O from '../model/types';
+import { AIRWIRES_LAYER, SceneBuilder, type EmitContext } from './builder';
+import { drawingKind } from './schematic';
+import { fmtNum, fmtRot, fmtXY, labelOwner, labelText, placeholderResolver } from './text';
 import type { Scene } from './types';
 
-/** Layers that swap when a part is placed on the bottom side. */
-const MIRROR_PAIRS: [number, number][] = [
-  [1, 16], [21, 22], [23, 24], [25, 26], [27, 28], [29, 30], [31, 32], [33, 34],
-  [35, 36], [37, 38], [39, 40], [41, 42], [51, 52],
-];
-const MIRROR_LAYER = new Map<number, number>();
-for (const [a, b] of MIRROR_PAIRS) {
-  MIRROR_LAYER.set(a, b);
-  MIRROR_LAYER.set(b, a);
-}
-for (let inner = 2; inner <= 15; inner++) MIRROR_LAYER.set(inner, 17 - inner);
+const IDENTITY = { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 };
 
-export function mirrorLayer(layer: number): number {
-  return MIRROR_LAYER.get(layer) ?? layer;
+/** Eagle layer number of the other board side (1 ↔ 16, 21 ↔ 22, …). */
+export function mirrorLayerNumber(layer: number): number {
+  const pairs: [number, number][] = [
+    [1, 16], [21, 22], [23, 24], [25, 26], [27, 28], [29, 30], [31, 32], [33, 34],
+    [35, 36], [37, 38], [39, 40], [41, 42], [51, 52],
+  ];
+  for (const [a, b] of pairs) {
+    if (layer === a) return b;
+    if (layer === b) return a;
+  }
+  return layer >= 2 && layer <= 15 ? 17 - layer : layer;
 }
 
 /** Design-rule lookups with Eagle's defaults. */
@@ -60,155 +63,137 @@ export class DesignRules {
   }
 }
 
-export function buildBoardScene(file: EagleFile): Scene {
-  const brd = file.board;
-  if (!brd) throw new Error('Not a board');
-  const b = new SceneBuilder('board', file.layers);
-  const rules = new DesignRules(brd.designRules);
+export function buildBoardScene(project: O.Project, layers: Layer[], index = new ProjectIndex(project)): Scene {
+  const board = project.board;
+  if (!board) throw new Error('The project has no board');
+  const b = new SceneBuilder('board', layers);
+  const rules = new DesignRules(designRules(project));
 
-  brd.plain.forEach((g) => {
+  for (const g of board.drawing) {
+    const kind = drawingKind(g);
     const id = b.addOwner({
-      id: `plain:${objId(g)}`, kind: 'plain', label: plainLabel(g), props: [['Type', g.kind], ['Layer', String('layer' in g ? g.layer : 45)]],
-      target: { kind: 'plain', graphic: g, container: brd.plain },
+      id: `drawing:${objId(g)}`, kind: 'drawing',
+      label: 'text' in g ? `Text "${g.text}"` : 'line' in g && g.layer === 'outline' ? 'Board outline' : kind,
+      props: [['Type', kind], ['Layer', 'layer' in g ? g.layer : 'holes']],
+      target: { kind: 'drawing', doc: 'board', graphic: g, container: board.drawing },
     });
     b.graphic(g, { owner: id, transform: IDENTITY, textContext: 'board' });
-  });
+  }
 
-  emitElements(b, brd, rules);
-  emitSignals(b, brd, rules);
+  for (const fp of board.footprints) emitFootprint(b, fp, index, rules);
+  emitNets(b, project, rules);
+
+  for (const a of ratsnest(project)) {
+    const id = b.addOwner({
+      id: `airwire:${a.net}:${a.from.join(',')}:${a.to.join(',')}`, kind: 'airwire', label: `Airwire ${a.net}`, net: a.net,
+      props: [['Net', a.net], ['From', fmtXY(a.from[0], a.from[1])], ['To', fmtXY(a.to[0], a.to[1])]],
+    });
+    b.prims.push({ t: 'line', x1: a.from[0], y1: a.from[1], x2: a.to[0], y2: a.to[1], width: 0, cap: 'round', layer: AIRWIRES_LAYER, owner: id });
+  }
   return b.finish();
 }
 
-function emitElements(b: SceneBuilder, brd: Board, rules: DesignRules): void {
-  for (const el of brd.elements) {
-    const lib = findLibrary(brd.libraries, el.library, el.libraryUrn);
-    const pkg = lib?.packages.get(el.package);
-    if (!pkg) continue;
-    const bottom = el.rot.mirror;
-    const id = b.addOwner({
-      id: `element:${objId(el)}`,
-      kind: 'element',
-      label: el.name,
-      target: { kind: 'element', element: el },
-      origin: { x: el.x, y: el.y },
-      props: [
-        ['Name', el.name],
-        ['Value', el.value],
-        ['Library', el.library],
-        ['Package', el.package],
-        ['Position', fmtXY(el.x, el.y)],
-        ['Rotation', fmtRot(el.rot)],
-        ['Side', bottom ? 'bottom' : 'top'],
-        ['Locked', el.locked ? 'yes' : 'no'],
-      ],
-    });
-    const attrs: Record<string, string> = { NAME: el.name, VALUE: el.value };
-    for (const a of el.attributes) if (a.value !== undefined) attrs[a.name.toUpperCase()] = a.value;
-    const resolve = placeholderResolver(attrs);
-
-    const ctx: EmitContext = {
-      owner: id,
-      transform: placement(el.x, el.y, el.rot),
-      textContext: 'board',
-      substitute: (t) => (el.smashed && t.startsWith('>') ? undefined : resolve(t)),
-      ...(bottom ? { layerMap: mirrorLayer } : {}),
-    };
-    b.graphics(pkg.graphics, ctx);
-    for (const p of pkg.pads) {
-      if (p.kind === 'smd') {
-        b.smd(p, ctx);
-      } else {
-        const elong = p.shape === 'long' || p.shape === 'offset' ? rules.elongation(p.shape) : 0;
-        b.pad(p, rules.padDiameter(p.drill, p.diameter), elong, ctx);
-      }
-    }
-    if (el.smashed) emitPlacedAttributes(b, el, attrs);
+function emitFootprint(b: SceneBuilder, fp: O.FootprintPlacement, index: ProjectIndex, rules: DesignRules): void {
+  const part = index.parts.get(fp.part);
+  const fpId = part && index.variantOf(part)?.footprint;
+  const footprint = fpId ? index.footprints.get(fpId) : undefined;
+  if (!part || !footprint) return;
+  const bottom = fp.side === 'bottom';
+  const value = index.valueOf(part);
+  const id = b.addOwner({
+    id: `footprint:${objId(fp)}`,
+    kind: 'footprint',
+    label: part.name,
+    props: [
+      ['Name', part.name],
+      ['Value', value],
+      ['Footprint', footprint.id],
+      ['Position', fmtXY(fp.at[0], fp.at[1])],
+      ['Rotation', fmtRot(fp.rot, bottom)],
+      ['Side', bottom ? 'bottom' : 'top'],
+      ['Locked', fp.locked ? 'yes' : 'no'],
+    ],
+    target: { kind: 'footprint', footprint: fp },
+    origin: { x: fp.at[0], y: fp.at[1] },
+  });
+  const attrs: Record<string, string> = { ...(part.attributes ?? {}), NAME: part.name, VALUE: value };
+  const resolve = placeholderResolver(attrs);
+  const smashed = fp.smashed || (fp.labels?.length ?? 0) > 0;
+  const ctx: EmitContext = {
+    owner: id,
+    transform: footprintTransform(fp),
+    textContext: 'board',
+    substitute: (t) => (smashed && t.startsWith('>') ? undefined : resolve(t)),
+    ...(bottom ? { layerMap: mirrorLayerNumber } : {}),
+  };
+  b.graphics(footprint.graphics, ctx);
+  for (const pad of footprint.pads) {
+    b.pad(pad, ctx, (drill, d) => rules.padDiameter(drill, d), (shape) => rules.elongation(shape));
   }
-}
-
-/** Smashed texts are separate owners, so they can be selected and moved on their own. */
-function emitPlacedAttributes(b: SceneBuilder, el: Element, attrs: Record<string, string>): void {
-  for (const a of el.attributes) {
-    if (a.x === undefined || a.y === undefined || a.layer === undefined) continue;
-    const text = placedAttributeText(a, attrs[a.name.toUpperCase()]);
+  for (const l of fp.labels ?? []) {
+    const text = labelText(l, l.value ?? attrs[l.attr.toUpperCase()]);
     if (!text) continue;
-    const owner = b.addOwner(attributeOwner(a, el.name, 'board', el));
-    b.text(text, a.x, a.y, a.size ?? 1.27, a.rot, a.align, a.layer, {
+    const owner = b.addOwner(labelOwner(l, part.name, 'board', fp));
+    b.text(text, l.at[0], l.at[1], l.size, rotation(l.rot, l.mirror, l.spin), l.align ?? 'bottom-left', layerNumber(l.layer), {
       owner, transform: IDENTITY, textContext: 'board',
     });
   }
 }
 
-function emitSignals(b: SceneBuilder, brd: Board, rules: DesignRules): void {
-  for (const sig of brd.signals) {
-    const base = { textContext: 'board' as const, transform: IDENTITY };
-    sig.wires.forEach((w) => {
+function emitNets(b: SceneBuilder, project: O.Project, rules: DesignRules): void {
+  const base = { textContext: 'board' as const, transform: IDENTITY };
+  for (const net of project.nets) {
+    for (const t of net.traces ?? []) {
       const id = b.addOwner({
-        id: `signal-wire:${objId(w)}`,
-        target: { kind: 'signal-wire', signal: sig, wire: w },
-        kind: 'signal-wire',
-        label: w.layer === 19 ? `Airwire ${sig.name}` : `Trace ${sig.name}`,
-        net: sig.name,
+        id: `trace:${objId(t)}`,
+        kind: 'trace',
+        label: `Trace ${net.name}`,
+        net: net.name,
         props: [
-          ['Signal', sig.name],
-          ['Layer', String(w.layer)],
-          ['From', fmtXY(w.x1, w.y1)],
-          ['To', fmtXY(w.x2, w.y2)],
-          ['Width', `${fmtNum(w.width)} mm`],
+          ['Net', net.name], ['Layer', t.layer],
+          ['From', fmtXY(t.line[0][0], t.line[0][1])], ['To', fmtXY(t.line[1][0], t.line[1][1])],
+          ['Width', `${fmtNum(t.width)} mm`],
         ],
+        target: { kind: 'trace', net, trace: t },
       });
-      b.wire(w, { ...base, owner: id });
-    });
-    sig.vias.forEach((v) => {
-      const dia = rules.viaDiameter(v.drill, v.diameter);
+      b.line(t, t.layer, { ...base, owner: id });
+    }
+    for (const v of net.vias ?? []) {
+      const dia = rules.viaDiameter(v.drill, v.diameter ?? 0);
       const id = b.addOwner({
         id: `via:${objId(v)}`,
-        target: { kind: 'via', signal: sig, via: v },
-        origin: { x: v.x, y: v.y },
         kind: 'via',
-        label: `Via ${sig.name}`,
-        net: sig.name,
+        label: `Via ${net.name}`,
+        net: net.name,
         props: [
-          ['Signal', sig.name],
-          ['Position', fmtXY(v.x, v.y)],
-          ['Drill', `${fmtNum(v.drill)} mm`],
-          ['Diameter', `${fmtNum(dia)} mm`],
-          ['Layers', v.extent],
+          ['Net', net.name], ['Position', fmtXY(v.at[0], v.at[1])], ['Drill', `${fmtNum(v.drill)} mm`],
+          ['Diameter', `${fmtNum(dia)} mm`], ['Layers', v.layers ?? '1-16'],
         ],
+        target: { kind: 'via', net, via: v },
+        origin: { x: v.at[0], y: v.at[1] },
       });
       b.via(v, dia, id);
-    });
-    sig.polygons.forEach((poly) => {
+    }
+    for (const pour of net.pours ?? []) {
       const id = b.addOwner({
-        id: `signal-polygon:${objId(poly)}`,
-        target: { kind: 'signal-polygon', signal: sig, polygon: poly },
-        kind: 'signal-polygon',
-        label: `Polygon ${sig.name}`,
-        net: sig.name,
+        id: `pour:${objId(pour)}`,
+        kind: 'pour',
+        label: `Pour ${net.name}`,
+        net: net.name,
         props: [
-          ['Signal', sig.name],
-          ['Layer', String(poly.layer)],
-          ['Vertices', String(poly.vertices.length)],
-          ['Isolate', poly.isolate === undefined ? '(default)' : `${fmtNum(poly.isolate)} mm`],
+          ['Net', net.name], ['Layer', pour.layer], ['Points', String(pour.polygon.length)],
+          ['Isolate', pour.isolate === undefined ? '(default)' : `${fmtNum(pour.isolate)} mm`],
         ],
+        target: { kind: 'pour', net, pour },
       });
-      // Pours aren't computed yet: draw the polygon's outline only, dashed like Eagle's unpoured view.
-      b.graphic(poly, { ...base, owner: id });
+      // Poured copper isn't computed yet: draw the outline, dashed like Eagle's unpoured view.
+      b.graphic(pour, { ...base, owner: id });
       const last = b.prims[b.prims.length - 1];
       if (last?.t === 'poly') {
         last.fill = false;
-        last.width = Math.max(poly.width, 0.1);
-        last.dash = [poly.width * 4 || 0.5, poly.width * 4 || 0.5];
+        last.width = Math.max(pour.width, 0.1);
+        last.dash = [pour.width * 4 || 0.5, pour.width * 4 || 0.5];
       }
-    });
-  }
-}
-
-function plainLabel(g: Graphic): string {
-  switch (g.kind) {
-    case 'text': return `Text "${g.text}"`;
-    case 'hole': return 'Hole';
-    case 'wire': return g.layer === 20 ? 'Board outline' : 'Line';
-    default: return g.kind[0]!.toUpperCase() + g.kind.slice(1);
+    }
   }
 }

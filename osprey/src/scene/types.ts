@@ -1,42 +1,34 @@
 // A Scene is a flat list of drawable primitives in world coordinates (mm, y-up).
 // Every primitive belongs to an owner: the selectable design object (the "noun").
 
-import type {
-  Bus, Element, Graphic, Instance, Junction, Label, Layer, Net, PlacedAttribute, Polygon, Segment,
-  Sheet, Signal, TextAlign, Via, Wire,
-} from '../eagle/types';
+import type { Layer, TextAlign } from '../eagle/types';
 import type { Point } from '../geom/transform';
+import type * as O from '../model/types';
+
+/** A schematic wiring piece: a net segment, or a bus segment. */
+export type WireSegment = O.Segment | O.Bus['segments'][number];
 
 /** The model object an owner stands for: what edit commands operate on. */
 export type Target =
-  // Board
-  | { kind: 'element'; element: Element }
-  | { kind: 'signal-wire'; signal: Signal; wire: Wire }
-  | { kind: 'via'; signal: Signal; via: Via }
-  | { kind: 'signal-polygon'; signal: Signal; polygon: Polygon }
   // Schematic
-  | { kind: 'instance'; sheet: Sheet; instance: Instance }
-  | { kind: 'net-wire'; sheet: Sheet; net: Net | Bus; segment: Segment; wire: Wire }
-  | { kind: 'junction'; sheet: Sheet; net: Net; segment: Segment; junction: Junction }
-  | { kind: 'label'; sheet: Sheet; net: Net | Bus; segment: Segment; label: Label }
-  // Either: free drawing in <plain>
-  | { kind: 'plain'; graphic: Graphic; container: Graphic[] }
-  // Either: a smashed name/value text, placed independently of its part
-  | { kind: 'attribute'; doc: 'schematic' | 'board'; parent: Instance | Element; attribute: PlacedAttribute };
+  | { kind: 'gate'; sheet: O.Sheet; gate: O.GatePlacement }
+  | { kind: 'wire'; net: O.Net | O.Bus; segment: WireSegment; wire: O.Wire; bus?: true }
+  | { kind: 'junction'; net: O.Net; segment: O.Segment; junction: O.Pt }
+  | { kind: 'netlabel'; net: O.Net | O.Bus; segment: WireSegment; label: O.NetLabel }
+  // Board
+  | { kind: 'footprint'; footprint: O.FootprintPlacement }
+  | { kind: 'trace'; net: O.Net; trace: O.Trace }
+  | { kind: 'via'; net: O.Net; via: O.Via }
+  | { kind: 'pour'; net: O.Net; pour: O.PolygonShape }
+  // Either
+  | { kind: 'drawing'; doc: 'schematic' | 'board'; graphic: O.Graphic; container: O.Graphic[] }
+  | { kind: 'label'; doc: 'schematic' | 'board'; placement: O.GatePlacement | O.FootprintPlacement; label: O.Label };
 
 export type OwnerKind =
-  | 'instance' // schematic: placed gate of a part
-  | 'net-wire'
+  | Target['kind']
   | 'bus-wire'
-  | 'junction'
-  | 'label'
-  | 'element' // board: placed package
-  | 'signal-wire'
-  | 'via'
-  | 'signal-polygon'
-  | 'plain' // free graphics in schematic/board plain
-  | 'attribute' // a smashed name/value text
-  | 'library-item'; // a symbol/package/deviceset shown in library view
+  | 'airwire' // computed; selectable for inspection, not editable
+  | 'library-item'; // a symbol/footprint/component shown in the library view
 
 export interface Owner {
   id: string;

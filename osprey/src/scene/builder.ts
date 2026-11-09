@@ -1,18 +1,27 @@
-// Shared machinery for turning Eagle graphics into scene primitives.
+// Shared machinery for turning native model graphics into scene primitives.
 
-import type { Graphic, Layer, Pad, Rotation, Smd, TextAlign, Via, Wire } from '../eagle/types';
+import type { Layer, Rotation, TextAlign } from '../eagle/types';
 import { arcFromChord, arcPoints } from '../geom/arc';
 import type { Point, Transform } from '../geom/transform';
 import { apply, compose, composeRotation, placement } from '../geom/transform';
+import { rotation } from '../model/geometry';
+import { layerNumber } from '../model/layers';
+import type * as O from '../model/types';
 import type { Bounds, Owner, Prim, Scene } from './types';
 
 export type TextContext = 'schematic' | 'board';
+
+/** Display layers for objects that aren't on a design layer. */
+export const PADS_LAYER = 17;
+export const VIAS_LAYER = 18;
+export const AIRWIRES_LAYER = 19;
+export const HOLES_LAYER = 45;
 
 /** Context for emitting graphics of one owner. */
 export interface EmitContext {
   owner: string;
   transform: Transform;
-  /** Remaps layers, e.g. top->bottom for mirrored board elements. */
+  /** Remaps layers, e.g. top->bottom for mirrored board footprints. */
   layerMap?: (layer: number) => number;
   /** Resolves text placeholders such as ">NAME". Return undefined to drop the text. */
   substitute?: (text: string) => string | undefined;
@@ -40,78 +49,66 @@ export class SceneBuilder {
     };
   }
 
+  private layer(name: string, ctx: EmitContext): number {
+    const n = layerNumber(name);
+    return ctx.layerMap ? ctx.layerMap(n) : n;
+  }
+
   // -------------------------------------------------------------------------
 
-  graphics(gs: Graphic[], ctx: EmitContext): void {
+  graphics(gs: O.Graphic[], ctx: EmitContext): void {
     for (const g of gs) this.graphic(g, ctx);
   }
 
-  graphic(g: Graphic, ctx: EmitContext): void {
-    const layer = (n: number) => (ctx.layerMap ? ctx.layerMap(n) : n);
+  graphic(g: O.Graphic, ctx: EmitContext): void {
     const T = ctx.transform;
-    switch (g.kind) {
-      case 'wire':
-        this.wire(g, ctx);
-        break;
-      case 'circle': {
-        const c = apply(T, g.x, g.y);
-        this.prims.push({ t: 'circle', cx: c.x, cy: c.y, r: g.radius, width: g.width, layer: layer(g.layer), owner: ctx.owner });
-        break;
-      }
-      case 'rectangle': {
-        // Rectangle rotation is about its own centre.
-        const cx = (g.x1 + g.x2) / 2;
-        const cy = (g.y1 + g.y2) / 2;
-        const local = compose(T, placement(cx, cy, g.rot));
-        const hw = Math.abs(g.x2 - g.x1) / 2;
-        const hh = Math.abs(g.y2 - g.y1) / 2;
-        const pts = [
-          apply(local, -hw, -hh), apply(local, hw, -hh), apply(local, hw, hh), apply(local, -hw, hh),
-        ];
-        this.prims.push({ t: 'poly', pts, width: 0, fill: true, layer: layer(g.layer), owner: ctx.owner });
-        break;
-      }
-      case 'polygon': {
-        const pts = polygonOutline(g.vertices).map((p) => apply(T, p.x, p.y));
-        this.prims.push({ t: 'poly', pts, width: g.width, fill: true, layer: layer(g.layer), owner: ctx.owner });
-        break;
-      }
-      case 'text': {
-        const text = ctx.substitute ? ctx.substitute(g.text) : g.text;
-        if (text === undefined || text === '') break;
-        this.text(text, g.x, g.y, g.size, g.rot, g.align, layer(g.layer), ctx);
-        break;
-      }
-      case 'hole': {
-        const c = apply(T, g.x, g.y);
-        this.prims.push({ t: 'circle', cx: c.x, cy: c.y, r: g.drill / 2, width: 0.1, layer: 45, owner: ctx.owner });
-        this.prims.push({ t: 'drill', cx: c.x, cy: c.y, r: g.drill / 2, layer: 45, owner: ctx.owner });
-        break;
-      }
-      case 'frame': {
-        const pts = [
-          apply(T, g.x1, g.y1), apply(T, g.x2, g.y1), apply(T, g.x2, g.y2), apply(T, g.x1, g.y2),
-        ];
-        this.prims.push({ t: 'poly', pts, width: 0.254, fill: false, layer: layer(g.layer), owner: ctx.owner });
-        break;
-      }
+    if ('line' in g) {
+      this.line(g, g.layer, ctx);
+    } else if ('circle' in g) {
+      const c = apply(T, g.circle[0], g.circle[1]);
+      this.prims.push({ t: 'circle', cx: c.x, cy: c.y, r: g.radius, width: g.width, layer: this.layer(g.layer, ctx), owner: ctx.owner });
+    } else if ('rect' in g) {
+      // Rectangle rotation is about its own centre.
+      const [[x1, y1], [x2, y2]] = g.rect;
+      const local = compose(T, placement((x1 + x2) / 2, (y1 + y2) / 2, rotation(g.rot, false)));
+      const hw = Math.abs(x2 - x1) / 2;
+      const hh = Math.abs(y2 - y1) / 2;
+      const pts = [apply(local, -hw, -hh), apply(local, hw, -hh), apply(local, hw, hh), apply(local, -hw, hh)];
+      this.prims.push({ t: 'poly', pts, width: 0, fill: true, layer: this.layer(g.layer, ctx), owner: ctx.owner });
+    } else if ('polygon' in g) {
+      const pts = polygonOutline(g.polygon).map((p) => apply(T, p.x, p.y));
+      this.prims.push({ t: 'poly', pts, width: g.width, fill: true, layer: this.layer(g.layer, ctx), owner: ctx.owner });
+    } else if ('text' in g) {
+      const text = ctx.substitute ? ctx.substitute(g.text) : g.text;
+      if (text === undefined || text === '') return;
+      this.text(text, g.at[0], g.at[1], g.size, rotation(g.rot, g.mirror, g.spin), g.align ?? 'bottom-left', this.layer(g.layer, ctx), ctx);
+    } else if ('hole' in g) {
+      const c = apply(T, g.hole[0], g.hole[1]);
+      this.prims.push({ t: 'circle', cx: c.x, cy: c.y, r: g.drill / 2, width: 0.1, layer: HOLES_LAYER, owner: ctx.owner });
+      this.prims.push({ t: 'drill', cx: c.x, cy: c.y, r: g.drill / 2, layer: HOLES_LAYER, owner: ctx.owner });
+    } else if ('frame' in g) {
+      const [[x1, y1], [x2, y2]] = g.frame;
+      const pts = [apply(T, x1, y1), apply(T, x2, y1), apply(T, x2, y2), apply(T, x1, y2)];
+      this.prims.push({ t: 'poly', pts, width: 0.254, fill: false, layer: this.layer(g.layer, ctx), owner: ctx.owner });
     }
   }
 
-  wire(w: Wire, ctx: EmitContext, dash?: number[]): void {
-    const layer = ctx.layerMap ? ctx.layerMap(w.layer) : w.layer;
-    const p1 = apply(ctx.transform, w.x1, w.y1);
-    const p2 = apply(ctx.transform, w.x2, w.y2);
+  /** A line or arc (graphic line, schematic wire or board trace) on the given layer. */
+  line(w: Pick<O.LineShape, 'line' | 'width' | 'curve' | 'cap' | 'style'>, layerName: string, ctx: EmitContext, dash?: number[]): void {
+    const layer = this.layer(layerName, ctx);
+    const p1 = apply(ctx.transform, w.line[0][0], w.line[0][1]);
+    const p2 = apply(ctx.transform, w.line[1][0], w.line[1][1]);
+    const cap = w.cap ?? 'round';
     const d = dash ?? dashFor(w.style, w.width);
     if (w.curve) {
       // A mirrored transform reverses the sweep direction.
       const t = ctx.transform;
       const sweep = t.a * t.d - t.b * t.c < 0 ? -w.curve : w.curve;
       const arc = arcFromChord(p1, p2, sweep);
-      this.prims.push({ t: 'arc', ...arc, width: w.width, cap: w.cap, layer, owner: ctx.owner });
+      this.prims.push({ t: 'arc', ...arc, width: w.width, cap, layer, owner: ctx.owner });
     } else {
       this.prims.push({
-        t: 'line', x1: p1.x, y1: p1.y, x2: p2.x, y2: p2.y, width: w.width, cap: w.cap, layer, owner: ctx.owner,
+        t: 'line', x1: p1.x, y1: p1.y, x2: p2.x, y2: p2.y, width: w.width, cap, layer, owner: ctx.owner,
         ...(d ? { dash: d } : {}),
       });
     }
@@ -131,9 +128,23 @@ export class SceneBuilder {
     });
   }
 
-  /** Through-hole pad on the Pads layer (17), plus its drill. */
-  pad(pad: Pad, diameter: number, elongation: number, ctx: EmitContext): void {
-    const T = compose(ctx.transform, placement(pad.x, pad.y, pad.rot));
+  /**
+   * A footprint pad: through-hole pads on the Pads display layer with their drill; SMD pads
+   * on their copper layer (the bottom one when `side` or a mirrored placement says so).
+   */
+  pad(pad: O.Pad, ctx: EmitContext, holeDiameter: (drill: number, diameter: number) => number, elongation: (shape: 'long' | 'offset') => number): void {
+    const T = compose(ctx.transform, placement(pad.at[0], pad.at[1], rotation(pad.rot, false)));
+    if (pad.smd) {
+      const [dx, dy] = pad.smd;
+      const hw = dx / 2;
+      const hh = dy / 2;
+      const corner = (Math.min(hw, hh) * (pad.roundness ?? 0)) / 100;
+      const layer = this.layer(pad.side === 'bottom' ? 'copper.bottom' : 'copper.top', ctx);
+      this.prims.push({ t: 'poly', pts: roundedRect(hw, hh, corner).map((q) => apply(T, q.x, q.y)), width: 0, fill: true, layer, owner: ctx.owner });
+      return;
+    }
+    const drill = pad.drill ?? 0;
+    const diameter = holeDiameter(drill, pad.diameter ?? 0);
     const r = diameter / 2;
     let local: Point[] | undefined;
     switch (pad.shape) {
@@ -144,49 +155,37 @@ export class SceneBuilder {
         local = octagon(r);
         break;
       case 'long': {
-        const half = (r * (100 + elongation)) / 100;
+        const half = (r * (100 + elongation('long'))) / 100;
         local = stadium(-(half - r), half - r, r);
         break;
       }
-      case 'offset': {
-        const len = (diameter * elongation) / 100;
-        local = stadium(0, len, r);
+      case 'offset':
+        local = stadium(0, (diameter * elongation('offset')) / 100, r);
         break;
-      }
-      case 'round':
+      default:
         break;
-    }
-    if (local) {
-      this.prims.push({ t: 'poly', pts: local.map((q) => apply(T, q.x, q.y)), width: 0, fill: true, layer: 17, owner: ctx.owner });
-    } else {
-      const c = apply(T, 0, 0);
-      this.prims.push({ t: 'circle', cx: c.x, cy: c.y, r, width: 0, layer: 17, owner: ctx.owner });
     }
     const c = apply(T, 0, 0);
-    this.prims.push({ t: 'drill', cx: c.x, cy: c.y, r: pad.drill / 2, layer: 17, owner: ctx.owner });
+    if (local) {
+      this.prims.push({ t: 'poly', pts: local.map((q) => apply(T, q.x, q.y)), width: 0, fill: true, layer: PADS_LAYER, owner: ctx.owner });
+    } else {
+      this.prims.push({ t: 'circle', cx: c.x, cy: c.y, r, width: 0, layer: PADS_LAYER, owner: ctx.owner });
+    }
+    this.prims.push({ t: 'drill', cx: c.x, cy: c.y, r: drill / 2, layer: PADS_LAYER, owner: ctx.owner });
   }
 
-  smd(smd: Smd, ctx: EmitContext): void {
-    const layer = ctx.layerMap ? ctx.layerMap(smd.layer) : smd.layer;
-    const T = compose(ctx.transform, placement(smd.x, smd.y, smd.rot));
-    const hw = smd.dx / 2;
-    const hh = smd.dy / 2;
-    const corner = (Math.min(hw, hh) * smd.roundness) / 100;
-    const local = roundedRect(hw, hh, corner);
-    this.prims.push({ t: 'poly', pts: local.map((q) => apply(T, q.x, q.y)), width: 0, fill: true, layer, owner: ctx.owner });
-  }
-
-  via(v: Via, diameter: number, owner: string): void {
+  via(v: O.Via, diameter: number, owner: string): void {
     const r = diameter / 2;
-    if (v.shape === 'round') {
-      this.prims.push({ t: 'circle', cx: v.x, cy: v.y, r, width: 0, layer: 18, owner });
+    const [x, y] = v.at;
+    if (!v.shape) {
+      this.prims.push({ t: 'circle', cx: x, cy: y, r, width: 0, layer: VIAS_LAYER, owner });
     } else {
       const local = v.shape === 'square'
         ? [{ x: -r, y: -r }, { x: r, y: -r }, { x: r, y: r }, { x: -r, y: r }]
         : octagon(r);
-      this.prims.push({ t: 'poly', pts: local.map((q) => ({ x: q.x + v.x, y: q.y + v.y })), width: 0, fill: true, layer: 18, owner });
+      this.prims.push({ t: 'poly', pts: local.map((q) => ({ x: q.x + x, y: q.y + y })), width: 0, fill: true, layer: VIAS_LAYER, owner });
     }
-    this.prims.push({ t: 'drill', cx: v.x, cy: v.y, r: v.drill / 2, layer: 18, owner });
+    this.prims.push({ t: 'drill', cx: x, cy: y, r: v.drill / 2, layer: VIAS_LAYER, owner });
   }
 }
 
@@ -246,7 +245,7 @@ export function readableText(
 // ---------------------------------------------------------------------------
 // Shapes
 
-function dashFor(style: Wire['style'], width: number): number[] | undefined {
+function dashFor(style: O.LineShape['style'], width: number): number[] | undefined {
   const u = Math.max(width, 0.1524);
   switch (style) {
     case 'longdash': return [u * 8, u * 4];
@@ -256,15 +255,15 @@ function dashFor(style: Wire['style'], width: number): number[] | undefined {
   }
 }
 
-/** Flatten a polygon's vertex list (with optional per-edge arcs) into points. */
-export function polygonOutline(vs: { x: number; y: number; curve: number }[]): Point[] {
+/** Flatten a polygon's points (a third number is the arc sweep to the next point) into points. */
+export function polygonOutline(vs: O.PolyPt[]): Point[] {
   const out: Point[] = [];
   for (let i = 0; i < vs.length; i++) {
-    const a = vs[i]!;
-    const b = vs[(i + 1) % vs.length]!;
-    out.push({ x: a.x, y: a.y });
-    if (a.curve) {
-      const pts = arcPoints(arcFromChord(a, b, a.curve), Math.max(4, Math.ceil(Math.abs(a.curve) / 10)));
+    const [ax, ay, curve] = vs[i]!;
+    const [bx, by] = vs[(i + 1) % vs.length]!;
+    out.push({ x: ax, y: ay });
+    if (curve) {
+      const pts = arcPoints(arcFromChord({ x: ax, y: ay }, { x: bx, y: by }, curve), Math.max(4, Math.ceil(Math.abs(curve) / 10)));
       out.push(...pts.slice(1, -1));
     }
   }

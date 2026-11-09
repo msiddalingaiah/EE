@@ -1,21 +1,32 @@
-// Osprey application shell: file loading and saving, panels, canvas interaction, commands.
+// Osprey application shell: opening, importing and saving, panels, canvas interaction, commands.
 
 import { Editor, subject, type MoveSession } from './app/editor';
-import { canPickFiles, pickFiles, saveFile } from './app/files';
+import { canPickFiles, pickFiles, saveFile, type FileHandle } from './app/files';
 import { Selection, type SelectMode } from './app/selection';
-import type { EagleFile, Layer } from './eagle/types';
+import { parseEagle } from './eagle/parse';
+import type { Layer } from './eagle/types';
 import type { Point } from './geom/transform';
-import { checkConsistency, type Issue } from './project/consistency';
-import { Project, ProjectError, type SourceFile, type ViewKind } from './project/project';
+import { componentName, ProjectIndex } from './model/derive';
+import { readProject } from './model/file';
+import { importEagle, importLibrary } from './model/import-eagle';
+import type * as O from './model/types';
 import { buildBoardScene } from './scene/board';
 import { indexScene, type SceneIndex } from './scene/index';
 import { buildLibraryScene, type LibraryItemKind, type LibraryItemRef } from './scene/library';
 import { buildSchematicScene } from './scene/schematic';
 import type { Bounds, Owner, Scene, Target } from './scene/types';
 import { pick, pickBox } from './view/hittest';
-import { layerColor, layerName } from './view/palette';
+import { displayLayers, layerColor, layerName } from './view/palette';
 import { render } from './view/render';
 import { Viewport } from './view/viewport';
+
+type ViewKind = 'schematic' | 'board' | 'library';
+
+interface SourceFile {
+  name: string;
+  text: string;
+  handle?: FileHandle;
+}
 
 // ---------------------------------------------------------------------------
 // DOM
@@ -52,14 +63,16 @@ const projectPanel = $<HTMLElement>('project-panel');
 
 const vp = new Viewport();
 const selection = new Selection();
-let project: Project | undefined;
+/** The open project (schematic and/or board), or a library being viewed. */
+let project: O.Project | undefined;
+let library: { name: string; lib: O.Library } | undefined;
+/** File name the project saves to, and where (when opened through the native dialog). */
+let saveName = '';
+let saveHandle: FileHandle | undefined;
+/** What the Eagle import reported (inconsistencies, conflicting library copies…). */
+let importReport: string[] = [];
 let view: ViewKind = 'schematic';
-/** The document shown in the current view, and its file name. */
-let file: EagleFile | undefined;
-let fileName = '';
 let editor: Editor | undefined;
-/** Schematic/board differences, recomputed after every edit. */
-let issues: Issue[] = [];
 
 /** What each view remembers while another is shown. */
 interface ViewState {
@@ -71,7 +84,8 @@ interface ViewState {
 }
 const viewStates = new Map<ViewKind, ViewState>();
 let index: SceneIndex | undefined;
-let layerMap = new Map<number, Layer>();
+const layers: Layer[] = displayLayers();
+const layerMap = new Map<number, Layer>(layers.map((l) => [l.number, l]));
 let visibility = new Map<number, boolean>();
 let hover: string | undefined;
 let libraryItem: LibraryItemRef | undefined;
@@ -84,8 +98,18 @@ let move: { session: MoveSession; start: Point; drag: boolean } | undefined;
 
 const isVisible = (layer: number) => visibility.get(layer) ?? true;
 
+function views(): ViewKind[] {
+  if (library) return ['library'];
+  const out: ViewKind[] = [];
+  if (project?.schematic) out.push('schematic');
+  if (project?.board) out.push('board');
+  return out;
+}
+
+const editable = () => !!editor && view !== 'library';
+
 // ---------------------------------------------------------------------------
-// Loading and saving
+// Opening, importing and saving
 
 const samples = import.meta.glob('../samples/eagle/*.{sch,brd,lbr}', { query: '?raw', import: 'default' });
 
@@ -104,11 +128,8 @@ function initSamples(): void {
   const groups = sampleProjects();
   sampleSelect.append(new Option('—', ''));
   for (const [key, paths] of groups) {
-    const order = ['schematic', 'board', 'library'];
-    const kinds = paths
-      .map((p) => (p.endsWith('.sch') ? 'schematic' : p.endsWith('.brd') ? 'board' : 'library'))
-      .sort((a, b) => order.indexOf(a) - order.indexOf(b));
-    sampleSelect.append(new Option(key.endsWith('.lbr') ? key : `${key} (${kinds.join(' + ')})`, key));
+    const kinds = ['.sch', '.brd'].filter((ext) => paths.some((p) => p.endsWith(ext))).map((ext) => (ext === '.sch' ? 'schematic' : 'board'));
+    sampleSelect.append(new Option(key.endsWith('.lbr') ? key : `${key} (Eagle ${kinds.join(' + ')})`, key));
   }
   const open = async (key: string, initialView?: ViewKind) => {
     const paths = groups.get(key);
@@ -118,7 +139,7 @@ function initSamples(): void {
     );
     openSources(sources, initialView);
     storeSet('osprey.sample', key);
-    if (!project?.paired) history.replaceState(null, '', `#${encodeURIComponent(key)}`); // pairs: set per view
+    if (library) history.replaceState(null, '', `#${encodeURIComponent(key)}`); // projects: set per view
   };
   sampleSelect.addEventListener('change', async () => {
     if (!sampleSelect.value) return;
@@ -141,23 +162,48 @@ function initSamples(): void {
   }
 }
 
-/** Open a set of files (a .sch and/or .brd, or a .lbr) as the current project. */
+/**
+ * Open files: an Osprey project (.osprey), an Eagle schematic and/or board (imported into a
+ * new project), or an Eagle library (viewed).
+ */
 function openSources(sources: SourceFile[], initialView?: ViewKind): void {
+  const ext = (s: SourceFile) => s.name.slice(s.name.lastIndexOf('.')).toLowerCase();
   try {
-    const p = Project.fromFiles(sources);
+    const kinds = new Set(sources.map(ext));
+    let next: { project?: O.Project; library?: { name: string; lib: O.Library }; report: string[]; name: string; handle?: FileHandle };
+    if (kinds.has('.osprey')) {
+      if (sources.length > 1) throw new Error('Open one Osprey project at a time');
+      const src = sources[0]!;
+      next = { project: readProject(src.text), report: [], name: src.name, ...(src.handle ? { handle: src.handle } : {}) };
+    } else if (kinds.has('.lbr')) {
+      if (sources.length > 1) throw new Error('Open a library on its own');
+      const src = sources[0]!;
+      next = { library: { name: src.name, lib: importLibrary(src.name, parseEagle(src.text)) }, report: [], name: src.name };
+    } else {
+      const eagle = sources.filter((s) => ['.sch', '.brd'].includes(ext(s)));
+      if (!eagle.length) throw new Error('Choose an .osprey project, or Eagle .sch/.brd files to import');
+      const { project: p, report } = importEagle(eagle.map((s) => ({ name: s.name, file: parseEagle(s.text) })));
+      const missing = !p.schematic ? '.sch' : !p.board ? '.brd' : undefined;
+      if (missing) report.unshift(`Only one file was imported; select the ${missing} too to import the whole project.`);
+      next = { project: p, report, name: `${p.project.name}.osprey` };
+    }
     cancelMove();
-    project = p;
-    editor = new Editor(p, onEdited);
+    project = next.project;
+    library = next.library;
+    importReport = next.report;
+    saveName = next.name;
+    saveHandle = next.handle;
+    editor = project ? new Editor(project, onEdited) : undefined;
     viewStates.clear();
     libraryItem = undefined;
     hideError();
-    if (p.library) setupLibrary();
-    const views = p.views;
-    showView(initialView && views.includes(initialView) ? initialView : views[0]!, false);
-    for (const note of p.notes) flash(note);
+    if (library) setupLibrary();
+    const vs = views();
+    showView(initialView && vs.includes(initialView) ? initialView : vs[0]!, false);
+    if (importReport.length) flash(`Imported with ${importReport.length} note(s); see the Project panel`);
   } catch (e) {
     const what = sources.map((x) => x.name).join(' + ');
-    showError(e instanceof ProjectError ? e.message : `Could not open ${what}: ${e instanceof Error ? e.message : String(e)}`);
+    showError(`Could not open ${what}: ${e instanceof Error ? e.message : String(e)}`);
   }
 }
 
@@ -183,82 +229,69 @@ async function openDropped(files: File[]): Promise<void> {
   sampleSelect.value = '';
 }
 
-/** Save every document in the project that has unsaved changes. */
+/** Save the project as one `.osprey` file. */
 async function save(): Promise<void> {
   if (!editor || !project) return;
   if (move) commitMove();
-  const changed = project.files.filter((pf) => editor!.isDirty(pf.file));
-  if (!changed.length) {
-    flash('No unsaved changes');
-    return;
-  }
-  const done: string[] = [];
-  for (const pf of changed) {
-    try {
-      const result = await saveFile(editor.serialize(pf.file), pf.name, pf.handle);
-      if (!result) break; // cancelled
-      if (result.handle) {
-        pf.handle = result.handle;
-        pf.name = result.handle.name;
-      }
-      editor.history.markSaved(pf.file);
-      done.push(`${result.method === 'written' ? 'saved' : 'downloaded'} ${pf.name}`);
-    } catch (e) {
-      showError(`Could not save ${pf.name}: ${e instanceof Error ? e.message : String(e)}`);
-      break;
+  try {
+    const result = await saveFile(editor.serialize(), saveName, saveHandle);
+    if (!result) return; // cancelled
+    if (result.handle) {
+      saveHandle = result.handle;
+      saveName = result.handle.name;
     }
+    editor.history.markSaved();
+    flash(`${result.method === 'written' ? 'Saved' : 'Downloaded'} ${saveName}`);
+    updateChrome();
+  } catch (e) {
+    showError(`Could not save ${saveName}: ${e instanceof Error ? e.message : String(e)}`);
   }
-  if (done.length) flash(done.join(', ').replace(/^./, (c) => c.toUpperCase()));
-  updateChrome();
 }
 
 function confirmDiscard(): boolean {
-  return !editor?.anyDirty || window.confirm(`Discard unsaved changes to ${project?.name ?? fileName}?`);
+  return !editor?.history.dirty || window.confirm(`Discard unsaved changes to ${saveName}?`);
 }
 
 function setupLibrary(): void {
-  const lib = project?.library?.file.library;
-  if (lib) {
-    const kind: LibraryItemKind = lib.devicesets.size ? 'deviceset' : lib.symbols.size ? 'symbol' : 'package';
-    const names = kind === 'deviceset' ? lib.devicesets.keys() : kind === 'symbol' ? lib.symbols.keys() : lib.packages.keys();
-    const first = [...names].sort()[0];
-    libraryItem = first !== undefined ? { kind, name: first } : undefined;
-    libraryFilter.value = '';
-    renderLibraryList();
-  }
+  const lib = library?.lib;
+  if (!lib) return;
+  const kind: LibraryItemKind = lib.components.length ? 'component' : lib.symbols.length ? 'symbol' : 'footprint';
+  const items = kind === 'component' ? lib.components : kind === 'symbol' ? lib.symbols : lib.footprints;
+  const first = [...items].sort((a, b) => a.id.localeCompare(b.id))[0];
+  libraryItem = first ? { kind, id: first.id } : undefined;
+  libraryFilter.value = '';
+  renderLibraryList();
 }
 
 /** Panels and hints that depend on which view is shown. */
 function setupViewChrome(): void {
-  if (!file) return;
-  const sheets = file.schematic?.sheets ?? [];
+  const sheets = view === 'schematic' ? project?.schematic?.sheets ?? [] : [];
   sheetField.hidden = sheets.length < 2;
   if (sheetSelect.options.length !== sheets.length) {
     sheetSelect.replaceChildren(...sheets.map((_, i) => new Option(`${i + 1}`, String(i))));
   }
-  libraryPanel.hidden = !file.library;
-  viewToggle.hidden = (project?.views.length ?? 0) < 2;
+  libraryPanel.hidden = view !== 'library';
+  viewToggle.hidden = views().length < 2;
   for (const b of viewToggle.querySelectorAll('button')) {
     b.classList.toggle('active', b.dataset.view === view);
-    b.hidden = !project?.views.includes(b.dataset.view as ViewKind);
+    b.hidden = !views().includes(b.dataset.view as ViewKind);
   }
-  statusHint.textContent = file.board || file.schematic
-    ? `Drag or M moves · R rotates · F ${file.board ? 'flips side' : 'mirrors'} · Del deletes · N name · V value · Ctrl+Z undo · Ctrl+S save · Space+drag pans · Home fits`
+  statusHint.textContent = view !== 'library'
+    ? `Drag or M moves · R rotates · F ${view === 'board' ? 'flips side' : 'mirrors'} · Del deletes · N name · V value · Ctrl+Z undo · Ctrl+S save · Space+drag pans · Home fits`
     : 'Click to select · Shift adds · Ctrl toggles · drag to box-select · Space+drag or right-drag pans · Home fits';
   // The hint is cut off on narrow windows; the tooltip always has all of it.
   statusHint.title = statusHint.textContent;
   updateChrome();
 }
 
-/** Title, unsaved markers, consistency and toolbar button states. */
+/** Title, unsaved marker, project panel and toolbar button states. */
 function updateChrome(): void {
-  if (!file || !project) return;
-  const dirty = editor?.anyDirty ?? false;
-  const unsaved = project.files.filter((pf) => editor?.isDirty(pf.file)).map((pf) => pf.name);
-  const kinds = project.views.map((v) => v[0]!.toUpperCase() + v.slice(1)).join(' + ');
-  docTitle.textContent = `${dirty ? '● ' : ''}${project.name} — ${kinds}, Eagle ${file.version}`;
-  docTitle.title = unsaved.length ? `Unsaved: ${unsaved.join(', ')}` : 'No unsaved changes';
-  document.title = `${dirty ? '• ' : ''}${project.name} · Osprey`;
+  const dirty = editor?.history.dirty ?? false;
+  const name = library ? library.name : project?.project.name ?? '';
+  const kinds = library ? 'Library (view only)' : views().map((v) => v[0]!.toUpperCase() + v.slice(1)).join(' + ');
+  docTitle.textContent = `${dirty ? '● ' : ''}${name} — ${kinds}`;
+  docTitle.title = project ? `Saves to ${saveName}` : '';
+  document.title = `${dirty ? '• ' : ''}${name} · Osprey`;
   renderProjectPanel();
   const h = editor?.history;
   undoBtn.disabled = !h?.canUndo;
@@ -267,15 +300,15 @@ function updateChrome(): void {
   redoBtn.title = h?.redoLabel ? `Redo ${h.redoLabel} (Ctrl+Y)` : 'Redo (Ctrl+Y)';
   saveBtn.disabled = !editor;
   saveBtn.textContent = dirty ? 'Save •' : 'Save';
-  saveBtn.title = unsaved.length ? `Save ${unsaved.join(' and ')} (Ctrl+S)` : 'Save (Ctrl+S)';
+  saveBtn.title = project ? `Save ${saveName} (Ctrl+S)` : 'Save (Ctrl+S)';
 }
 
 function buildScene(): Scene | undefined {
-  if (!file) return undefined;
-  if (file.schematic) return buildSchematicScene(file, Number(sheetSelect.value || 0));
-  if (file.board) return buildBoardScene(file);
-  if (file.library && libraryItem) return buildLibraryScene(file, libraryItem);
-  return undefined;
+  if (view === 'library') return library && libraryItem ? buildLibraryScene(library.lib, layers, libraryItem) : undefined;
+  if (!project) return undefined;
+  const ix = new ProjectIndex(project);
+  if (view === 'schematic') return buildSchematicScene(project, layers, Number(sheetSelect.value || 0), ix);
+  return buildBoardScene(project, layers, ix);
 }
 
 function rebuildScene(opts: { fit: boolean; keepSelection: boolean }): void {
@@ -284,7 +317,7 @@ function rebuildScene(opts: { fit: boolean; keepSelection: boolean }): void {
     index = scene ? indexScene(scene) : undefined;
   } catch (e) {
     index = undefined;
-    showError(`Could not display ${fileName}: ${e instanceof Error ? e.message : String(e)}`);
+    showError(`Could not display the ${view}: ${e instanceof Error ? e.message : String(e)}`);
   }
   hover = undefined;
   if (opts.keepSelection && index) {
@@ -293,23 +326,23 @@ function rebuildScene(opts: { fit: boolean; keepSelection: boolean }): void {
   } else {
     selection.clear();
   }
-  if (!opts.keepSelection) renderLayerList();
+  // The layer list changes when it must: a new view, or an edit that adds or empties a layer
+  // (e.g. airwires appearing when a trace is deleted).
+  const used = index?.usedLayers.join(',') ?? '';
+  if (!opts.keepSelection || used !== listedLayers) renderLayerList();
+  listedLayers = used;
   renderInspector();
   if (opts.fit) fitView();
   requestRender();
 }
 
+/** The layers the layer panel currently lists (to know when it needs refreshing). */
+let listedLayers = '';
+
 /** Called by the editor after every change to the design (edit, undo, redo). */
 function onEdited(): void {
   rebuildScene({ fit: false, keepSelection: true });
-  if (!move) refreshConsistency();
   updateChrome();
-}
-
-function refreshConsistency(): void {
-  const sch = project?.schematic?.file.schematic;
-  const brd = project?.board?.file.board;
-  issues = sch && brd ? checkConsistency(sch, brd) : [];
 }
 
 // ---------------------------------------------------------------------------
@@ -317,7 +350,7 @@ function refreshConsistency(): void {
 
 /** Switch to a view, carrying the selected parts and nets across (cross-probing). */
 function switchView(next: ViewKind): void {
-  if (!project || next === view || !project.views.includes(next)) return;
+  if (next === view || !views().includes(next)) return;
   if (move) commitMove();
   const probe = crossProbeKeys();
   showView(next, true);
@@ -328,22 +361,15 @@ function switchView(next: ViewKind): void {
 }
 
 function saveViewState(): void {
-  if (!file) return;
   viewStates.set(view, { cx: vp.cx, cy: vp.cy, zoom: vp.zoom, visibility, selection: [...selection.items] });
 }
 
-/** Show a view of the current project, restoring what it remembered. */
+/** Show a view, restoring what it remembered. */
 function showView(next: ViewKind, rememberCurrent: boolean): void {
-  if (!project) return;
   if (rememberCurrent) saveViewState();
-  const pf = project.fileFor(next);
-  if (!pf) return;
   view = next;
-  file = pf.file;
-  fileName = pf.name;
-  layerMap = new Map(file.layers.map((l) => [l.number, l]));
   const state = viewStates.get(next);
-  visibility = state?.visibility ?? new Map(file.layers.map((l) => [l.number, l.visible]));
+  visibility = state?.visibility ?? new Map(layers.map((l) => [l.number, l.visible]));
   setupViewChrome();
   rebuildScene({ fit: !state, keepSelection: false });
   if (state) {
@@ -352,12 +378,11 @@ function showView(next: ViewKind, rememberCurrent: boolean): void {
     vp.zoom = state.zoom;
     selection.select(state.selection.filter((id) => index?.scene.owners.has(id)), 'replace');
   }
-  refreshConsistency();
   updateChrome();
   requestRender();
   // Keep the sample link pointing at this view, so a reload comes back to it.
-  if (project.paired && sampleSelect.value === project.name) {
-    history.replaceState(null, '', `#${encodeURIComponent(project.name)}${next === 'board' ? '.brd' : ''}`);
+  if (project && sampleSelect.value === project.project.name) {
+    history.replaceState(null, '', `#${encodeURIComponent(project.project.name)}${next === 'board' ? '.brd' : ''}`);
   }
 }
 
@@ -366,8 +391,8 @@ function crossProbeKeys(): { parts: Set<string>; nets: Set<string> } {
   const parts = new Set<string>();
   const nets = new Set<string>();
   for (const o of selectedOwners()) {
-    if (o.target?.kind === 'instance') parts.add(o.target.instance.part);
-    else if (o.target?.kind === 'element') parts.add(o.target.element.name);
+    if (o.target?.kind === 'gate') parts.add(o.target.gate.part);
+    else if (o.target?.kind === 'footprint') parts.add(o.target.footprint.part);
     else if (o.net) nets.add(o.net);
   }
   return { parts, nets };
@@ -378,16 +403,17 @@ function ownersFor(keys: { parts: Set<string>; nets: Set<string> }): string[] {
   if (!index) return [];
   return [...index.scene.owners.values()]
     .filter((o) =>
-      (o.target?.kind === 'instance' && keys.parts.has(o.target.instance.part)) ||
-      (o.target?.kind === 'element' && keys.parts.has(o.target.element.name)) ||
-      (o.net !== undefined && keys.nets.has(o.net)))
+      (o.target?.kind === 'gate' && keys.parts.has(o.target.gate.part)) ||
+      (o.target?.kind === 'footprint' && keys.parts.has(o.target.footprint.part)) ||
+      (o.net !== undefined && o.kind !== 'airwire' && keys.nets.has(o.net)))
     .map((o) => o.id);
 }
 
-/** Left panel: project notes and schematic/board consistency. */
+/** Left panel: where the project came from, and anything the import reported. */
 function renderProjectPanel(): void {
   projectPanel.replaceChildren();
-  if (!project || (!project.paired && !project.notes.length)) {
+  const imported = project?.project.imported;
+  if (!project || (!imported && !importReport.length)) {
     projectPanel.hidden = true;
     return;
   }
@@ -395,22 +421,21 @@ function renderProjectPanel(): void {
   const h = document.createElement('h2');
   h.textContent = 'Project';
   projectPanel.append(h);
-  for (const note of project.notes) projectPanel.append(el('p', 'project-note', note));
-  if (!project.paired) return;
-  if (!issues.length) {
-    projectPanel.append(el('p', 'sync-ok', '✓ Schematic and board are consistent'));
+  if (imported) projectPanel.append(el('p', 'project-note', `Imported from Eagle ${imported.eagleVersion}: ${imported.from.join(' + ')}`));
+  if (!importReport.length) {
+    projectPanel.append(el('p', 'sync-ok', '✓ Imported without problems'));
     return;
   }
-  projectPanel.append(el('p', 'sync-bad', `⚠ ${issues.length}${issues.length >= 50 ? '+' : ''} difference(s) between schematic and board`));
+  projectPanel.append(el('p', 'sync-bad', `⚠ ${importReport.length} note(s) from the import`));
   const list = document.createElement('ul');
   list.className = 'issue-list';
-  for (const i of issues) list.append(el('li', '', i.message));
+  for (const msg of importReport) list.append(el('li', '', msg));
   projectPanel.append(list);
 }
 
-/** Grid spacing of the current document (`alt` = fine grid). */
+/** Grid spacing of the current view (`alt` = fine grid). */
 function gridOf(alt = false): number {
-  return editor && file ? editor.grid(file, alt) : 1.27;
+  return editor && view !== 'library' ? editor.grid(view, alt) : 1.27;
 }
 
 function snap(v: number, alt = false): number {
@@ -455,11 +480,11 @@ function snapReference(grab: Point): Point | undefined {
   if (owners.length !== 1) return undefined;
   const o = owners[0]!;
   if (o.origin) return o.origin;
-  if (o.target?.kind === 'signal-wire' || o.target?.kind === 'net-wire') {
-    const w = o.target.wire;
-    const d1 = Math.hypot(w.x1 - grab.x, w.y1 - grab.y);
-    const d2 = Math.hypot(w.x2 - grab.x, w.y2 - grab.y);
-    return d1 <= d2 ? { x: w.x1, y: w.y1 } : { x: w.x2, y: w.y2 };
+  if (o.target?.kind === 'trace' || o.target?.kind === 'wire') {
+    const [a, b] = (o.target.kind === 'trace' ? o.target.trace : o.target.wire).line;
+    const d1 = Math.hypot(a[0] - grab.x, a[1] - grab.y);
+    const d2 = Math.hypot(b[0] - grab.x, b[1] - grab.y);
+    return d1 <= d2 ? { x: a[0], y: a[1] } : { x: b[0], y: b[1] };
   }
   return undefined;
 }
@@ -471,22 +496,23 @@ function pivotFor(grab: Point): Point {
 
 /** Explain why a command does nothing, or return the editable targets. */
 function commandTargets(verb: string): Target[] | undefined {
-  if (!editor?.canEdit) {
-    flash(`${verb} works on boards and schematics`);
+  if (!editable()) {
+    flash(`${verb} works on projects; libraries are view-only`);
     return undefined;
   }
+  if (!editor) return undefined;
   const ts = selectedTargets();
   if (!ts.length) {
     flash(`Select something to ${verb.toLowerCase()}`);
     return undefined;
   }
-  const editable = editor.editable(ts);
-  if (!editable.length) {
+  const ok = editor.editable(ts);
+  if (!ok.length) {
     flash('The selection is locked');
     return undefined;
   }
-  if (editable.length < ts.length) flash(`${ts.length - editable.length} locked part(s) left in place`);
-  return editable;
+  if (ok.length < ts.length) flash(`${ts.length - ok.length} locked part(s) left in place`);
+  return ok;
 }
 
 function rotateCmd(quarterTurns: number): void {
@@ -528,7 +554,7 @@ function beginMove(start: Point, drag: boolean): void {
   if (!session) return;
   move = { session, start, drag };
   canvas.classList.add('moving');
-  flash(drag ? 'Moving: release to place · Esc cancels' : `Moving: click to place · R rotates · F ${file?.board ? 'flips' : 'mirrors'} · Esc cancels`);
+  flash(drag ? 'Moving: release to place · Esc cancels' : `Moving: click to place · R rotates · F ${view === 'board' ? 'flips' : 'mirrors'} · Esc cancels`);
 }
 
 function updateMove(p: Point, fineGrid: boolean): void {
@@ -573,10 +599,8 @@ function reselect(objects: object[]): void {
   // A step made in the other view (e.g. a schematic delete undone while viewing the board)
   // reselects the same parts here by name.
   const parts = new Set<string>();
-  for (const obj of objects) {
-    if ('part' in obj && 'gate' in obj) parts.add((obj as { part: string }).part);
-    else if ('package' in obj && 'name' in obj) parts.add((obj as { name: string }).name);
-  }
+  // Gate and footprint placements both name their part.
+  for (const obj of objects) if ('part' in obj && 'at' in obj) parts.add((obj as { part: string }).part);
   const probed = parts.size ? ownersFor({ parts, nets: new Set() }) : [];
   selection.select([...new Set([...ids, ...probed])], 'replace');
 }
@@ -586,7 +610,7 @@ function reselect(objects: object[]): void {
 
 function renderLayerList(): void {
   layerList.replaceChildren();
-  if (!index || !file) return;
+  if (!index) return;
   for (const n of index.usedLayers) {
     const li = document.createElement('li');
     const label = document.createElement('label');
@@ -605,7 +629,7 @@ function renderLayerList(): void {
     num.className = 'layer-num';
     num.textContent = String(n);
     const name = document.createElement('span');
-    name.textContent = layerName(file.layers, n);
+    name.textContent = layerName(layers, n);
     label.append(cb, sw, num, name);
     li.append(label);
     layerList.append(li);
@@ -630,29 +654,29 @@ function pruneHiddenSelection(): void {
 }
 
 function renderLibraryList(): void {
-  const lib = file?.library;
+  const lib = library?.lib;
   libraryList.replaceChildren();
   if (!lib) return;
   const q = libraryFilter.value.trim().toLowerCase();
-  const groups: [string, LibraryItemKind, Iterable<string>][] = [
-    ['Device sets', 'deviceset', lib.devicesets.keys()],
-    ['Symbols', 'symbol', lib.symbols.keys()],
-    ['Packages', 'package', lib.packages.keys()],
+  const groups: [string, LibraryItemKind, { id: string }[]][] = [
+    ['Components', 'component', lib.components],
+    ['Symbols', 'symbol', lib.symbols],
+    ['Footprints', 'footprint', lib.footprints],
   ];
-  for (const [title, kind, names] of groups) {
-    const matches = [...names].filter((n) => !q || n.toLowerCase().includes(q)).sort();
+  for (const [title, kind, items] of groups) {
+    const matches = items.map((i) => i.id).filter((id) => !q || componentName(id).toLowerCase().includes(q)).sort();
     if (!matches.length) continue;
     const h = document.createElement('h3');
     h.textContent = `${title} (${matches.length})`;
     libraryList.append(h);
-    for (const name of matches) {
+    for (const id of matches) {
       const btn = document.createElement('button');
       btn.type = 'button';
-      btn.textContent = name;
-      btn.title = name;
-      if (libraryItem?.kind === kind && libraryItem.name === name) btn.className = 'active';
+      btn.textContent = componentName(id);
+      btn.title = id;
+      if (libraryItem?.kind === kind && libraryItem.id === id) btn.className = 'active';
       btn.addEventListener('click', () => {
-        libraryItem = { kind, name };
+        libraryItem = { kind, id };
         renderLibraryList();
         rebuildScene({ fit: true, keepSelection: false });
       });
@@ -662,17 +686,18 @@ function renderLibraryList(): void {
 }
 
 const KIND_LABEL: Record<Owner['kind'], string> = {
-  instance: 'Part instance',
-  'net-wire': 'Net wire',
+  gate: 'Part (gate)',
+  wire: 'Net wire',
   'bus-wire': 'Bus wire',
   junction: 'Junction',
-  label: 'Net label',
-  element: 'Element',
-  'signal-wire': 'Trace',
+  netlabel: 'Net label',
+  footprint: 'Part (footprint)',
+  trace: 'Trace',
   via: 'Via',
-  'signal-polygon': 'Polygon',
-  plain: 'Drawing',
-  attribute: 'Smashed text',
+  pour: 'Copper pour',
+  drawing: 'Drawing',
+  label: 'Smashed text',
+  airwire: 'Airwire (computed)',
   'library-item': 'Library item',
 };
 
@@ -688,9 +713,9 @@ function renderInspector(): void {
       '<p>Nothing selected.</p>' +
       '<p>Click an object to select it. Drag left-to-right to select objects fully inside the box, ' +
       'right-to-left to select anything the box touches. Hold Shift to add, Ctrl to toggle.</p>' +
-      (file?.board || file?.schematic
+      (view !== 'library'
         ? '<p>Then act on the selection: drag it or press <b>M</b> to move, <b>R</b> to rotate, ' +
-          `<b>F</b> to ${file.board ? 'flip to the other side' : 'mirror'}, <b>Del</b> to delete.</p>`
+          `<b>F</b> to ${view === 'board' ? 'flip to the other side' : 'mirror'}, <b>Del</b> to delete.</p>`
         : '<p>Libraries are view-only so far.</p>');
     inspector.append(hint);
     return;
@@ -743,19 +768,19 @@ function renderInspector(): void {
 
 /** The verbs available for the current selection. */
 function commandButtons(): HTMLElement[] {
-  if (!editor?.canEdit) return [];
+  if (!editable() || !editor) return [];
   const ts = selectedTargets();
   if (!ts.length) return [];
-  const editable = editor.editable(ts);
+  const editableTs = editor.editable(ts);
   const out: HTMLElement[] = [];
-  if (editable.length < ts.length) {
-    out.push(el('p', 'locked-note', editable.length ? 'Locked parts will stay in place.' : 'Locked: unlock it in Eagle to edit.'));
+  if (editableTs.length < ts.length) {
+    out.push(el('p', 'locked-note', editableTs.length ? 'Locked parts will stay in place.' : 'Locked on the board.'));
   }
   const grid = document.createElement('div');
   grid.className = 'commands';
   const cmd = (label: string, key: string, run: () => void) => {
     const b = button('', run);
-    b.disabled = !editable.length;
+    b.disabled = !editableTs.length;
     b.append(document.createTextNode(label));
     const k = document.createElement('kbd');
     k.textContent = key;
@@ -766,13 +791,13 @@ function commandButtons(): HTMLElement[] {
   grid.append(
     cmd('Move', 'M', () => beginMove(pivot(), false)),
     cmd('Rotate', 'R', () => rotateCmd(1)),
-    cmd(file?.board ? 'Flip side' : 'Mirror', 'F', mirrorCmd),
+    cmd(view === 'board' ? 'Flip side' : 'Mirror', 'F', mirrorCmd),
     cmd('Delete', 'Del', deleteCmd),
   );
   // Smash/unsmash applies to parts: detach (or reattach) their name/value texts.
-  const parts = editable.filter((t) => t.kind === 'instance' || t.kind === 'element');
+  const parts = editableTs.flatMap((t) => (t.kind === 'gate' ? [t.gate] : t.kind === 'footprint' ? [t.footprint] : []));
   if (parts.length) {
-    const allSmashed = parts.every((t) => (t.kind === 'instance' ? t.instance.smashed : t.kind === 'element' && t.element.smashed));
+    const allSmashed = parts.every((p) => p.smashed || (p.labels?.length ?? 0) > 0);
     const b = button(allSmashed ? 'Unsmash' : 'Smash', () => smashCmd(!allSmashed));
     b.title = allSmashed
       ? 'Reattach the name and value texts to the part'
@@ -795,17 +820,17 @@ function smashCmd(on: boolean): void {
  * Returns the rows and the names of read-only props they replace.
  */
 function propertyFields(o: Owner): { table: HTMLTableElement; covers: Set<string> } | undefined {
-  if (!editor?.canEdit) return undefined;
+  if (!editable() || !editor) return undefined;
   const ed = editor;
   const rows: [label: string, field: string, value: string, commit: (v: string) => string | undefined][] = [];
   const covers = new Set<string>();
-  const part = o.target?.kind === 'instance' ? o.target.instance.part : o.target?.kind === 'element' ? o.target.element.name : undefined;
+  const part = o.target?.kind === 'gate' ? o.target.gate.part : o.target?.kind === 'footprint' ? o.target.footprint.part : undefined;
   if (part !== undefined) {
     const value = o.props.find(([k]) => k === 'Value')?.[1] ?? '';
     rows.push(['Name', 'name', part, (v) => ed.renamePart(part, v)]);
     rows.push(['Value', 'value', value, (v) => ed.setValue(part, v)]);
     for (const k of ['Name', 'Part', 'Value']) covers.add(k);
-  } else if (o.net !== undefined && o.kind !== 'bus-wire') {
+  } else if (o.net !== undefined && o.kind !== 'bus-wire' && o.kind !== 'airwire') {
     const net = o.net;
     rows.push(['Net', 'net', net, (v) => ed.renameNet(net, v)]);
     for (const k of ['Net', 'Signal']) covers.add(k);
@@ -923,7 +948,7 @@ function draw(): void {
     selection: selection.items,
     hover: move ? undefined : hover,
     ...(box ? { box: boxSelection(box) } : {}),
-    ...(editor && !file?.library ? { grid: gridOf() } : {}),
+    ...(editor && view !== 'library' ? { grid: gridOf() } : {}),
   });
   statusZoom.textContent = `${vp.zoom < 10 ? vp.zoom.toFixed(2) : vp.zoom.toFixed(0)} px/mm`;
 }
@@ -1051,7 +1076,7 @@ canvas.addEventListener('pointermove', (e) => {
       return;
     }
     if (pointer.mode === 'pending' && Math.hypot(p.x - pointer.x, p.y - pointer.y) > DRAG_THRESHOLD) {
-      if (pointer.onSelected && pointer.mods === 'replace' && editor?.canEdit) {
+      if (pointer.onSelected && pointer.mods === 'replace' && editable()) {
         // Drag on a selected object: move the selection.
         const start = vp.toWorld(pointer.x, pointer.y);
         pointer = undefined;
@@ -1074,7 +1099,7 @@ canvas.addEventListener('pointermove', (e) => {
   if (h !== hover) {
     hover = h;
     canvas.title = h ? (index.scene.owners.get(h)?.label ?? '') : '';
-    canvas.classList.toggle('can-drag', !!h && selection.has(h) && !!editor?.canEdit);
+    canvas.classList.toggle('can-drag', !!h && selection.has(h) && editable());
     requestRender();
   }
 });
@@ -1170,9 +1195,9 @@ window.addEventListener('keydown', (e) => {
   } else if (e.key === 'Escape') {
     if (move) cancelMove();
     else selection.clear();
-  } else if (e.key === 'Tab' && project && project.views.length > 1) {
+  } else if (e.key === 'Tab' && views().length > 1) {
     e.preventDefault();
-    const vs = project.views;
+    const vs = views();
     switchView(vs[(vs.indexOf(view) + 1) % vs.length]!);
   } else if (e.key === 'Home') {
     fitView();
@@ -1198,7 +1223,7 @@ window.addEventListener('keyup', (e) => {
 });
 
 window.addEventListener('beforeunload', (e) => {
-  if (editor?.anyDirty) e.preventDefault();
+  if (editor?.history.dirty) e.preventDefault();
 });
 
 selection.onChange(() => {
