@@ -10,6 +10,7 @@ import type { Grid, Project } from '../model/types';
 import { deleteTargets } from '../edit/delete';
 import { History, insert, remove, Transaction } from '../edit/ops';
 import { addToLibrary, createPart, gatesToPlace } from '../edit/place';
+import { addWire, cleanPath, sheetPins, snapPoints, touchAt, usualWireWidth, type WireResult } from '../edit/wire';
 import { renameNet, renamePart, setPartValue, smash, unsmash } from '../edit/properties';
 import { isEditable, mirrorAbout, rotationAbout, transformTargets, translation } from '../edit/transform';
 import type { Target } from '../scene/types';
@@ -69,6 +70,12 @@ export class Editor {
     const sheet = this.project.schematic?.sheets[sheetIndex];
     if (!sheet) return undefined;
     return new PlaceSession(this, source, componentId, variant, technology, sheet, grid);
+  }
+
+  /** Start drawing wires on a sheet. */
+  beginWire(sheetIndex: number, grid: (alt: boolean) => number): WireSession | undefined {
+    const sheet = this.project.schematic?.sheets[sheetIndex];
+    return sheet ? new WireSession(this, sheet, grid) : undefined;
   }
 
   // Properties. Each returns an error message when the change isn't allowed.
@@ -340,6 +347,118 @@ export class PlaceSession {
     else delete this.current.rot;
     if (this.mirrored) this.current.mirror = true;
     else delete this.current.mirror;
+  }
+}
+
+/**
+ * Drawing wires. The first click starts a wire; each click adds a leg (an L bend to the
+ * cursor); a click on a pin or wire, a double click or Esc finishes it as one undo step. The
+ * wire in progress isn't in the model until finished: `path` gives it for drawing.
+ */
+export class WireSession {
+  private points: O.Pt[] = [];
+  private cursor: O.Pt = [0, 0];
+  /** The first leg of an L bend runs vertically (instead of horizontally). */
+  private verticalFirst = false;
+  private snaps: O.Pt[] = [];
+  /** Whether the cursor sits on a pin or wire end. */
+  snapped = false;
+  readonly width: number;
+
+  constructor(
+    private readonly editor: Editor,
+    readonly sheet: O.Sheet,
+    private readonly grid: (alt: boolean) => number,
+  ) {
+    this.width = usualWireWidth(editor.project);
+    this.refresh();
+  }
+
+  get drawing(): boolean {
+    return this.points.length > 0;
+  }
+
+  /** The wire as drawn so far, plus the bend to the cursor. */
+  get path(): Point[] {
+    if (!this.points.length) return [];
+    return [...this.points, ...this.leg()].map(([x, y]) => ({ x, y }));
+  }
+
+  get at(): Point {
+    return { x: this.cursor[0], y: this.cursor[1] };
+  }
+
+  /** Move the cursor: onto a pin or wire end within `tolerance`, else onto the grid. */
+  moveTo(p: Point, fineGrid: boolean, tolerance: number): void {
+    let best: O.Pt | undefined;
+    let d = tolerance;
+    for (const s of this.snaps) {
+      const e = Math.hypot(s[0] - p.x, s[1] - p.y);
+      if (e <= d) [best, d] = [s, e];
+    }
+    this.snapped = !!best;
+    if (best) {
+      this.cursor = [best[0], best[1]];
+    } else {
+      const g = this.grid(fineGrid);
+      const snap = (v: number) => Math.round(Math.round(v / g) * g * 1e6) / 1e6;
+      this.cursor = [snap(p.x), snap(p.y)];
+    }
+  }
+
+  flipBend(): void {
+    this.verticalFirst = !this.verticalFirst;
+  }
+
+  /**
+   * Click at the cursor: start a wire or add a leg. Returns 'finish' when the wire reached a
+   * pin or another wire (the caller then finishes it).
+   */
+  click(): 'started' | 'added' | 'finish' {
+    if (!this.points.length) {
+      this.points = [this.cursor];
+      return 'started';
+    }
+    this.points = cleanPath([...this.points, ...this.leg()]);
+    const t = touchAt(this.editor.project, this.sheet, this.cursor, sheetPins(this.editor.project, this.sheet, this.editor.index()));
+    return this.points.length >= 2 && (t.pins.length || t.segments.length) ? 'finish' : 'added';
+  }
+
+  /**
+   * Add the wire drawn so far to the model (one undo step). Returns the result, or undefined
+   * when there was nothing to add. On `choose`, nothing changes: call again with a name.
+   */
+  finish(name?: string): WireResult | undefined {
+    const tx = new Transaction('');
+    const res = addWire(this.editor.project, this.sheet, this.points, tx, { width: this.width, ...(name ? { name } : {}), index: this.editor.index() });
+    if (!res || 'choose' in res) {
+      tx.revert();
+      if (!res) this.points = [];
+      return res;
+    }
+    tx.label = res.joined.length ? `Wire joining ${[...res.joined, res.net].join(', ')}` : `Wire on ${res.net}`;
+    this.points = [];
+    this.editor.push(tx);
+    this.refresh();
+    return res;
+  }
+
+  /** Drop the wire in progress. */
+  cancel(): void {
+    this.points = [];
+  }
+
+  /** Re-read the pins and wire ends to snap to (after the model changed). */
+  refresh(): void {
+    this.snaps = snapPoints(this.editor.project, this.sheet, this.editor.index());
+  }
+
+  private leg(): O.Pt[] {
+    const last = this.points[this.points.length - 1]!;
+    const c = this.cursor;
+    if (Math.abs(last[0] - c[0]) < 1e-9 || Math.abs(last[1] - c[1]) < 1e-9) return [c];
+    const corner: O.Pt = this.verticalFirst ? [last[0], c[1]] : [c[0], last[1]];
+    return [corner, c];
   }
 }
 

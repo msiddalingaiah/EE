@@ -214,3 +214,17 @@ button:disabled:hover { border-color: var(--border); }
 .parts-choice select { width: 100%; }
 .panel-actions kbd { font-family: var(--mono); font-size: 11px; color: var(--text-dim); text-transform: none; letter-spacing: 0; }
 #canvas.placing { cursor: copy; }
+#canvas.wiring { cursor: none; }
+#wire-btn.active { background: #2b3343; color: var(--accent); border-color: #3d4452; }
+
+dialog.choose-net {
+  background: var(--panel-2);
+  color: inherit;
+  border: 1px solid #3d4452;
+  border-radius: 6px;
+  padding: 16px;
+  max-width: 360px;
+}
+dialog.choose-net::backdrop { background: rgba(0, 0, 0, 0.45); }
+dialog.choose-net p { margin: 0 0 12px; }
+.choose-net-buttons { display: flex; flex-wrap: wrap; gap: 8px; }

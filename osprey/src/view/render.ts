@@ -27,6 +27,8 @@ export interface RenderState {
   box?: { rect: Bounds; crossing: boolean };
   /** Grid spacing in mm; dots are drawn when it is coarse enough to see. */
   grid?: number;
+  /** A wire being drawn (world coordinates), in the colour of `layer`, and the cursor. */
+  sketch?: { path: { x: number; y: number }[]; width: number; layer: number; cursor: { x: number; y: number }; snapped: boolean };
 }
 
 export function render(ctx: CanvasRenderingContext2D, vp: Viewport, dpr: number, s: RenderState): void {
@@ -93,6 +95,38 @@ export function render(ctx: CanvasRenderingContext2D, vp: Viewport, dpr: number,
   for (const owner of s.selection) highlight(owner, SELECT_COLOR, 1.5);
 
   if (s.box) drawBox(ctx, vp, dpr, s.box.rect, s.box.crossing);
+  if (s.sketch) drawSketch(ctx, vp, dpr, s.sketch, layerColor(s.layers.get(s.sketch.layer)));
+}
+
+/** The wire in progress, and a cursor mark: a ring when it sits on a pin or wire end. */
+function drawSketch(ctx: CanvasRenderingContext2D, vp: Viewport, dpr: number, k: NonNullable<RenderState['sketch']>, color: string): void {
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.strokeStyle = color;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  if (k.path.length > 1) {
+    ctx.lineWidth = Math.max(k.width * vp.zoom, 1.5);
+    ctx.beginPath();
+    k.path.forEach((p, i) => {
+      const q = vp.toScreen(p.x, p.y);
+      if (i) ctx.lineTo(q.x, q.y);
+      else ctx.moveTo(q.x, q.y);
+    });
+    ctx.stroke();
+  }
+  const c = vp.toScreen(k.cursor.x, k.cursor.y);
+  ctx.lineWidth = 1.5;
+  ctx.strokeStyle = k.snapped ? SELECT_COLOR : color;
+  ctx.beginPath();
+  if (k.snapped) {
+    ctx.arc(c.x, c.y, 6, 0, Math.PI * 2);
+  } else {
+    ctx.moveTo(c.x - 6, c.y);
+    ctx.lineTo(c.x + 6, c.y);
+    ctx.moveTo(c.x, c.y - 6);
+    ctx.lineTo(c.x, c.y + 6);
+  }
+  ctx.stroke();
 }
 
 function worldTransform(ctx: CanvasRenderingContext2D, vp: Viewport, dpr: number): void {

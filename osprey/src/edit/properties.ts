@@ -79,7 +79,7 @@ function pinOf(index: ProjectIndex, partName: string, gateName: string, pinName:
 }
 
 /** Why a net's name is fixed by power connections, if it is. */
-function supplyReason(project: O.Project, net: O.Net, index: ProjectIndex): string | undefined {
+export function supplyReason(project: O.Project, net: O.Net, index: ProjectIndex): string | undefined {
   for (const seg of net.segments ?? []) {
     for (const pr of seg.pins) {
       if (pinOf(index, pr.part, pr.gate, pr.pin)?.direction === 'supply') {

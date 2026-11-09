@@ -1,6 +1,6 @@
 // Osprey application shell: opening, importing and saving, panels, canvas interaction, commands.
 
-import { Editor, subject, type MoveSession, type PlaceSession } from './app/editor';
+import { Editor, subject, type MoveSession, type PlaceSession, type WireSession } from './app/editor';
 import { canPickFiles, pickFiles, saveFile, type FileHandle } from './app/files';
 import { Selection, type SelectMode } from './app/selection';
 import { parseEagle } from './eagle/parse';
@@ -65,6 +65,7 @@ const partsFilter = $<HTMLInputElement>('parts-filter');
 const partsList = $<HTMLDivElement>('parts-list');
 const partsChoice = $<HTMLDivElement>('parts-choice');
 const lbrInput = $<HTMLInputElement>('lbr-input');
+const wireBtn = $<HTMLButtonElement>('wire-btn');
 
 // ---------------------------------------------------------------------------
 // State
@@ -107,6 +108,9 @@ let placing: PlaceSession | undefined;
 const loadedLibraries = new Map<string, O.Library>();
 /** The component chosen in the Add part panel. */
 let chosen: { source: string; id: string } | undefined;
+
+/** Drawing wires (the W key): active until stopped. */
+let wiring: WireSession | undefined;
 
 /** An interactive move: started by dragging a selected object (`drag`) or by the M key. */
 let move: { session: MoveSession; start: Point; drag: boolean } | undefined;
@@ -247,6 +251,7 @@ function openSources(sources: SourceFile[], initialView?: ViewKind): void {
     }
     cancelMove();
     stopPlacing();
+    stopWiring();
     project = next.project;
     library = next.library;
     importReport = next.report;
@@ -349,6 +354,7 @@ function setupViewChrome(): void {
   }
   libraryPanel.hidden = view !== 'library';
   partsPanel.hidden = !(project && view === 'schematic');
+  wireBtn.hidden = partsPanel.hidden;
   if (!partsPanel.hidden) renderPartsPanel();
   viewToggle.hidden = views().length < 2;
   for (const b of viewToggle.querySelectorAll('button')) {
@@ -356,7 +362,7 @@ function setupViewChrome(): void {
     b.hidden = !views().includes(b.dataset.view as ViewKind);
   }
   statusHint.textContent = view !== 'library'
-    ? `Drag or M moves · R rotates · F ${view === 'board' ? 'flips side' : 'mirrors'} · Del deletes · N name · V value · Ctrl+Z undo · Ctrl+S save · Space+drag pans · Home fits`
+    ? `${view === 'schematic' ? 'A adds part · W draws wires · ' : ''}Drag or M moves · R rotates · F ${view === 'board' ? 'flips side' : 'mirrors'} · Del deletes · N name · V value · Ctrl+Z undo · Ctrl+S save · Space+drag pans · Home fits`
     : 'Click to select · Shift adds · Ctrl toggles · drag to box-select · Space+drag or right-drag pans · Home fits';
   // The hint is cut off on narrow windows; the tooltip always has all of it.
   statusHint.title = statusHint.textContent;
@@ -421,6 +427,7 @@ let listedLayers = '';
 
 /** Called by the editor after every change to the design (edit, undo, redo). */
 function onEdited(): void {
+  wiring?.refresh();
   rebuildScene({ fit: false, keepSelection: true });
   updateChrome();
 }
@@ -447,6 +454,7 @@ function saveViewState(): void {
 /** Show a view, restoring what it remembered. */
 function showView(next: ViewKind, rememberCurrent: boolean): void {
   stopPlacing();
+  stopWiring();
   if (rememberCurrent) saveViewState();
   view = next;
   const state = viewStates.get(next);
@@ -1034,7 +1042,8 @@ function draw(): void {
     layers: layerMap,
     visible: isVisible,
     selection: selection.items,
-    hover: move || placing ? undefined : hover,
+    hover: move || placing || wiring ? undefined : hover,
+    ...(wiring ? { sketch: { path: wiring.path, width: wiring.width, layer: 91, cursor: wiring.at, snapped: wiring.snapped } } : {}),
     ...(box ? { box: boxSelection(box) } : {}),
     ...(editor && view !== 'library' ? { grid: gridOf() } : {}),
   });
@@ -1187,6 +1196,7 @@ async function startPlacing(): Promise<void> {
   const lib = await librarySource(chosen.source);
   if (!lib) return;
   stopPlacing();
+  stopWiring();
   if (move) commitMove();
   const variant = (document.getElementById('parts-variant') as HTMLSelectElement | null)?.value ?? '';
   const tech = (document.getElementById('parts-technology') as HTMLSelectElement | null)?.value ?? '';
@@ -1258,6 +1268,90 @@ lbrInput.addEventListener('change', async () => {
   void renderPartsPanel();
 });
 
+// ---------------------------------------------------------------------------
+// Drawing wires
+
+/** Wire ends snap to pins and wire ends within this many pixels. */
+const WIRE_SNAP_PX = 8;
+
+function startWiring(): void {
+  if (!editor || !project || view !== 'schematic') return;
+  stopPlacing();
+  if (move) commitMove();
+  wiring = editor.beginWire(Number(sheetSelect.value || 0), gridOf);
+  if (!wiring) return;
+  wiring.moveTo(cursor, false, WIRE_SNAP_PX / vp.zoom);
+  selection.clear();
+  canvas.classList.add('wiring');
+  wireBtn.classList.add('active');
+  canvas.focus({ preventScroll: true });
+  flash('Wire: click to start · click adds a corner · ends on a pin or wire · double click or Esc finishes · / flips the bend');
+  onEdited();
+}
+
+/** Stop drawing wires (a wire in progress is dropped). */
+function stopWiring(announce = false): void {
+  if (!wiring) return;
+  wiring.cancel();
+  wiring = undefined;
+  canvas.classList.remove('wiring');
+  wireBtn.classList.remove('active');
+  if (announce) flash('Stopped drawing wires');
+  requestRender();
+}
+
+async function wireClick(double: boolean): Promise<void> {
+  if (!wiring) return;
+  const r = wiring.click();
+  if (r === 'finish' || (double && wiring.path.length > 1)) await finishWire();
+  requestRender();
+}
+
+/** Add the wire drawn so far; asks which name to keep when equally named nets meet. */
+async function finishWire(name?: string): Promise<void> {
+  if (!wiring) return;
+  const res = wiring.finish(name);
+  if (!res) {
+    requestRender();
+    return;
+  }
+  if ('choose' in res) {
+    const pick = await chooseNetName(res.choose);
+    if (pick) await finishWire(pick);
+    else flash('Wire not added: choose a name to join the nets, or keep drawing');
+    return;
+  }
+  flash(res.joined.length ? `Joined ${res.joined.join(', ')} into ${res.net}` : `Wire on ${res.net}`);
+}
+
+/** Ask which net name survives a join (undefined if cancelled). */
+function chooseNetName(names: string[]): Promise<string | undefined> {
+  return new Promise((resolve) => {
+    const dlg = document.createElement('dialog');
+    dlg.className = 'choose-net';
+    dlg.append(el('p', '', 'This wire joins nets that each have a name. Which name should the joined net keep?'));
+    const row = el('div', 'choose-net-buttons', '');
+    for (const n of names) {
+      row.append(button(n, () => {
+        resolve(n);
+        dlg.close();
+      }));
+    }
+    const cancel = button('Cancel', () => dlg.close());
+    cancel.className = 'secondary';
+    row.append(cancel);
+    dlg.append(row);
+    dlg.addEventListener('close', () => {
+      resolve(undefined);
+      dlg.remove();
+      canvas.focus({ preventScroll: true });
+    });
+    document.body.append(dlg);
+    dlg.showModal();
+    (row.querySelector('button') as HTMLButtonElement | null)?.focus();
+  });
+}
+
 const DRAG_THRESHOLD = 4;
 const PICK_TOLERANCE_PX = 4;
 
@@ -1302,6 +1396,16 @@ canvas.addEventListener('pointerdown', (e) => {
     return;
   }
 
+  // Drawing wires: left click adds a leg (double click finishes), right click finishes or stops.
+  if (wiring && e.button !== 1 && !spaceDown) {
+    if (e.button === 0) void wireClick(e.detail >= 2);
+    else if (e.button === 2) {
+      if (wiring.drawing) void finishWire();
+      else stopWiring(true);
+    }
+    return;
+  }
+
   // A keyboard-started move ends with a click: left places, right cancels.
   if (move && !move.drag) {
     if (e.button === 0) commitMove();
@@ -1332,6 +1436,11 @@ canvas.addEventListener('pointermove', (e) => {
 
   if (move) {
     updateMove(w, e.altKey);
+    return;
+  }
+  if (wiring && !(pointer?.mode === 'pan')) {
+    wiring.moveTo(w, e.altKey, WIRE_SNAP_PX / vp.zoom);
+    requestRender();
     return;
   }
   if (placing && !(pointer?.mode === 'pan')) {
@@ -1440,6 +1549,8 @@ function isTextEntry(t: EventTarget | null): boolean {
 
 window.addEventListener('keydown', (e) => {
   if (isTextEntry(e.target)) return;
+  // A modal dialog (e.g. choosing a net name) handles its own keys.
+  if (document.querySelector('dialog[open]')) return;
   const ctrl = e.ctrlKey || e.metaKey;
   const key = e.key.toLowerCase();
   // A focused dropdown keeps plain keys for type-ahead; shortcuts with Ctrl still apply.
@@ -1466,7 +1577,9 @@ window.addEventListener('keydown', (e) => {
     spaceDown = true;
     e.preventDefault();
   } else if (e.key === 'Escape') {
-    if (placing) stopPlacing(true);
+    if (wiring?.drawing) void finishWire();
+    else if (wiring) stopWiring(true);
+    else if (placing) stopPlacing(true);
     else if (move) cancelMove();
     else selection.clear();
   } else if (e.key === 'Tab' && views().length > 1) {
@@ -1485,6 +1598,13 @@ window.addEventListener('keydown', (e) => {
     e.preventDefault();
     partsFilter.focus();
     partsFilter.select();
+  } else if (key === 'w' && project && view === 'schematic') {
+    if (wiring) stopWiring(true);
+    else startWiring();
+  } else if (e.key === '/' && wiring) {
+    e.preventDefault();
+    wiring.flipBend();
+    requestRender();
   } else if (key === 'm') {
     beginMove(cursor, false);
   } else if (key === 'r') {
@@ -1522,11 +1642,14 @@ for (const b of viewToggle.querySelectorAll<HTMLButtonElement>('button')) {
   });
 }
 $('fit-btn').addEventListener('click', fitView);
+wireBtn.addEventListener('click', () => (wiring ? stopWiring(true) : startWiring()));
 undoBtn.addEventListener('click', undoCmd);
 redoBtn.addEventListener('click', redoCmd);
 saveBtn.addEventListener('click', () => void save());
 exportBtn.addEventListener('click', () => void exportToEagle());
 sheetSelect.addEventListener('change', () => {
+  stopWiring();
+  stopPlacing();
   rebuildScene({ fit: true, keepSelection: false });
   canvas.focus({ preventScroll: true });
 });
