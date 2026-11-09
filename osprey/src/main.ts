@@ -1,6 +1,6 @@
 // Osprey application shell: opening, importing and saving, panels, canvas interaction, commands.
 
-import { Editor, subject, type MoveSession } from './app/editor';
+import { Editor, subject, type MoveSession, type PlaceSession } from './app/editor';
 import { canPickFiles, pickFiles, saveFile, type FileHandle } from './app/files';
 import { Selection, type SelectMode } from './app/selection';
 import { parseEagle } from './eagle/parse';
@@ -59,6 +59,12 @@ const saveBtn = $<HTMLButtonElement>('save-btn');
 const exportBtn = $<HTMLButtonElement>('export-btn');
 const viewToggle = $<HTMLDivElement>('view-toggle');
 const projectPanel = $<HTMLElement>('project-panel');
+const partsPanel = $<HTMLElement>('parts-panel');
+const partsSource = $<HTMLSelectElement>('parts-source');
+const partsFilter = $<HTMLInputElement>('parts-filter');
+const partsList = $<HTMLDivElement>('parts-list');
+const partsChoice = $<HTMLDivElement>('parts-choice');
+const lbrInput = $<HTMLInputElement>('lbr-input');
 
 // ---------------------------------------------------------------------------
 // State
@@ -94,6 +100,13 @@ let libraryItem: LibraryItemRef | undefined;
 let box: { start: Point; end: Point } | undefined;
 /** World position of the cursor (last known). */
 let cursor: Point = { x: 0, y: 0 };
+
+/** Adding parts: the session places gates under the cursor until stopped. */
+let placing: PlaceSession | undefined;
+/** Libraries loaded for adding parts (Eagle .lbr files), by file name. */
+const loadedLibraries = new Map<string, O.Library>();
+/** The component chosen in the Add part panel. */
+let chosen: { source: string; id: string } | undefined;
 
 /** An interactive move: started by dragging a selected object (`drag`) or by the M key. */
 let move: { session: MoveSession; start: Point; drag: boolean } | undefined;
@@ -233,6 +246,7 @@ function openSources(sources: SourceFile[], initialView?: ViewKind): void {
       next = { project: p, report, name: `${p.project.name}.osprey` };
     }
     cancelMove();
+    stopPlacing();
     project = next.project;
     library = next.library;
     importReport = next.report;
@@ -334,6 +348,8 @@ function setupViewChrome(): void {
     sheetSelect.replaceChildren(...sheets.map((_, i) => new Option(`${i + 1}`, String(i))));
   }
   libraryPanel.hidden = view !== 'library';
+  partsPanel.hidden = !(project && view === 'schematic');
+  if (!partsPanel.hidden) renderPartsPanel();
   viewToggle.hidden = views().length < 2;
   for (const b of viewToggle.querySelectorAll('button')) {
     b.classList.toggle('active', b.dataset.view === view);
@@ -430,6 +446,7 @@ function saveViewState(): void {
 
 /** Show a view, restoring what it remembered. */
 function showView(next: ViewKind, rememberCurrent: boolean): void {
+  stopPlacing();
   if (rememberCurrent) saveViewState();
   view = next;
   const state = viewStates.get(next);
@@ -577,6 +594,11 @@ function commandTargets(verb: string): Target[] | undefined {
 }
 
 function rotateCmd(quarterTurns: number): void {
+  if (placing) {
+    placing.rotate(quarterTurns);
+    onEdited();
+    return;
+  }
   if (move) {
     move.session.rotate(quarterTurns);
     onEdited();
@@ -587,6 +609,11 @@ function rotateCmd(quarterTurns: number): void {
 }
 
 function mirrorCmd(): void {
+  if (placing) {
+    placing.mirror();
+    onEdited();
+    return;
+  }
   if (move) {
     move.session.mirror();
     onEdited();
@@ -1007,7 +1034,7 @@ function draw(): void {
     layers: layerMap,
     visible: isVisible,
     selection: selection.items,
-    hover: move ? undefined : hover,
+    hover: move || placing ? undefined : hover,
     ...(box ? { box: boxSelection(box) } : {}),
     ...(editor && view !== 'library' ? { grid: gridOf() } : {}),
   });
@@ -1058,6 +1085,179 @@ const round = (n: number) => Math.round(n * 1000) / 1000;
 // ---------------------------------------------------------------------------
 // Pointer interaction
 
+// ---------------------------------------------------------------------------
+// Adding parts
+
+const PROJECT_SOURCE = 'project';
+const sampleLibraries = import.meta.glob('../samples/eagle/*.lbr', { query: '?raw', import: 'default' });
+
+/** The library a source key stands for (loading a sample library on first use). */
+async function librarySource(key: string): Promise<O.Library | undefined> {
+  if (key === PROJECT_SOURCE) return project?.library;
+  if (loadedLibraries.has(key)) return loadedLibraries.get(key);
+  const path = Object.keys(sampleLibraries).find((p) => p.endsWith(`/${key}`));
+  if (!path) return undefined;
+  const lib = importLibrary(key, parseEagle((await sampleLibraries[path]!()) as string));
+  loadedLibraries.set(key, lib);
+  return lib;
+}
+
+function renderPartsSources(): void {
+  const current = partsSource.value || PROJECT_SOURCE;
+  partsSource.replaceChildren(new Option('This project', PROJECT_SOURCE));
+  const names = new Set([...loadedLibraries.keys(), ...Object.keys(sampleLibraries).map((p) => p.split('/').pop()!)]);
+  for (const name of [...names].sort()) partsSource.append(new Option(name, name));
+  partsSource.append(new Option('Open library…', 'open'));
+  partsSource.value = [...partsSource.options].some((o) => o.value === current) ? current : PROJECT_SOURCE;
+}
+
+/** Renders start in order but loading a library is asynchronous: only the latest one draws. */
+let partsRender = 0;
+
+async function renderPartsPanel(): Promise<void> {
+  if (partsSource.options.length === 0) renderPartsSources();
+  const key = partsSource.value;
+  const token = ++partsRender;
+  const lib = await librarySource(key);
+  if (token !== partsRender) return;
+  partsList.replaceChildren();
+  if (!lib) return;
+  const q = partsFilter.value.trim().toLowerCase();
+  const items = lib.components
+    .filter((c) => !c.id.endsWith('#footprint') && c.gates.length)
+    .filter((c) => !q || componentName(c.id).toLowerCase().includes(q) || (c.description ?? '').toLowerCase().includes(q))
+    .sort((a, b) => componentName(a.id).localeCompare(componentName(b.id)));
+  const h = document.createElement('h3');
+  h.textContent = `Components (${items.length})`;
+  partsList.append(h);
+  for (const c of items.slice(0, 300)) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.textContent = componentName(c.id);
+    btn.title = (c.description ?? '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim() || c.id;
+    if (chosen?.source === key && chosen.id === c.id) btn.className = 'active';
+    btn.addEventListener('click', () => {
+      chosen = { source: key, id: c.id };
+      void renderPartsPanel();
+    });
+    btn.addEventListener('dblclick', () => void startPlacing());
+    partsList.append(btn);
+  }
+  renderPartChoice(lib);
+}
+
+/** Variant and technology choices for the chosen component, and the Place button. */
+function renderPartChoice(lib: O.Library): void {
+  partsChoice.replaceChildren();
+  const c = chosen && chosen.source === partsSource.value ? lib.components.find((x) => x.id === chosen!.id) : undefined;
+  partsChoice.hidden = !c;
+  if (!c) return;
+  partsChoice.append(el('div', 'choice-title', componentName(c.id)));
+  const desc = (c.description ?? '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+  if (desc) partsChoice.append(el('div', 'choice-desc', desc));
+  const variant = document.createElement('select');
+  variant.id = 'parts-variant';
+  for (const v of c.variants) {
+    variant.append(new Option(`${v.name || "''"} — ${v.footprint ? componentName(v.footprint) : 'no footprint'}`, v.name));
+  }
+  const tech = document.createElement('select');
+  tech.id = 'parts-technology';
+  const refreshTech = () => {
+    const v = c.variants.find((x) => x.name === variant.value);
+    const names = Object.keys(v?.technologies ?? { '': {} });
+    tech.replaceChildren(...names.map((n) => new Option(n || "''", n)));
+    techRow.hidden = names.length < 2;
+  };
+  variant.addEventListener('change', refreshTech);
+  const row = (label: string, control: HTMLElement) => {
+    const l = document.createElement('label');
+    l.append(document.createTextNode(label), control);
+    return l;
+  };
+  const techRow = row('Technology', tech);
+  partsChoice.append(row('Variant', variant), techRow);
+  refreshTech();
+  const go = button('Place', () => void startPlacing());
+  go.title = 'Place this part on the schematic (click to place each gate; R rotates, F mirrors, Esc stops)';
+  partsChoice.append(go);
+}
+
+async function startPlacing(): Promise<void> {
+  if (!editor || !project || view !== 'schematic' || !chosen) return;
+  const lib = await librarySource(chosen.source);
+  if (!lib) return;
+  stopPlacing();
+  if (move) commitMove();
+  const variant = (document.getElementById('parts-variant') as HTMLSelectElement | null)?.value ?? '';
+  const tech = (document.getElementById('parts-technology') as HTMLSelectElement | null)?.value ?? '';
+  placing = editor.beginPlace(lib, chosen.id, variant, tech, Number(sheetSelect.value || 0), gridOf);
+  if (!placing) return;
+  placing.moveTo(cursor, false);
+  selection.clear();
+  canvas.classList.add('placing');
+  canvas.focus({ preventScroll: true });
+  if (placing.libraryNotes.length) flash(`Using the project's own copy of ${placing.libraryNotes.join(', ')}`);
+  else flashPlacing();
+  onEdited();
+}
+
+function flashPlacing(): void {
+  const p = placing?.placing;
+  if (p) flash(`Placing ${p.part}${p.gate ? ` gate ${p.gate}` : ''}: click to place · R rotates · F mirrors · Esc stops`);
+}
+
+function placeClick(): void {
+  if (!placing) return;
+  const done = placing.click();
+  if (done) flash(`Added ${done}; placing the next one (Esc stops)`);
+  else flashPlacing();
+  onEdited();
+}
+
+/** Stop adding parts (a part with gates already placed is kept). */
+function stopPlacing(announce = false): void {
+  if (!placing) return;
+  placing.cancel();
+  placing = undefined;
+  canvas.classList.remove('placing');
+  if (announce) flash('Stopped adding parts');
+  if (editor) onEdited();
+}
+
+partsSource.addEventListener('change', () => {
+  if (partsSource.value === 'open') {
+    lbrInput.click();
+    partsSource.value = PROJECT_SOURCE;
+  }
+  chosen = undefined;
+  void renderPartsPanel();
+});
+partsFilter.addEventListener('input', () => void renderPartsPanel());
+partsFilter.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') {
+    // Enter places the only (or chosen) match.
+    const first = partsList.querySelector('button');
+    if (!chosen && first) first.click();
+    void startPlacing();
+  } else if (e.key === 'Escape') {
+    canvas.focus({ preventScroll: true });
+  }
+});
+lbrInput.addEventListener('change', async () => {
+  for (const f of [...(lbrInput.files ?? [])]) {
+    try {
+      loadedLibraries.set(f.name, importLibrary(f.name, parseEagle(await f.text())));
+    } catch (e) {
+      showError(`Could not open ${f.name}: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
+  const last = lbrInput.files?.[lbrInput.files.length - 1]?.name;
+  lbrInput.value = '';
+  renderPartsSources();
+  if (last) partsSource.value = last;
+  void renderPartsPanel();
+});
+
 const DRAG_THRESHOLD = 4;
 const PICK_TOLERANCE_PX = 4;
 
@@ -1095,6 +1295,13 @@ canvas.addEventListener('pointerdown', (e) => {
   e.preventDefault();
   canvas.focus({ preventScroll: true });
 
+  // Adding parts: left click places the gate, right click stops.
+  if (placing && e.button !== 1 && !spaceDown) {
+    if (e.button === 0) placeClick();
+    else if (e.button === 2) stopPlacing(true);
+    return;
+  }
+
   // A keyboard-started move ends with a click: left places, right cancels.
   if (move && !move.drag) {
     if (e.button === 0) commitMove();
@@ -1125,6 +1332,11 @@ canvas.addEventListener('pointermove', (e) => {
 
   if (move) {
     updateMove(w, e.altKey);
+    return;
+  }
+  if (placing && !(pointer?.mode === 'pan')) {
+    placing.moveTo(w, e.altKey);
+    onEdited();
     return;
   }
 
@@ -1254,7 +1466,8 @@ window.addEventListener('keydown', (e) => {
     spaceDown = true;
     e.preventDefault();
   } else if (e.key === 'Escape') {
-    if (move) cancelMove();
+    if (placing) stopPlacing(true);
+    else if (move) cancelMove();
     else selection.clear();
   } else if (e.key === 'Tab' && views().length > 1) {
     e.preventDefault();
@@ -1268,6 +1481,10 @@ window.addEventListener('keydown', (e) => {
   } else if (key === 'v') {
     e.preventDefault();
     focusField(['value']);
+  } else if (key === 'a' && project && view === 'schematic') {
+    e.preventDefault();
+    partsFilter.focus();
+    partsFilter.select();
   } else if (key === 'm') {
     beginMove(cursor, false);
   } else if (key === 'r') {

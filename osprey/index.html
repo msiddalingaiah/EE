@@ -35,6 +35,14 @@
     <main class="workspace">
       <aside class="panel left">
         <section id="project-panel" hidden></section>
+        <section id="parts-panel" hidden>
+          <h2>Add part <span class="panel-actions"><kbd>A</kbd></span></h2>
+          <select id="parts-source" aria-label="Library"></select>
+          <input id="parts-filter" type="search" placeholder="Find a component…" />
+          <div id="parts-list" class="library-list parts-list"></div>
+          <div id="parts-choice" class="parts-choice" hidden></div>
+        </section>
+        <input id="lbr-input" type="file" accept=".lbr" multiple hidden />
         <section id="library-panel" hidden>
           <h2>Library</h2>
           <input id="library-filter" type="search" placeholder="Filter…" />

@@ -22,6 +22,9 @@ native model (see [docs/format.md](docs/format.md)). Eagle files are imported in
 - **Commands** (the verbs): move (drag, or M then click), rotate (R), flip to the other board
   side / mirror in the schematic (F), delete (Del), rename part or net (N), value (V),
   smash/unsmash. Moves snap to the grid (Alt = fine grid). Undo/redo for everything.
+- **Adding parts** (schematic): pick a component from the project's library, a sample library
+  or any Eagle `.lbr`, then click to place each gate. The component, its symbols and
+  footprints are copied into the project; the footprint is parked beside the board outline.
 - **One model, always consistent.** Each part and net is stored once. Deleting a part in
   either view removes it everywhere; board pad connections are derived from the schematic,
   so a schematic wire delete disconnects the pad on the board by itself.
@@ -70,6 +73,7 @@ OSPREY_CORPUS=~/designs npx vitest run -t corpus
 | Rotate 90° | `R` (Shift+R clockwise), also while moving |
 | Flip to other side (board) / mirror (schematic) | `F`, also while moving |
 | Delete | Del / Backspace |
+| Add part (schematic) | `A` to search, choose a component, Place (or Enter); click places each gate, `R`/`F` while placing, Esc or right-click stops |
 | Edit name / net name, value | `N`, `V` (Enter applies, Esc cancels) |
 | Fine grid while moving | Hold Alt |
 | Undo / redo | Ctrl+Z / Ctrl+Y (or Ctrl+Shift+Z) |
@@ -90,7 +94,8 @@ OSPREY_CORPUS=~/designs npx vitest run -t corpus
   such as net pads (`derive.ts`), geometry (`geometry.ts`) and the ratsnest (`ratsnest.ts`)
 - `src/eagle/`: Eagle XML parser and writer (`parse.ts`, `types.ts`), used by import and export
 - `src/edit/`: undoable operations and history (`ops.ts`), move/rotate/mirror with
-  rubber-banding (`transform.ts`), delete (`delete.ts`) and property edits (`properties.ts`)
+  rubber-banding (`transform.ts`), delete (`delete.ts`), property edits (`properties.ts`) and
+  adding parts (`place.ts`)
 - `src/scene/`: turns the model into drawable primitives in world space (mm, y-up), each tagged
   with its **owner**, the selectable object: `schematic.ts`, `board.ts`, `library.ts`, with
   shared `builder.ts` (graphics, pads, text) and `symbol.ts` (symbols and pins)

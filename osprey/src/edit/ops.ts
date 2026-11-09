@@ -74,7 +74,7 @@ export class Transaction {
   /** The model objects the user acted on, so undo/redo can reselect them. */
   subjects: object[] = [];
 
-  constructor(readonly label: string) {}
+  constructor(public label: string) {}
 
   get empty(): boolean {
     return this.ops.length === 0;

@@ -5,9 +5,11 @@ import type { Point, Transform } from '../geom/transform';
 import { compose } from '../geom/transform';
 import { ProjectIndex } from '../model/derive';
 import { writeProject } from '../model/file';
+import type * as O from '../model/types';
 import type { Grid, Project } from '../model/types';
 import { deleteTargets } from '../edit/delete';
-import { History, Transaction } from '../edit/ops';
+import { History, insert, remove, Transaction } from '../edit/ops';
+import { addToLibrary, createPart, gatesToPlace } from '../edit/place';
 import { renameNet, renamePart, setPartValue, smash, unsmash } from '../edit/properties';
 import { isEditable, mirrorAbout, rotationAbout, transformTargets, translation } from '../edit/transform';
 import type { Target } from '../scene/types';
@@ -60,6 +62,13 @@ export class Editor {
     const ts = this.editable(targets);
     if (!ts.length) return undefined;
     return new MoveSession(this, ts, grid, pivot, reference);
+  }
+
+  /** Start adding parts of a component (from the project library or a loaded one) on a sheet. */
+  beginPlace(source: O.Library, componentId: string, variant: string, technology: string, sheetIndex: number, grid: (alt: boolean) => number): PlaceSession | undefined {
+    const sheet = this.project.schematic?.sheets[sheetIndex];
+    if (!sheet) return undefined;
+    return new PlaceSession(this, source, componentId, variant, technology, sheet, grid);
   }
 
   // Properties. Each returns an error message when the change isn't allowed.
@@ -218,6 +227,119 @@ export class MoveSession {
     this.tx.revert();
     this.tx = new Transaction('');
     this.editor.transform(this.targets, this.transform(), this.tx);
+  }
+}
+
+/**
+ * Adding parts. A gate floats under the cursor; each click places it, then the next gate of
+ * the part, then starts the next part of the same component, until cancelled. Each part is one
+ * undo step. The floating gate is a real placement in the model, so the views show it.
+ */
+export class PlaceSession {
+  private tx: Transaction | undefined;
+  private part: O.Part | undefined;
+  private queue: O.Gate[] = [];
+  private current: O.GatePlacement | undefined;
+  private placed = 0;
+  private at: O.Pt = [0, 0];
+  private rot = 0;
+  private mirrored = false;
+  /** Items the project already had in a different version (its copies are used). */
+  readonly libraryNotes: string[] = [];
+
+  constructor(
+    private readonly editor: Editor,
+    private readonly source: O.Library,
+    readonly componentId: string,
+    private readonly variant: string,
+    private readonly technology: string,
+    private readonly sheet: O.Sheet,
+    private readonly grid: (alt: boolean) => number,
+  ) {
+    this.startPart();
+  }
+
+  /** Name of the part being placed, and of the gate floating now. */
+  get placing(): { part: string; gate: string } | undefined {
+    return this.part && this.current ? { part: this.part.name, gate: this.current.gate } : undefined;
+  }
+
+  moveTo(p: Point, fineGrid: boolean): void {
+    const g = this.grid(fineGrid);
+    const snap = (v: number) => Math.round(Math.round(v / g) * g * 1e6) / 1e6;
+    this.at = [snap(p.x), snap(p.y)];
+    if (this.current) this.current.at = this.at;
+  }
+
+  rotate(quarterTurns: number): void {
+    this.rot = (((this.rot + quarterTurns * 90) % 360) + 360) % 360;
+    this.applyOrientation();
+  }
+
+  mirror(): void {
+    this.mirrored = !this.mirrored;
+    this.applyOrientation();
+  }
+
+  /** Place the floating gate. Returns the part name when a part was completed. */
+  click(): string | undefined {
+    if (!this.current || !this.tx || !this.part) return undefined;
+    this.placed++;
+    this.tx.subjects.push(this.current);
+    const next = this.queue.shift();
+    if (next) {
+      this.floatGate(next);
+      return undefined;
+    }
+    const done = this.part.name;
+    this.current = undefined;
+    this.editor.push(this.tx);
+    this.startPart();
+    return done;
+  }
+
+  /** Stop: drop the floating gate; a part with gates already placed is kept. */
+  cancel(): void {
+    if (!this.tx) return;
+    if (this.placed === 0) {
+      this.tx.revert();
+    } else if (this.current) {
+      this.tx.run(remove(this.sheet.gates, this.current));
+      this.editor.push(this.tx);
+    }
+    this.tx = undefined;
+    this.current = undefined;
+  }
+
+  private startPart(): void {
+    const project = this.editor.project;
+    const tx = new Transaction('');
+    this.libraryNotes.push(...addToLibrary(project, this.source, this.componentId, tx));
+    const component = project.library.components.find((c) => c.id === this.componentId)!;
+    const { part, footprint } = createPart(project, component, this.variant, this.technology, tx);
+    if (footprint) tx.subjects.push(footprint);
+    tx.label = `Add ${part.name}`;
+    this.tx = tx;
+    this.part = part;
+    this.placed = 0;
+    this.queue = gatesToPlace(component);
+    const first = this.queue.shift();
+    if (first) this.floatGate(first);
+  }
+
+  private floatGate(gate: O.Gate): void {
+    const g: O.GatePlacement = { part: this.part!.name, gate: gate.name, at: this.at };
+    this.current = g;
+    this.applyOrientation();
+    this.tx!.run(insert(this.sheet.gates, g));
+  }
+
+  private applyOrientation(): void {
+    if (!this.current) return;
+    if (this.rot) this.current.rot = this.rot;
+    else delete this.current.rot;
+    if (this.mirrored) this.current.mirror = true;
+    else delete this.current.mirror;
   }
 }
 
