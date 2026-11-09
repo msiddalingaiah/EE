@@ -1,0 +1,8 @@
+# Source and config: LF everywhere, regardless of core.autocrlf.
+* text=auto eol=lf
+
+# Eagle files: keep exactly as Eagle wrote them (CRLF). Osprey saves files losslessly,
+# and the round-trip tests compare bytes, so Git must not convert their line endings.
+*.sch -text
+*.brd -text
+*.lbr -text
