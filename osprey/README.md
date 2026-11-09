@@ -4,6 +4,16 @@ A browser-based electronic CAD tool built around noun-verb (select, then act) ed
 
 ## Status
 
+Milestone 3 — **schematic editing**, with the same verbs as boards:
+
+- Move, rotate, mirror (F) and delete gates, net and bus wires, junctions, labels and drawing.
+- Net wires ending on a moved gate's pins follow it (using each segment's pinrefs), as do
+  wires and junctions at moved wire ends, so connections stay intact.
+- Deleting a gate removes its pinrefs, and the part itself once its last gate is gone.
+  Deleting wires drops pinrefs and junctions left unconnected, then empty segments and nets.
+- Box selection includes a part when its origin is inside the box (as in Eagle), so labels
+  sticking out don't leave parts behind.
+
 Milestone 2 — **board editing**:
 
 - Commands act on the selection (noun, then verb): **move** (drag a selected object, or press
@@ -28,7 +38,7 @@ Milestone 1 — **Eagle viewer with selection**:
   (left-to-right = fully inside, right-to-left = touching), Ctrl+A, Esc. An inspector shows
   the properties of the selection. Clicking inside a part's body selects the part.
 
-Not yet: schematic editing, schematic/board consistency (forward/back annotation), routing new
+Not yet: library editing, schematic/board consistency (forward/back annotation), routing new
 traces, polygon pour computation (outlines only), Eagle's vector font (text uses a system
 sans-serif), multiple-sheet navigation beyond a sheet selector, busses beyond wires.
 
@@ -54,7 +64,7 @@ A sample can be opened directly by URL: `http://localhost:5173/#TA7358A.brd`.
 | Box select | Drag on empty space (left-to-right: inside, right-to-left: crossing) |
 | Move | Drag a selected object, or `M` then click to place (right-click or Esc cancels) |
 | Rotate 90° | `R` (Shift+R clockwise), also while moving |
-| Flip to other side | `F`, also while moving |
+| Flip to other side (board) / mirror (schematic) | `F`, also while moving |
 | Delete | Del / Backspace |
 | Fine grid while moving | Hold Alt |
 | Undo / redo | Ctrl+Z / Ctrl+Y (or Ctrl+Shift+Z) |
@@ -69,7 +79,8 @@ A sample can be opened directly by URL: `http://localhost:5173/#TA7358A.brd`.
 - `samples/eagle/`: sample Eagle files (`.sch`, `.brd`, `.lbr`) used for parser and renderer development
 - `src/eagle/`: Eagle XML model (`types.ts`), parser and serializer (`parse.ts`), and the
   model-to-XML links that make lossless saving possible (`dom.ts`)
-- `src/edit/`: undoable operations and transactions (`ops.ts`), board commands (`board.ts`)
+- `src/edit/`: undoable operations and transactions (`ops.ts`), shared geometry edits
+  (`common.ts`), board commands (`board.ts`) and schematic commands (`schematic.ts`)
 - `src/geom/`: affine transforms (Eagle rotations/mirroring) and arc geometry
 - `src/scene/`: turns a design into a flat list of drawable primitives in world space (mm, y-up),
   each tagged with its **owner**, the selectable object. `schematic.ts`, `board.ts`, `library.ts`,

@@ -101,6 +101,13 @@ export function pickBox(
   for (const [owner, ids] of index.ownerPrims) {
     const shown = ids.filter((i) => index.scene.prims[i]!.t !== 'drill' && visible(index.scene.prims[i]!.layer));
     if (shown.length === 0) continue;
+    // Parts count as inside when their origin is (as in Eagle), so a name or value
+    // text sticking out of the box doesn't silently leave the part behind.
+    const o = index.scene.owners.get(owner);
+    if (!crossing && o?.origin && (o.kind === 'instance' || o.kind === 'element')) {
+      if (o.origin.x >= box.minX && o.origin.x <= box.maxX && o.origin.y >= box.minY && o.origin.y <= box.maxY) out.push(owner);
+      continue;
+    }
     const hit = crossing
       ? shown.some((i) => intersects(index.primBounds[i]!, box) && primTouchesBox(index.scene.prims[i]!, box))
       : shown.every((i) => contains(box, index.primBounds[i]!));

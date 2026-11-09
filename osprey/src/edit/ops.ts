@@ -65,6 +65,26 @@ export function removeItem<T extends object>(list: T[], item: T): Op {
   };
 }
 
+/** Remove a keyed model entry (e.g. a schematic part) and its XML element; revert restores order. */
+export function removeMapEntry<V extends object>(map: Map<string, V>, key: string): Op {
+  const value = map.get(key);
+  if (!value) return { apply() {}, revert() {} };
+  const dom = removeItem([value], value);
+  let entries: [string, V][] = [];
+  return {
+    apply() {
+      entries = [...map.entries()];
+      map.delete(key);
+      dom.apply();
+    },
+    revert() {
+      dom.revert();
+      map.clear();
+      for (const [k, v] of entries) map.set(k, v);
+    },
+  };
+}
+
 /** A group of ops applied as one undoable step. */
 export class Transaction {
   private readonly ops: Op[] = [];

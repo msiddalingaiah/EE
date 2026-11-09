@@ -1,6 +1,7 @@
 // Build a Scene for one sheet of an Eagle schematic.
 
-import type { DeviceSet, EagleFile, Library, Part, PlacedAttribute, Schematic, Segment } from '../eagle/types';
+import { objId } from '../eagle/dom';
+import type { Bus, DeviceSet, EagleFile, Library, Net, Part, PlacedAttribute, Schematic, Segment, Sheet } from '../eagle/types';
 import { findLibrary } from '../eagle/parse';
 import { IDENTITY, placement } from '../geom/transform';
 import { SceneBuilder } from './builder';
@@ -23,8 +24,11 @@ export function buildSchematicScene(file: EagleFile, sheetIndex = 0): Scene {
   if (!sheet) throw new Error(`Sheet ${sheetIndex + 1} does not exist`);
   const b = new SceneBuilder('schematic', file.layers);
 
-  sheet.plain.forEach((g, i) => {
-    const id = b.addOwner({ id: `plain:${i}`, kind: 'plain', label: g.kind, props: [['Type', g.kind]] });
+  sheet.plain.forEach((g) => {
+    const id = b.addOwner({
+      id: `plain:${objId(g)}`, kind: 'plain', label: g.kind === 'text' ? `Text "${g.text}"` : g.kind,
+      props: [['Type', g.kind]], target: { kind: 'plain', graphic: g, container: sheet.plain },
+    });
     b.graphic(g, { owner: id, transform: IDENTITY, textContext: 'schematic' });
   });
 
@@ -51,8 +55,10 @@ export function buildSchematicScene(file: EagleFile, sheetIndex = 0): Scene {
     const resolve = placeholderResolver(attrs);
 
     const id = b.addOwner({
-      id: `instance:${inst.part}:${inst.gate}`,
+      id: `instance:${objId(inst)}`,
       kind: 'instance',
+      target: { kind: 'instance', sheet, instance: inst },
+      origin: { x: inst.x, y: inst.y },
       label: multiGate ? `${inst.part} (gate ${inst.gate})` : inst.part,
       props: [
         ['Part', inst.part],
@@ -77,8 +83,8 @@ export function buildSchematicScene(file: EagleFile, sheetIndex = 0): Scene {
     if (inst.smashed) emitPlacedAttributes(b, inst.attributes, attrs, id);
   }
 
-  for (const net of sheet.nets) net.segments.forEach((seg, si) => emitSegment(b, seg, net.name, si, 'net'));
-  for (const bus of sheet.busses) bus.segments.forEach((seg, si) => emitSegment(b, seg, bus.name, si, 'bus'));
+  for (const net of sheet.nets) for (const seg of net.segments) emitSegment(b, sheet, net, seg, 'net');
+  for (const bus of sheet.busses) for (const seg of bus.segments) emitSegment(b, sheet, bus, seg, 'bus');
 
   return b.finish();
 }
@@ -96,12 +102,14 @@ function emitPlacedAttributes(
   }
 }
 
-function emitSegment(b: SceneBuilder, seg: Segment, name: string, si: number, kind: 'net' | 'bus'): void {
+function emitSegment(b: SceneBuilder, sheet: Sheet, net: Net | Bus, seg: Segment, kind: 'net' | 'bus'): void {
   const ctx = { transform: IDENTITY, textContext: 'schematic' as const };
+  const name = net.name;
   const title = kind === 'net' ? 'Net' : 'Bus';
-  seg.wires.forEach((w, wi) => {
+  seg.wires.forEach((w) => {
     const id = b.addOwner({
-      id: `${kind}-wire:${name}:${si}:${wi}`,
+      id: `${kind}-wire:${objId(w)}`,
+      target: { kind: 'net-wire', sheet, net, segment: seg, wire: w },
       kind: kind === 'net' ? 'net-wire' : 'bus-wire',
       label: `${title} ${name}`,
       net: name,
@@ -109,16 +117,20 @@ function emitSegment(b: SceneBuilder, seg: Segment, name: string, si: number, ki
     });
     b.wire(w, { ...ctx, owner: id });
   });
-  seg.junctions.forEach((j, ji) => {
+  seg.junctions.forEach((j) => {
     const id = b.addOwner({
-      id: `junction:${name}:${si}:${ji}`, kind: 'junction', label: `Junction on ${name}`, net: name,
+      id: `junction:${objId(j)}`, kind: 'junction', label: `Junction on ${name}`, net: name,
+      origin: { x: j.x, y: j.y },
+      ...(kind === 'net' ? { target: { kind: 'junction' as const, sheet, net: net as Net, segment: seg, junction: j } } : {}),
       props: [['Net', name], ['Position', fmtXY(j.x, j.y)]],
     });
     b.prims.push({ t: 'circle', cx: j.x, cy: j.y, r: JUNCTION_DIAMETER / 2, width: 0, layer: 91, owner: id });
   });
-  seg.labels.forEach((l, li) => {
+  seg.labels.forEach((l) => {
     const id = b.addOwner({
-      id: `label:${name}:${si}:${li}`, kind: 'label', label: `Label ${name}`, net: name,
+      id: `label:${objId(l)}`, kind: 'label', label: `Label ${name}`, net: name,
+      origin: { x: l.x, y: l.y },
+      target: { kind: 'label', sheet, net, segment: seg, label: l },
       props: [['Net', name], ['Position', fmtXY(l.x, l.y)], ['Cross-reference', l.xref ? 'yes' : 'no']],
     });
     b.text(name, l.x, l.y, l.size, l.rot, l.align, l.layer, { ...ctx, owner: id });

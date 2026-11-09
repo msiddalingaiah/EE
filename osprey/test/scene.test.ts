@@ -38,6 +38,16 @@ describe('schematic scene', () => {
     expect(scene.owners.get(hit!)?.kind).toBe('net-wire');
   });
 
+  it('window-selects a part when its origin is inside, even if its texts stick out', () => {
+    const idx = indexScene(scene);
+    const ic = [...scene.owners.values()].find((o) => o.kind === 'instance' && o.label === 'IC1')!;
+    const b = idx.ownerBounds.get(ic.id)!;
+    // A box around the origin that doesn't contain the whole part.
+    const box = { minX: ic.origin!.x - 1, minY: ic.origin!.y - 1, maxX: ic.origin!.x + 1, maxY: ic.origin!.y + 1 };
+    expect(box.minX > b.minX || box.maxX < b.maxX).toBe(true);
+    expect(pickBox(idx, box, false, all)).toContain(ic.id);
+  });
+
   it('box-selects everything inside the full bounds', () => {
     const idx = indexScene(scene);
     const b = scene.bounds;

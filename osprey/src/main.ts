@@ -86,6 +86,7 @@ function initSamples(): void {
     }
     const name = path.split('/').pop()!;
     openText((await load()) as string, name, undefined);
+    canvas.focus({ preventScroll: true });
     storeSet('osprey.sample', path);
     history.replaceState(null, '', `#${encodeURIComponent(name)}`);
   });
@@ -180,8 +181,8 @@ function setupDocumentChrome(): void {
     libraryFilter.value = '';
     renderLibraryList();
   }
-  statusHint.textContent = file.board
-    ? 'Drag or M moves · R rotates · F flips side · Del deletes · Ctrl+Z undo · Ctrl+S save · Home fits'
+  statusHint.textContent = file.board || file.schematic
+    ? `Drag or M moves · R rotates · F ${file.board ? 'flips side' : 'mirrors'} · Del deletes · Ctrl+Z undo · Ctrl+S save · Home fits`
     : 'Click to select · Shift adds · Ctrl toggles · drag to box-select · right-drag pans · Home fits';
   updateChrome();
 }
@@ -290,8 +291,8 @@ function pivotFor(grab: Point): Point {
 
 /** Explain why a command does nothing, or return the editable targets. */
 function commandTargets(verb: string): Target[] | undefined {
-  if (!editor?.board) {
-    flash(`${verb} works on boards only for now`);
+  if (!editor?.canEdit) {
+    flash(`${verb} works on boards and schematics`);
     return undefined;
   }
   const ts = selectedTargets();
@@ -318,14 +319,14 @@ function rotateCmd(quarterTurns: number): void {
   if (ts) editor!.rotate(ts, pivot(), quarterTurns);
 }
 
-function flipCmd(): void {
+function mirrorCmd(): void {
   if (move) {
-    move.session.flip();
+    move.session.mirror();
     onEdited();
     return;
   }
-  const ts = commandTargets('Flip');
-  if (ts) editor!.flip(ts, pivot());
+  const ts = commandTargets(editor?.mirrorVerb ?? 'Mirror');
+  if (ts) editor!.mirror(ts, pivot());
 }
 
 function deleteCmd(): void {
@@ -345,7 +346,7 @@ function beginMove(start: Point, drag: boolean): void {
   if (!session) return;
   move = { session, start, drag };
   canvas.classList.add('moving');
-  flash(drag ? 'Moving: release to place · Esc cancels' : 'Moving: click to place · R rotates · F flips · Esc cancels');
+  flash(drag ? 'Moving: release to place · Esc cancels' : `Moving: click to place · R rotates · F ${file?.board ? 'flips' : 'mirrors'} · Esc cancels`);
 }
 
 function updateMove(p: Point, fineGrid: boolean): void {
@@ -496,10 +497,10 @@ function renderInspector(): void {
       '<p>Nothing selected.</p>' +
       '<p>Click an object to select it. Drag left-to-right to select objects fully inside the box, ' +
       'right-to-left to select anything the box touches. Hold Shift to add, Ctrl to toggle.</p>' +
-      (file?.board
+      (file?.board || file?.schematic
         ? '<p>Then act on the selection: drag it or press <b>M</b> to move, <b>R</b> to rotate, ' +
-          '<b>F</b> to flip to the other side, <b>Del</b> to delete.</p>'
-        : '<p>Editing is available for boards so far.</p>');
+          `<b>F</b> to ${file.board ? 'flip to the other side' : 'mirror'}, <b>Del</b> to delete.</p>`
+        : '<p>Libraries are view-only so far.</p>');
     inspector.append(hint);
     return;
   }
@@ -548,7 +549,7 @@ function renderInspector(): void {
 
 /** The verbs available for the current selection. */
 function commandButtons(): HTMLElement[] {
-  if (!editor?.board) return [];
+  if (!editor?.canEdit) return [];
   const ts = selectedTargets();
   if (!ts.length) return [];
   const editable = editor.editable(ts);
@@ -571,7 +572,7 @@ function commandButtons(): HTMLElement[] {
   grid.append(
     cmd('Move', 'M', () => beginMove(pivot(), false)),
     cmd('Rotate', 'R', () => rotateCmd(1)),
-    cmd('Flip side', 'F', flipCmd),
+    cmd(file?.board ? 'Flip side' : 'Mirror', 'F', mirrorCmd),
     cmd('Delete', 'Del', deleteCmd),
   );
   out.push(grid);
@@ -718,7 +719,10 @@ const pickAt = (p: Point) => (index ? pick(index, vp.toWorld(p.x, p.y), PICK_TOL
 canvas.addEventListener('pointerdown', (e) => {
   const p = localPoint(e);
   canvas.setPointerCapture(e.pointerId);
+  // preventDefault stops the browser from moving focus, so take it explicitly:
+  // otherwise keyboard shortcuts would keep going to the last-used dropdown or checkbox.
   e.preventDefault();
+  canvas.focus({ preventScroll: true });
 
   // A keyboard-started move ends with a click: left places, right cancels.
   if (move && !move.drag) {
@@ -762,7 +766,7 @@ canvas.addEventListener('pointermove', (e) => {
       return;
     }
     if (pointer.mode === 'pending' && Math.hypot(p.x - pointer.x, p.y - pointer.y) > DRAG_THRESHOLD) {
-      if (pointer.onSelected && pointer.mods === 'replace' && editor?.board) {
+      if (pointer.onSelected && pointer.mods === 'replace' && editor?.canEdit) {
         // Drag on a selected object: move the selection.
         const start = vp.toWorld(pointer.x, pointer.y);
         pointer = undefined;
@@ -785,7 +789,7 @@ canvas.addEventListener('pointermove', (e) => {
   if (h !== hover) {
     hover = h;
     canvas.title = h ? (index.scene.owners.get(h)?.label ?? '') : '';
-    canvas.classList.toggle('can-drag', !!h && selection.has(h) && !!editor?.board);
+    canvas.classList.toggle('can-drag', !!h && selection.has(h) && !!editor?.canEdit);
     requestRender();
   }
 });
@@ -844,10 +848,19 @@ canvas.addEventListener(
 // ---------------------------------------------------------------------------
 // Keyboard
 
+/** Is the user typing into a text field (where keys must not trigger commands)? */
+function isTextEntry(t: EventTarget | null): boolean {
+  if (t instanceof HTMLTextAreaElement) return true;
+  if (t instanceof HTMLElement && t.isContentEditable) return true;
+  return t instanceof HTMLInputElement && !['checkbox', 'radio', 'button', 'file'].includes(t.type);
+}
+
 window.addEventListener('keydown', (e) => {
-  if (e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement) return;
+  if (isTextEntry(e.target)) return;
   const ctrl = e.ctrlKey || e.metaKey;
   const key = e.key.toLowerCase();
+  // A focused dropdown keeps plain keys for type-ahead; shortcuts with Ctrl still apply.
+  if (e.target instanceof HTMLSelectElement && !ctrl) return;
 
   if (ctrl && key === 's') {
     e.preventDefault();
@@ -879,7 +892,7 @@ window.addEventListener('keydown', (e) => {
   } else if (key === 'r') {
     rotateCmd(e.shiftKey ? -1 : 1);
   } else if (key === 'f') {
-    flipCmd();
+    mirrorCmd();
   } else if (e.key === 'Delete' || e.key === 'Backspace') {
     e.preventDefault();
     deleteCmd();
@@ -909,7 +922,10 @@ $('fit-btn').addEventListener('click', fitView);
 undoBtn.addEventListener('click', undoCmd);
 redoBtn.addEventListener('click', redoCmd);
 saveBtn.addEventListener('click', () => void save());
-sheetSelect.addEventListener('change', () => rebuildScene({ fit: true, keepSelection: false }));
+sheetSelect.addEventListener('change', () => {
+  rebuildScene({ fit: true, keepSelection: false });
+  canvas.focus({ preventScroll: true });
+});
 $('layers-all').addEventListener('click', () => setAllLayers(true));
 $('layers-none').addEventListener('click', () => setAllLayers(false));
 libraryFilter.addEventListener('input', renderLibraryList);

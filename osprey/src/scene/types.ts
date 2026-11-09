@@ -1,15 +1,25 @@
 // A Scene is a flat list of drawable primitives in world coordinates (mm, y-up).
 // Every primitive belongs to an owner: the selectable design object (the "noun").
 
-import type { Element, Graphic, Layer, Polygon, Signal, TextAlign, Via, Wire } from '../eagle/types';
+import type {
+  Bus, Element, Graphic, Instance, Junction, Label, Layer, Net, Polygon, Segment, Sheet, Signal,
+  TextAlign, Via, Wire,
+} from '../eagle/types';
 import type { Point } from '../geom/transform';
 
 /** The model object an owner stands for: what edit commands operate on. */
 export type Target =
+  // Board
   | { kind: 'element'; element: Element }
   | { kind: 'signal-wire'; signal: Signal; wire: Wire }
   | { kind: 'via'; signal: Signal; via: Via }
   | { kind: 'signal-polygon'; signal: Signal; polygon: Polygon }
+  // Schematic
+  | { kind: 'instance'; sheet: Sheet; instance: Instance }
+  | { kind: 'net-wire'; sheet: Sheet; net: Net | Bus; segment: Segment; wire: Wire }
+  | { kind: 'junction'; sheet: Sheet; net: Net; segment: Segment; junction: Junction }
+  | { kind: 'label'; sheet: Sheet; net: Net | Bus; segment: Segment; label: Label }
+  // Either: free drawing in <plain>
   | { kind: 'plain'; graphic: Graphic; container: Graphic[] };
 
 export type OwnerKind =

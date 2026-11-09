@@ -180,3 +180,6 @@ button:disabled:hover { border-color: var(--border); }
 .locked-note { color: var(--text-dim); font-size: 12px; margin: -6px 0 10px; }
 #canvas.moving { cursor: move; }
 #canvas.can-drag { cursor: move; }
+
+/* The canvas takes keyboard focus for shortcuts; no focus ring around the whole drawing. */
+#canvas:focus { outline: none; }

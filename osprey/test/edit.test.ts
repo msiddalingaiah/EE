@@ -5,7 +5,8 @@ import { domOf } from '../src/eagle/dom';
 import { parseEagle, serializeEagle } from '../src/eagle/parse';
 import type { Board, EagleFile, Element } from '../src/eagle/types';
 import {
-  deleteTargets, mirrorAbout, padPosition, rotationAbout, transformTargets, translation,
+  deleteBoardTargets as deleteTargets, mirrorAbout, padPosition, rotationAbout,
+  transformBoardTargets as transformTargets, translation,
 } from '../src/edit/board';
 import { History, Transaction } from '../src/edit/ops';
 import type { Target } from '../src/scene/types';

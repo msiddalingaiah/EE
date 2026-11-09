@@ -1,11 +1,12 @@
 // Editing controller: turns selected targets + a verb into undoable transactions.
+// Works on boards and schematics; the verbs are the same, the rules behind them differ.
 
 import { gridSpacing, serializeEagle } from '../eagle/parse';
-import type { Board, EagleFile } from '../eagle/types';
-import {
-  deleteTargets, isEditable, mirrorAbout, rotationAbout, transformTargets, translation,
-} from '../edit/board';
+import type { EagleFile } from '../eagle/types';
+import { deleteBoardTargets, isEditable, transformBoardTargets } from '../edit/board';
+import { mirrorAbout, rotationAbout, translation } from '../edit/common';
 import { History, Transaction } from '../edit/ops';
+import { deleteSchematicTargets, transformSchematicTargets } from '../edit/schematic';
 import type { Point, Transform } from '../geom/transform';
 import { compose } from '../geom/transform';
 import type { Target } from '../scene/types';
@@ -15,8 +16,14 @@ export class Editor {
 
   constructor(readonly file: EagleFile, private readonly onChange: () => void) {}
 
-  get board(): Board | undefined {
-    return this.file.board;
+  /** Whether this file can be edited (libraries can't yet). */
+  get canEdit(): boolean {
+    return !!(this.file.board || this.file.schematic);
+  }
+
+  /** Name of the mirror verb: boards flip parts to the other side; schematics mirror. */
+  get mirrorVerb(): string {
+    return this.file.board ? 'Flip' : 'Mirror';
   }
 
   /** Grid spacing in mm; `alt` = the fine grid (Alt held). */
@@ -29,40 +36,39 @@ export class Editor {
     return Math.round(v / g) * g;
   }
 
-  /** Targets that commands may change (locked parts are excluded). */
+  /** Targets that commands may change (locked board parts are excluded). */
   editable(targets: Target[]): Target[] {
-    return this.board ? targets.filter(isEditable) : [];
+    return this.canEdit ? targets.filter(isEditable) : [];
   }
 
   rotate(targets: Target[], pivot: Point, quarterTurns: number): void {
     this.commit(quarterTurns > 0 ? 'Rotate' : 'Rotate clockwise', targets, rotationAbout(pivot, quarterTurns));
   }
 
-  /** Flip to the other side of the board, mirroring about the vertical line through the pivot. */
-  flip(targets: Target[], pivot: Point): void {
-    this.commit('Flip', targets, mirrorAbout(pivot.x));
+  /** Mirror about the vertical line through the pivot (on boards: flip to the other side). */
+  mirror(targets: Target[], pivot: Point): void {
+    this.commit(this.mirrorVerb, targets, mirrorAbout(pivot.x));
   }
 
   delete(targets: Target[]): void {
-    const board = this.board;
     const ts = this.editable(targets);
-    if (!board || !ts.length) return;
+    if (!ts.length) return;
     const tx = new Transaction(`Delete ${describe(ts)}`);
     tx.subjects = ts.map(subject);
-    deleteTargets(board, ts, tx);
+    if (this.file.board) deleteBoardTargets(this.file.board, ts, tx);
+    else if (this.file.schematic) deleteSchematicTargets(this.file.schematic, ts, tx);
     this.push(tx);
   }
 
   /**
    * Start an interactive move; the session previews edits live and commits or cancels.
-   * `reference` is the point that snaps to the grid (a part's origin, a trace's grabbed end);
-   * without one, the displacement itself is snapped. Rotation and flip happen about `pivot`.
+   * `reference` is the point that snaps to the grid (a part's origin, a wire's grabbed end);
+   * without one, the displacement itself is snapped. Rotation and mirroring happen about `pivot`.
    */
   beginMove(targets: Target[], pivot: Point, reference?: Point): MoveSession | undefined {
-    const board = this.board;
     const ts = this.editable(targets);
-    if (!board || !ts.length) return undefined;
-    return new MoveSession(this, board, ts, pivot, reference);
+    if (!ts.length) return undefined;
+    return new MoveSession(this, ts, pivot, reference);
   }
 
   /** Undo the last step; returns the objects it affected (for reselection). */
@@ -82,6 +88,12 @@ export class Editor {
     return serializeEagle(this.file);
   }
 
+  /** Apply an edit transform to targets within `tx` (board or schematic rules). */
+  transform(targets: Target[], E: Transform, tx: Transaction): void {
+    if (this.file.board) transformBoardTargets(this.file.board, targets, E, tx);
+    else if (this.file.schematic) transformSchematicTargets(this.file.schematic, targets, E, tx);
+  }
+
   /** @internal */
   push(tx: Transaction): void {
     this.history.push(tx);
@@ -89,12 +101,11 @@ export class Editor {
   }
 
   private commit(verb: string, targets: Target[], E: Transform): void {
-    const board = this.board;
     const ts = this.editable(targets);
-    if (!board || !ts.length) return;
+    if (!ts.length) return;
     const tx = new Transaction(`${verb} ${describe(ts)}`);
     tx.subjects = ts.map(subject);
-    transformTargets(board, ts, E, tx);
+    this.transform(ts, E, tx);
     this.push(tx);
   }
 }
@@ -111,9 +122,8 @@ export class MoveSession {
 
   constructor(
     private readonly editor: Editor,
-    private readonly board: Board,
     readonly targets: Target[],
-    /** Rotation and flip happen about this point (before the displacement). */
+    /** Rotation and mirroring happen about this point (before the displacement). */
     private readonly pivot: Point,
     /** If set, this point lands on the grid; otherwise the displacement is snapped. */
     private readonly reference?: Point,
@@ -135,14 +145,14 @@ export class MoveSession {
     this.preview();
   }
 
-  // The floating transform is R(turns)·M^mirrored about the reference point.
-  // Rotating it on screen adds turns; flipping it on screen (M·R(t) = R(-t)·M) negates them.
+  // The floating transform is R(turns)·M^mirrored about the pivot.
+  // Rotating it on screen adds turns; mirroring it on screen (M·R(t) = R(-t)·M) negates them.
   rotate(quarterTurns: number): void {
     this.turns += quarterTurns;
     this.preview();
   }
 
-  flip(): void {
+  mirror(): void {
     this.turns = -this.turns;
     this.mirrored = !this.mirrored;
     this.preview();
@@ -153,7 +163,7 @@ export class MoveSession {
     const final = new Transaction(`${verb} ${describe(this.targets)}`);
     final.subjects = this.targets.map(subject);
     this.tx.revert();
-    transformTargets(this.board, this.targets, this.transform(), final);
+    this.editor.transform(this.targets, this.transform(), final);
     this.editor.push(final);
   }
 
@@ -172,7 +182,7 @@ export class MoveSession {
   private preview(): void {
     this.tx.revert();
     this.tx = new Transaction('');
-    transformTargets(this.board, this.targets, this.transform(), this.tx);
+    this.editor.transform(this.targets, this.transform(), this.tx);
   }
 }
 
@@ -185,6 +195,10 @@ function describe(ts: Target[]): string {
       case 'signal-wire': return `trace on ${t.signal.name}`;
       case 'via': return `via on ${t.signal.name}`;
       case 'signal-polygon': return `polygon on ${t.signal.name}`;
+      case 'instance': return t.instance.part;
+      case 'net-wire': return `wire on ${t.net.name}`;
+      case 'junction': return `junction on ${t.net.name}`;
+      case 'label': return `label ${t.net.name}`;
       case 'plain': return t.graphic.kind;
     }
   }
@@ -198,6 +212,10 @@ export function subject(t: Target): object {
     case 'signal-wire': return t.wire;
     case 'via': return t.via;
     case 'signal-polygon': return t.polygon;
+    case 'instance': return t.instance;
+    case 'net-wire': return t.wire;
+    case 'junction': return t.junction;
+    case 'label': return t.label;
     case 'plain': return t.graphic;
   }
 }
