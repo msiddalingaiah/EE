@@ -1,6 +1,7 @@
 // Build a Scene for an Eagle board.
 
-import type { Board, EagleFile, PlacedAttribute } from '../eagle/types';
+import type { Board, EagleFile, Graphic, PlacedAttribute } from '../eagle/types';
+import { objId } from '../eagle/dom';
 import { findLibrary, parseDistance } from '../eagle/parse';
 import { IDENTITY, placement } from '../geom/transform';
 import { SceneBuilder, type EmitContext } from './builder';
@@ -64,8 +65,11 @@ export function buildBoardScene(file: EagleFile): Scene {
   const b = new SceneBuilder('board', file.layers);
   const rules = new DesignRules(brd.designRules);
 
-  brd.plain.forEach((g, i) => {
-    const id = b.addOwner({ id: `plain:${i}`, kind: 'plain', label: g.kind, props: [['Type', g.kind]] });
+  brd.plain.forEach((g) => {
+    const id = b.addOwner({
+      id: `plain:${objId(g)}`, kind: 'plain', label: plainLabel(g), props: [['Type', g.kind], ['Layer', String('layer' in g ? g.layer : 45)]],
+      target: { kind: 'plain', graphic: g, container: brd.plain },
+    });
     b.graphic(g, { owner: id, transform: IDENTITY, textContext: 'board' });
   });
 
@@ -81,9 +85,11 @@ function emitElements(b: SceneBuilder, brd: Board, rules: DesignRules): void {
     if (!pkg) continue;
     const bottom = el.rot.mirror;
     const id = b.addOwner({
-      id: `element:${el.name}`,
+      id: `element:${objId(el)}`,
       kind: 'element',
       label: el.name,
+      target: { kind: 'element', element: el },
+      origin: { x: el.x, y: el.y },
       props: [
         ['Name', el.name],
         ['Value', el.value],
@@ -135,9 +141,10 @@ function emitPlacedAttributes(
 function emitSignals(b: SceneBuilder, brd: Board, rules: DesignRules): void {
   for (const sig of brd.signals) {
     const base = { textContext: 'board' as const, transform: IDENTITY };
-    sig.wires.forEach((w, i) => {
+    sig.wires.forEach((w) => {
       const id = b.addOwner({
-        id: `signal-wire:${sig.name}:${i}`,
+        id: `signal-wire:${objId(w)}`,
+        target: { kind: 'signal-wire', signal: sig, wire: w },
         kind: 'signal-wire',
         label: w.layer === 19 ? `Airwire ${sig.name}` : `Trace ${sig.name}`,
         net: sig.name,
@@ -151,10 +158,12 @@ function emitSignals(b: SceneBuilder, brd: Board, rules: DesignRules): void {
       });
       b.wire(w, { ...base, owner: id });
     });
-    sig.vias.forEach((v, i) => {
+    sig.vias.forEach((v) => {
       const dia = rules.viaDiameter(v.drill, v.diameter);
       const id = b.addOwner({
-        id: `via:${sig.name}:${i}`,
+        id: `via:${objId(v)}`,
+        target: { kind: 'via', signal: sig, via: v },
+        origin: { x: v.x, y: v.y },
         kind: 'via',
         label: `Via ${sig.name}`,
         net: sig.name,
@@ -168,9 +177,10 @@ function emitSignals(b: SceneBuilder, brd: Board, rules: DesignRules): void {
       });
       b.via(v, dia, id);
     });
-    sig.polygons.forEach((poly, i) => {
+    sig.polygons.forEach((poly) => {
       const id = b.addOwner({
-        id: `signal-polygon:${sig.name}:${i}`,
+        id: `signal-polygon:${objId(poly)}`,
+        target: { kind: 'signal-polygon', signal: sig, polygon: poly },
         kind: 'signal-polygon',
         label: `Polygon ${sig.name}`,
         net: sig.name,
@@ -190,5 +200,14 @@ function emitSignals(b: SceneBuilder, brd: Board, rules: DesignRules): void {
         last.dash = [poly.width * 4 || 0.5, poly.width * 4 || 0.5];
       }
     });
+  }
+}
+
+function plainLabel(g: Graphic): string {
+  switch (g.kind) {
+    case 'text': return `Text "${g.text}"`;
+    case 'hole': return 'Hole';
+    case 'wire': return g.layer === 20 ? 'Board outline' : 'Line';
+    default: return g.kind[0]!.toUpperCase() + g.kind.slice(1);
   }
 }

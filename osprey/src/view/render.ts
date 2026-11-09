@@ -9,6 +9,7 @@ import type { Viewport } from './viewport';
 
 export const SELECT_COLOR = '#ffd84d';
 export const HOVER_COLOR = '#ffffff';
+const GRID_COLOR = '#3a414d';
 
 /** Ratio of the em size to Eagle's text size (Eagle size ≈ cap height). */
 const EM_PER_SIZE = 1.2;
@@ -24,12 +25,15 @@ export interface RenderState {
   hover: string | undefined;
   /** Drag rectangle for box selection, in world coordinates. */
   box?: { rect: Bounds; crossing: boolean };
+  /** Grid spacing in mm; dots are drawn when it is coarse enough to see. */
+  grid?: number;
 }
 
 export function render(ctx: CanvasRenderingContext2D, vp: Viewport, dpr: number, s: RenderState): void {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.fillStyle = BACKGROUND;
   ctx.fillRect(0, 0, vp.width, vp.height);
+  if (s.grid) drawGrid(ctx, vp, s.grid);
 
   const view = vp.visibleBounds();
   const prims = s.index.scene.prims;
@@ -215,4 +219,22 @@ function drawBox(ctx: CanvasRenderingContext2D, vp: Viewport, dpr: number, r: Bo
   ctx.fillRect(a.x, a.y, b.x - a.x, b.y - a.y);
   ctx.strokeRect(a.x + 0.5, a.y + 0.5, b.x - a.x, b.y - a.y);
   ctx.setLineDash([]);
+}
+
+/** Grid dots, in screen space. Coarsens by 2×/5× steps until dots are at least 12px apart. */
+function drawGrid(ctx: CanvasRenderingContext2D, vp: Viewport, spacing: number): void {
+  let step = spacing;
+  for (const k of [2, 5, 10, 20, 50, 100]) {
+    if (step * vp.zoom >= 12) break;
+    step = spacing * k;
+  }
+  if (step * vp.zoom < 12) return;
+  const view = vp.visibleBounds();
+  ctx.fillStyle = GRID_COLOR;
+  for (let x = Math.ceil(view.minX / step) * step; x <= view.maxX; x += step) {
+    for (let y = Math.ceil(view.minY / step) * step; y <= view.maxY; y += step) {
+      const p = vp.toScreen(x, y);
+      ctx.fillRect(Math.round(p.x), Math.round(p.y), 1, 1);
+    }
+  }
 }

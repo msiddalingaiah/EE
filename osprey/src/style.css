@@ -167,3 +167,16 @@ section + section { margin-top: 14px; }
   .panel.right { border-left: 0; border-top: 1px solid var(--border); max-height: 35vh; }
   .status-hint { display: none; }
 }
+
+.toolbar-sep { width: 1px; align-self: stretch; background: var(--border); margin: 0 2px; }
+button:disabled { opacity: 0.45; cursor: default; }
+button:disabled:hover { border-color: var(--border); }
+.status-msg { color: var(--accent); font-family: var(--font); }
+
+/* Commands in the inspector */
+.commands { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin: 0 0 12px; }
+.commands button { display: flex; justify-content: space-between; align-items: center; }
+.commands kbd { font-family: var(--mono); font-size: 11px; color: var(--text-dim); }
+.locked-note { color: var(--text-dim); font-size: 12px; margin: -6px 0 10px; }
+#canvas.moving { cursor: move; }
+#canvas.can-drag { cursor: move; }

@@ -8,6 +8,7 @@ import type {
   PlacedAttribute, Polygon, Rectangle, Rotation, Schematic, Segment, Sheet, Signal, Smd, Symbol,
   Text, TextAlign, Vertex, Via, Wire,
 } from './types';
+import { link } from './dom';
 
 export class EagleParseError extends Error {}
 
@@ -27,6 +28,9 @@ export function parseEagle(xml: string): EagleFile {
   const drawing = req(root, 'drawing');
 
   const file: EagleFile = {
+    dom: doc,
+    lineEnding: xml.includes('\r\n') ? '\r\n' : '\n',
+    ...splitProlog(xml),
     version: str(root, 'version', ''),
     layers: all(child(drawing, 'layers'), 'layer').map(parseLayer),
     grid: optMap(child(drawing, 'grid'), parseGrid),
@@ -110,6 +114,11 @@ function descriptionOf(el: Element_): string {
 // DOM Element, aliased so it doesn't clash with the board Element type.
 type Element_ = globalThis.Element;
 
+/** Wrap a parse function so its result is linked to the element it came from. */
+function linked<T extends object>(fn: (el: Element_) => T): (el: Element_) => T {
+  return (el) => link(fn(el), el);
+}
+
 // ---------------------------------------------------------------------------
 // Values
 
@@ -120,6 +129,16 @@ export function parseRotation(spec: string | null | undefined): Rotation {
   if (!m) throw new EagleParseError(`Bad rotation "${spec}"`);
   const angle = ((Number(m[3]) % 360) + 360) % 360;
   return { angle, mirror: m[2] === 'M', spin: m[1] === 'S' };
+}
+
+const UNIT_MM: Record<string, number> = { mm: 1, mil: 0.0254, mic: 0.001, inch: 25.4 };
+
+/** Grid spacing in mm (`alt` = the alternate grid Eagle uses while Alt is held). */
+export function gridSpacing(grid: Grid | undefined, alt = false): number {
+  if (!grid) return alt ? 0.127 : 1.27;
+  return alt
+    ? grid.altdistance * (UNIT_MM[grid.altunitdist] ?? 1)
+    : grid.distance * (UNIT_MM[grid.unitdist] ?? 1);
 }
 
 /** Parse a design-rule distance such as "10mil", "0.4mm", "0.1inch", "100mic" into mm. */
@@ -161,6 +180,8 @@ function parseGrid(el: Element_): Grid {
     distance: num(el, 'distance', 0.1),
     unitdist: str(el, 'unitdist', 'inch'),
     unit: str(el, 'unit', 'inch'),
+    altdistance: num(el, 'altdistance', 0.01),
+    altunitdist: str(el, 'altunitdist', 'inch'),
   };
 }
 
@@ -211,7 +232,7 @@ export function parsePolygon(el: Element_): Polygon {
     width: num(el, 'width'),
     layer: num(el, 'layer'),
     vertices: all(el, 'vertex').map(
-      (v): Vertex => ({ x: num(v, 'x'), y: num(v, 'y'), curve: num(v, 'curve') }),
+      (v): Vertex => link({ x: num(v, 'x'), y: num(v, 'y'), curve: num(v, 'curve') }, v),
     ),
     pour: oneOf(el, 'pour', ['solid', 'hatch', 'cutout'] as const, 'solid'),
     isolate: optNum(el, 'isolate'),
@@ -261,6 +282,11 @@ function parseGraphics(container: Element_ | undefined): Graphic[] {
 }
 
 function parseGraphic(el: Element_): Graphic | undefined {
+  const g = parseGraphicUnlinked(el);
+  return g && link(g, el);
+}
+
+function parseGraphicUnlinked(el: Element_): Graphic | undefined {
   switch (el.tagName) {
     case 'wire': return parseWire(el);
     case 'circle': return parseCircle(el);
@@ -307,8 +333,8 @@ function parseSmd(el: Element_): Smd {
 function parsePackage(el: Element_): Package {
   const pads: (Pad | Smd)[] = [];
   for (const c of all(el)) {
-    if (c.tagName === 'pad') pads.push(parsePad(c));
-    else if (c.tagName === 'smd') pads.push(parseSmd(c));
+    if (c.tagName === 'pad') pads.push(link(parsePad(c), c));
+    else if (c.tagName === 'smd') pads.push(link(parseSmd(c), c));
   }
   return { name: str(el, 'name', ''), description: descriptionOf(el), graphics: parseGraphics(el), pads };
 }
@@ -433,13 +459,13 @@ function parseSegment(el: Element_): Segment {
   for (const c of all(el)) {
     switch (c.tagName) {
       case 'wire':
-        seg.wires.push(parseWire(c));
+        seg.wires.push(link(parseWire(c), c));
         break;
       case 'junction':
-        seg.junctions.push({ kind: 'junction', x: num(c, 'x'), y: num(c, 'y') } satisfies Junction);
+        seg.junctions.push(link({ kind: 'junction', x: num(c, 'x'), y: num(c, 'y') } satisfies Junction, c));
         break;
       case 'label':
-        seg.labels.push({
+        seg.labels.push(link({
           kind: 'label',
           x: num(c, 'x'),
           y: num(c, 'y'),
@@ -448,10 +474,10 @@ function parseSegment(el: Element_): Segment {
           rot: parseRotation(c.getAttribute('rot')),
           xref: bool(c, 'xref', false),
           align: oneOf(c, 'align', ALIGNS, 'bottom-left'),
-        } satisfies Label);
+        } satisfies Label, c));
         break;
       case 'pinref':
-        seg.pinrefs.push({ part: str(c, 'part', ''), gate: str(c, 'gate', ''), pin: str(c, 'pin', '') });
+        seg.pinrefs.push(link({ part: str(c, 'part', ''), gate: str(c, 'gate', ''), pin: str(c, 'pin', '') }, c));
         break;
     }
   }
@@ -463,25 +489,25 @@ function parseSheet(el: Element_): Sheet {
     description: descriptionOf(el),
     plain: parseGraphics(child(el, 'plain')),
     instances: all(child(el, 'instances'), 'instance').map(
-      (i): Instance => ({
+      linked((i): Instance => ({
         part: str(i, 'part', ''),
         gate: str(i, 'gate', ''),
         x: num(i, 'x'),
         y: num(i, 'y'),
         smashed: bool(i, 'smashed', false),
         rot: parseRotation(i.getAttribute('rot')),
-        attributes: all(i, 'attribute').map(parsePlacedAttribute),
-      }),
+        attributes: all(i, 'attribute').map(linked(parsePlacedAttribute)),
+      })),
     ),
     nets: all(child(el, 'nets'), 'net').map(
-      (n): Net => ({
+      linked((n): Net => ({
         name: str(n, 'name', ''),
         netClass: num(n, 'class'),
-        segments: all(n, 'segment').map(parseSegment),
-      }),
+        segments: all(n, 'segment').map(linked(parseSegment)),
+      })),
     ),
     busses: all(child(el, 'busses'), 'bus').map(
-      (b): Bus => ({ name: str(b, 'name', ''), segments: all(b, 'segment').map(parseSegment) }),
+      linked((b): Bus => ({ name: str(b, 'name', ''), segments: all(b, 'segment').map(linked(parseSegment)) })),
     ),
   };
 }
@@ -492,7 +518,7 @@ function parseSchematic(el: Element_): Schematic {
     classes: parseClasses(child(el, 'classes')),
     parts: byName(
       all(child(el, 'parts'), 'part').map(
-        (p): Part => ({
+        linked((p): Part => ({
           name: str(p, 'name', ''),
           library: str(p, 'library', ''),
           libraryUrn: optStr(p, 'library_urn'),
@@ -500,11 +526,11 @@ function parseSchematic(el: Element_): Schematic {
           device: str(p, 'device', ''),
           technology: str(p, 'technology', ''),
           value: optStr(p, 'value'),
-          attributes: all(p, 'attribute').map(parsePlacedAttribute),
-        }),
+          attributes: all(p, 'attribute').map(linked(parsePlacedAttribute)),
+        })),
       ),
     ),
-    sheets: all(child(el, 'sheets'), 'sheet').map(parseSheet),
+    sheets: all(child(el, 'sheets'), 'sheet').map(linked(parseSheet)),
   };
 }
 
@@ -535,16 +561,16 @@ function parseSignal(el: Element_): Signal {
   for (const c of all(el)) {
     switch (c.tagName) {
       case 'contactref':
-        sig.contactrefs.push({ element: str(c, 'element', ''), pad: str(c, 'pad', '') } satisfies ContactRef);
+        sig.contactrefs.push(link({ element: str(c, 'element', ''), pad: str(c, 'pad', '') } satisfies ContactRef, c));
         break;
       case 'wire':
-        sig.wires.push(parseWire(c));
+        sig.wires.push(link(parseWire(c), c));
         break;
       case 'via':
-        sig.vias.push(parseVia(c));
+        sig.vias.push(link(parseVia(c), c));
         break;
       case 'polygon':
-        sig.polygons.push(parsePolygon(c));
+        sig.polygons.push(link(parsePolygon(c), c));
         break;
     }
   }
@@ -562,7 +588,7 @@ function parseBoard(el: Element_): Board {
     designRules,
     plain: parseGraphics(child(el, 'plain')),
     elements: all(child(el, 'elements'), 'element').map(
-      (e): Element => ({
+      linked((e): Element => ({
         name: str(e, 'name', ''),
         library: str(e, 'library', ''),
         libraryUrn: optStr(e, 'library_urn'),
@@ -573,10 +599,10 @@ function parseBoard(el: Element_): Board {
         locked: bool(e, 'locked', false),
         smashed: bool(e, 'smashed', false),
         rot: parseRotation(e.getAttribute('rot')),
-        attributes: all(e, 'attribute').map(parsePlacedAttribute),
-      }),
+        attributes: all(e, 'attribute').map(linked(parsePlacedAttribute)),
+      })),
     ),
-    signals: all(child(el, 'signals'), 'signal').map(parseSignal),
+    signals: all(child(el, 'signals'), 'signal').map(linked(parseSignal)),
   };
 }
 
@@ -586,4 +612,64 @@ export function findLibrary(libs: Library[], name: string, urn: string | undefin
     libs.find((l) => l.name === name && l.urn === urn) ??
     libs.find((l) => l.name === name)
   );
+}
+
+/**
+ * Serialize a parsed (and possibly edited) file back to Eagle XML.
+ * The original document is written out, so content Osprey doesn't model is preserved.
+ */
+export function serializeEagle(file: EagleFile): string {
+  // The DOM doesn't keep the XML declaration or whitespace around the root, so the
+  // original prolog/epilog text is reused verbatim.
+  const out: string[] = [];
+  writeNode(file.dom.documentElement, out);
+  const body = out.join('').replace(/\r\n/g, '\n');
+  return file.prolog + (file.lineEnding === '\r\n' ? body.replace(/\n/g, '\r\n') : body) + file.epilog;
+}
+
+/** Escape as Eagle does: & < > (plus " inside attribute values). */
+function escapeXml(s: string, attr = false): string {
+  return s.replace(attr ? /[&<>"]/g : /[&<>]/g, (c) => (c === "&" ? "&amp;" : c === "<" ? "&lt;" : c === ">" ? "&gt;" : "&quot;"));
+}
+
+/** Serialize in Eagle's style: attributes in document order, childless elements as `<x/>`. */
+function writeNode(node: Node, out: string[]): void {
+  switch (node.nodeType) {
+    case 1: {
+      const el = node as Element_;
+      out.push('<', el.tagName);
+      for (const a of Array.from(el.attributes)) out.push(' ', a.name, '="', escapeXml(a.value, true), '"');
+      if (!el.firstChild) {
+        out.push('/>');
+        return;
+      }
+      out.push('>');
+      for (let c: ChildNode | null = el.firstChild; c; c = c.nextSibling) writeNode(c, out);
+      out.push('</', el.tagName, '>');
+      return;
+    }
+    case 3:
+      out.push(escapeXml(node.nodeValue ?? ''));
+      return;
+    case 4:
+      out.push('<![CDATA[', node.nodeValue ?? '', ']]>');
+      return;
+    case 7: {
+      const pi = node as ProcessingInstruction;
+      out.push('<?', pi.target, pi.data ? ` ${pi.data}` : '', '?>');
+      return;
+    }
+    case 8:
+      out.push('<!--', node.nodeValue ?? '', '-->');
+      return;
+  }
+}
+
+function splitProlog(xml: string): { prolog: string; epilog: string } {
+  const start = /<eagle[\s>]/.exec(xml)?.index ?? 0;
+  const end = xml.lastIndexOf('</eagle>');
+  return {
+    prolog: xml.slice(0, start),
+    epilog: end >= 0 ? xml.slice(end + '</eagle>'.length) : '',
+  };
 }

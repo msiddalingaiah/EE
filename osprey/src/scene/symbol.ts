@@ -3,7 +3,7 @@
 import type { Pin, Symbol, Wire } from '../eagle/types';
 import type { Transform } from '../geom/transform';
 import { compose, composeRotation, placement } from '../geom/transform';
-import type { EmitContext, SceneBuilder } from './builder';
+import { readableText, type EmitContext, type SceneBuilder } from './builder';
 
 const PIN_LENGTH: Record<Pin['length'], number> = { point: 0, short: 2.54, middle: 5.08, long: 7.62 };
 const PIN_LINE_WIDTH = 0.1524;
@@ -57,8 +57,7 @@ function emitPin(b: SceneBuilder, pin: Pin, pads: string, parent: Transform, own
     // Pad numbers sit above horizontal pins (left of vertical ones) whichever way the pin points.
     // Text that gets turned 180° for readability is anchored on the other side so it lands there.
     // (Mirroring is about the Y axis, so it never changes which side is "above".)
-    const abs = composeRotation(T, noRot);
-    const flips = abs.angle > 90 && abs.angle <= 270;
+    const flips = readableText(composeRotation(T, noRot), 'bottom-center', 'schematic').align.startsWith('top');
     b.text(pads, len / 2, flips ? -PAD_OFFSET : PAD_OFFSET, PIN_PAD_SIZE, noRot,
       flips ? 'top-center' : 'bottom-center', SYMBOL_LAYER, ctx);
   }

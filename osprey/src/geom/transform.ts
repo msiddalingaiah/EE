@@ -30,11 +30,15 @@ function sincos(deg: number): [number, number] {
   return [Math.sin(r), Math.cos(r)];
 }
 
-/** Placement transform: mirror about Y (if set), then rotate CCW, then translate. */
+/**
+ * Placement transform for an Eagle rotation: rotate CCW, then mirror about the Y axis
+ * (if set), then translate. So "MR90" = mirror(rotate90(p)). This order was confirmed
+ * against routed boards: trace ends land on pad centres only with this convention.
+ */
 export function placement(x: number, y: number, rot: Rotation): Transform {
   const [s, c] = sincos(rot.angle);
   const m = rot.mirror ? -1 : 1;
-  return { a: c * m, b: s * m, c: -s, d: c, e: x, f: y };
+  return { a: c * m, b: s, c: -s * m, d: c, e: x, f: y };
 }
 
 /** Returns p ∘ q (apply q first, then p). */
@@ -70,10 +74,10 @@ export function isMirrored(t: Transform): boolean {
   return t.a * t.d - t.b * t.c < 0;
 }
 
-/** Rotation angle (degrees CCW) of the transform's rotation part, after removing any mirror. */
+/** Eagle rotation angle (degrees CCW) of a transform, in the convention of `placement`. */
 export function angleOf(t: Transform): number {
-  // For a mirrored transform, x' axis = (a, b) = R(θ)·(-1, 0), so θ = atan2(b,a) - 180.
-  const raw = (Math.atan2(t.b, t.a) * 180) / Math.PI + (isMirrored(t) ? 180 : 0);
+  // Unmirrored: x axis = (a, b) = (cos θ, sin θ). Mirrored (M·R): (a, b) = (-cos θ, sin θ).
+  const raw = (Math.atan2(t.b, isMirrored(t) ? -t.a : t.a) * 180) / Math.PI;
   return ((Math.round(raw * 1e6) / 1e6) % 360 + 360) % 360;
 }
 

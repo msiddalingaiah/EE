@@ -24,6 +24,8 @@ export interface Grid {
   distance: number;
   unitdist: string;
   unit: string;
+  altdistance: number;
+  altunitdist: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -384,6 +386,13 @@ export interface Board {
 // ---------------------------------------------------------------------------
 
 export interface EagleFile {
+  /** The parsed XML document. Edits are written into it; saving serializes it. */
+  dom: Document;
+  /** Line ending used by the original file, restored on save. */
+  lineEnding: '\n' | '\r\n';
+  /** Original text before and after the root element (XML declaration, DOCTYPE, whitespace). */
+  prolog: string;
+  epilog: string;
   version: string;
   layers: Layer[];
   grid: Grid | undefined;

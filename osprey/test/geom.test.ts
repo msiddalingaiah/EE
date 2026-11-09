@@ -11,12 +11,12 @@ describe('placement transforms', () => {
     expect(p).toEqual({ x: 10, y: 21 });
   });
 
-  it('mirrors about Y before rotating', () => {
+  it('rotates, then mirrors about Y (Eagle "MR" convention)', () => {
     const t = placement(0, 0, rot(90, true));
-    // (1,0) -> mirror -> (-1,0) -> R90 -> (0,-1)
-    const p = apply(t, 1, 0);
-    expect(p.x).toBeCloseTo(0);
-    expect(p.y).toBeCloseTo(-1);
+    // (0,1) -> R90 -> (-1,0) -> mirror -> (1,0)
+    const p = apply(t, 0, 1);
+    expect(p.x).toBeCloseTo(1);
+    expect(p.y).toBeCloseTo(0);
     expect(isMirrored(t)).toBe(true);
     expect(angleOf(t)).toBe(90);
   });
@@ -35,8 +35,10 @@ describe('placement transforms', () => {
   });
 
   it('combines rotations through a mirrored parent', () => {
-    // mirrored parent at R90, child R90: angle = 90 - 90 = 0, mirrored
-    expect(composeRotation(placement(0, 0, rot(90, true)), rot(90))).toEqual(rot(0, true));
+    // mirrored parent MR90 = M·R90; with child R90: M·R180
+    expect(composeRotation(placement(0, 0, rot(90, true)), rot(90))).toEqual(rot(180, true));
+    // a child MR90 under an unmirrored R90 parent: R90·M·R90 = M·R(-90)·R90 = M·R0
+    expect(composeRotation(placement(0, 0, rot(90)), rot(90, true))).toEqual(rot(0, true));
     // child mirror cancels parent mirror
     expect(composeRotation(placement(0, 0, rot(0, true)), rot(0, true))).toEqual(rot(0, false));
   });
@@ -79,5 +81,7 @@ describe('text readability', () => {
   it('draws mirrored schematic text unmirrored with flipped alignment', () => {
     expect(readableText(rot(0, true), 'bottom-left', 'schematic')).toEqual({ angle: 0, mirror: false, align: 'bottom-right' });
     expect(readableText(rot(0, true), 'bottom-left', 'board').mirror).toBe(true);
+    // MR90 in a schematic is drawn upright at 90°, reading bottom-to-top.
+    expect(readableText(rot(90, true), 'bottom-left', 'schematic')).toEqual({ angle: 90, mirror: false, align: 'top-left' });
   });
 });

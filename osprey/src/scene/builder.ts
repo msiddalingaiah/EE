@@ -209,7 +209,11 @@ function joinAlign(v: string, h: string): TextAlign {
 /**
  * Eagle keeps text readable: text that would read upside down (angle in (90°, 270°])
  * is turned by 180° with its alignment flipped, unless it has the spin flag.
- * In schematics, mirrored text is drawn unmirrored with horizontal alignment flipped.
+ *
+ * Input is an Eagle rotation (rotate, then mirror). Output is for drawing: glyphs are
+ * rotated by `angle` with the mirror applied first (R·M), which for mirrored text means
+ * angle = -θ. In schematics mirrored text is drawn unmirrored, with horizontal alignment
+ * flipped; on boards it stays mirrored, readable when the board is viewed from below.
  */
 export function readableText(
   rot: Rotation, align: TextAlign, context: TextContext,
@@ -217,14 +221,24 @@ export function readableText(
   let [v, h] = splitAlign(align);
   let angle = rot.angle;
   let mirror = rot.mirror;
-  if (mirror && context === 'schematic') {
+  const flipUpright = () => {
+    if (!rot.spin && angle > 90 && angle <= 270) {
+      angle -= 180;
+      h = H_FLIP[h]!;
+      v = V_FLIP[v]!;
+    }
+  };
+  if (!mirror) {
+    flipUpright();
+  } else if (context === 'board') {
+    flipUpright(); // judged as seen from below, where the text reads at θ
+    angle = -angle;
+  } else {
     mirror = false;
+    angle = -angle;
     h = H_FLIP[h]!;
-  }
-  if (!rot.spin && angle > 90 && angle <= 270) {
-    angle -= 180;
-    h = H_FLIP[h]!;
-    v = V_FLIP[v]!;
+    angle = ((angle % 360) + 360) % 360;
+    flipUpright(); // drawn unmirrored, so judged as drawn
   }
   return { angle: ((angle % 360) + 360) % 360, mirror, align: joinAlign(v, h) };
 }
@@ -343,7 +357,8 @@ export function textCorners(p: {
   const [v, hz] = splitAlign(p.align);
   const x0 = hz === 'left' ? 0 : hz === 'right' ? -w : -w / 2;
   const y0 = v === 'bottom' ? 0 : v === 'top' ? -h : -h / 2;
-  const T = placement(p.x, p.y, { angle: p.angle, mirror: p.mirror, spin: false });
+  // Drawing convention is R(angle)·M, which equals placement's M·R(-angle).
+  const T = placement(p.x, p.y, { angle: p.mirror ? -p.angle : p.angle, mirror: p.mirror, spin: false });
   return [
     apply(T, x0, y0), apply(T, x0 + w, y0), apply(T, x0 + w, y0 + h), apply(T, x0, y0 + h),
   ];

@@ -1,8 +1,16 @@
 // A Scene is a flat list of drawable primitives in world coordinates (mm, y-up).
 // Every primitive belongs to an owner: the selectable design object (the "noun").
 
-import type { Layer, TextAlign } from '../eagle/types';
+import type { Element, Graphic, Layer, Polygon, Signal, TextAlign, Via, Wire } from '../eagle/types';
 import type { Point } from '../geom/transform';
+
+/** The model object an owner stands for: what edit commands operate on. */
+export type Target =
+  | { kind: 'element'; element: Element }
+  | { kind: 'signal-wire'; signal: Signal; wire: Wire }
+  | { kind: 'via'; signal: Signal; via: Via }
+  | { kind: 'signal-polygon'; signal: Signal; polygon: Polygon }
+  | { kind: 'plain'; graphic: Graphic; container: Graphic[] };
 
 export type OwnerKind =
   | 'instance' // schematic: placed gate of a part
@@ -26,6 +34,10 @@ export interface Owner {
   props: [string, string][];
   /** Net/signal name, for highlighting connectivity. */
   net?: string;
+  /** Editable model object (board objects only, for now). */
+  target?: Target;
+  /** Reference point for snapping and rotating a single object (e.g. a part's origin). */
+  origin?: Point;
 }
 
 interface PrimBase {
