@@ -9,8 +9,8 @@
   <body>
     <header class="toolbar">
       <span class="brand">Osprey</span>
-      <button id="open-btn" type="button" title="Open an Eagle .sch, .brd or .lbr file (or drop one on the canvas)">Open…</button>
-      <input id="file-input" type="file" accept=".sch,.brd,.lbr" hidden />
+      <button id="open-btn" type="button" title="Open a schematic and its board together (select both), or a library. Files can also be dropped on the canvas.">Open…</button>
+      <input id="file-input" type="file" accept=".sch,.brd,.lbr" multiple hidden />
       <label class="field">
         <span>Sample</span>
         <select id="sample-select"></select>
@@ -19,6 +19,10 @@
         <span>Sheet</span>
         <select id="sheet-select"></select>
       </label>
+      <div id="view-toggle" class="view-toggle" role="group" aria-label="View" hidden>
+        <button type="button" data-view="schematic" title="Schematic (Tab switches)">Schematic</button>
+        <button type="button" data-view="board" title="Board (Tab switches)">Board</button>
+      </div>
       <button id="fit-btn" type="button" title="Zoom to fit (Home)">Fit</button>
       <span class="toolbar-sep"></span>
       <button id="undo-btn" type="button" disabled>Undo</button>
@@ -29,6 +33,7 @@
 
     <main class="workspace">
       <aside class="panel left">
+        <section id="project-panel" hidden></section>
         <section id="library-panel" hidden>
           <h2>Library</h2>
           <input id="library-filter" type="search" placeholder="Filter…" />

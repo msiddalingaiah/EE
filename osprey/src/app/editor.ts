@@ -1,39 +1,40 @@
 // Editing controller: turns selected targets + a verb into undoable transactions.
-// Works on boards and schematics; the verbs are the same, the rules behind them differ.
+// Works on a project (schematic and/or board): geometry edits apply to the document the
+// targets live in; netlist edits (delete) are annotated to the other document too.
 
 import { gridSpacing, serializeEagle } from '../eagle/parse';
 import type { EagleFile } from '../eagle/types';
-import { deleteBoardTargets, isEditable, transformBoardTargets } from '../edit/board';
+import { isEditable, transformBoardTargets } from '../edit/board';
 import { mirrorAbout, rotationAbout, translation } from '../edit/common';
 import { History, Transaction } from '../edit/ops';
-import { deleteSchematicTargets, transformSchematicTargets } from '../edit/schematic';
+import { transformSchematicTargets } from '../edit/schematic';
 import type { Point, Transform } from '../geom/transform';
 import { compose } from '../geom/transform';
+import { deletableTargets, deleteAnnotated, splitTargets } from '../project/annotate';
+import type { Project } from '../project/project';
 import type { Target } from '../scene/types';
 
 export class Editor {
   readonly history = new History();
 
-  constructor(readonly file: EagleFile, private readonly onChange: () => void) {}
+  constructor(readonly project: Project, private readonly onChange: () => void) {}
 
-  /** Whether this file can be edited (libraries can't yet). */
+  private get sch() {
+    return this.project.schematic?.file.schematic;
+  }
+
+  private get brd() {
+    return this.project.board?.file.board;
+  }
+
+  /** Whether the project can be edited (libraries can't yet). */
   get canEdit(): boolean {
-    return !!(this.file.board || this.file.schematic);
+    return !!(this.sch || this.brd);
   }
 
-  /** Name of the mirror verb: boards flip parts to the other side; schematics mirror. */
-  get mirrorVerb(): string {
-    return this.file.board ? 'Flip' : 'Mirror';
-  }
-
-  /** Grid spacing in mm; `alt` = the fine grid (Alt held). */
-  grid(alt = false): number {
-    return gridSpacing(this.file.grid, alt);
-  }
-
-  snap(v: number, alt = false): number {
-    const g = this.grid(alt);
-    return Math.round(v / g) * g;
+  /** Grid spacing in mm of a document; `alt` = the fine grid (Alt held). */
+  grid(file: EagleFile, alt = false): number {
+    return gridSpacing(file.grid, alt);
   }
 
   /** Targets that commands may change (locked board parts are excluded). */
@@ -46,18 +47,24 @@ export class Editor {
   }
 
   /** Mirror about the vertical line through the pivot (on boards: flip to the other side). */
-  mirror(targets: Target[], pivot: Point): void {
-    this.commit(this.mirrorVerb, targets, mirrorAbout(pivot.x));
+  mirror(targets: Target[], pivot: Point, verb: string): void {
+    this.commit(verb, targets, mirrorAbout(pivot.x));
   }
 
-  delete(targets: Target[]): void {
-    const ts = this.editable(targets);
-    if (!ts.length) return;
-    const tx = new Transaction(`Delete ${describe(ts)}`);
-    tx.subjects = ts.map(subject);
-    if (this.file.board) deleteBoardTargets(this.file.board, ts, tx);
-    else if (this.file.schematic) deleteSchematicTargets(this.file.schematic, ts, tx);
+  /**
+   * Delete targets, keeping schematic and board consistent when both are open.
+   * Returns the names of parts that weren't deleted because their board element is locked.
+   */
+  delete(targets: Target[]): string[] {
+    const { ok, locked } = deletableTargets(this.editable(targets), this.brd);
+    if (!ok.length) return locked;
+    const tx = new Transaction(`Delete ${describe(ok)}`);
+    tx.subjects = ok.map(subject);
+    const touched = deleteAnnotated(this.sch, this.brd, ok, tx);
+    if (touched.schematic) tx.files.add(this.project.schematic!.file);
+    if (touched.board) tx.files.add(this.project.board!.file);
     this.push(tx);
+    return locked;
   }
 
   /**
@@ -65,10 +72,10 @@ export class Editor {
    * `reference` is the point that snaps to the grid (a part's origin, a wire's grabbed end);
    * without one, the displacement itself is snapped. Rotation and mirroring happen about `pivot`.
    */
-  beginMove(targets: Target[], pivot: Point, reference?: Point): MoveSession | undefined {
+  beginMove(targets: Target[], grid: (alt: boolean) => number, pivot: Point, reference?: Point): MoveSession | undefined {
     const ts = this.editable(targets);
     if (!ts.length) return undefined;
-    return new MoveSession(this, ts, pivot, reference);
+    return new MoveSession(this, ts, grid, pivot, reference);
   }
 
   /** Undo the last step; returns the objects it affected (for reselection). */
@@ -84,14 +91,29 @@ export class Editor {
     return tx?.subjects ?? [];
   }
 
-  serialize(): string {
-    return serializeEagle(this.file);
+  isDirty(file: EagleFile): boolean {
+    return this.history.isDirty(file);
   }
 
-  /** Apply an edit transform to targets within `tx` (board or schematic rules). */
+  get anyDirty(): boolean {
+    return this.project.files.some((f) => this.history.isDirty(f.file));
+  }
+
+  serialize(file: EagleFile): string {
+    return serializeEagle(file);
+  }
+
+  /** Apply an edit transform to targets within `tx`, each in the document it belongs to. */
   transform(targets: Target[], E: Transform, tx: Transaction): void {
-    if (this.file.board) transformBoardTargets(this.file.board, targets, E, tx);
-    else if (this.file.schematic) transformSchematicTargets(this.file.schematic, targets, E, tx);
+    const { board, schematic } = splitTargets(targets, this.brd);
+    if (board.length && this.brd) {
+      transformBoardTargets(this.brd, board, E, tx);
+      tx.files.add(this.project.board!.file);
+    }
+    if (schematic.length && this.sch) {
+      transformSchematicTargets(this.sch, schematic, E, tx);
+      tx.files.add(this.project.schematic!.file);
+    }
   }
 
   /** @internal */
@@ -123,6 +145,8 @@ export class MoveSession {
   constructor(
     private readonly editor: Editor,
     readonly targets: Target[],
+    /** Grid spacing of the document being edited (`alt` = fine grid). */
+    private readonly grid: (alt: boolean) => number,
     /** Rotation and mirroring happen about this point (before the displacement). */
     private readonly pivot: Point,
     /** If set, this point lands on the grid; otherwise the displacement is snapped. */
@@ -137,9 +161,11 @@ export class MoveSession {
 
   /** Displace by `raw`, snapped so the reference point (or the displacement) is on the grid. */
   moveBy(raw: Point, fineGrid: boolean): void {
+    const g = this.grid(fineGrid);
+    const snap = (v: number) => Math.round(v / g) * g;
     const r = this.reference ?? { x: 0, y: 0 };
-    const tx = this.editor.snap(r.x + raw.x, fineGrid) - r.x;
-    const ty = this.editor.snap(r.y + raw.y, fineGrid) - r.y;
+    const tx = snap(r.x + raw.x) - r.x;
+    const ty = snap(r.y + raw.y) - r.y;
     if (tx === this.delta.x && ty === this.delta.y) return;
     this.delta = { x: tx, y: ty };
     this.preview();

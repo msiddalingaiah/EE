@@ -183,3 +183,17 @@ button:disabled:hover { border-color: var(--border); }
 
 /* The canvas takes keyboard focus for shortcuts; no focus ring around the whole drawing. */
 #canvas:focus { outline: none; }
+
+/* Schematic / board toggle */
+.view-toggle { display: inline-flex; }
+.view-toggle button { border-radius: 0; }
+.view-toggle button:first-child { border-radius: 4px 0 0 4px; }
+.view-toggle button:last-child { border-radius: 0 4px 4px 0; margin-left: -1px; }
+.view-toggle button.active { background: #2b3343; color: var(--accent); border-color: #3d4452; position: relative; }
+
+/* Project panel: notes and schematic/board consistency */
+.project-note { color: var(--text-dim); font-size: 12px; margin: 0 0 6px; }
+.sync-ok { color: #50c878; margin: 0; }
+.sync-bad { color: var(--accent); margin: 0 0 6px; }
+.issue-list { margin: 0; padding-left: 16px; font-size: 12px; color: var(--text-dim); max-height: 30vh; overflow: auto; }
+.issue-list li { margin-bottom: 3px; }

@@ -31,16 +31,22 @@ export function canPickFiles(): boolean {
   return typeof (window as FsWindow).showOpenFilePicker === 'function';
 }
 
-/** Show the native open dialog. Returns undefined if the user cancels. */
-export async function pickFile(): Promise<OpenedFile | undefined> {
+/**
+ * Show the native open dialog (several files may be chosen, e.g. a .sch with its .brd).
+ * Returns an empty list if the user cancels.
+ */
+export async function pickFiles(): Promise<OpenedFile[]> {
   const w = window as FsWindow;
   try {
-    const [handle] = await w.showOpenFilePicker!({ types: PICKER_TYPES, multiple: false });
-    if (!handle) return undefined;
-    const f = await handle.getFile();
-    return { name: f.name, text: await f.text(), handle };
+    const handles = await w.showOpenFilePicker!({ types: PICKER_TYPES, multiple: true });
+    return await Promise.all(
+      handles.map(async (handle) => {
+        const f = await handle.getFile();
+        return { name: f.name, text: await f.text(), handle };
+      }),
+    );
   } catch (e) {
-    if (e instanceof DOMException && e.name === 'AbortError') return undefined;
+    if (e instanceof DOMException && e.name === 'AbortError') return [];
     throw e;
   }
 }

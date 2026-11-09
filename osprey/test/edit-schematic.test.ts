@@ -6,6 +6,7 @@ import { parseEagle, serializeEagle } from '../src/eagle/parse';
 import type { EagleFile, Instance, Schematic, Sheet } from '../src/eagle/types';
 import { mirrorAbout, rotationAbout, translation } from '../src/edit/common';
 import { Transaction } from '../src/edit/ops';
+import { Project } from '../src/project/project';
 import { deleteSchematicTargets, pinPosition, transformSchematicTargets } from '../src/edit/schematic';
 import type { Target } from '../src/scene/types';
 
@@ -157,12 +158,13 @@ describe('schematic delete', () => {
 describe('editor on a schematic', () => {
   it('moves with grid snapping and undoes in one step', async () => {
     const { Editor } = await import('../src/app/editor');
-    const ed = new Editor(file, () => {});
+    const p = new Project();
+    p.schematic = { file, name: 'TA7358A.sch' };
+    const ed = new Editor(p, () => {});
     expect(ed.canEdit).toBe(true);
-    expect(ed.mirrorVerb).toBe('Mirror');
-    expect(ed.grid()).toBeCloseTo(2.54);
+    expect(ed.grid(file)).toBeCloseTo(2.54);
     const ic = inst('IC1');
-    const s = ed.beginMove([target(ic)], { x: ic.x, y: ic.y }, { x: ic.x, y: ic.y })!;
+    const s = ed.beginMove([target(ic)], (alt) => ed.grid(file, alt), { x: ic.x, y: ic.y }, { x: ic.x, y: ic.y })!;
     s.moveBy({ x: 3, y: 1 }, false);
     expect(ic.x).toBeCloseTo(35.56 + 2.54);
     expect(ic.y).toBeCloseTo(35.56);

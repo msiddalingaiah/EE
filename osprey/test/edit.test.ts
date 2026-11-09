@@ -9,6 +9,7 @@ import {
   transformBoardTargets as transformTargets, translation,
 } from '../src/edit/board';
 import { History, Transaction } from '../src/edit/ops';
+import { Project } from '../src/project/project';
 import type { Target } from '../src/scene/types';
 
 const text = readFileSync(join(__dirname, '..', 'samples', 'eagle', 'TA7358A.brd'), 'utf8');
@@ -163,14 +164,20 @@ describe('history', () => {
   });
 });
 
+function boardProject(): Project {
+  const p = new Project();
+  p.board = { file, name: 'TA7358A.brd' };
+  return p;
+}
+
 describe('move session (Editor)', () => {
   it('snaps a part origin to the 50 mil grid and drags traces live; cancel restores', async () => {
     const { Editor } = await import('../src/app/editor');
-    let changes = 0;
-    const ed = new Editor(file, () => changes++);
-    expect(ed.grid()).toBeCloseTo(1.27);
+    const ed = new Editor(boardProject(), () => {});
+    const grid = (alt: boolean) => ed.grid(file, alt);
+    expect(grid(false)).toBeCloseTo(1.27);
     const c2 = element('C2'); // at (5.461, 14.351): off grid
-    const s = ed.beginMove([target(c2)], { x: c2.x, y: c2.y }, { x: c2.x, y: c2.y })!;
+    const s = ed.beginMove([target(c2)], grid, { x: c2.x, y: c2.y }, { x: c2.x, y: c2.y })!;
     s.moveBy({ x: 2, y: 0.3 }, false);
     expect(c2.x / 1.27).toBeCloseTo(Math.round(c2.x / 1.27)); // origin now on grid
     expect(c2.y / 1.27).toBeCloseTo(Math.round(c2.y / 1.27));
@@ -184,10 +191,10 @@ describe('move session (Editor)', () => {
 
   it('without a reference, snaps the displacement; rotate while moving; commit is one undo step', async () => {
     const { Editor } = await import('../src/app/editor');
-    const ed = new Editor(file, () => {});
+    const ed = new Editor(boardProject(), () => {});
     const c2 = element('C2');
     const ic = element('IC1');
-    const s = ed.beginMove([target(c2), target(ic)], { x: 0, y: 0 })!;
+    const s = ed.beginMove([target(c2), target(ic)], (alt) => ed.grid(file, alt), { x: 0, y: 0 })!;
     s.moveBy({ x: 1.9, y: -0.2 }, false);
     expect(c2.x).toBeCloseTo(5.461 + 1.27);
     expect(c2.y).toBeCloseTo(14.351);

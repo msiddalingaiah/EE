@@ -606,6 +606,16 @@ function parseBoard(el: Element_): Board {
   };
 }
 
+/**
+ * The value Eagle shows for a part without an explicit value: the device set name with
+ * "*" replaced by the technology and "?" by the device (package variant); without a "?",
+ * the device name is appended. E.g. 74*151 + LS + D → 74LS151D; ?20* + J + 2 → J202.
+ */
+export function generatedValue(deviceset: string, device: string, technology: string): string {
+  const withTech = deviceset.split('*').join(technology);
+  return withTech.includes('?') ? withTech.split('?').join(device) : withTech + device;
+}
+
 /** Find a library by name, preferring an exact URN match when one is given. */
 export function findLibrary(libs: Library[], name: string, urn: string | undefined): Library | undefined {
   return (

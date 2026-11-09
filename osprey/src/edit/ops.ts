@@ -92,10 +92,18 @@ export class Transaction {
   /** The model objects the user acted on, so undo/redo can reselect them. */
   subjects: object[] = [];
 
+  /** The documents this step changes (for per-file "unsaved" tracking). Empty = unknown/all. */
+  readonly files = new Set<object>();
+
   constructor(readonly label: string) {}
 
   get empty(): boolean {
     return this.ops.length === 0;
+  }
+
+  /** Number of ops so far (to tell whether a step of a command changed anything). */
+  get size(): number {
+    return this.ops.length;
   }
 
   /** Apply an op now and record it. */
@@ -113,16 +121,20 @@ export class Transaction {
   }
 }
 
-/** Undo/redo stacks plus a marker for the last saved state. */
+const ANY = {};
+
+/**
+ * Undo/redo stacks plus save points. Save points can be tracked per document (e.g. a
+ * schematic and its board), so each file knows whether it has unsaved changes.
+ */
 export class History {
   private done: Transaction[] = [];
   private undone: Transaction[] = [];
-  /** Number of transactions in `done` at the last save; -1 if that state is unreachable. */
-  private savedAt = 0;
+  /** For each document: the `done` stack as it was when that document was last saved. */
+  private saved = new Map<object, Transaction[]>();
 
   push(tx: Transaction): void {
     if (tx.empty) return;
-    if (this.savedAt > this.done.length) this.savedAt = -1;
     this.done.push(tx);
     this.undone = [];
   }
@@ -159,11 +171,25 @@ export class History {
     return tx;
   }
 
-  markSaved(): void {
-    this.savedAt = this.done.length;
+  /** Record that `doc` (or, without one, everything) was saved in the current state. */
+  markSaved(doc: object = ANY): void {
+    this.saved.set(doc, [...this.done]);
+  }
+
+  /**
+   * Does `doc` (or anything, without one) differ from its last save? Compares the current
+   * history with the one at save time: any step on either side of where they diverge that
+   * touches the document means it has changed (including edits undone past the save point).
+   */
+  isDirty(doc: object = ANY): boolean {
+    const snap = this.saved.get(doc) ?? this.saved.get(ANY) ?? [];
+    let k = 0;
+    while (k < snap.length && k < this.done.length && snap[k] === this.done[k]) k++;
+    const changed = [...snap.slice(k), ...this.done.slice(k)];
+    return changed.some((tx) => doc === ANY || tx.files.size === 0 || tx.files.has(doc));
   }
 
   get dirty(): boolean {
-    return this.savedAt !== this.done.length;
+    return this.isDirty();
   }
 }

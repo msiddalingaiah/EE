@@ -2,7 +2,7 @@
 
 import { objId } from '../eagle/dom';
 import type { Bus, DeviceSet, EagleFile, Library, Net, Part, PlacedAttribute, Schematic, Segment, Sheet } from '../eagle/types';
-import { findLibrary } from '../eagle/parse';
+import { findLibrary, generatedValue } from '../eagle/parse';
 import { IDENTITY, placement } from '../geom/transform';
 import { SceneBuilder } from './builder';
 import { buildSymbolInto } from './symbol';
@@ -149,5 +149,5 @@ function resolvePart(sch: Schematic, partName: string): Resolved | undefined {
 /** Eagle shows the deviceset+device name as the value when none was set. */
 export function partValue(part: Part, ds: DeviceSet): string {
   if (part.value !== undefined) return part.value;
-  return ds.uservalue ? '' : `${ds.name}${part.device}`;
+  return ds.uservalue ? '' : generatedValue(ds.name, part.device, part.technology);
 }

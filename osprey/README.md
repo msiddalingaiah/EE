@@ -4,6 +4,19 @@ A browser-based electronic CAD tool built around noun-verb (select, then act) ed
 
 ## Status
 
+Milestone 4 — **schematic + board as one project**:
+
+- A schematic and its board open together (select both in Open…, or drop both); a toolbar
+  toggle or Tab switches views. Each view keeps its own zoom, layers and selection.
+- Edits that change the netlist are annotated to the other document, as one undo step:
+  deleting a part in either view deletes it in both, and a schematic wire delete that
+  disconnects a pin removes that pad from the board signal. Trace edits stay on the board.
+- Cross-probing: selected parts and nets are selected in the other view when switching.
+- A consistency check (parts, values, packages, net membership, including Eagle's implicit
+  power pins) runs on open and after every edit; differences are listed in the Project panel.
+  Verified against 152 real schematic/board pairs, all reported consistent.
+- Each file tracks its own unsaved changes; Save writes only the files that changed.
+
 Milestone 3 — **schematic editing**, with the same verbs as boards:
 
 - Move, rotate, mirror (F) and delete gates, net and bus wires, junctions, labels and drawing.
@@ -38,7 +51,7 @@ Milestone 1 — **Eagle viewer with selection**:
   (left-to-right = fully inside, right-to-left = touching), Ctrl+A, Esc. An inspector shows
   the properties of the selection. Clicking inside a part's body selects the part.
 
-Not yet: library editing, schematic/board consistency (forward/back annotation), routing new
+Not yet: library editing, property edits (name/value), routing new
 traces, polygon pour computation (outlines only), Eagle's vector font (text uses a system
 sans-serif), multiple-sheet navigation beyond a sheet selector, busses beyond wires.
 
@@ -54,7 +67,7 @@ npm run typecheck
 npm run build
 ```
 
-A sample can be opened directly by URL: `http://localhost:5173/#TA7358A.brd`.
+A sample can be opened directly by URL: `http://localhost:5173/#TA7358A` (or `#TA7358A.brd` for the board view).
 
 ### Controls
 
@@ -73,6 +86,7 @@ A sample can be opened directly by URL: `http://localhost:5173/#TA7358A.brd`.
 | Zoom | Mouse wheel (about the cursor) |
 | Fit | Home |
 | Select all / clear | Ctrl+A / Esc |
+| Switch schematic / board | Tab, or the toolbar toggle |
 
 ## Layout
 
@@ -87,6 +101,7 @@ A sample can be opened directly by URL: `http://localhost:5173/#TA7358A.brd`.
   with shared `builder.ts` (graphics, pads, text readability) and `symbol.ts` (symbols and pins)
 - `src/view/`: Canvas2D renderer, viewport (pan/zoom), hit testing, palette and fill patterns
 - `src/app/`: the selection set, the editor (commands, move sessions, history) and file open/save
+- `src/project/`: projects (schematic + board), consistency checking and annotation between them
 - `src/main.ts`: application shell (panels, file loading, pointer and keyboard handling)
 - `test/`: Vitest suites
 
