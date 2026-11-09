@@ -37,7 +37,8 @@ type XY = { x: number; y: number };
 
 /** A wire or route being drawn, in world coordinates. `layer` is the current one (for the cursor). */
 export interface Sketch {
-  paths: { points: XY[]; width: number; layer: number }[];
+  /** `color` overrides the layer colour (e.g. red for a leg that breaks a clearance rule). */
+  paths: { points: XY[]; width: number; layer: number; color?: string }[];
   vias?: { at: XY; radius: number }[];
   layer: number;
   cursor: XY;
@@ -122,7 +123,7 @@ function drawSketch(ctx: CanvasRenderingContext2D, vp: Viewport, dpr: number, k:
   ctx.lineJoin = 'round';
   for (const path of k.paths) {
     if (path.points.length < 2) continue;
-    ctx.strokeStyle = colorOf(path.layer);
+    ctx.strokeStyle = path.color ?? colorOf(path.layer);
     ctx.lineWidth = Math.max(path.width * vp.zoom, 1.5);
     ctx.beginPath();
     path.points.forEach((p, i) => {

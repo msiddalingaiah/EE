@@ -38,7 +38,9 @@ native model (see [docs/format.md](docs/format.md)). Eagle files are imported in
 - **Routing traces** (board): start on a pad, via or trace end and the route takes its net.
   Legs bend at 45°; changing layer adds a via. The route ends on copper of the same net, and
   the airwire it replaces disappears. Width and via drill come from the net class, else the
-  board's most common ones. Routing doesn't stop you crossing other nets; the DRC finds it.
+  board's most common ones. Each leg is checked against other nets' copper and the board edge
+  as you route: a leg or via that would break a clearance rule shows red and isn't placed
+  (Shift+click or Shift+L places it anyway).
 - **Design-rule check** (board): the Design rules panel checks copper clearance between
   nets (Eagle's wire/pad/SMD/via distances), shorts, minimum trace width and drill, and copper
   near the board edge or holes. Problems are listed and marked on the board; clicking one zooms
@@ -95,7 +97,7 @@ OSPREY_CORPUS=~/designs npx vitest run -t corpus
 | Delete | Del / Backspace |
 | Copy / cut / paste (schematic) | Ctrl+C / Ctrl+X / Ctrl+V; click places the paste, `R`/`F` while floating, Esc cancels |
 | Design-rule check (board) | Design rules panel: Check; Load rules… for a `.dru` file; click a problem to zoom to it |
-| Route traces (board) | `W` or the Route button; click a pad, via or trace end to start, click adds corners, `L` changes layer (adds a via), `/` flips the bend; ends on copper of the same net, or with a double click, Esc or right-click; Esc again stops |
+| Route traces (board) | `W` or the Route button; click a pad, via or trace end to start, click adds corners, `L` changes layer (adds a via), `/` flips the bend, Shift+click / Shift+L place a leg or via that breaks clearance; ends on copper of the same net, or with a double click, Esc or right-click; Esc again stops |
 | Draw wires (schematic) | `W` or the Wire button; click to start, click adds a corner, `/` flips the bend; a wire ends on a pin or wire, or with a double click, Esc or right-click; Esc again stops |
 | Add part (schematic) | `A` to search, choose a component, Place (or Enter); click places each gate, `R`/`F` while placing, Esc or right-click stops |
 | Edit name / net name, value | `N`, `V` (Enter applies, Esc cancels) |

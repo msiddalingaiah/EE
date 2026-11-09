@@ -1159,7 +1159,14 @@ function draw(): void {
     hover: move || placing || wiring || routing ? undefined : hover,
     ...(wiring ? { sketch: { paths: [{ points: wiring.path, width: wiring.width, layer: 91 }], layer: 91, cursor: wiring.at, snapped: wiring.snapped } } : {}),
     ...(routing ? { sketch: routeSketch(routing) } : {}),
-    ...(drcResult && view === 'board' ? { markers: drcResult.violations.map((v) => ({ at: { x: v.at[0], y: v.at[1] }, active: v === drcActive })) } : {}),
+    ...(view === 'board' && (drcResult || routing?.conflicts.length)
+      ? {
+        markers: [
+          ...(drcResult?.violations ?? []).map((v) => ({ at: { x: v.at[0], y: v.at[1] }, active: v === drcActive })),
+          ...(routing?.conflicts.slice(0, 1) ?? []).map((c) => ({ at: { x: c.at[0], y: c.at[1] }, active: true })),
+        ],
+      }
+      : {}),
     ...(box ? { box: boxSelection(box) } : {}),
     ...(editor && view !== 'library' ? { grid: gridOf() } : {}),
   });
@@ -1415,10 +1422,13 @@ function stopRouting(announce = false): void {
   requestRender();
 }
 
-function routeClick(double: boolean): void {
+function routeClick(double: boolean, force: boolean): void {
   if (!routing) return;
-  const r = routing.click();
-  if (r === 'nothing') flash('Start a route on a pad, via or trace end of a net');
+  const forcing = force && routing.conflicts[0]?.message;
+  const r = routing.click(force);
+  if (forcing && (r === 'added' || r === 'finish')) flash(`Placed anyway (${forcing.replace(/^Would touch/, 'touches').replace(/^Too close to/, 'too close to')}); the DRC will list it`);
+  if (r === 'blocked') flash(`${routing.conflicts[0]!.message} · Shift+click places it anyway`);
+  else if (r === 'nothing') flash('Start a route on a pad, via or trace end of a net');
   else if (r === 'started') flash(`Routing ${routing.netName} on ${routing.currentLayer.replace('copper.', '')} · L changes layer · ends on copper of ${routing.netName}`);
   else if (r === 'finish' || (double && routing.netName)) finishRoute();
   requestRender();
@@ -1445,7 +1455,7 @@ function routeSketch(r: RouteSession) {
   const { paths, vias } = r.preview;
   const radius = (r.drill + 0.5) / 2;
   return {
-    paths: paths.map((p) => ({ points: p.points, width: r.width, layer: layerNumber(p.layer) })),
+    paths: paths.map((p) => ({ points: p.points, width: r.width, layer: layerNumber(p.layer), ...(p.blocked ? { color: '#ff4d4d' } : {}) })),
     vias: vias.map((at) => ({ at, radius })),
     layer: layerNumber(r.currentLayer),
     cursor: r.at,
@@ -1674,7 +1684,7 @@ canvas.addEventListener('pointerdown', (e) => {
 
   // Routing: left click adds a leg (double click finishes), right click finishes or stops.
   if (routing && e.button !== 1 && !spaceDown) {
-    if (e.button === 0) routeClick(e.detail >= 2);
+    if (e.button === 0) routeClick(e.detail >= 2, e.shiftKey);
     else if (e.button === 2) {
       if (routing.netName) finishRoute();
       else stopRouting(true);
@@ -1715,7 +1725,11 @@ canvas.addEventListener('pointermove', (e) => {
     return;
   }
   if (routing && !(pointer?.mode === 'pan')) {
+    const before = routing.conflicts[0]?.message;
     routing.moveTo(w, e.altKey, WIRE_SNAP_PX / vp.zoom);
+    // Say what the leg runs into as soon as it does (and clear it when it no longer does).
+    const now = routing.conflicts[0]?.message;
+    if (now !== before) flash(now ? `${now} · Shift+click places it anyway` : '');
     requestRender();
     return;
   }
@@ -1888,8 +1902,9 @@ window.addEventListener('keydown', (e) => {
     if (routing) stopRouting(true);
     else startRouting();
   } else if (key === 'l' && routing) {
-    const layer = routing.switchLayer();
-    flash(`Routing on ${layer.replace('copper.', '')}${routing.netName ? ' (via added)' : ''}`);
+    const res = routing.switchLayer(e.shiftKey);
+    if (res.blocked) flash(`No room for a via: ${res.blocked[0]!.message.replace(/^Would touch/, 'it would touch')} · Shift+L adds it anyway`);
+    else flash(`Routing on ${res.layer.replace('copper.', '')}${routing.netName ? ' (via added)' : ''}`);
     requestRender();
   } else if (e.key === '/' && (wiring || routing)) {
     e.preventDefault();

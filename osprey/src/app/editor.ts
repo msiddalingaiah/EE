@@ -13,6 +13,7 @@ import { copyTargets, pasteClip, type Clip, type Pasted } from '../edit/clipboar
 import { addToLibrary, createPart, gatesToPlace } from '../edit/place';
 import { applyDru } from '../edit/rules';
 import type { DruFile } from '../model/rules';
+import { ClearanceChecker, type Conflict } from '../model/drc';
 import { addRoute, anchors, bend45, copperLayers, traceWidth, viaDrill, type Anchor, type Leg } from '../edit/route';
 import { addWire, cleanPath, sheetPins, snapPoints, touchAt, usualWireWidth, type WireResult } from '../edit/wire';
 import { renameNet, renamePart, setPartValue, smash, unsmash } from '../edit/properties';
@@ -517,6 +518,10 @@ export class WireSession {
  * takes that net. Each click adds legs in 45° style on the current layer; switching layer puts
  * a via at the last point. A click on copper of the same net, a double click or Esc finishes the
  * route as one undo step. The route in progress isn't in the model until finished.
+ *
+ * The leg to the cursor is checked against other nets' copper and the board edge as it moves
+ * (`conflicts`); a click or layer change that would break a clearance rule is refused unless
+ * forced.
  */
 export class RouteSession {
   private net: string | undefined;
@@ -530,6 +535,9 @@ export class RouteSession {
   private anchors: Anchor[] = [];
   /** The copper the cursor sits on, if any. */
   snappedTo: Anchor | undefined;
+  private checker!: ClearanceChecker;
+  /** Rules the leg to the cursor would break (nearest first). */
+  conflicts: Conflict[] = [];
 
   constructor(
     private readonly editor: Editor,
@@ -561,12 +569,13 @@ export class RouteSession {
   }
 
   /** What to draw: the legs so far, the bend to the cursor, and the vias. */
-  get preview(): { paths: { points: Point[]; layer: string }[]; vias: Point[] } {
+  get preview(): { paths: { points: Point[]; layer: string; blocked?: true }[]; vias: Point[] } {
     const P = ([x, y]: O.Pt) => ({ x, y });
-    const paths = this.legs.map((l) => ({ points: l.line.map(P), layer: l.layer }));
+    const paths: { points: Point[]; layer: string; blocked?: true }[] = this.legs.map((l) => ({ points: l.line.map(P), layer: l.layer }));
     if (this.points.length) {
       const last = this.points[this.points.length - 1]!;
-      paths.push({ points: [...this.points, ...bend45(last, this.cursor, this.diagonalFirst)].map(P), layer: this.layer });
+      paths.push({ points: this.points.map(P), layer: this.layer });
+      paths.push({ points: [last, ...bend45(last, this.cursor, this.diagonalFirst)].map(P), layer: this.layer, ...(this.conflicts.length ? { blocked: true as const } : {}) });
     }
     return { paths, vias: this.vias.map(P) };
   }
@@ -589,17 +598,31 @@ export class RouteSession {
       const snap = (v: number) => Math.round(Math.round(v / g) * g * 1e6) / 1e6;
       this.cursor = [snap(p.x), snap(p.y)];
     }
+    this.conflicts = this.check();
   }
 
   flipBend(): void {
     this.diagonalFirst = !this.diagonalFirst;
+    this.conflicts = this.check();
+  }
+
+  /** Clearance problems of the leg from the last point to the cursor. */
+  private check(): Conflict[] {
+    if (!this.net || !this.points.length) return [];
+    const last = this.points[this.points.length - 1]!;
+    const pts = [last, ...bend45(last, this.cursor, this.diagonalFirst)];
+    const width = this.width;
+    const out: Conflict[] = [];
+    for (let i = 1; i < pts.length; i++) out.push(...this.checker.trace(this.net, [pts[i - 1]!, pts[i]!], this.layer, width));
+    return out.sort((a, b) => a.gap - a.required - (b.gap - b.required));
   }
 
   /**
    * Click at the cursor. Returns 'nothing' when a route can't start here (not on copper of a
-   * net), 'finish' when the route reached copper of its net (the caller then finishes it).
+   * net), 'blocked' when the leg would break a clearance rule (see `conflicts`; `force` places
+   * it anyway), 'finish' when the route reached copper of its net (the caller then finishes it).
    */
-  click(): 'nothing' | 'started' | 'added' | 'finish' {
+  click(force = false): 'nothing' | 'started' | 'added' | 'finish' | 'blocked' {
     if (!this.net) {
       const a = this.snappedTo;
       if (!a) return 'nothing';
@@ -608,25 +631,36 @@ export class RouteSession {
       this.points = [this.cursor];
       return 'started';
     }
+    if (this.conflicts.length && !force) return 'blocked';
     const last = this.points[this.points.length - 1]!;
     this.points = cleanPath([...this.points, ...bend45(last, this.cursor, this.diagonalFirst)]);
+    this.conflicts = [];
     return this.snappedTo && (this.points.length >= 2 || this.legs.length) ? 'finish' : 'added';
   }
 
-  /** Change to the other outer copper layer; while routing, through a via at the last point. */
-  switchLayer(): string {
+  /**
+   * Change to the other outer copper layer; while routing, through a via at the last point.
+   * A via that would break a clearance rule is refused (the layer stays) unless forced.
+   */
+  switchLayer(force = false): { layer: string; blocked?: Conflict[] } {
     const stack = copperLayers(this.editor.project);
     const other = this.layer === stack[0] ? stack[stack.length - 1]! : stack[0]!;
     if (this.net && this.points.length) {
       const last = this.points[this.points.length - 1]!;
-      this.flush();
       // No via needed where the copper already spans the layers (a via or through-hole pad).
       const spans = this.anchors.some((a) => a.net === this.net && a.layers.length > 1 && Math.abs(a.at[0] - last[0]) < 1e-4 && Math.abs(a.at[1] - last[1]) < 1e-4);
-      if (!spans && !this.vias.some((v) => v[0] === last[0] && v[1] === last[1])) this.vias.push(last);
+      const needVia = !spans && !this.vias.some((v) => v[0] === last[0] && v[1] === last[1]);
+      if (needVia && !force) {
+        const blocked = this.checker.via(this.net, last, this.drill);
+        if (blocked.length) return { layer: this.layer, blocked };
+      }
+      this.flush();
+      if (needVia) this.vias.push(last);
       this.points = [last];
     }
     this.layer = other;
-    return other;
+    this.conflicts = this.check();
+    return { layer: other };
   }
 
   /** Add the route to the model (one undo step). Undefined when there was nothing to add. */
@@ -651,7 +685,10 @@ export class RouteSession {
 
   /** Re-read the copper to snap to (after the model changed). */
   refresh(): void {
-    this.anchors = anchors(this.editor.project, this.editor.index());
+    const index = this.editor.index();
+    this.anchors = anchors(this.editor.project, index);
+    this.checker = new ClearanceChecker(this.editor.project, index);
+    this.conflicts = this.check();
   }
 
   private flush(): void {
@@ -660,6 +697,7 @@ export class RouteSession {
   }
 
   private reset(): void {
+    this.conflicts = [];
     this.net = undefined;
     this.legs = [];
     this.vias = [];

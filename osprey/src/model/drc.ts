@@ -392,5 +392,83 @@ export function drc(project: O.Project): DrcResult {
   return { rules, violations: out, checked: items.length };
 }
 
+// ---------------------------------------------------------------------------
+// Checking new copper as it is drawn
+
+/** A rule a piece of new copper would break. */
+export interface Conflict {
+  message: string;
+  /** Where (between the new copper and what it comes too close to). */
+  at: O.Pt;
+  /** Gap to the other copper (≤ 0 when touching), and what the rule asks for. */
+  gap: number;
+  required: number;
+  /** What it comes too close to, e.g. "pad C2.1 (N$1)" or "the board edge". */
+  other: string;
+}
+
+/**
+ * Checks new traces and vias against the board's existing copper and outline, before they are
+ * added (for routing). Build one per model state; it indexes the copper once.
+ */
+export class ClearanceChecker {
+  readonly rules: DesignRules;
+  private readonly items: Item[];
+  private readonly edges: { shapes: Shape[]; box: Box }[];
+  private readonly stack: string[];
+
+  constructor(project: O.Project, index = new ProjectIndex(project)) {
+    this.rules = new DesignRules(designRules(project));
+    const board = project.board;
+    this.items = board ? collect(project, this.rules, index) : [];
+    this.edges = board ? dimension(board).map((e) => ({ shapes: e.shapes, box: boxOf(e.shapes) })) : [];
+    this.stack = board?.layers.length ? board.layers : ['copper.top', 'copper.bottom'];
+  }
+
+  /** Problems a new trace of `net` would have, nearest first. */
+  trace(net: string, line: [O.Pt, O.Pt], layer: string, width: number): Conflict[] {
+    const shapes = lineShapes(line, undefined, width / 2);
+    return this.check({ kind: 'wire', net, label: `wire on ${net}`, layers: new Set([layer]), shapes, box: boxOf(shapes), obj: {} });
+  }
+
+  /** Problems a new via of `net` would have (on every copper layer), nearest first. */
+  via(net: string, at: O.Pt, drill: number): Conflict[] {
+    const D = this.rules.viaDiameter(drill, 0);
+    const c = { x: at[0], y: at[1] };
+    const shapes: Shape[] = [{ t: 'cap', a: c, b: c, r: D / 2 }];
+    return this.check({ kind: 'via', net, label: `via on ${net}`, layers: new Set(this.stack), shapes, box: boxOf(shapes), obj: {} });
+  }
+
+  private check(item: Item): Conflict[] {
+    const out: Conflict[] = [];
+    const margin = this.rules.maxClearance;
+    for (const other of this.items) {
+      if (other.net === item.net) continue;
+      const b = other.box;
+      if (b.minX > item.box.maxX + margin || item.box.minX > b.maxX + margin || b.minY > item.box.maxY + margin || item.box.minY > b.maxY + margin) continue;
+      if (![...other.layers].some((l) => item.layers.has(l))) continue;
+      const required = this.rules.clearance(item.kind, other.kind);
+      const n = gap(item, other);
+      if (n.d >= required - EPS) continue;
+      out.push({
+        message: n.d <= EPS ? `Would touch ${other.label}` : `Too close to ${other.label}: ${fmt(n.d)} < ${fmt(required)}`,
+        at: mid(n), gap: n.d, required, other: other.label,
+      });
+    }
+    const dim = this.rules.copperDimension;
+    for (const e of this.edges) {
+      if (e.box.minX > item.box.maxX + dim || item.box.minX > e.box.maxX + dim || e.box.minY > item.box.maxY + dim || item.box.minY > e.box.maxY + dim) continue;
+      for (const s of e.shapes) {
+        for (const c of item.shapes) {
+          const n = coreDistance(c, s);
+          const d = n.d - c.r - s.r;
+          if (d < dim - EPS) out.push({ message: `Too close to the board edge or a hole: ${fmt(Math.max(d, 0))} < ${fmt(dim)}`, at: mid({ d, p: n.p, q: n.q }), gap: d, required: dim, other: 'the board edge' });
+        }
+      }
+    }
+    return out.sort((a, b) => a.gap - a.required - (b.gap - b.required));
+  }
+}
+
 const pt = (p: O.Pt): Point => ({ x: p[0], y: p[1] });
 const realNets = (...items: Item[]) => [...new Set(items.map((i) => i.net).filter((n) => !n.startsWith('\u0000')))];
