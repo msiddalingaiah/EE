@@ -52,6 +52,16 @@ native model (see [docs/format.md](docs/format.md)). Eagle files are imported in
   to it and selects what's involved; the list updates as you edit. Rules come from the board
   (as imported from Eagle) and can be loaded from an Eagle `.dru` file; values the file doesn't
   set are kept. Poured copper is checked too.
+- **The copper layer** (board): the toolbar's **Layer** selector is the layer Route and Pour
+  work on, remembered while the project is open; L switches it (with nothing active, while
+  routing through a via, while drawing a pour). It follows the route when the route changes
+  layer itself (starting on one-sided copper, or a detour through vias).
+- **Drawing and editing pours** (board): the **Pour** button draws one: click the corners
+  (45° edges; / for any angle), and click the first corner, double-click or press Enter to
+  close it. The first click on copper picks the net (otherwise the last one used, or GND); L
+  changes layer. A selected pour shows handles: drag a corner to move it, drag an edge's middle
+  to add a corner, click a corner and press Del to remove it. Its net, layer, width, isolation,
+  rank, fill, thermals and orphans are edited in the inspector.
 - **Pours are computed** (board): each polygon pour is filled as Eagle does: clear of other
   nets' copper by the larger of its isolate and the clearance rule, the edge distance inside the
   board outline, out of keep-out areas, around holes and cutouts, in rank order; the net's pads
@@ -112,6 +122,9 @@ OSPREY_CORPUS=~/designs npx vitest run -t corpus
 | Flip to other side (board) / mirror (schematic) | `F`, also while moving |
 | Delete | Del / Backspace |
 | Copy / cut / paste (schematic) | Ctrl+C / Ctrl+X / Ctrl+V; click places the paste, `R`/`F` while floating, Esc cancels |
+| Copper layer for Route and Pour (board) | Layer selector in the toolbar, or `L` |
+| Draw a pour (board) | Pour button; click corners, click the first corner / double-click / Enter closes, `L` layer, `/` any angle, Esc cancels |
+| Edit a pour's outline (board) | Select it; drag a corner, drag an edge's middle to add a corner, click a corner then Del to remove it |
 | Show / hide pour fill (board) | `P`, or the pour fill checkbox in the Layers panel |
 | Design-rule check (board) | Design rules panel: Check; Load rules… for a `.dru` file; click a problem to zoom to it |
 | Route traces (board) | `W` or the Route button; click a pad, via or trace end to start, click adds corners, `L` changes layer (adds a via), `/` flips the bend, Shift+click / Shift+L place a leg or via that breaks clearance; ends on copper of the same net, or with a double click, Esc or right-click; Esc again stops |
@@ -140,7 +153,7 @@ OSPREY_CORPUS=~/designs npx vitest run -t corpus
 - `src/eagle/`: Eagle XML parser and writer (`parse.ts`, `types.ts`), used by import and export
 - `src/edit/`: undoable operations and history (`ops.ts`), move/rotate/mirror with
   rubber-banding (`transform.ts`), delete (`delete.ts`), property edits (`properties.ts`) and
-  adding parts (`place.ts`), wires, which join nets (`wire.ts`), copy and paste (`clipboard.ts`),
+  adding parts (`place.ts`), wires, which join nets (`wire.ts`), pours (`pours.ts`), copy and paste (`clipboard.ts`),
   routing traces (`route.ts`, with `walkaround.ts` finding paths around obstacles) and loading
   design rules (`rules.ts`)
 - `src/scene/`: turns the model into drawable primitives in world space (mm, y-up), each tagged

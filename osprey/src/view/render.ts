@@ -29,6 +29,8 @@ export interface RenderState {
   grid?: number;
   /** A wire being drawn (world coordinates), in the colour of `layer`, and the cursor. */
   sketch?: Sketch;
+  /** Editing handles (a selected pour's corners and edge middles). */
+  handles?: { at: { x: number; y: number }; kind: 'corner' | 'middle'; active: boolean }[];
   /** Design-rule violations to mark (the active one stands out). */
   markers?: { at: { x: number; y: number }; active: boolean }[];
 }
@@ -110,6 +112,7 @@ export function render(ctx: CanvasRenderingContext2D, vp: Viewport, dpr: number,
 
   if (s.box) drawBox(ctx, vp, dpr, s.box.rect, s.box.crossing);
   if (s.markers) drawMarkers(ctx, vp, dpr, s.markers);
+  if (s.handles) drawHandles(ctx, vp, dpr, s.handles);
   if (s.sketch) drawSketch(ctx, vp, dpr, s.sketch, (layer) => layerColor(s.layers.get(layer)));
 }
 
@@ -153,6 +156,22 @@ function drawSketch(ctx: CanvasRenderingContext2D, vp: Viewport, dpr: number, k:
     ctx.lineTo(c.x, c.y + 6);
   }
   ctx.stroke();
+}
+
+/** Editing handles: squares on corners (filled when active), small circles on edge middles. */
+function drawHandles(ctx: CanvasRenderingContext2D, vp: Viewport, dpr: number, handles: NonNullable<RenderState['handles']>): void {
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  for (const h of handles) {
+    const c = vp.toScreen(h.at.x, h.at.y);
+    ctx.beginPath();
+    if (h.kind === 'corner') ctx.rect(c.x - 4.5, c.y - 4.5, 9, 9);
+    else ctx.arc(c.x, c.y, 3.5, 0, Math.PI * 2);
+    ctx.fillStyle = h.active ? SELECT_COLOR : BACKGROUND;
+    ctx.fill();
+    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = SELECT_COLOR;
+    ctx.stroke();
+  }
 }
 
 /** Design-rule violations: a ring with a cross, in screen space so it stays visible at any zoom. */

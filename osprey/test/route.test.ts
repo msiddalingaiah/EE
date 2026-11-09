@@ -325,3 +325,24 @@ describe('detours through vias', () => {
     expect(t2.click()).toBe('blocked');
   });
 });
+
+describe('the routing layer', () => {
+  it('starts on the layer given (the remembered one), else on top', () => {
+    expect(editor.beginRoute(() => 1.27)!.currentLayer).toBe('copper.top');
+    expect(editor.beginRoute(() => 1.27, 'copper.bottom')!.currentLayer).toBe('copper.bottom');
+    expect(editor.beginRoute(() => 1.27, 'copper.inner5')!.currentLayer).toBe('copper.top'); // not on this board
+  });
+
+  it('switches to a named layer; to the same layer is no change (and no via)', () => {
+    const [a] = padsOf('N$1');
+    const s = editor.beginRoute(() => 0.127)!;
+    s.moveTo(at(a!.at), false, 0.5);
+    s.click();
+    s.moveTo({ x: a!.at[0], y: a!.at[1] - 2.54 }, false, 0.01);
+    s.click(true);
+    expect(s.switchLayer(false, 'copper.top')).toEqual({ layer: 'copper.top' });
+    expect(s.preview.vias).toEqual([]);
+    expect(s.switchLayer(true, 'copper.bottom')).toEqual({ layer: 'copper.bottom' }); // forced: no room for a via there
+    expect(s.preview.vias).toHaveLength(1);
+  });
+});

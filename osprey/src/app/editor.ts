@@ -11,6 +11,7 @@ import { deleteTargets } from '../edit/delete';
 import { History, insert, remove, Transaction } from '../edit/ops';
 import { copyTargets, pasteClip, type Clip, type Pasted } from '../edit/clipboard';
 import { addToLibrary, createPart, gatesToPlace } from '../edit/place';
+import { addPour, defaultPourNet, setOutline, setPourNet, setPourProps, withCornerAdded, withCornerMoved, withCornerRemoved, type PourPatch } from '../edit/pours';
 import { applyDru } from '../edit/rules';
 import type { DruFile } from '../model/rules';
 import { ClearanceChecker, type Conflict, type ObstacleGrid } from '../model/drc';
@@ -113,9 +114,39 @@ export class Editor {
     return undefined;
   }
 
+  /** Start drawing a pour on the board (on `net` and `layer` unless the first click picks a net). */
+  beginPour(grid: (alt: boolean) => number, net?: string, layer?: string): PourSession | undefined {
+    return this.project.board ? new PourSession(this, grid, net, layer) : undefined;
+  }
+
+  /** Start dragging a pour corner, or a new corner out of edge `index` (`adding`). */
+  dragCorner(pour: O.PolygonShape, index: number, adding: boolean, grid: (alt: boolean) => number): CornerDrag {
+    return new CornerDrag(this, pour, index, adding, grid);
+  }
+
+  /** Remove a pour corner (an outline keeps at least three). */
+  removePourCorner(pour: O.PolygonShape, index: number): string | undefined {
+    const outline = withCornerRemoved(pour.polygon, index);
+    if (!outline) return 'A pour keeps at least three corners';
+    return this.property('Delete pour corner', (tx) => {
+      setOutline(pour, outline, tx);
+      return undefined;
+    });
+  }
+
+  /** Move a pour to another net. */
+  setPourNet(pour: O.PolygonShape, net: string): string | undefined {
+    return this.property(`Move pour to ${net.trim()}`, (tx) => setPourNet(this.project, pour, net, tx));
+  }
+
+  /** Change pour properties. */
+  setPour(pour: O.PolygonShape, patch: PourPatch, label: string): string | undefined {
+    return this.property(label, (tx) => setPourProps(pour, patch, tx));
+  }
+
   /** Start routing traces on the board. */
-  beginRoute(grid: (alt: boolean) => number): RouteSession | undefined {
-    return this.project.board ? new RouteSession(this, grid) : undefined;
+  beginRoute(grid: (alt: boolean) => number, layer?: string): RouteSession | undefined {
+    return this.project.board ? new RouteSession(this, grid, layer) : undefined;
   }
 
   /** Start drawing wires on a sheet. */
@@ -558,8 +589,10 @@ export class RouteSession {
   constructor(
     private readonly editor: Editor,
     private readonly grid_: (alt: boolean) => number,
+    layer?: string,
   ) {
-    this.layer = copperLayers(editor.project)[0]!;
+    const stack = copperLayers(editor.project);
+    this.layer = layer && stack.includes(layer) ? layer : stack[0]!;
     this.refresh();
   }
 
@@ -764,12 +797,14 @@ export class RouteSession {
   }
 
   /**
-   * Change to the other outer copper layer; while routing, through a via at the last point.
-   * A via that would break a clearance rule is refused (the layer stays) unless forced.
+   * Change to another copper layer (`to`; by default the other outer one); while routing,
+   * through a via at the last point. A via that would break a clearance rule is refused (the
+   * layer stays) unless forced.
    */
-  switchLayer(force = false): { layer: string; blocked?: Conflict[] } {
+  switchLayer(force = false, to?: string): { layer: string; blocked?: Conflict[] } {
     const stack = copperLayers(this.editor.project);
-    const other = this.layer === stack[0] ? stack[stack.length - 1]! : stack[0]!;
+    const other = to && stack.includes(to) ? to : this.layer === stack[0] ? stack[stack.length - 1]! : stack[0]!;
+    if (other === this.layer) return { layer: other };
     if (this.net && this.points.length) {
       const last = this.points[this.points.length - 1]!;
       // No via needed where the copper already spans the layers (a via or through-hole pad).
@@ -834,6 +869,179 @@ export class RouteSession {
     this.vias = [];
     this.points = [];
   }
+}
+
+/**
+ * Drawing a polygon pour. Clicks place corners (on the grid; in 45° steps unless free angles are
+ * on); clicking the first corner, a double click or Enter closes it, as one undo step. The first
+ * click picks the net when it lands on copper (a pad, trace or via); otherwise the pour goes on
+ * the last net used, or GND. The pour is drawn on the current copper layer (switchLayer).
+ */
+export class PourSession {
+  private points: O.Pt[] = [];
+  private cursor: O.Pt = [0, 0];
+  private anchors: Anchor[];
+  /** The net the pour will be on (picked by the first click, or the default). */
+  net: string | undefined;
+  layer: string;
+  /** Edges at any angle (else horizontal, vertical and 45°). */
+  freeAngle = false;
+  /** Whether the cursor is on the first corner (a click closes the outline). */
+  closing = false;
+  /** Copper under the cursor before the first corner (its net would be used). */
+  over: Anchor | undefined;
+
+  constructor(
+    private readonly editor: Editor,
+    private readonly grid: (alt: boolean) => number,
+    net: string | undefined,
+    layer: string | undefined,
+  ) {
+    const stack = copperLayers(editor.project);
+    this.layer = layer && stack.includes(layer) ? layer : stack[0]!;
+    this.net = net ?? defaultPourNet(editor.project);
+    this.anchors = anchors(editor.project, editor.index());
+  }
+
+  get drawing(): boolean {
+    return this.points.length > 0;
+  }
+
+  get at(): Point {
+    return { x: this.cursor[0], y: this.cursor[1] };
+  }
+
+  /** The outline so far, the edge(s) to the cursor, and back to the first corner. */
+  get path(): Point[] {
+    if (!this.points.length) return [];
+    return [...this.points, ...this.leg(), this.points[0]!].map(([x, y]) => ({ x, y }));
+  }
+
+  moveTo(p: Point, fineGrid: boolean, tolerance: number): void {
+    const g = this.grid(fineGrid);
+    const snap = (v: number) => Math.round(Math.round(v / g) * g * 1e6) / 1e6;
+    this.cursor = [snap(p.x), snap(p.y)];
+    this.closing = false;
+    this.over = undefined;
+    if (this.points.length >= 3) {
+      const [fx, fy] = this.points[0]!;
+      if (Math.hypot(fx - p.x, fy - p.y) <= tolerance) {
+        this.cursor = [fx, fy];
+        this.closing = true;
+      }
+    } else if (!this.points.length) {
+      let d = tolerance;
+      for (const a of this.anchors) {
+        const e = Math.hypot(a.at[0] - p.x, a.at[1] - p.y);
+        if (e <= d) [this.over, d] = [a, e];
+      }
+    }
+  }
+
+  /** Click: start, add a corner, or close ('close': call finish). */
+  click(): 'started' | 'added' | 'close' {
+    if (!this.points.length) {
+      if (this.over) this.net = this.over.net;
+      this.points = [this.cursor];
+      return 'started';
+    }
+    if (this.closing) return 'close';
+    this.points = cleanPath([...this.points, ...this.leg()]);
+    return 'added';
+  }
+
+  /** Change to another copper layer (`to`; by default the other outer one). */
+  switchLayer(to?: string): string {
+    const stack = copperLayers(this.editor.project);
+    this.layer = to && stack.includes(to) ? to : this.layer === stack[0] ? stack[stack.length - 1]! : stack[0]!;
+    return this.layer;
+  }
+
+  /** Add the pour (needs three corners). Returns it, or undefined when the outline is too small. */
+  finish(): { net: string; pour: O.PolygonShape } | undefined {
+    const pts = cleanPath(this.points);
+    if (pts.length > 2 && Math.abs(pts[0]![0] - pts[pts.length - 1]![0]) < 1e-9 && Math.abs(pts[0]![1] - pts[pts.length - 1]![1]) < 1e-9) pts.pop();
+    this.points = [];
+    if (pts.length < 3 || Math.abs(polygonArea(pts)) < 1e-6) return undefined;
+    const tx = new Transaction('');
+    const { net, pour } = addPour(this.editor.project, this.net, pts, this.layer, tx);
+    tx.label = `Add pour on ${net.name}`;
+    this.net = net.name;
+    this.editor.push(tx);
+    return { net: net.name, pour };
+  }
+
+  cancel(): void {
+    this.points = [];
+  }
+
+  /** The edge(s) from the last corner to the cursor. */
+  private leg(): O.Pt[] {
+    const last = this.points[this.points.length - 1]!;
+    return this.freeAngle ? [this.cursor] : bend45(last, this.cursor, false);
+  }
+}
+
+/**
+ * Dragging a pour corner (or a new corner out of the middle of an edge). The outline is
+ * previewed in the model while dragging; commit makes it one undo step.
+ */
+export class CornerDrag {
+  private tx = new Transaction('');
+  private readonly original: O.PolyPt[];
+  moved = false;
+
+  constructor(
+    private readonly editor: Editor,
+    readonly pour: O.PolygonShape,
+    /** The corner dragged, or (when `adding`) the edge whose middle becomes a corner. */
+    readonly index: number,
+    readonly adding: boolean,
+    private readonly grid: (alt: boolean) => number,
+  ) {
+    this.original = pour.polygon;
+  }
+
+  /** The index of the corner being dragged (after adding, the new one). */
+  get corner(): number {
+    return this.adding ? this.index + 1 : this.index;
+  }
+
+  moveTo(p: Point, fineGrid: boolean): void {
+    const g = this.grid(fineGrid);
+    const snap = (v: number) => Math.round(Math.round(v / g) * g * 1e6) / 1e6;
+    const at: O.Pt = [snap(p.x), snap(p.y)];
+    this.tx.revert();
+    this.tx = new Transaction('');
+    setOutline(this.pour, this.adding ? withCornerAdded(this.original, this.index, at) : withCornerMoved(this.original, this.index, at), this.tx);
+    this.moved = true;
+  }
+
+  /** Keep the change (one undo step); false when nothing moved. */
+  commit(): boolean {
+    if (!this.moved) return false;
+    const outline = this.pour.polygon;
+    this.tx.revert();
+    const tx = new Transaction(this.adding ? 'Add pour corner' : 'Move pour corner');
+    setOutline(this.pour, outline, tx);
+    this.editor.push(tx);
+    return true;
+  }
+
+  cancel(): void {
+    this.tx.revert();
+    this.tx = new Transaction('');
+  }
+}
+
+function polygonArea(pts: O.Pt[]): number {
+  let a = 0;
+  for (let i = 0; i < pts.length; i++) {
+    const [x1, y1] = pts[i]!;
+    const [x2, y2] = pts[(i + 1) % pts.length]!;
+    a += x1 * y2 - x2 * y1;
+  }
+  return a / 2;
 }
 
 /** Short description of targets for undo labels, e.g. "C2" or "3 objects". */
