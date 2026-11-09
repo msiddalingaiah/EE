@@ -44,12 +44,14 @@ Requires Node.js 20+.
 npm install
 npm run dev        # http://localhost:5173 — open a sample, or drop files on the canvas
 npm test           # unit tests against the samples
+npm run samples    # regenerate samples/osprey/ from samples/eagle/ (after importer changes)
 npm run typecheck
 npm run build
 ```
 
-A sample can be opened directly by URL: `http://localhost:5173/#TA7358A` (or `#TA7358A.brd`
-for the board view).
+The app opens the `TA7358A` Osprey project by default; the Sample menu also offers the
+original Eagle pair (imported on the fly) and an Eagle library. A sample can be opened by URL,
+e.g. `http://localhost:5173/#TA7358A.osprey`, or `#TA7358A.osprey/board` for the board view.
 
 To also check import, airwires and export against a folder of your own Eagle designs (every
 `.sch` with a `.brd` of the same name), point `OSPREY_CORPUS` at it:
@@ -81,6 +83,7 @@ OSPREY_CORPUS=~/designs npx vitest run -t corpus
 ## Layout
 
 - `docs/format.md`: the `.osprey` project format
+- `samples/osprey/`: native sample projects (`.osprey`), kept equal to imports of the Eagle samples
 - `samples/eagle/`: sample Eagle files (`.sch`, `.brd`, `.lbr`)
 - `src/model/`: the native project model (`types.ts`), `.osprey` reading and writing
   (`file.ts`), Eagle import and export (`import-eagle.ts`, `export-eagle.ts`, `passthrough.ts`, `layers.ts`), derived facts

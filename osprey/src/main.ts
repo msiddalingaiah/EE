@@ -113,35 +113,68 @@ const editable = () => !!editor && view !== 'library';
 // ---------------------------------------------------------------------------
 // Opening, importing and saving
 
-const samples = import.meta.glob('../samples/eagle/*.{sch,brd,lbr}', { query: '?raw', import: 'default' });
+const samples = {
+  ...import.meta.glob('../samples/osprey/*.osprey', { query: '?raw', import: 'default' }),
+  ...import.meta.glob('../samples/eagle/*.{sch,brd,lbr}', { query: '?raw', import: 'default' }),
+};
 
-/** Samples grouped into projects: "TA7358A" → its .sch and .brd; libraries stand alone. */
-function sampleProjects(): Map<string, string[]> {
-  const groups = new Map<string, string[]>();
-  for (const path of Object.keys(samples).sort()) {
-    const name = path.split('/').pop()!;
-    const key = name.endsWith('.lbr') ? name : name.replace(/\.(sch|brd)$/, '');
-    groups.set(key, [...(groups.get(key) ?? []), path]);
-  }
-  return groups;
+interface Sample {
+  label: string;
+  paths: string[];
 }
 
-function initSamples(): void {
-  const groups = sampleProjects();
-  sampleSelect.append(new Option('—', ''));
-  for (const [key, paths] of groups) {
-    const kinds = ['.sch', '.brd'].filter((ext) => paths.some((p) => p.endsWith(ext))).map((ext) => (ext === '.sch' ? 'schematic' : 'board'));
-    sampleSelect.append(new Option(key.endsWith('.lbr') ? key : `${key} (Eagle ${kinds.join(' + ')})`, key));
+/**
+ * Samples, in menu order: Osprey projects ("TA7358A.osprey"), then Eagle pairs to import
+ * ("TA7358A.sch+brd"), then Eagle libraries ("madhu.lbr").
+ */
+function sampleList(): Map<string, Sample> {
+  const paths = Object.keys(samples).sort();
+  const file = (p: string) => p.split('/').pop()!;
+  const out = new Map<string, Sample>();
+  for (const p of paths.filter((x) => x.endsWith('.osprey'))) out.set(file(p), { label: `${file(p).replace(/\.osprey$/, '')} (Osprey project)`, paths: [p] });
+  const pairs = new Map<string, string[]>();
+  for (const p of paths.filter((x) => /\.(sch|brd)$/.test(x))) {
+    const base = file(p).replace(/\.(sch|brd)$/, '');
+    pairs.set(base, [...(pairs.get(base) ?? []), p]);
   }
+  for (const [base, ps] of pairs) {
+    const exts = ps.map((p) => p.slice(p.lastIndexOf('.') + 1)).sort().reverse(); // sch before brd
+    out.set(`${base}.${exts.join('+')}`, { label: `${base} (import Eagle .${exts.join(' + .')})`, paths: ps });
+  }
+  for (const p of paths.filter((x) => x.endsWith('.lbr'))) out.set(file(p), { label: `${file(p)} (Eagle library)`, paths: [p] });
+  return out;
+}
+
+/** "#<sample>" or "#<sample>/board"; older links "#TA7358A" and "#TA7358A.brd" still work. */
+function parseSampleLink(hash: string, list: Map<string, Sample>): { key?: string; view?: ViewKind } {
+  const [raw, viewPart] = decodeURIComponent(hash.replace(/^#/, '')).split('/');
+  let key = raw ?? '';
+  let view: ViewKind | undefined = viewPart === 'board' ? 'board' : viewPart === 'schematic' ? 'schematic' : undefined;
+  if (!list.has(key)) {
+    const base = key.replace(/\.(sch|brd)$/, '');
+    if (key.endsWith('.brd')) view = 'board';
+    key = list.has(`${base}.osprey`) ? `${base}.osprey` : [...list.keys()].find((k) => k.startsWith(`${base}.`)) ?? '';
+  }
+  return { ...(key ? { key } : {}), ...(view ? { view } : {}) };
+}
+
+/** The sample currently open (its key), to keep the address bar pointing at it. */
+let openSample = '';
+
+function initSamples(): void {
+  const list = sampleList();
+  sampleSelect.append(new Option('—', ''));
+  for (const [key, s] of list) sampleSelect.append(new Option(s.label, key));
   const open = async (key: string, initialView?: ViewKind) => {
-    const paths = groups.get(key);
-    if (!paths) return;
+    const sample = list.get(key);
+    if (!sample) return;
     const sources = await Promise.all(
-      paths.map(async (p): Promise<SourceFile> => ({ name: p.split('/').pop()!, text: (await samples[p]!()) as string })),
+      sample.paths.map(async (p): Promise<SourceFile> => ({ name: p.split('/').pop()!, text: (await samples[p]!()) as string })),
     );
+    openSample = key;
     openSources(sources, initialView);
     storeSet('osprey.sample', key);
-    if (library) history.replaceState(null, '', `#${encodeURIComponent(key)}`); // projects: set per view
+    updateSampleLink();
   };
   sampleSelect.addEventListener('change', async () => {
     if (!sampleSelect.value) return;
@@ -152,16 +185,26 @@ function initSamples(): void {
     await open(sampleSelect.value);
     canvas.focus({ preventScroll: true });
   });
-  // Link to a sample as #TA7358A (project), or #TA7358A.brd to start in the board view.
-  const hash = decodeURIComponent(location.hash.slice(1));
-  const hashKey = groups.has(hash) ? hash : hash.replace(/\.(sch|brd)$/, '');
-  const hashView: ViewKind | undefined = hash.endsWith('.brd') ? 'board' : hash.endsWith('.sch') ? 'schematic' : undefined;
+  const link = parseSampleLink(location.hash, list);
   const remembered = storeGet('osprey.sample');
-  const initial = groups.has(hashKey) ? hashKey : remembered && groups.has(remembered) ? remembered : [...groups.keys()][0];
+  const initial = link.key ?? (remembered && list.has(remembered) ? remembered : [...list.keys()][0]);
   if (initial) {
     sampleSelect.value = initial;
-    void open(initial, groups.has(hashKey) ? hashView : undefined);
+    void open(initial, link.key ? link.view : undefined);
   }
+}
+
+/** A file of your own is open: the address bar no longer points at a sample. */
+function clearSampleLink(): void {
+  sampleSelect.value = '';
+  openSample = '';
+  history.replaceState(null, '', location.pathname + location.search);
+}
+
+/** Point the address bar at the open sample and view, so a reload comes back to it. */
+function updateSampleLink(): void {
+  if (!openSample || sampleSelect.value !== openSample) return;
+  history.replaceState(null, '', `#${encodeURIComponent(openSample)}${view === 'board' ? '/board' : ''}`);
 }
 
 /**
@@ -219,7 +262,7 @@ async function openViaDialog(): Promise<void> {
     const files = await pickFiles();
     if (!files.length) return;
     openSources(files);
-    sampleSelect.value = '';
+    clearSampleLink();
   } catch (e) {
     showError(`Could not open file: ${e instanceof Error ? e.message : String(e)}`);
   }
@@ -228,7 +271,7 @@ async function openViaDialog(): Promise<void> {
 async function openDropped(files: File[]): Promise<void> {
   if (!files.length || !confirmDiscard()) return;
   openSources(await Promise.all(files.map(async (f) => ({ name: f.name, text: await f.text() }))));
-  sampleSelect.value = '';
+  clearSampleLink();
 }
 
 /** Save the project as one `.osprey` file. */
@@ -401,10 +444,7 @@ function showView(next: ViewKind, rememberCurrent: boolean): void {
   }
   updateChrome();
   requestRender();
-  // Keep the sample link pointing at this view, so a reload comes back to it.
-  if (project && sampleSelect.value === project.project.name) {
-    history.replaceState(null, '', `#${encodeURIComponent(project.project.name)}${next === 'board' ? '.brd' : ''}`);
-  }
+  updateSampleLink();
 }
 
 /** Part and net names of the current selection. */
