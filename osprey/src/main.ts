@@ -243,8 +243,10 @@ function setupViewChrome(): void {
     b.hidden = !project?.views.includes(b.dataset.view as ViewKind);
   }
   statusHint.textContent = file.board || file.schematic
-    ? `Drag or M moves · R rotates · F ${file.board ? 'flips side' : 'mirrors'} · Del deletes · N name · V value · Ctrl+Z undo · Ctrl+S save · Home fits`
-    : 'Click to select · Shift adds · Ctrl toggles · drag to box-select · right-drag pans · Home fits';
+    ? `Drag or M moves · R rotates · F ${file.board ? 'flips side' : 'mirrors'} · Del deletes · N name · V value · Ctrl+Z undo · Ctrl+S save · Space+drag pans · Home fits`
+    : 'Click to select · Shift adds · Ctrl toggles · drag to box-select · Space+drag or right-drag pans · Home fits';
+  // The hint is cut off on narrow windows; the tooltip always has all of it.
+  statusHint.title = statusHint.textContent;
   updateChrome();
 }
 
