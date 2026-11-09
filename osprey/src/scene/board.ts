@@ -5,6 +5,7 @@ import type { Layer } from '../eagle/types';
 import { ProjectIndex } from '../model/derive';
 import { designRules, footprintTransform, rotation } from '../model/geometry';
 import { layerNumber } from '../model/layers';
+import { pourFills } from '../model/pour';
 import { ratsnest } from '../model/ratsnest';
 import { DesignRules } from '../model/rules';
 import type * as O from '../model/types';
@@ -30,7 +31,11 @@ export function mirrorLayerNumber(layer: number): number {
 
 export { DesignRules } from '../model/rules';
 
-export function buildBoardScene(project: O.Project, layers: Layer[], index = new ProjectIndex(project)): Scene {
+/**
+ * `showPours`: draw poured copper (default), or only each pour's outline, dashed. A display
+ * choice: airwires and the DRC count the poured copper either way.
+ */
+export function buildBoardScene(project: O.Project, layers: Layer[], index = new ProjectIndex(project), opts: { showPours?: boolean } = {}): Scene {
   const board = project.board;
   if (!board) throw new Error('The project has no board');
   const b = new SceneBuilder('board', layers);
@@ -48,7 +53,7 @@ export function buildBoardScene(project: O.Project, layers: Layer[], index = new
   }
 
   for (const fp of board.footprints) emitFootprint(b, fp, index, rules);
-  emitNets(b, project, rules);
+  emitNets(b, project, rules, index, opts.showPours ?? true);
 
   for (const a of ratsnest(project)) {
     const id = b.addOwner({
@@ -107,8 +112,9 @@ function emitFootprint(b: SceneBuilder, fp: O.FootprintPlacement, index: Project
   }
 }
 
-function emitNets(b: SceneBuilder, project: O.Project, rules: DesignRules): void {
+function emitNets(b: SceneBuilder, project: O.Project, rules: DesignRules, index: ProjectIndex, showPours: boolean): void {
   const base = { textContext: 'board' as const, transform: IDENTITY };
+  const fills = pourFills(project, index);
   for (const net of project.nets) {
     for (const t of net.traces ?? []) {
       const id = b.addOwner({
@@ -153,12 +159,21 @@ function emitNets(b: SceneBuilder, project: O.Project, rules: DesignRules): void
         ],
         target: { kind: 'pour', net, pour },
       });
-      // Poured copper isn't computed yet: draw the outline, dashed like Eagle's unpoured view.
+      // The poured copper, island by island; the outline stays visible as a thin dashed line
+      // (as Eagle shows a pour's outline) so an empty or partly filled pour can still be found.
+      const fill = showPours ? fills.get(pour) : undefined;
+      const layer = layerNumber(pour.layer);
+      for (const isl of fill?.islands ?? []) {
+        b.prims.push({
+          t: 'poly', pts: isl.outer.map(([x, y]) => ({ x, y })), holes: isl.holes.map((h) => h.map(([x, y]) => ({ x, y }))),
+          width: 0, fill: true, layer, owner: id,
+        });
+      }
       b.graphic(pour, { ...base, owner: id });
       const last = b.prims[b.prims.length - 1];
       if (last?.t === 'poly') {
         last.fill = false;
-        last.width = Math.max(pour.width, 0.1);
+        last.width = fill?.islands.length ? 0 : Math.max(pour.width, 0.1);
         last.dash = [pour.width * 4 || 0.5, pour.width * 4 || 0.5];
       }
     }

@@ -30,8 +30,10 @@ export function primDistance(prim: Prim, p: Point): number {
       return Math.max(0, Math.abs(d - prim.r) - prim.width / 2);
     }
     case 'poly': {
-      if (prim.fill && pointInPolygon(p, prim.pts)) return 0;
-      return Math.max(0, polyEdgeDist(p, prim.pts) - prim.width / 2);
+      const inHole = prim.holes?.some((h) => pointInPolygon(p, h)) ?? false;
+      if (prim.fill && !inHole && pointInPolygon(p, prim.pts)) return 0;
+      const edge = Math.min(polyEdgeDist(p, prim.pts), ...(prim.holes ?? []).map((h) => polyEdgeDist(p, h)));
+      return Math.max(0, edge - prim.width / 2);
     }
     case 'text': {
       const c = textCorners(prim);

@@ -87,6 +87,8 @@ export interface PolyPrim extends PrimBase {
   /** Outline width; 0 = no outline. */
   width: number;
   fill: boolean;
+  /** Holes in a filled polygon (e.g. poured copper around other nets). */
+  holes?: Point[][];
   dash?: number[];
 }
 

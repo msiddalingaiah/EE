@@ -81,6 +81,16 @@ export class DesignRules {
   get copperDimension(): number {
     return this.dist('mdCopperDimension', 40 * MIL);
   }
+
+  /** Gap between a pad and the pour around it, crossed by thermal spokes. */
+  get thermalIsolate(): number {
+    return this.dist('slThermalIsolate', 10 * MIL);
+  }
+
+  /** Whether vias get thermals in pours (else they connect fully). */
+  get thermalsForVias(): boolean {
+    return this.ratio('slThermalsForVias', 0) !== 0;
+  }
 }
 
 const ORDER: CopperKind[] = ['wire', 'pad', 'smd', 'via'];

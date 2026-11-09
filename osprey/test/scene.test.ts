@@ -62,6 +62,21 @@ describe('board scene', () => {
     expect(airwires).toHaveLength(1);
     expect(airwires[0]!.net).toBe('N$1');
   });
+
+  it('draws pours filled (with holes), or as dashed outlines only; airwires count the copper either way', () => {
+    const p = load();
+    const pourPrims = (showPours: boolean) => {
+      const scene = buildBoardScene(p, layers, undefined, { showPours });
+      const ids = new Set([...scene.owners.values()].filter((o) => o.kind === 'pour').map((o) => o.id));
+      return { prims: scene.prims.filter((x) => ids.has(x.owner)), airwires: [...scene.owners.values()].filter((o) => o.kind === 'airwire') };
+    };
+    const shown = pourPrims(true);
+    expect(shown.prims.some((x) => x.t === 'poly' && x.fill && (x.holes?.length ?? 0) > 0)).toBe(true);
+    const hidden = pourPrims(false);
+    expect(hidden.prims.every((x) => x.t === 'poly' && !x.fill && x.dash && x.width > 0)).toBe(true);
+    expect(hidden.prims).toHaveLength(2);
+    expect(hidden.airwires).toEqual(shown.airwires);
+  });
 });
 
 describe('library scene', () => {

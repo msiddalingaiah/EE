@@ -4,15 +4,16 @@
 // 1. Collect the net's copper: pads (placed through their footprint), vias, traces, pours.
 // 2. Union what touches: traces with traces on the same layer (end on end, or end on the
 //    other trace), traces with pads and vias, vias spanning a layer with pads on it, and
-//    anything inside a pour on the pour's layer. Pours are taken as their outline (the
-//    poured copper isn't computed), so isolation around other nets is ignored.
+//    anything a pour's poured island reaches on the pour's layer (pour.ts computes the fill;
+//    each island connects separately).
 // 3. Join the resulting groups with a minimum spanning tree over the closest pair of points
 //    (pad centres, via centres, trace ends), as Eagle does.
 
 import type { Point } from '../geom/transform';
 import { apply, placement } from '../geom/transform';
 import { netPads, ProjectIndex } from './derive';
-import type { Footprint, FootprintPlacement, Net, Pad, PolyPt, Project, Pt } from './types';
+import { pourFills, type PourFill } from './pour';
+import type { Footprint, FootprintPlacement, Net, Pad, PolygonShape, PolyPt, Project, Pt } from './types';
 
 export interface Airwire {
   net: string;
@@ -23,6 +24,8 @@ export interface Airwire {
 const EPS = 1e-4;
 
 interface Node {
+  /** Identity shared with pour islands: "part\0pad", or the via or trace object. */
+  ref: string | object;
   /** Points an airwire may attach to. */
   points: Point[];
   /** Copper layers this item is on. */
@@ -61,10 +64,11 @@ export function ratsnest(project: Project): Airwire[] {
   const footprints = new Map(project.library.footprints.map((f) => [f.id, f]));
   const placements = new Map(board.footprints.map((f) => [f.part, f]));
   const pads = netPads(project, index);
+  const fills = pourFills(project, index);
   const out: Airwire[] = [];
   for (const net of project.nets) {
     const nodes = collect(net, pads.get(net.name) ?? new Set(), board.layers, index, footprints, placements);
-    out.push(...connect(net, nodes, board.layers));
+    out.push(...connect(net, nodes, board.layers, fills));
   }
   return out;
 }
@@ -84,21 +88,21 @@ function collect(
     const fpId = part && index.variantOf(part)?.footprint;
     const pad = fpId ? footprints.get(fpId)?.pads.find((p) => p.name === padName) : undefined;
     if (!place || !pad) continue;
-    nodes.push(padNode(pad, place, stack));
+    nodes.push(padNode(pad, place, stack, key));
   }
   for (const v of net.vias ?? []) {
     const radius = Math.max(v.diameter ?? 0, v.drill * 1.5) / 2;
-    nodes.push({ kind: 'via', center: pt(v.at), radius, points: [pt(v.at)], layers: viaLayers(v.layers ?? '1-16', stack) });
+    nodes.push({ kind: 'via', ref: v, center: pt(v.at), radius, points: [pt(v.at)], layers: viaLayers(v.layers ?? '1-16', stack) });
   }
   for (const t of net.traces ?? []) {
     const a = pt(t.line[0]);
     const b = pt(t.line[1]);
-    nodes.push({ kind: 'trace', a, b, halfWidth: t.width / 2, layer: t.layer, points: [a, b], layers: new Set([t.layer]) });
+    nodes.push({ kind: 'trace', ref: t, a, b, halfWidth: t.width / 2, layer: t.layer, points: [a, b], layers: new Set([t.layer]) });
   }
   return nodes;
 }
 
-function padNode(pad: Pad, place: FootprintPlacement, stack: string[]): PadNode {
+function padNode(pad: Pad, place: FootprintPlacement, stack: string[], ref: string): PadNode {
   const bottom = place.side === 'bottom';
   const T = placement(place.at[0], place.at[1], { angle: place.rot ?? 0, mirror: bottom, spin: false });
   const center = apply(T, pad.at[0], pad.at[1]);
@@ -113,7 +117,7 @@ function padNode(pad: Pad, place: FootprintPlacement, stack: string[]): PadNode 
       return r;
     };
     return {
-      kind: 'pad', center, points: [center], reach: Math.max(dx, dy) / 2,
+      kind: 'pad', ref, center, points: [center], reach: Math.max(dx, dy) / 2,
       layers: new Set([onBottom ? 'copper.bottom' : 'copper.top']),
       hit: (p) => {
         const r = toLocal(p);
@@ -124,7 +128,7 @@ function padNode(pad: Pad, place: FootprintPlacement, stack: string[]): PadNode 
   const drill = pad.drill ?? 0;
   const radius = Math.max(pad.diameter ?? 0, drill * 1.5) / 2;
   return {
-    kind: 'pad', center, points: [center], reach: radius,
+    kind: 'pad', ref, center, points: [center], reach: radius,
     layers: new Set(stack),
     hit: (p) => Math.hypot(p.x - center.x, p.y - center.y) <= radius + EPS,
   };
@@ -142,9 +146,10 @@ function viaLayers(span: string, stack: string[]): Set<string> {
 // ---------------------------------------------------------------------------
 // Connecting
 
-function connect(net: Net, nodes: CopperNode[], stack: string[]): Airwire[] {
+function connect(net: Net, nodes: CopperNode[], stack: string[], fills: Map<PolygonShape, PourFill>): Airwire[] {
   if (nodes.length < 2) return [];
-  const uf = new UnionFind(nodes.length + (net.pours?.length ?? 0));
+  const islands = (net.pours ?? []).flatMap((pour) => (stack.includes(pour.layer) ? (fills.get(pour)?.islands ?? []).map((isl) => ({ isl, layer: pour.layer })) : []));
+  const uf = new UnionFind(nodes.length + (net.pours?.length ?? 0) + islands.length);
   const shares = (a: CopperNode, b: CopperNode) => [...a.layers].some((l) => b.layers.has(l));
 
   for (let i = 0; i < nodes.length; i++) {
@@ -155,9 +160,16 @@ function connect(net: Net, nodes: CopperNode[], stack: string[]): Airwire[] {
     }
   }
 
-  // Pours connect the net's copper inside them (on the pour's layer).
+  // Pours connect the net's copper their poured islands reach (on the pour's layer): each
+  // island separately. A pour whose fill isn't known counts as its whole outline.
+  const base = nodes.length + (net.pours?.length ?? 0);
+  islands.forEach(({ isl, layer }, k) => {
+    nodes.forEach((n, i) => {
+      if (n.layers.has(layer) && isl.reaches.has(n.ref)) uf.union(i, base + k);
+    });
+  });
   (net.pours ?? []).forEach((pour, k) => {
-    if (!stack.includes(pour.layer)) return;
+    if (!stack.includes(pour.layer) || fills.has(pour)) return;
     const poly = pour.polygon.map((p: PolyPt) => ({ x: p[0], y: p[1] }));
     const pourId = nodes.length + k;
     nodes.forEach((n, i) => {

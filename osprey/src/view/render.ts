@@ -205,8 +205,8 @@ function drawPrim(
   ctx.fillStyle = area ?? color;
   ctx.strokeStyle = color;
   // An empty fill style draws filled shapes as outlines.
-  const fillArea = () => {
-    if (area !== null) ctx.fill();
+  const fillArea = (rule: CanvasFillRule = 'nonzero') => {
+    if (area !== null) ctx.fill(rule);
     else {
       ctx.lineWidth = px;
       ctx.stroke();
@@ -249,7 +249,13 @@ function drawPrim(
       ctx.moveTo(p.pts[0]!.x, p.pts[0]!.y);
       for (let i = 1; i < p.pts.length; i++) ctx.lineTo(p.pts[i]!.x, p.pts[i]!.y);
       ctx.closePath();
-      if (p.fill) fillArea();
+      for (const h of p.holes ?? []) {
+        if (h.length < 3) continue;
+        ctx.moveTo(h[0]!.x, h[0]!.y);
+        for (let i = 1; i < h.length; i++) ctx.lineTo(h[i]!.x, h[i]!.y);
+        ctx.closePath();
+      }
+      if (p.fill) fillArea(p.holes ? 'evenodd' : 'nonzero');
       if (p.width > 0 || grow > 0 || !p.fill) {
         ctx.lineWidth = strokeWidth(p.width);
         ctx.lineJoin = 'round';

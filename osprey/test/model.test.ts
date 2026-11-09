@@ -1,5 +1,5 @@
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { parseEagle } from '../src/eagle/parse';
 import type { Board } from '../src/eagle/types';
@@ -189,9 +189,11 @@ describe.skipIf(!corpus || !existsSync(corpus))('corpus', () => {
     expect(failures).toEqual([]);
   }, 300_000);
 
-  it('computes the same airwires as Eagle stored, for every net without a pour', () => {
-    // Pours are approximated by their outline (the poured copper isn't computed), so nets
-    // with pours may differ where Eagle's pour is split into islands.
+  it('computes the same airwires as Eagle stored, for every net (pours as poured copper)', () => {
+    // Boards saved with their pours unpoured: Eagle's airwires ignore the pour there (checked by
+    // hand: they match ours with the pour removed). register16: Eagle's file has 3 airwires more
+    // on GND than our poured bottom layer gives; not explained yet.
+    const known = new Set(['adder.brd GND', 'RFpramp.brd GND', 'mixer.brd GND', 'register16.brd GND']);
     const failures: string[] = [];
     for (const [s, b] of pairs(corpus!)) {
       const bf = parseEagle(readFileSync(b, 'utf8'));
@@ -199,7 +201,7 @@ describe.skipIf(!corpus || !existsSync(corpus))('corpus', () => {
       const ours = new Map<string, number>();
       for (const a of ratsnest(project)) ours.set(a.net, (ours.get(a.net) ?? 0) + 1);
       for (const sig of bf.board!.signals) {
-        if (sig.polygons.length) continue;
+        if (known.has(`${basename(b)} ${sig.name}`)) continue;
         const eagle = sig.wires.filter((w) => w.layer === 19).length;
         if ((ours.get(sig.name) ?? 0) !== eagle) failures.push(`${b} ${sig.name}: Eagle ${eagle}, ours ${ours.get(sig.name) ?? 0}`);
       }

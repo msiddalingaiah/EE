@@ -48,24 +48,35 @@ native model (see [docs/format.md](docs/format.md)). Eagle files are imported in
   near the board edge or holes. Problems are listed and marked on the board; clicking one zooms
   to it and selects what's involved; the list updates as you edit. Rules come from the board
   (as imported from Eagle) and can be loaded from an Eagle `.dru` file; values the file doesn't
-  set are kept. Pours aren't checked yet.
+  set are kept. Poured copper is checked too.
+- **Pours are computed** (board): each polygon pour is filled as Eagle does: clear of other
+  nets' copper by the larger of its isolate and the clearance rule, the edge distance inside the
+  board outline, out of keep-out areas, around holes and cutouts, in rank order; the net's pads
+  get thermal spokes (or connect fully with thermals off); islands that reach none of the net's
+  copper are dropped (unless orphans are kept). Pours reflow after every edit (a drag reflows
+  them when it ends). The **pour fill** checkbox in the Layers panel (or P) shows them filled or
+  as outlines only; that's just the view, so airwires and the DRC count the copper either way.
+  Not yet: hatched fill (drawn solid), and removing copper narrower than the pour's width.
 - **One model, always consistent.** Each part and net is stored once. Deleting a part in
   either view removes it everywhere; board pad connections are derived from the schematic,
   so a schematic wire delete disconnects the pad on the board by itself.
 - **Wires and traces follow** moved pins, pads, vias and wire ends (rubber-banding).
-- **Airwires are computed** after every edit, as Eagle does (identical to Eagle's for every net
-  without a pour, across 153 real boards).
+- **Airwires are computed** after every edit, as Eagle does, with each poured island connecting
+  what it reaches. Across 152 real boards they are identical to the airwires Eagle saved for
+  every net, except four nets with pours: three boards were saved with their pours unpoured, and
+  one isn't explained yet.
 - **Import** maps Eagle's model to Osprey's, keeps data Osprey doesn't model in a passthrough,
   and reports any disagreement between schematic and board. Verified on 152 real pairs: every
   net's derived pads match the pads Eagle stored.
 
-Not yet: routing new traces, placing parts, drawing wires, joining nets,
-library editing, polygon pour computation (outlines only; airwires treat a pour as its whole
-outline), Eagle's vector font (text uses a system sans-serif), busses beyond wires.
+Not yet: library editing, Eagle's vector font (text uses a system sans-serif), busses beyond
+wires, push-and-shove routing.
 
 ## Running
 
-Requires Node.js 20+.
+Requires Node.js 20+. The one runtime dependency is [clipper2-js](https://www.npmjs.com/package/clipper2-js)
+(polygon clipping for pours). It declares Angular as a peer dependency without using it, so
+`.npmrc` tells npm not to install peers.
 
 ```sh
 npm install
@@ -98,6 +109,7 @@ OSPREY_CORPUS=~/designs npx vitest run -t corpus
 | Flip to other side (board) / mirror (schematic) | `F`, also while moving |
 | Delete | Del / Backspace |
 | Copy / cut / paste (schematic) | Ctrl+C / Ctrl+X / Ctrl+V; click places the paste, `R`/`F` while floating, Esc cancels |
+| Show / hide pour fill (board) | `P`, or the pour fill checkbox in the Layers panel |
 | Design-rule check (board) | Design rules panel: Check; Load rules… for a `.dru` file; click a problem to zoom to it |
 | Route traces (board) | `W` or the Route button; click a pad, via or trace end to start, click adds corners, `L` changes layer (adds a via), `/` flips the bend, Shift+click / Shift+L place a leg or via that breaks clearance; ends on copper of the same net, or with a double click, Esc or right-click; Esc again stops |
 | Draw wires (schematic) | `W` or the Wire button; click to start, click adds a corner, `/` flips the bend; a wire ends on a pin or wire, or with a double click, Esc or right-click; Esc again stops |
@@ -120,7 +132,8 @@ OSPREY_CORPUS=~/designs npx vitest run -t corpus
 - `src/model/`: the native project model (`types.ts`), `.osprey` reading and writing
   (`file.ts`), Eagle import and export (`import-eagle.ts`, `export-eagle.ts`, `passthrough.ts`, `layers.ts`), derived facts
   such as net pads (`derive.ts`), geometry (`geometry.ts`), the ratsnest (`ratsnest.ts`), design
-  rules (`rules.ts`) and the design-rule check (`drc.ts`)
+  rules (`rules.ts`), board copper as geometry (`copper.ts`), poured copper (`pour.ts`) and the
+  design-rule check (`drc.ts`)
 - `src/eagle/`: Eagle XML parser and writer (`parse.ts`, `types.ts`), used by import and export
 - `src/edit/`: undoable operations and history (`ops.ts`), move/rotate/mirror with
   rubber-banding (`transform.ts`), delete (`delete.ts`), property edits (`properties.ts`) and

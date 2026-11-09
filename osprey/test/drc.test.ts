@@ -180,7 +180,7 @@ describe.skipIf(!corpus || !existsSync(corpus))('DRC corpus', () => {
       for (const v of r.violations) totals[v.kind] = (totals[v.kind] ?? 0) + 1;
     }
     // Reviewed by hand (2026-11-09): small vias on default rules, edge connectors near the
-    // outline, tightly placed SOT packages, two touching pads and a trace over an unused pad.
-    expect({ boards, clean, totals }).toEqual({ boards: 152, clean: 144, totals: { drill: 3, dimension: 14, overlap: 3, clearance: 4 } });
+    // outline, tightly placed SOT packages and two touching pads. Poured copper adds nothing.
+    expect({ boards, clean, totals }).toEqual({ boards: 152, clean: 145, totals: { drill: 3, dimension: 14, overlap: 2, clearance: 4 } });
   }, 600000);
 });

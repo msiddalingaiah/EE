@@ -11,6 +11,7 @@ import type { Point } from './geom/transform';
 import { componentName, ProjectIndex } from './model/derive';
 import { drc, type DrcResult, type Violation } from './model/drc';
 import { readProject } from './model/file';
+import { freezePours } from './model/pour';
 import { designRules, parseDru } from './model/rules';
 import { exportEagle } from './model/export-eagle';
 import { importEagle, importLibrary } from './model/import-eagle';
@@ -122,6 +123,9 @@ let chosen: { source: string; id: string } | undefined;
 /** The last design-rule check (kept up to date after edits once run), and the violation in focus. */
 let drcResult: DrcResult | undefined;
 let drcActive: Violation | undefined;
+
+/** Show poured copper, or only pour outlines. */
+let showPours = storeGet('osprey.showPours') !== 'no';
 
 /** Drawing wires (the W key): active until stopped. */
 let wiring: WireSession | undefined;
@@ -389,7 +393,7 @@ function setupViewChrome(): void {
     b.hidden = !views().includes(b.dataset.view as ViewKind);
   }
   statusHint.textContent = view !== 'library'
-    ? `${view === 'schematic' ? 'A adds part · W draws wires · Ctrl+C/V copies · ' : 'W routes · L layer · '}Drag or M moves · R rotates · F ${view === 'board' ? 'flips side' : 'mirrors'} · Del deletes · N name · V value · Ctrl+Z undo · Ctrl+S save · Space+drag pans · Home fits`
+    ? `${view === 'schematic' ? 'A adds part · W draws wires · Ctrl+C/V copies · ' : 'W routes · L layer · P pours · '}Drag or M moves · R rotates · F ${view === 'board' ? 'flips side' : 'mirrors'} · Del deletes · N name · V value · Ctrl+Z undo · Ctrl+S save · Space+drag pans · Home fits`
     : 'Click to select · Shift adds · Ctrl toggles · drag to box-select · Space+drag or right-drag pans · Home fits';
   // The hint is cut off on narrow windows; the tooltip always has all of it.
   statusHint.title = statusHint.textContent;
@@ -421,7 +425,7 @@ function buildScene(): Scene | undefined {
   if (!project) return undefined;
   const ix = new ProjectIndex(project);
   if (view === 'schematic') return buildSchematicScene(project, layers, Number(sheetSelect.value || 0), ix);
-  return buildBoardScene(project, layers, ix);
+  return buildBoardScene(project, layers, ix, { showPours });
 }
 
 function rebuildScene(opts: { fit: boolean; keepSelection: boolean }): void {
@@ -709,6 +713,7 @@ function startPaste(clip: Clip): void {
   const r = editor.beginPaste(clip, Number(sheetSelect.value || 0), gridOf);
   if (!r) return;
   move = { session: r.session, start: { x: clip.origin[0], y: clip.origin[1] }, drag: false, paste: r.pasted };
+  if (project) freezePours(project, true);
   selection.clear();
   canvas.classList.add('moving');
   canvas.focus({ preventScroll: true });
@@ -756,6 +761,8 @@ function beginMove(start: Point, drag: boolean): void {
   const session = editor.beginMove(ts, gridOf, pivotFor(start), snapReference(start));
   if (!session) return;
   move = { session, start, drag };
+  // Pours aren't recomputed on every mouse move; they catch up when the move ends.
+  if (project) freezePours(project, true);
   canvas.classList.add('moving');
   flash(drag ? 'Moving: release to place · Esc cancels' : `Moving: click to place · R rotates · F ${view === 'board' ? 'flips' : 'mirrors'} · Esc cancels`);
 }
@@ -772,6 +779,7 @@ function commitMove(): void {
   move = undefined;
   canvas.classList.remove('moving');
   const { x, y } = m.session.offset;
+  if (project) freezePours(project, false);
   m.session.commit();
   if (m.paste) {
     reselect(m.session.targets.map(subject));
@@ -785,6 +793,7 @@ function commitMove(): void {
 function cancelMove(): void {
   if (!move) return;
   const wasPaste = !!move.paste;
+  if (project) freezePours(project, false);
   move.session.cancel();
   move = undefined;
   canvas.classList.remove('moving');
@@ -821,6 +830,30 @@ function reselect(objects: object[]): void {
 function renderLayerList(): void {
   layerList.replaceChildren();
   if (!index) return;
+  // Poured copper on or off (P): a display choice, kept in the browser.
+  if (view === 'board' && project?.nets.some((n) => n.pours?.length)) {
+    const li = document.createElement('li');
+    li.className = 'pours-toggle';
+    const label = document.createElement('label');
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.id = 'pours-toggle';
+    cb.checked = showPours;
+    cb.addEventListener('change', () => setShowPours(cb.checked));
+    // Laid out like a layer row: no colour, the key where the layer number goes.
+    const sw = document.createElement('span');
+    sw.className = 'swatch';
+    sw.style.visibility = 'hidden';
+    const key = document.createElement('span');
+    key.className = 'layer-num';
+    key.textContent = 'P';
+    const name = document.createElement('span');
+    name.textContent = 'pour fill';
+    label.append(cb, sw, key, name);
+    label.title = 'Show poured copper, or only the pour outlines (P). Airwires and the DRC count the copper either way.';
+    li.append(label);
+    layerList.append(li);
+  }
   for (const n of index.usedLayers) {
     const li = document.createElement('li');
     const label = document.createElement('label');
@@ -844,6 +877,15 @@ function renderLayerList(): void {
     li.append(label);
     layerList.append(li);
   }
+}
+
+function setShowPours(on: boolean): void {
+  showPours = on;
+  storeSet('osprey.showPours', on ? 'yes' : 'no');
+  rebuildScene({ fit: false, keepSelection: true });
+  const cb = document.getElementById('pours-toggle') as HTMLInputElement | null;
+  if (cb) cb.checked = on;
+  flash(on ? 'Pours shown filled' : 'Pours shown as outlines (P shows them filled)');
 }
 
 function setAllLayers(on: boolean): void {
@@ -1901,6 +1943,8 @@ window.addEventListener('keydown', (e) => {
   } else if (key === 'w' && project && view === 'board') {
     if (routing) stopRouting(true);
     else startRouting();
+  } else if (key === 'p' && view === 'board' && project?.board) {
+    setShowPours(!showPours);
   } else if (key === 'l' && routing) {
     const res = routing.switchLayer(e.shiftKey);
     if (res.blocked) flash(`No room for a via: ${res.blocked[0]!.message.replace(/^Would touch/, 'it would touch')} · Shift+L adds it anyway`);
