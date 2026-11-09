@@ -1464,8 +1464,31 @@ function stopRouting(announce = false): void {
   requestRender();
 }
 
+/** The latest cursor position for the route, not yet applied (see applyRouteMove). */
+let routeMove: { p: Point; alt: boolean } | undefined;
+
+function applyRouteMove(): void {
+  if (!routing || !routeMove) {
+    routeMove = undefined;
+    return;
+  }
+  const { p, alt } = routeMove;
+  routeMove = undefined;
+  const before = routing.conflicts[0]?.message;
+  const viasBefore = routing.detourVias;
+  routing.moveTo(p, alt, WIRE_SNAP_PX / vp.zoom);
+  // Say what the leg runs into as soon as it does (and clear it when it no longer does), and
+  // when it goes through vias to get round.
+  const now = routing.conflicts[0]?.message;
+  const vias = routing.detourVias;
+  if (now !== before) flash(now ? `${now} · Shift+click places it anyway` : '');
+  else if (vias !== viasBefore) flash(vias ? `Going round through ${vias} via${vias > 1 ? 's' : ''} (other layer)` : '');
+  requestRender();
+}
+
 function routeClick(double: boolean, force: boolean): void {
   if (!routing) return;
+  applyRouteMove();
   const forcing = force && routing.conflicts[0]?.message;
   const r = routing.click(force);
   if (forcing && (r === 'added' || r === 'finish')) flash(`Placed anyway (${forcing.replace(/^Would touch/, 'touches').replace(/^Too close to/, 'too close to')}); the DRC will list it`);
@@ -1767,12 +1790,10 @@ canvas.addEventListener('pointermove', (e) => {
     return;
   }
   if (routing && !(pointer?.mode === 'pan')) {
-    const before = routing.conflicts[0]?.message;
-    routing.moveTo(w, e.altKey, WIRE_SNAP_PX / vp.zoom);
-    // Say what the leg runs into as soon as it does (and clear it when it no longer does).
-    const now = routing.conflicts[0]?.message;
-    if (now !== before) flash(now ? `${now} · Shift+click places it anyway` : '');
-    requestRender();
+    // Searching for a detour can take a while: at most one update per frame, for the latest point.
+    const scheduled = !!routeMove;
+    routeMove = { p: w, alt: e.altKey };
+    if (!scheduled) requestAnimationFrame(applyRouteMove);
     return;
   }
   if (wiring && !(pointer?.mode === 'pan')) {
@@ -1946,6 +1967,7 @@ window.addEventListener('keydown', (e) => {
   } else if (key === 'p' && view === 'board' && project?.board) {
     setShowPours(!showPours);
   } else if (key === 'l' && routing) {
+    applyRouteMove();
     const res = routing.switchLayer(e.shiftKey);
     if (res.blocked) flash(`No room for a via: ${res.blocked[0]!.message.replace(/^Would touch/, 'it would touch')} · Shift+L adds it anyway`);
     else flash(`Routing on ${res.layer.replace('copper.', '')}${routing.netName ? ' (via added)' : ''}`);

@@ -41,8 +41,11 @@ native model (see [docs/format.md](docs/format.md)). Eagle files are imported in
   board's most common ones. Each leg is checked against other nets' copper and the board edge
   as you route. When the direct leg would break a clearance rule, the route goes around the
   obstacles instead (like Eagle's follow-me routing): a 45° path that keeps clear, found on a
-  grid an eighth of the routing grid. Where there is no way through, the leg shows red and
-  isn't placed (Shift+click places the direct leg anyway; Shift+L a via).
+  grid an eighth of the routing grid. If there's no way round on the current layer, it goes
+  under through vias on the other layer (a via counts as 1.6 mm of trace, so one layer is
+  preferred); copper only on the other layer, such as a bottom-side pad, is reached the same
+  way. Where there is no way through at all, the leg shows red and isn't placed (Shift+click
+  places the direct leg anyway; Shift+L a via).
 - **Design-rule check** (board): the Design rules panel checks copper clearance between
   nets (Eagle's wire/pad/SMD/via distances), shorts, minimum trace width and drill, and copper
   near the board edge or holes. Problems are listed and marked on the board; clicking one zooms

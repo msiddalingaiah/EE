@@ -1,7 +1,9 @@
 // Finding a route around obstacles (Eagle's "follow-me" routing, for one leg): when the direct
 // 45° leg from the last corner to the cursor would break a clearance rule, search the obstacle
-// raster (drc.ts) for a path in 45° steps that prefers few bends, then straighten it. Every
-// segment of the result is checked exactly, so a path that is returned is clear.
+// rasters (drc.ts) for a path in 45° steps that prefers few bends, then straighten it. With
+// more than one layer the path may change layer through vias (each costs as much as a stretch
+// of trace, so it stays on one layer when it can). Every segment and via of the result is
+// checked exactly, so a route that is returned is clear.
 
 import type { ClearanceChecker, ObstacleGrid } from '../model/drc';
 import type * as O from '../model/types';
@@ -11,6 +13,8 @@ const DIRS: [number, number][] = [[1, 0], [1, 1], [0, 1], [-1, 1], [-1, 0], [-1,
 /** Search no further than this many cells around the two ends (keeps it interactive). */
 const MARGIN_CELLS = 150;
 const MAX_EXPANSIONS = 250_000;
+/** A via costs as much as this length of trace (mm). */
+const VIA_COST_MM = 1.6;
 
 export interface Leg {
   net: string;
@@ -18,18 +22,43 @@ export interface Leg {
   width: number;
 }
 
-/**
- * A path from `from` to `to` avoiding other nets' copper (both ends included), or undefined
- * when there is none nearby. `grid` is the obstacle raster for this net, layer and width.
- */
+/** A route found around obstacles: runs on layers, joined by vias at the runs' ends. */
+export interface Detour {
+  runs: { layer: string; pts: O.Pt[] }[];
+  vias: O.Pt[];
+}
+
+export interface DetourSearch {
+  net: string;
+  width: number;
+  /** Obstacle raster per layer the route may use (the first is where it starts). */
+  layers: { name: string; grid: ObstacleGrid }[];
+  /** Where a via fits (all layers); undefined = no layer changes. */
+  vias?: { grid: ObstacleGrid; drill: number };
+  from: O.Pt;
+  to: O.Pt;
+  /** Layers the route may end on. */
+  endLayers: string[];
+}
+
+/** A path on one layer from `from` to `to` (both ends included), or undefined. */
 export function findPath(checker: ClearanceChecker, grid: ObstacleGrid, leg: Leg, from: O.Pt, to: O.Pt): O.Pt[] | undefined {
-  const { x0, y0, w, h, step, blocked } = grid;
+  return findDetour(checker, { net: leg.net, width: leg.width, layers: [{ name: leg.layer, grid }], from, to, endLayers: [leg.layer] })?.runs[0]?.pts;
+}
+
+/** A route from `from` (on the first layer) to `to` (on one of `endLayers`), or undefined. */
+export function findDetour(checker: ClearanceChecker, q: DetourSearch): Detour | undefined {
+  const { x0, y0, w, h, step } = q.layers[0]!.grid;
+  const L = q.layers.length;
+  const cells = w * h;
   const cellOf = (p: O.Pt): [number, number] => [Math.round((p[0] - x0) / step), Math.round((p[1] - y0) / step)];
   const at = (i: number, j: number): O.Pt => [round(x0 + i * step), round(y0 + j * step)];
-  const clear = (a: O.Pt, b: O.Pt) => checker.clear(leg.net, a, b, leg.layer, leg.width);
+  const clearOn = (layer: string) => (a: O.Pt, b: O.Pt) => checker.clear(q.net, a, b, layer, q.width);
 
   // The ends attach to nearby free cells by a short exact-checked stub.
-  const attach = (p: O.Pt): number[] => {
+  const attach = (p: O.Pt, li: number): number[] => {
+    const { blocked } = q.layers[li]!.grid;
+    const clear = clearOn(q.layers[li]!.name);
     const [ci, cj] = cellOf(p);
     const out: { k: number; d: number }[] = [];
     for (let r = 0; r <= 4 && out.length < 3; r++) {
@@ -45,30 +74,31 @@ export function findPath(checker: ClearanceChecker, grid: ObstacleGrid, leg: Leg
     }
     return out.sort((a, b) => a.d - b.d).slice(0, 4).map((x) => x.k);
   };
-  const starts = attach(from);
-  const goals = new Set(attach(to));
+  const starts = attach(q.from, 0);
+  const goals = new Set<number>();
+  q.layers.forEach((l, li) => {
+    if (q.endLayers.includes(l.name)) for (const k of attach(q.to, li)) goals.add(li * cells + k);
+  });
   if (!starts.length || !goals.size) return undefined;
 
   // Search window around both ends.
-  const [fi, fj] = cellOf(from);
-  const [ti, tj] = cellOf(to);
+  const [fi, fj] = cellOf(q.from);
+  const [ti, tj] = cellOf(q.to);
   const minI = Math.max(0, Math.min(fi, ti) - MARGIN_CELLS);
   const maxI = Math.min(w - 1, Math.max(fi, ti) + MARGIN_CELLS);
   const minJ = Math.max(0, Math.min(fj, tj) - MARGIN_CELLS);
   const maxJ = Math.min(h - 1, Math.max(fj, tj) + MARGIN_CELLS);
 
-  // A* over (cell, direction of arrival); turning costs extra so paths keep few corners.
-  // States are numbered within the window: (local cell) * 9 + direction (8 = start).
+  // A* over (layer, cell, direction of arrival); turning costs extra so paths keep few corners.
+  // States are numbered within the window: ((layer * window cells) + local cell) * 9 + direction
+  // (8 = no direction: at the start, or just through a via).
   const ww = maxI - minI + 1;
+  const wcells = ww * (maxJ - minJ + 1);
   const local = (k: number) => (Math.floor(k / w) - minJ) * ww + ((k % w) - minI);
   const global = (l: number) => (Math.floor(l / ww) + minJ) * w + ((l % ww) + minI);
-  const inWindow = (k: number) => {
-    const i = k % w;
-    const j = Math.floor(k / w);
-    return i >= minI && i <= maxI && j >= minJ && j <= maxJ;
-  };
   const turnCost = 0.6;
-  const n = ww * (maxJ - minJ + 1) * 9;
+  const viaCost = VIA_COST_MM / step;
+  const n = L * wcells * 9;
   const g = new Float64Array(n).fill(Infinity);
   const prev = new Int32Array(n).fill(-1);
   const heap = new Heap();
@@ -77,22 +107,34 @@ export function findPath(checker: ClearanceChecker, grid: ObstacleGrid, leg: Leg
     const dy = Math.abs(Math.floor(k / w) - tj);
     return Math.max(dx, dy) + (Math.SQRT2 - 1) * Math.min(dx, dy);
   };
+  const stateOf = (li: number, k: number, dir: number) => (li * wcells + local(k)) * 9 + dir;
   for (const k of starts) {
-    if (!inWindow(k)) continue;
-    const s = local(k) * 9 + 8;
+    const i = k % w;
+    const j = Math.floor(k / w);
+    if (i < minI || i > maxI || j < minJ || j > maxJ) continue;
+    const s = stateOf(0, k, 8);
     g[s] = 0;
     heap.push(s, hEst(k));
   }
+  const relax = (from: number, to: number, cost: number, k: number) => {
+    if (cost < g[to]!) {
+      g[to] = cost;
+      prev[to] = from;
+      heap.push(to, cost + hEst(k));
+    }
+  };
   let found = -1;
   let expansions = 0;
   while (heap.size && expansions++ < MAX_EXPANSIONS) {
     const s = heap.pop();
-    const k = global(Math.floor(s / 9));
     const dir = s % 9;
-    if (goals.has(k)) {
+    const li = Math.floor(Math.floor(s / 9) / wcells);
+    const k = global(Math.floor(s / 9) % wcells);
+    if (goals.has(li * cells + k)) {
       found = s;
       break;
     }
+    const { blocked } = q.layers[li]!.grid;
     const i = k % w;
     const j = Math.floor(k / w);
     for (let d = 0; d < 8; d++) {
@@ -108,26 +150,49 @@ export function findPath(checker: ClearanceChecker, grid: ObstacleGrid, leg: Leg
         if (steps > 2) continue; // no sharper than 90°
         turn = steps * turnCost;
       }
-      const cost = g[s]! + (d % 2 ? Math.SQRT2 : 1) + turn;
-      const ns = local(nk) * 9 + d;
-      if (cost < g[ns]!) {
-        g[ns] = cost;
-        prev[ns] = s;
-        heap.push(ns, cost + hEst(nk));
+      relax(s, stateOf(li, nk, d), g[s]! + (d % 2 ? Math.SQRT2 : 1) + turn, nk);
+    }
+    // Through a via to another layer, where a via fits.
+    if (q.vias && !q.vias.grid.blocked[k]) {
+      for (let lj = 0; lj < L; lj++) {
+        if (lj === li || q.layers[lj]!.grid.blocked[k]) continue;
+        relax(s, stateOf(lj, k, 8), g[s]! + viaCost, k);
       }
     }
   }
   if (found < 0) return undefined;
 
-  const cells: O.Pt[] = [];
+  // Back along the path: cells per layer, split where the layer changes.
+  const steps: { li: number; p: O.Pt }[] = [];
   for (let s = found; s >= 0; s = prev[s]!) {
-    const k = global(Math.floor(s / 9));
-    cells.push(at(k % w, Math.floor(k / w)));
+    const li = Math.floor(Math.floor(s / 9) / wcells);
+    const k = global(Math.floor(s / 9) % wcells);
+    steps.push({ li, p: at(k % w, Math.floor(k / w)) });
   }
-  cells.reverse();
-  const path = straighten(dedupe([from, ...cells, to]), clear);
-  for (let i = 1; i < path.length; i++) if (!clear(path[i - 1]!, path[i]!)) return undefined;
-  return path;
+  steps.reverse();
+  const runs: { layer: string; pts: O.Pt[] }[] = [];
+  const vias: O.Pt[] = [];
+  let cur: { li: number; pts: O.Pt[] } = { li: steps[0]!.li, pts: [q.from] };
+  for (const st of steps) {
+    if (st.li !== cur.li) {
+      runs.push({ layer: q.layers[cur.li]!.name, pts: cur.pts });
+      vias.push(st.p);
+      cur = { li: st.li, pts: [st.p] };
+    } else {
+      cur.pts.push(st.p);
+    }
+  }
+  cur.pts.push(q.to);
+  runs.push({ layer: q.layers[cur.li]!.name, pts: cur.pts });
+
+  // Straighten each run (its ends stay: the start, vias, the end), then check it all exactly.
+  for (const r of runs) r.pts = straighten(dedupe(r.pts), clearOn(r.layer));
+  for (const r of runs) {
+    const clear = clearOn(r.layer);
+    for (let i = 1; i < r.pts.length; i++) if (!clear(r.pts[i - 1]!, r.pts[i]!)) return undefined;
+  }
+  if (q.vias) for (const v of vias) if (checker.via(q.net, v, q.vias.drill).length) return undefined;
+  return { runs, vias };
 }
 
 const round = (v: number) => Math.round(v * 1e6) / 1e6;

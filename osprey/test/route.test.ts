@@ -198,6 +198,7 @@ describe('routing around obstacles', () => {
     s.moveTo({ x: a.at[0] + 5, y: a.at[1] }, false, 0.01);
     expect(s.detour).toBe(true);
     expect(s.conflicts).toEqual([]);
+    expect(s.preview.vias).toEqual([]); // stays on one layer when it can
     const leg = s.preview.paths.at(-1)!.points;
     expect(leg[0]).toEqual(at(a.at));
     expect(leg.at(-1)).toEqual(s.at);
@@ -260,5 +261,67 @@ describe('routing around obstacles', () => {
     const t0 = performance.now();
     for (let i = 0; i < 20; i++) s.moveTo({ x: a.at[0] + 5 + i * 0.3, y: a.at[1] + (i % 3) * 0.6 }, false, 0.01);
     expect((performance.now() - t0) / 20).toBeLessThan(50);
+  });
+});
+
+describe('detours through vias', () => {
+  const grid = () => 1.27;
+  /** GND traces on top in a closed square around a point: nothing gets in or out on top. */
+  const wall = (c: O.Pt, r: number) => {
+    const [x, y] = c;
+    const pts: O.Pt[] = [[x - r, y - r], [x + r, y - r], [x + r, y + r], [x - r, y + r]];
+    const gnd = p.nets.find((n) => n.name === 'GND')!;
+    pts.forEach((a, i) => gnd.traces!.push({ line: [a, pts[(i + 1) % 4]!], width: 0.254, layer: 'copper.top' }));
+  };
+
+  it('goes under a wall on the other layer, through vias, and comes back up', () => {
+    const [a, b] = padsOf('N$1'); // a: IC1 pin 4 (through-hole), b: C2 pin 2 (top SMD)
+    wall(b!.at, 2.2);
+    const before = drc(p).violations.map((v) => v.message);
+    const s = editor.beginRoute(grid)!;
+    s.moveTo(at(a!.at), false, 0.5);
+    s.click();
+    s.moveTo(at(b!.at), false, 0.5);
+    expect(s.snappedTo?.pad).toEqual({ part: 'C2', pad: '2' });
+    expect(s.detour).toBe(true);
+    expect(s.conflicts).toEqual([]);
+    const { paths, vias } = s.preview;
+    expect(vias.length).toBeGreaterThanOrEqual(1);
+    expect(paths.some((x) => x.layer === 'copper.bottom')).toBe(true);
+    expect(paths.at(-1)!.layer).toBe('copper.top'); // back up to reach the top SMD
+    expect(s.click()).toBe('finish');
+    const res = s.finish()!;
+    expect(res.vias).toBe(vias.length);
+    expect(airwires('N$1')).toHaveLength(0);
+    expect(drc(p).violations.map((v) => v.message)).toEqual(before);
+  });
+
+  it('reaches copper only on the other layer through a via', () => {
+    // C2 flipped to the bottom: its pad 2 (N$1) is a bottom SMD now.
+    p.board!.footprints.find((f) => f.part === 'C2')!.side = 'bottom';
+    const [a] = padsOf('N$1').filter((x) => x.pad?.part === 'IC1');
+    const b = padsOf('N$1').find((x) => x.pad?.part === 'C2')!;
+    expect(b.layers).toEqual(['copper.bottom']);
+    const s = editor.beginRoute(grid)!;
+    s.moveTo(at(a!.at), false, 0.5);
+    s.click();
+    expect(s.currentLayer).toBe('copper.top');
+    s.moveTo(at(b.at), false, 0.5);
+    expect(s.snappedTo?.pad).toEqual({ part: 'C2', pad: '2' });
+    expect(s.detour).toBe(true);
+    expect(s.preview.vias.length).toBeGreaterThanOrEqual(1);
+    expect(s.preview.paths.at(-1)!.layer).toBe('copper.bottom');
+    expect(s.click()).toBe('finish');
+    expect(s.currentLayer).toBe('copper.bottom');
+    s.finish();
+    expect(airwires('N$1')).toHaveLength(0);
+    // Without detours the leg says why it can't end there.
+    const t2 = editor.beginRoute(grid)!;
+    t2.avoid = false;
+    t2.moveTo(at(a!.at), false, 0.5);
+    t2.click();
+    t2.moveTo(at(b.at), false, 0.5);
+    expect(t2.conflicts[0]?.message).toBe('Pad C2.2 is on bottom: change layer (L)');
+    expect(t2.click()).toBe('blocked');
   });
 });

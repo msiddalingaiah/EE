@@ -14,7 +14,7 @@ import { addToLibrary, createPart, gatesToPlace } from '../edit/place';
 import { applyDru } from '../edit/rules';
 import type { DruFile } from '../model/rules';
 import { ClearanceChecker, type Conflict, type ObstacleGrid } from '../model/drc';
-import { findPath } from '../edit/walkaround';
+import { findDetour, findPath, type Detour } from '../edit/walkaround';
 import { addRoute, anchors, bend45, copperLayers, traceWidth, viaDrill, type Anchor, type Leg } from '../edit/route';
 import { addWire, cleanPath, sheetPins, snapPoints, touchAt, usualWireWidth, type WireResult } from '../edit/wire';
 import { renameNet, renamePart, setPartValue, smash, unsmash } from '../edit/properties';
@@ -545,6 +545,12 @@ export class RouteSession {
   private floating: O.Pt[] = [];
   /** Whether `floating` goes around obstacles. */
   detour = false;
+  /** A detour that changes layer (runs joined by vias), when one is needed. */
+  private runs: Detour | undefined;
+  /** How many vias the leg to the cursor goes through (0 unless it detours across layers). */
+  get detourVias(): number {
+    return this.runs?.vias.length ?? 0;
+  }
   /** Obstacle rasters by net, layer and width (rebuilt when the model changes). */
   private grids = new Map<string, ObstacleGrid>();
   private lastKey = '';
@@ -585,9 +591,10 @@ export class RouteSession {
     if (this.points.length) {
       const last = this.points[this.points.length - 1]!;
       paths.push({ points: this.points.map(P), layer: this.layer });
-      paths.push({ points: [last, ...this.floating].map(P), layer: this.layer, ...(this.conflicts.length ? { blocked: true as const } : {}) });
+      if (this.runs) for (const r of this.runs.runs) paths.push({ points: r.pts.map(P), layer: r.layer });
+      else paths.push({ points: [last, ...this.floating].map(P), layer: this.layer, ...(this.conflicts.length ? { blocked: true as const } : {}) });
     }
-    return { paths, vias: this.vias.map(P) };
+    return { paths, vias: [...this.vias, ...(this.runs?.vias ?? [])].map(P) };
   }
 
   /** Move the cursor: onto copper within `tolerance` (any net before starting, then the route's net), else the grid. */
@@ -595,10 +602,11 @@ export class RouteSession {
     let best: Anchor | undefined;
     let d = tolerance;
     for (const a of this.anchors) {
-      if (this.net && (a.net !== this.net || !a.layers.includes(this.layer))) continue;
+      if (this.net && a.net !== this.net) continue;
       const e = Math.hypot(a.at[0] - p.x, a.at[1] - p.y);
-      // Prefer pads over trace ends at the same spot.
-      if (e < d || (e === d && best && best.kind !== 'pad' && a.kind === 'pad')) [best, d] = [a, e];
+      // Prefer copper on the current layer, then pads over trace ends, at the same spot.
+      const score = (x: Anchor) => (x.layers.includes(this.layer) ? 2 : 0) + (x.kind === 'pad' ? 1 : 0);
+      if (e < d || (e === d && best && score(a) > score(best))) [best, d] = [a, e];
     }
     this.snappedTo = best;
     if (best) {
@@ -621,6 +629,7 @@ export class RouteSession {
    * `avoid`) a path around the obstacles; otherwise the direct bend, with its conflicts.
    */
   private update(): void {
+    this.runs = undefined;
     if (!this.net || !this.points.length) {
       this.conflicts = [];
       this.floating = [];
@@ -628,22 +637,54 @@ export class RouteSession {
       return;
     }
     const last = this.points[this.points.length - 1]!;
-    const key = `${last}|${this.cursor}|${this.layer}|${this.diagonalFirst}|${this.avoid}`;
+    const key = `${last}|${this.cursor}|${this.layer}|${this.diagonalFirst}|${this.avoid}|${this.snappedTo?.layers}`;
     if (key === this.lastKey) return;
     this.lastKey = key;
+    const stack = copperLayers(this.editor.project);
+    // Where the leg may end: on the copper it snapped to (any of its layers), else this layer.
+    const endLayers = this.snappedTo ? this.snappedTo.layers.filter((l) => stack.includes(l)) : [this.layer];
+    const sameLayer = endLayers.includes(this.layer);
     const direct = bend45(last, this.cursor, this.diagonalFirst);
-    const conflicts = this.legConflicts([last, ...direct]);
+    const conflicts: Conflict[] = sameLayer ? this.legConflicts([last, ...direct]) : [this.otherLayerConflict(endLayers)];
     this.floating = direct;
     this.detour = false;
     this.conflicts = conflicts;
     if (!conflicts.length || !this.avoid) return;
     const width = this.width;
-    const path = findPath(this.checker, this.grid(width), { net: this.net, layer: this.layer, width }, last, this.cursor);
-    if (path) {
-      this.floating = path.slice(1);
+    if (sameLayer) {
+      const path = findPath(this.checker, this.grid(width, this.layer), { net: this.net, layer: this.layer, width }, last, this.cursor);
+      if (path) {
+        this.floating = path.slice(1);
+        this.detour = true;
+        this.conflicts = [];
+        return;
+      }
+    }
+    // Through vias: the current layer first, then the others.
+    if (stack.length < 2) return;
+    const order = [this.layer, ...stack.filter((l) => l !== this.layer)];
+    const runs = findDetour(this.checker, {
+      net: this.net,
+      width,
+      layers: order.map((name) => ({ name, grid: this.grid(width, name) })),
+      vias: { grid: this.viaGrid(), drill: this.drill },
+      from: last,
+      to: this.cursor,
+      endLayers,
+    });
+    if (runs) {
+      this.runs = runs;
+      this.floating = [];
       this.detour = true;
       this.conflicts = [];
     }
+  }
+
+  /** Why the direct leg can't end on copper that is only on another layer. */
+  private otherLayerConflict(layers: string[]): Conflict {
+    const a = this.snappedTo!;
+    const what = a.pad ? `Pad ${a.pad.part}.${a.pad.pad}` : 'That copper';
+    return { message: `${what} is on ${layers.map((l) => l.replace('copper.', '')).join('/')}: change layer (L)`, at: this.cursor, gap: 0, required: 0, other: what };
   }
 
   /** Clearance problems of a polyline on the current layer. */
@@ -654,14 +695,33 @@ export class RouteSession {
     return out.sort((a, b) => a.gap - a.required - (b.gap - b.required));
   }
 
-  /** The obstacle raster for the current net and layer: an eighth of the routing grid (≈ 6 mil on a 50 mil grid). */
-  private grid(width: number): ObstacleGrid {
-    const key = `${this.net}|${this.layer}|${width}`;
+  /** The search raster's step: an eighth of the routing grid (≈ 6 mil on a 50 mil grid). */
+  private get step(): number {
+    const routing = this.grid_(false);
+    return routing / Math.max(1, Math.round(routing / 0.16));
+  }
+
+  /** The obstacle raster for the route's net on a layer. */
+  private grid(width: number, layer: string): ObstacleGrid {
+    const key = `${this.net}|${layer}|${width}`;
     let g = this.grids.get(key);
     if (!g) {
-      const routing = this.grid_(false);
-      const step = routing / Math.max(1, Math.round(routing / 0.16));
-      g = this.checker.obstacles(this.net!, this.layer, width, step);
+      g = this.checker.obstacles(this.net!, layer, width, this.step);
+      this.grids.set(key, g);
+    }
+    return g;
+  }
+
+  /** Where a via of the route's net fits: clear of other nets on every copper layer. */
+  private viaGrid(): ObstacleGrid {
+    const D = this.checker.rules.viaDiameter(this.drill, 0);
+    const key = `${this.net}|via|${D}`;
+    let g = this.grids.get(key);
+    if (!g) {
+      const per = copperLayers(this.editor.project).map((l) => this.checker.obstacles(this.net!, l, D, this.step, 'via'));
+      const blocked = new Uint8Array(per[0]!.blocked.length);
+      for (const p of per) for (let i = 0; i < blocked.length; i++) blocked[i] = blocked[i]! | p.blocked[i]!;
+      g = { ...per[0]!, blocked };
       this.grids.set(key, g);
     }
     return g;
@@ -684,8 +744,20 @@ export class RouteSession {
     if (this.conflicts.length && !force) return 'blocked';
     const last = this.points[this.points.length - 1]!;
     // Forcing places the direct bend; otherwise what is shown (direct or detour).
-    const leg = force && this.conflicts.length ? bend45(last, this.cursor, this.diagonalFirst) : this.floating;
-    this.points = cleanPath([...this.points, ...leg]);
+    if (this.runs && !(force && this.conflicts.length)) {
+      // A detour through vias: the first run continues this layer; each via changes layer.
+      const [first, ...rest] = this.runs.runs;
+      this.points = cleanPath([...this.points, ...first!.pts.slice(1)]);
+      this.runs.vias.forEach((v, i) => {
+        this.flush();
+        this.vias.push(v);
+        this.layer = rest[i]!.layer;
+        this.points = cleanPath([...rest[i]!.pts]);
+      });
+    } else {
+      const leg = force && this.conflicts.length ? bend45(last, this.cursor, this.diagonalFirst) : this.floating;
+      this.points = cleanPath([...this.points, ...leg]);
+    }
     this.lastKey = '';
     this.update();
     return this.snappedTo && (this.points.length >= 2 || this.legs.length) ? 'finish' : 'added';
@@ -753,6 +825,7 @@ export class RouteSession {
 
   private reset(): void {
     this.conflicts = [];
+    this.runs = undefined;
     this.floating = [];
     this.detour = false;
     this.lastKey = '';

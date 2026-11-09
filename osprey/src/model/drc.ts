@@ -212,7 +212,7 @@ export class ClearanceChecker {
    * so that straight and diagonal moves between free cells are clear too; cells outside the
    * board outline are blocked. Used to search for routes around obstacles.
    */
-  obstacles(net: string, layer: string, width: number, step: number): ObstacleGrid {
+  obstacles(net: string, layer: string, width: number, step: number, kind: CopperKind = 'wire'): ObstacleGrid {
     const slack = step * Math.SQRT1_2 + EPS;
     // Region: the board outline's bounds (else all copper), on the grid.
     let box = this.edges.length ? this.edges.map((e) => e.box).reduce(union) : this.items.map((i) => i.box).reduce(union, EMPTY);
@@ -246,7 +246,7 @@ export class ClearanceChecker {
     };
     for (const other of this.items) {
       if (other.net === net || !other.layers.has(layer)) continue;
-      mark(other.shapes, other.box, this.rules.clearance('wire', other.kind) + half + slack);
+      mark(other.shapes, other.box, this.rules.clearance(kind, other.kind) + half + slack);
     }
     const dim = this.rules.copperDimension + half + slack;
     const outline: [Point, Point][] = [];
