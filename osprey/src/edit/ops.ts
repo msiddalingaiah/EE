@@ -1,7 +1,7 @@
 // Undoable primitive edits. Each one changes the typed model and the XML it was parsed
 // from together, so saving writes exactly what the user sees.
 
-import { domOf } from '../eagle/dom';
+import { domOf, link } from '../eagle/dom';
 
 export interface Op {
   apply(): void;
@@ -12,29 +12,73 @@ type AttrPatch = Record<string, string | null>;
 
 /**
  * Set model fields and the matching XML attributes (null removes an attribute).
- * Old values are captured when the op is created.
+ * New attributes are placed where Eagle's DTD puts them; revert restores the element's
+ * attributes exactly, order included, so undo gives back the original bytes.
  */
 export function setFields<T extends object>(obj: T, model: Partial<T>, attrs: AttrPatch): Op {
   const el = domOf(obj);
   const oldModel: Partial<T> = {};
   for (const k of Object.keys(model) as (keyof T)[]) oldModel[k] = obj[k];
-  const oldAttrs: AttrPatch = {};
-  for (const k of Object.keys(attrs)) oldAttrs[k] = el?.getAttribute(k) ?? null;
+  const before = el ? el.getAttributeNames().map((n): [string, string] => [n, el.getAttribute(n)!]) : [];
 
-  const write = (m: Partial<T>, a: AttrPatch) => {
-    Object.assign(obj, m);
-    if (!el) return;
-    for (const [k, v] of Object.entries(a)) {
-      if (v === null) el.removeAttribute(k);
-      else el.setAttribute(k, v);
-    }
+  return {
+    apply() {
+      Object.assign(obj, model);
+      if (!el) return;
+      let added = false;
+      for (const [k, v] of Object.entries(attrs)) {
+        if (v === null) el.removeAttribute(k);
+        else {
+          if (!el.hasAttribute(k)) added = true;
+          el.setAttribute(k, v);
+        }
+      }
+      if (added) orderAttributes(el);
+    },
+    revert() {
+      Object.assign(obj, oldModel);
+      if (!el) return;
+      for (const n of el.getAttributeNames()) el.removeAttribute(n);
+      for (const [n, v] of before) el.setAttribute(n, v);
+    },
   };
-  return { apply: () => write(model, attrs), revert: () => write(oldModel, oldAttrs) };
 }
+
+/** Put an element's attributes in Eagle's DTD order (unknown ones keep their order, last). */
+function orderAttributes(el: Element): void {
+  const order = ATTRIBUTE_ORDER[el.tagName];
+  if (!order) return;
+  const attrs = el.getAttributeNames().map((n): [string, string] => [n, el.getAttribute(n)!]);
+  const rank = (n: string) => {
+    const i = order.indexOf(n);
+    return i < 0 ? order.length : i;
+  };
+  const sorted = attrs.map((a, i) => ({ a, i })).sort((p, q) => rank(p.a[0]) - rank(q.a[0]) || p.i - q.i);
+  for (const [n] of attrs) el.removeAttribute(n);
+  for (const { a: [n, v] } of sorted) el.setAttribute(n, v);
+}
+
+/** Attribute order of the elements Osprey edits, from eagle.dtd. */
+const ATTRIBUTE_ORDER: Record<string, string[]> = {
+  element: ['name', 'library', 'library_urn', 'package', 'package3d_urn', 'override_package3d_urn',
+    'override_package_urn', 'override_locally_modified', 'value', 'x', 'y', 'locked', 'populate', 'smashed', 'rot'],
+  instance: ['part', 'gate', 'x', 'y', 'smashed', 'rot'],
+  part: ['name', 'library', 'library_urn', 'deviceset', 'device', 'package3d_urn', 'override_package3d_urn',
+    'override_package_urn', 'override_locally_modified', 'technology', 'value'],
+  attribute: ['name', 'value', 'x', 'y', 'size', 'layer', 'font', 'ratio', 'rot', 'display', 'constant', 'align'],
+  text: ['x', 'y', 'size', 'layer', 'font', 'ratio', 'rot', 'align', 'distance'],
+  label: ['x', 'y', 'size', 'layer', 'font', 'ratio', 'rot', 'xref', 'align', 'grouprefs'],
+  wire: ['x1', 'y1', 'x2', 'y2', 'width', 'layer', 'extent', 'style', 'curve', 'cap', 'grouprefs'],
+  rectangle: ['x1', 'y1', 'x2', 'y2', 'layer', 'rot', 'grouprefs'],
+  vertex: ['x', 'y', 'curve'],
+};
+
+const isBlank = (n: Node | null): boolean => !!n && n.nodeType === 3 && /^\s*$/.test(n.nodeValue ?? '');
 
 /**
  * Remove `item` from a model list and its element from the XML (with the line break
- * that follows it, so the file stays one element per line). Revert restores both in place.
+ * that follows it, so the file stays one element per line). An element left with no
+ * children collapses back to `<x/>`, as Eagle writes it. Revert restores everything in place.
  */
 export function removeItem<T extends object>(list: T[], item: T): Op {
   const el = domOf(item);
@@ -42,6 +86,7 @@ export function removeItem<T extends object>(list: T[], item: T): Op {
   let parent: Node | null = null;
   let next: Node | null = null;
   let ws: Node | null = null;
+  let leftovers: Node[] = [];
   return {
     apply() {
       index = list.indexOf(item);
@@ -49,15 +94,19 @@ export function removeItem<T extends object>(list: T[], item: T): Op {
       if (el?.parentNode) {
         parent = el.parentNode;
         const after = el.nextSibling;
-        ws = after && after.nodeType === 3 && /^\s*$/.test(after.nodeValue ?? '') ? after : null;
+        ws = isBlank(after) ? after : null;
         next = ws ? ws.nextSibling : after;
         parent.removeChild(el);
         if (ws) parent.removeChild(ws);
+        const rest = [...parent.childNodes];
+        leftovers = rest.length && rest.every(isBlank) ? rest : [];
+        for (const n of leftovers) parent.removeChild(n);
       }
     },
     revert() {
       if (index >= 0) list.splice(index, 0, item);
       if (el && parent) {
+        for (const n of leftovers) parent.appendChild(n);
         parent.insertBefore(el, next);
         if (ws) parent.insertBefore(ws, next);
       }
@@ -81,6 +130,60 @@ export function removeMapEntry<V extends object>(map: Map<string, V>, key: strin
       dom.revert();
       map.clear();
       for (const [k, v] of entries) map.set(k, v);
+    },
+  };
+}
+
+/** Rename a key of an ordered map (e.g. a schematic part), keeping its position. */
+export function renameMapKey<V>(map: Map<string, V>, oldKey: string, newKey: string): Op {
+  const swap = (from: string, to: string) => {
+    const entries = [...map.entries()].map(([k, v]): [string, V] => [k === from ? to : k, v]);
+    map.clear();
+    for (const [k, v] of entries) map.set(k, v);
+  };
+  return { apply: () => swap(oldKey, newKey), revert: () => swap(newKey, oldKey) };
+}
+
+/**
+ * Add a new model object to `list` and a matching XML element as the last child of
+ * `parent`, formatted one element per line as Eagle writes it. The element is created
+ * once, so redo re-inserts the very same node.
+ */
+export function insertChild<T extends object>(
+  list: T[], item: T, parent: Element, tag: string, attrs: Record<string, string>,
+): Op {
+  const doc = parent.ownerDocument;
+  const el = doc.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
+  orderAttributes(el);
+  link(item, el);
+  const added: Node[] = [];
+  return {
+    apply() {
+      list.push(item);
+      added.length = 0;
+      const last = parent.lastChild;
+      if (!last) {
+        // <x/> becomes <x>\n<child/>\n</x>
+        const open = doc.createTextNode('\n');
+        const close = doc.createTextNode('\n');
+        parent.append(open, el, close);
+        added.push(open, el, close);
+      } else if (isBlank(last)) {
+        // <x>\n<prev/>\n</x>: the new child goes on its own line before </x>
+        const nl = doc.createTextNode('\n');
+        parent.insertBefore(nl, last);
+        parent.insertBefore(el, last);
+        added.push(nl, el);
+      } else {
+        parent.append(el);
+        added.push(el);
+      }
+    },
+    revert() {
+      const i = list.lastIndexOf(item);
+      if (i >= 0) list.splice(i, 1);
+      for (const n of added) n.parentNode?.removeChild(n);
     },
   };
 }

@@ -14,7 +14,9 @@ const BOARD_KINDS = new Set<Target['kind']>(['element', 'signal-wire', 'via', 's
 export function splitTargets(targets: Target[], board: Board | undefined): { board: Target[]; schematic: Target[] } {
   const out = { board: [] as Target[], schematic: [] as Target[] };
   for (const t of targets) {
-    const onBoard = BOARD_KINDS.has(t.kind) || (t.kind === 'plain' && !!board && t.container === board.plain);
+    const onBoard = BOARD_KINDS.has(t.kind) ||
+      (t.kind === 'plain' && !!board && t.container === board.plain) ||
+      (t.kind === 'attribute' && t.doc === 'board');
     (onBoard ? out.board : out.schematic).push(t);
   }
   return out;

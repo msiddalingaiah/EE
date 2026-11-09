@@ -8,6 +8,9 @@ import { isEditable, transformBoardTargets } from '../edit/board';
 import { mirrorAbout, rotationAbout, translation } from '../edit/common';
 import { History, Transaction } from '../edit/ops';
 import { transformSchematicTargets } from '../edit/schematic';
+import {
+  renameNet, renamePart, setPartValue, smash, unsmash, type Docs, type Touched,
+} from '../edit/properties';
 import type { Point, Transform } from '../geom/transform';
 import { compose } from '../geom/transform';
 import { deletableTargets, deleteAnnotated, splitTargets } from '../project/annotate';
@@ -65,6 +68,55 @@ export class Editor {
     if (touched.board) tx.files.add(this.project.board!.file);
     this.push(tx);
     return locked;
+  }
+
+  // -------------------------------------------------------------------------
+  // Properties. Each returns an error message when the change isn't allowed.
+
+  renamePart(oldName: string, newName: string): string | undefined {
+    return this.property(`Rename ${oldName}`, (tx) => renamePart(this.docs, oldName, newName, tx));
+  }
+
+  setValue(partName: string, value: string): string | undefined {
+    return this.property(`Set value of ${partName}`, (tx) => setPartValue(this.docs, partName, value, tx));
+  }
+
+  renameNet(oldName: string, newName: string): string | undefined {
+    return this.property(`Rename net ${oldName}`, (tx) => renameNet(this.docs, oldName, newName, tx));
+  }
+
+  /** Smash (detach name/value texts) or unsmash gates and elements. Returns how many changed. */
+  setSmashed(targets: Target[], on: boolean): number {
+    const tx = new Transaction(on ? 'Smash' : 'Unsmash');
+    let n = 0;
+    for (const t of this.editable(targets)) {
+      if (t.kind !== 'instance' && t.kind !== 'element') continue;
+      const obj = t.kind === 'instance' ? t.instance : t.element;
+      const changed = on ? smash(this.docs, obj, tx) : unsmash(obj, tx);
+      if (!changed) continue;
+      n++;
+      tx.subjects.push(obj);
+      tx.files.add(t.kind === 'instance' ? this.project.schematic!.file : this.project.board!.file);
+    }
+    if (n) this.push(tx);
+    return n;
+  }
+
+  private get docs(): Docs {
+    return { sch: this.sch, brd: this.brd };
+  }
+
+  private property(label: string, run: (tx: Transaction) => string | Touched): string | undefined {
+    const tx = new Transaction(label);
+    const result = run(tx);
+    if (typeof result === 'string') {
+      tx.revert();
+      return result;
+    }
+    if (result.schematic) tx.files.add(this.project.schematic!.file);
+    if (result.board) tx.files.add(this.project.board!.file);
+    if (!tx.empty) this.push(tx);
+    return undefined;
   }
 
   /**
@@ -226,6 +278,7 @@ function describe(ts: Target[]): string {
       case 'junction': return `junction on ${t.net.name}`;
       case 'label': return `label ${t.net.name}`;
       case 'plain': return t.graphic.kind;
+      case 'attribute': return `${'gate' in t.parent ? t.parent.part : t.parent.name} ${t.attribute.name.toLowerCase()}`;
     }
   }
   return `${ts.length} objects`;
@@ -243,5 +296,6 @@ export function subject(t: Target): object {
     case 'junction': return t.junction;
     case 'label': return t.label;
     case 'plain': return t.graphic;
+    case 'attribute': return t.attribute;
   }
 }

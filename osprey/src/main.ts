@@ -243,7 +243,7 @@ function setupViewChrome(): void {
     b.hidden = !project?.views.includes(b.dataset.view as ViewKind);
   }
   statusHint.textContent = file.board || file.schematic
-    ? `Drag or M moves · R rotates · F ${file.board ? 'flips side' : 'mirrors'} · Del deletes · Ctrl+Z undo · Ctrl+S save · Home fits`
+    ? `Drag or M moves · R rotates · F ${file.board ? 'flips side' : 'mirrors'} · Del deletes · N name · V value · Ctrl+Z undo · Ctrl+S save · Home fits`
     : 'Click to select · Shift adds · Ctrl toggles · drag to box-select · right-drag pans · Home fits';
   updateChrome();
 }
@@ -670,6 +670,7 @@ const KIND_LABEL: Record<Owner['kind'], string> = {
   via: 'Via',
   'signal-polygon': 'Polygon',
   plain: 'Drawing',
+  attribute: 'Smashed text',
   'library-item': 'Library item',
 };
 
@@ -708,9 +709,12 @@ function renderInspector(): void {
   inspector.append(...commandButtons());
 
   if (owners.length === 1) {
+    const fields = propertyFields(owners[0]!);
+    if (fields) inspector.append(fields.table);
     const table = document.createElement('table');
     table.className = 'props';
     for (const [k, v] of owners[0]!.props) {
+      if (fields?.covers.has(k)) continue;
       const tr = document.createElement('tr');
       tr.append(el('th', '', k), el('td', '', v));
       table.append(tr);
@@ -763,8 +767,99 @@ function commandButtons(): HTMLElement[] {
     cmd(file?.board ? 'Flip side' : 'Mirror', 'F', mirrorCmd),
     cmd('Delete', 'Del', deleteCmd),
   );
+  // Smash/unsmash applies to parts: detach (or reattach) their name/value texts.
+  const parts = editable.filter((t) => t.kind === 'instance' || t.kind === 'element');
+  if (parts.length) {
+    const allSmashed = parts.every((t) => (t.kind === 'instance' ? t.instance.smashed : t.kind === 'element' && t.element.smashed));
+    const b = button(allSmashed ? 'Unsmash' : 'Smash', () => smashCmd(!allSmashed));
+    b.title = allSmashed
+      ? 'Reattach the name and value texts to the part'
+      : 'Detach the name and value texts so they can be moved on their own';
+    grid.append(b);
+  }
   out.push(grid);
   return out;
+}
+
+function smashCmd(on: boolean): void {
+  if (!editor) return;
+  const n = editor.setSmashed(selectedTargets(), on);
+  flash(n ? `${on ? 'Smashed' : 'Unsmashed'} ${n} part(s)` : `Nothing to ${on ? 'smash' : 'unsmash'}`);
+}
+
+/**
+ * Editable properties of a selected object: part name and value, or net name.
+ * Enter applies (one undo step, in both schematic and board); Esc cancels.
+ * Returns the rows and the names of read-only props they replace.
+ */
+function propertyFields(o: Owner): { table: HTMLTableElement; covers: Set<string> } | undefined {
+  if (!editor?.canEdit) return undefined;
+  const ed = editor;
+  const rows: [label: string, field: string, value: string, commit: (v: string) => string | undefined][] = [];
+  const covers = new Set<string>();
+  const part = o.target?.kind === 'instance' ? o.target.instance.part : o.target?.kind === 'element' ? o.target.element.name : undefined;
+  if (part !== undefined) {
+    const value = o.props.find(([k]) => k === 'Value')?.[1] ?? '';
+    rows.push(['Name', 'name', part, (v) => ed.renamePart(part, v)]);
+    rows.push(['Value', 'value', value, (v) => ed.setValue(part, v)]);
+    for (const k of ['Name', 'Part', 'Value']) covers.add(k);
+  } else if (o.net !== undefined && o.kind !== 'bus-wire') {
+    const net = o.net;
+    rows.push(['Net', 'net', net, (v) => ed.renameNet(net, v)]);
+    for (const k of ['Net', 'Signal']) covers.add(k);
+  }
+  if (!rows.length) return undefined;
+
+  const table = document.createElement('table');
+  table.className = 'props fields';
+  for (const [label, field, value, commit] of rows) {
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.value = value;
+    input.dataset.field = field;
+    input.spellcheck = false;
+    input.setAttribute('aria-label', label);
+    const done = () => canvas.focus({ preventScroll: true });
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        if (input.value === value) return done();
+        const err = commit(input.value);
+        if (err) {
+          input.classList.add('invalid');
+          flash(err);
+        } else {
+          flash(`${label} changed`);
+          done();
+        }
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        input.value = value;
+        input.classList.remove('invalid');
+        done();
+      }
+    });
+    input.addEventListener('input', () => input.classList.remove('invalid'));
+    const tr = document.createElement('tr');
+    const td = document.createElement('td');
+    td.append(input);
+    tr.append(el('th', '', label), td);
+    table.append(tr);
+  }
+  return { table, covers };
+}
+
+/** Jump to a property field of the selection (N: name/net, V: value). */
+function focusField(fields: string[]): void {
+  for (const f of fields) {
+    const input = inspector.querySelector<HTMLInputElement>(`input[data-field="${f}"]`);
+    if (input) {
+      input.focus();
+      input.select();
+      return;
+    }
+  }
+  flash(selection.size === 1 ? 'This object has no such property' : 'Select a single object first');
 }
 
 function el(tag: string, cls: string, text: string): HTMLElement {
@@ -1079,6 +1174,12 @@ window.addEventListener('keydown', (e) => {
     switchView(vs[(vs.indexOf(view) + 1) % vs.length]!);
   } else if (e.key === 'Home') {
     fitView();
+  } else if (key === 'n') {
+    e.preventDefault();
+    focusField(['name', 'net']);
+  } else if (key === 'v') {
+    e.preventDefault();
+    focusField(['value']);
   } else if (key === 'm') {
     beginMove(cursor, false);
   } else if (key === 'r') {

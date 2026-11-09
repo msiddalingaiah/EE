@@ -4,6 +4,16 @@ A browser-based electronic CAD tool built around noun-verb (select, then act) ed
 
 ## Status
 
+Milestone 5 — **property editing** in the inspector (Enter applies, Esc cancels):
+
+- Rename a part (N): the schematic part, its gates and pinrefs, and the board element and its
+  contactrefs all change together. Names are upper-cased like Eagle's; taken names are refused.
+- Change a value (V) in both documents; parts whose device fixes the value are refused.
+- Rename a net (N on a wire): schematic nets on all sheets and the board signal. Joining an
+  existing net, and renaming supply nets (named by a supply symbol or power pins), are refused.
+- Smash / unsmash parts: smashed name and value texts become their own objects that can be
+  selected, moved, rotated and deleted; unsmash puts them back on the part.
+
 Milestone 4 — **schematic + board as one project**:
 
 - A schematic and its board open together (select both in Open…, or drop both); a toolbar
@@ -51,7 +61,7 @@ Milestone 1 — **Eagle viewer with selection**:
   (left-to-right = fully inside, right-to-left = touching), Ctrl+A, Esc. An inspector shows
   the properties of the selection. Clicking inside a part's body selects the part.
 
-Not yet: library editing, property edits (name/value), routing new
+Not yet: library editing, joining nets, routing new
 traces, polygon pour computation (outlines only), Eagle's vector font (text uses a system
 sans-serif), multiple-sheet navigation beyond a sheet selector, busses beyond wires.
 
@@ -79,6 +89,7 @@ A sample can be opened directly by URL: `http://localhost:5173/#TA7358A` (or `#T
 | Rotate 90° | `R` (Shift+R clockwise), also while moving |
 | Flip to other side (board) / mirror (schematic) | `F`, also while moving |
 | Delete | Del / Backspace |
+| Edit name / net name, value | `N`, `V` (Enter applies, Esc cancels) |
 | Fine grid while moving | Hold Alt |
 | Undo / redo | Ctrl+Z / Ctrl+Y (or Ctrl+Shift+Z) |
 | Save | Ctrl+S |
@@ -94,7 +105,8 @@ A sample can be opened directly by URL: `http://localhost:5173/#TA7358A` (or `#T
 - `src/eagle/`: Eagle XML model (`types.ts`), parser and serializer (`parse.ts`), and the
   model-to-XML links that make lossless saving possible (`dom.ts`)
 - `src/edit/`: undoable operations and transactions (`ops.ts`), shared geometry edits
-  (`common.ts`), board commands (`board.ts`) and schematic commands (`schematic.ts`)
+  (`common.ts`), board commands (`board.ts`), schematic commands (`schematic.ts`) and
+  property edits (`properties.ts`)
 - `src/geom/`: affine transforms (Eagle rotations/mirroring) and arc geometry
 - `src/scene/`: turns a design into a flat list of drawable primitives in world space (mm, y-up),
   each tagged with its **owner**, the selectable object. `schematic.ts`, `board.ts`, `library.ts`,

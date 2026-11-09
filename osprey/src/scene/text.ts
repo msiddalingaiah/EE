@@ -1,6 +1,8 @@
 // Text helpers: placeholder substitution and formatting.
 
-import type { PlacedAttribute, Rotation } from '../eagle/types';
+import { objId } from '../eagle/dom';
+import type { Element, Instance, PlacedAttribute, Rotation } from '../eagle/types';
+import type { Owner } from './types';
 
 /**
  * Returns a function that replaces Eagle placeholders (">NAME", ">VALUE", ">ANY_ATTR")
@@ -35,4 +37,25 @@ export function fmtXY(x: number, y: number): string {
 
 export function fmtRot(r: Rotation): string {
   return `${r.spin ? 'S' : ''}${r.mirror ? 'M' : ''}R${fmtNum(r.angle)}`;
+}
+
+/** Owner for a smashed name/value text of a part. */
+export function attributeOwner(
+  a: PlacedAttribute, partName: string, doc: 'schematic' | 'board', parent: Instance | Element,
+): Owner {
+  return {
+    id: `attribute:${objId(a)}`,
+    kind: 'attribute',
+    label: `${partName} ${a.name.toLowerCase()}`,
+    props: [
+      ['Part', partName],
+      ['Attribute', a.name],
+      ['Position', fmtXY(a.x ?? 0, a.y ?? 0)],
+      ['Rotation', fmtRot(a.rot)],
+      ['Size', `${fmtNum(a.size ?? 0)} mm`],
+      ['Layer', String(a.layer ?? '')],
+    ],
+    target: { kind: 'attribute', doc, parent, attribute: a },
+    origin: { x: a.x ?? 0, y: a.y ?? 0 },
+  };
 }

@@ -27,7 +27,9 @@ export function padPosition(board: Board, el: Element, padName: string): Point |
 
 /** Can this target be changed by commands? Locked elements can't. */
 export function isEditable(t: Target): boolean {
-  return t.kind !== 'element' || !t.element.locked;
+  if (t.kind === 'element') return !t.element.locked;
+  if (t.kind === 'attribute' && 'locked' in t.parent) return !t.parent.locked;
+  return true;
 }
 
 /**
@@ -77,6 +79,10 @@ export function transformBoardTargets(board: Board, targets: Target[], E: Transf
       case 'via': transformPoint(t.via, c); break;
       case 'signal-polygon': transformPolygon(t.polygon, c); break;
       case 'plain': transformGraphic(t.graphic, c); break;
+      case 'attribute':
+        // A smashed text moves with its part when both are selected.
+        if (!moved.some((m) => m.kind === 'element' && m.element === t.parent)) transformPlacedAttributes([t.attribute], c);
+        break;
       default: break;
     }
   }
@@ -107,6 +113,9 @@ export function deleteBoardTargets(board: Board, targets: Target[], tx: Transact
         break;
       case 'plain':
         tx.run(removeItem(t.container, t.graphic));
+        break;
+      case 'attribute':
+        if (t.parent.attributes.includes(t.attribute)) tx.run(removeItem(t.parent.attributes, t.attribute));
         break;
       default:
         break;

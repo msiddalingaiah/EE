@@ -2,8 +2,8 @@
 // Every primitive belongs to an owner: the selectable design object (the "noun").
 
 import type {
-  Bus, Element, Graphic, Instance, Junction, Label, Layer, Net, Polygon, Segment, Sheet, Signal,
-  TextAlign, Via, Wire,
+  Bus, Element, Graphic, Instance, Junction, Label, Layer, Net, PlacedAttribute, Polygon, Segment,
+  Sheet, Signal, TextAlign, Via, Wire,
 } from '../eagle/types';
 import type { Point } from '../geom/transform';
 
@@ -20,7 +20,9 @@ export type Target =
   | { kind: 'junction'; sheet: Sheet; net: Net; segment: Segment; junction: Junction }
   | { kind: 'label'; sheet: Sheet; net: Net | Bus; segment: Segment; label: Label }
   // Either: free drawing in <plain>
-  | { kind: 'plain'; graphic: Graphic; container: Graphic[] };
+  | { kind: 'plain'; graphic: Graphic; container: Graphic[] }
+  // Either: a smashed name/value text, placed independently of its part
+  | { kind: 'attribute'; doc: 'schematic' | 'board'; parent: Instance | Element; attribute: PlacedAttribute };
 
 export type OwnerKind =
   | 'instance' // schematic: placed gate of a part
@@ -33,6 +35,7 @@ export type OwnerKind =
   | 'via'
   | 'signal-polygon'
   | 'plain' // free graphics in schematic/board plain
+  | 'attribute' // a smashed name/value text
   | 'library-item'; // a symbol/package/deviceset shown in library view
 
 export interface Owner {

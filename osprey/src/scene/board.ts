@@ -1,6 +1,7 @@
 // Build a Scene for an Eagle board.
 
-import type { Board, EagleFile, Graphic, PlacedAttribute } from '../eagle/types';
+import type { Board, EagleFile, Element, Graphic } from '../eagle/types';
+import { attributeOwner } from './text';
 import { objId } from '../eagle/dom';
 import { findLibrary, parseDistance } from '../eagle/parse';
 import { IDENTITY, placement } from '../geom/transform';
@@ -121,17 +122,17 @@ function emitElements(b: SceneBuilder, brd: Board, rules: DesignRules): void {
         b.pad(p, rules.padDiameter(p.drill, p.diameter), elong, ctx);
       }
     }
-    if (el.smashed) emitPlacedAttributes(b, el.attributes, attrs, id);
+    if (el.smashed) emitPlacedAttributes(b, el, attrs);
   }
 }
 
-function emitPlacedAttributes(
-  b: SceneBuilder, placed: PlacedAttribute[], attrs: Record<string, string>, owner: string,
-): void {
-  for (const a of placed) {
+/** Smashed texts are separate owners, so they can be selected and moved on their own. */
+function emitPlacedAttributes(b: SceneBuilder, el: Element, attrs: Record<string, string>): void {
+  for (const a of el.attributes) {
     if (a.x === undefined || a.y === undefined || a.layer === undefined) continue;
     const text = placedAttributeText(a, attrs[a.name.toUpperCase()]);
     if (!text) continue;
+    const owner = b.addOwner(attributeOwner(a, el.name, 'board', el));
     b.text(text, a.x, a.y, a.size ?? 1.27, a.rot, a.align, a.layer, {
       owner, transform: IDENTITY, textContext: 'board',
     });

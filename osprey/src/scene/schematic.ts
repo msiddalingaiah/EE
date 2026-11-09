@@ -1,7 +1,8 @@
 // Build a Scene for one sheet of an Eagle schematic.
 
 import { objId } from '../eagle/dom';
-import type { Bus, DeviceSet, EagleFile, Library, Net, Part, PlacedAttribute, Schematic, Segment, Sheet } from '../eagle/types';
+import type { Bus, DeviceSet, EagleFile, Instance, Library, Net, Part, Schematic, Segment, Sheet } from '../eagle/types';
+import { attributeOwner } from './text';
 import { findLibrary, generatedValue } from '../eagle/parse';
 import { IDENTITY, placement } from '../geom/transform';
 import { SceneBuilder } from './builder';
@@ -80,7 +81,7 @@ export function buildSchematicScene(file: EagleFile, sheetIndex = 0): Scene {
     buildSymbolInto(b, symbol, placement(inst.x, inst.y, inst.rot), id, pads, (t) =>
       inst.smashed && t.startsWith('>') ? undefined : resolve(t),
     );
-    if (inst.smashed) emitPlacedAttributes(b, inst.attributes, attrs, id);
+    if (inst.smashed) emitPlacedAttributes(b, inst, attrs);
   }
 
   for (const net of sheet.nets) for (const seg of net.segments) emitSegment(b, sheet, net, seg, 'net');
@@ -89,13 +90,13 @@ export function buildSchematicScene(file: EagleFile, sheetIndex = 0): Scene {
   return b.finish();
 }
 
-function emitPlacedAttributes(
-  b: SceneBuilder, placed: PlacedAttribute[], attrs: Record<string, string>, owner: string,
-): void {
-  for (const a of placed) {
+/** Smashed texts are separate owners, so they can be selected and moved on their own. */
+function emitPlacedAttributes(b: SceneBuilder, inst: Instance, attrs: Record<string, string>): void {
+  for (const a of inst.attributes) {
     if (a.x === undefined || a.y === undefined) continue;
     const text = placedAttributeText(a, a.value ?? attrs[a.name.toUpperCase()]);
     if (!text) continue;
+    const owner = b.addOwner(attributeOwner(a, inst.part, 'schematic', inst));
     b.text(text, a.x, a.y, a.size ?? 1.778, a.rot, a.align, a.layer ?? 95, {
       owner, transform: IDENTITY, textContext: 'schematic',
     });

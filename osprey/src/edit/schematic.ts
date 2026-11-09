@@ -83,6 +83,10 @@ export function transformSchematicTargets(sch: Schematic, targets: Target[], E: 
       case 'junction': transformPoint(t.junction, c); break;
       case 'label': transformText(t.label, c); break;
       case 'plain': transformGraphic(t.graphic, c); break;
+      case 'attribute':
+        // A smashed text moves with its gate when both are selected.
+        if (!targets.some((m) => m.kind === 'instance' && m.instance === t.parent)) transformPlacedAttributes([t.attribute], c);
+        break;
       default: break;
     }
   }
@@ -114,6 +118,9 @@ export function deleteSchematicTargets(sch: Schematic, targets: Target[], tx: Tr
         if (t.segment.labels.includes(t.label)) tx.run(removeItem(t.segment.labels, t.label));
         break;
       case 'plain': tx.run(removeItem(t.container, t.graphic)); break;
+      case 'attribute':
+        if (t.parent.attributes.includes(t.attribute)) tx.run(removeItem(t.parent.attributes, t.attribute));
+        break;
       default: break;
     }
   }
