@@ -228,3 +228,15 @@ dialog.choose-net {
 dialog.choose-net::backdrop { background: rgba(0, 0, 0, 0.45); }
 dialog.choose-net p { margin: 0 0 12px; }
 .choose-net-buttons { display: flex; flex-wrap: wrap; gap: 8px; }
+
+/* Design rules / DRC */
+.drc-rules { color: var(--text-dim); margin-bottom: 6px; }
+.drc-rules span { color: var(--text); }
+#drc-load { width: 100%; margin-bottom: 6px; }
+.drc-summary { margin: 4px 0; }
+.drc-summary.ok { color: #50c878; }
+.drc-summary.bad { color: #ff6b6b; }
+.drc-list { max-height: 36vh; }
+.drc-list button { white-space: normal; line-height: 1.3; padding: 4px 6px; }
+.drc-list button .drc-kind { display: inline-block; min-width: 64px; color: #ff6b6b; font-weight: 600; }
+.drc-list button.active { background: #2b3343; }

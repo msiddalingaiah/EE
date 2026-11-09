@@ -1,12 +1,12 @@
 // Build a Scene for a project's board (native model), including the computed airwires.
 
 import { objId } from '../eagle/dom';
-import { parseDistance } from '../eagle/parse';
 import type { Layer } from '../eagle/types';
 import { ProjectIndex } from '../model/derive';
 import { designRules, footprintTransform, rotation } from '../model/geometry';
 import { layerNumber } from '../model/layers';
 import { ratsnest } from '../model/ratsnest';
+import { DesignRules } from '../model/rules';
 import type * as O from '../model/types';
 import { AIRWIRES_LAYER, SceneBuilder, type EmitContext } from './builder';
 import { drawingKind } from './schematic';
@@ -28,40 +28,7 @@ export function mirrorLayerNumber(layer: number): number {
   return layer >= 2 && layer <= 15 ? 17 - layer : layer;
 }
 
-/** Design-rule lookups with Eagle's defaults. */
-export class DesignRules {
-  constructor(private readonly params: Map<string, string>) {}
-
-  private ratio(name: string, dflt: number): number {
-    const v = this.params.get(name);
-    return v === undefined ? dflt : Number(v);
-  }
-
-  private dist(name: string, dflt: number): number {
-    const v = this.params.get(name);
-    return v === undefined ? dflt : parseDistance(v);
-  }
-
-  private restring(drill: number, kind: 'PadTop' | 'ViaOuter'): number {
-    const rv = this.ratio(`rv${kind}`, 0.25);
-    const min = this.dist(`rlMin${kind}`, 0.254);
-    const max = this.dist(`rlMax${kind}`, 0.508);
-    return Math.min(Math.max(drill * rv, min), max);
-  }
-
-  /** Effective outer diameter of a through-hole pad. */
-  padDiameter(drill: number, diameter: number): number {
-    return Math.max(diameter, drill + 2 * this.restring(drill, 'PadTop'));
-  }
-
-  viaDiameter(drill: number, diameter: number): number {
-    return Math.max(diameter, drill + 2 * this.restring(drill, 'ViaOuter'));
-  }
-
-  elongation(shape: 'long' | 'offset'): number {
-    return this.ratio(shape === 'long' ? 'psElongationLong' : 'psElongationOffset', 100);
-  }
-}
+export { DesignRules } from '../model/rules';
 
 export function buildBoardScene(project: O.Project, layers: Layer[], index = new ProjectIndex(project)): Scene {
   const board = project.board;

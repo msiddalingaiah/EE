@@ -44,6 +44,14 @@
           <div id="parts-choice" class="parts-choice" hidden></div>
         </section>
         <input id="lbr-input" type="file" accept=".lbr" multiple hidden />
+        <section id="drc-panel" hidden>
+          <h2>Design rules <span class="panel-actions"><button id="drc-run" type="button" title="Check the board against its design rules">Check</button></span></h2>
+          <div class="drc-rules">Rules: <span id="drc-name"></span></div>
+          <select id="drc-load" aria-label="Load design rules"></select>
+          <div id="drc-summary" class="drc-summary"></div>
+          <div id="drc-list" class="library-list drc-list"></div>
+        </section>
+        <input id="dru-input" type="file" accept=".dru" hidden />
         <section id="library-panel" hidden>
           <h2>Library</h2>
           <input id="library-filter" type="search" placeholder="Filter…" />

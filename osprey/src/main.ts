@@ -9,7 +9,9 @@ import { parseClip, type Clip, type Pasted } from './edit/clipboard';
 import type { Layer } from './eagle/types';
 import type { Point } from './geom/transform';
 import { componentName, ProjectIndex } from './model/derive';
+import { drc, type DrcResult, type Violation } from './model/drc';
 import { readProject } from './model/file';
+import { designRules, parseDru } from './model/rules';
 import { exportEagle } from './model/export-eagle';
 import { importEagle, importLibrary } from './model/import-eagle';
 import type * as O from './model/types';
@@ -68,6 +70,12 @@ const partsList = $<HTMLDivElement>('parts-list');
 const partsChoice = $<HTMLDivElement>('parts-choice');
 const lbrInput = $<HTMLInputElement>('lbr-input');
 const wireBtn = $<HTMLButtonElement>('wire-btn');
+const drcPanel = $<HTMLElement>('drc-panel');
+const drcName = $<HTMLSpanElement>('drc-name');
+const drcLoad = $<HTMLSelectElement>('drc-load');
+const drcSummary = $<HTMLDivElement>('drc-summary');
+const drcList = $<HTMLDivElement>('drc-list');
+const druInput = $<HTMLInputElement>('dru-input');
 
 // ---------------------------------------------------------------------------
 // State
@@ -110,6 +118,10 @@ let placing: PlaceSession | undefined;
 const loadedLibraries = new Map<string, O.Library>();
 /** The component chosen in the Add part panel. */
 let chosen: { source: string; id: string } | undefined;
+
+/** The last design-rule check (kept up to date after edits once run), and the violation in focus. */
+let drcResult: DrcResult | undefined;
+let drcActive: Violation | undefined;
 
 /** Drawing wires (the W key): active until stopped. */
 let wiring: WireSession | undefined;
@@ -259,6 +271,8 @@ function openSources(sources: SourceFile[], initialView?: ViewKind): void {
     stopPlacing();
     stopWiring();
     stopRouting();
+    drcResult = undefined;
+    drcActive = undefined;
     project = next.project;
     library = next.library;
     importReport = next.report;
@@ -362,6 +376,8 @@ function setupViewChrome(): void {
   libraryPanel.hidden = view !== 'library';
   partsPanel.hidden = !(project && view === 'schematic');
   wireBtn.hidden = !(project && (view === 'schematic' || view === 'board'));
+  drcPanel.hidden = !(project?.board && view === 'board');
+  if (!drcPanel.hidden) renderDrcPanel();
   wireBtn.textContent = view === 'board' ? 'Route' : 'Wire';
   wireBtn.title = view === 'board'
     ? 'Route traces (W): start on a pad, via or trace end; click adds corners; L changes layer; ends on copper of the same net, or with a double click or Esc'
@@ -440,6 +456,12 @@ let listedLayers = '';
 function onEdited(): void {
   wiring?.refresh();
   routing?.refresh();
+  // While moving or drawing, the model changes on every mouse move: check once it settles.
+  if (drcResult && project && !move && !placing) {
+    drcResult = drc(project);
+    if (drcActive) drcActive = drcResult.violations.find((v) => v.message === drcActive!.message);
+    if (view === 'board') renderDrcPanel();
+  }
   rebuildScene({ fit: false, keepSelection: true });
   updateChrome();
 }
@@ -1137,6 +1159,7 @@ function draw(): void {
     hover: move || placing || wiring || routing ? undefined : hover,
     ...(wiring ? { sketch: { paths: [{ points: wiring.path, width: wiring.width, layer: 91 }], layer: 91, cursor: wiring.at, snapped: wiring.snapped } } : {}),
     ...(routing ? { sketch: routeSketch(routing) } : {}),
+    ...(drcResult && view === 'board' ? { markers: drcResult.violations.map((v) => ({ at: { x: v.at[0], y: v.at[1] }, active: v === drcActive })) } : {}),
     ...(box ? { box: boxSelection(box) } : {}),
     ...(editor && view !== 'library' ? { grid: gridOf() } : {}),
   });
@@ -1429,6 +1452,89 @@ function routeSketch(r: RouteSession) {
     snapped: !!r.snappedTo,
   };
 }
+
+// ---------------------------------------------------------------------------
+// Design rules and DRC
+
+const sampleRules = import.meta.glob('../samples/eagle/*.dru', { query: '?raw', import: 'default' });
+const DRC_KIND: Record<Violation['kind'], string> = { overlap: 'Short', clearance: 'Clearance', width: 'Width', drill: 'Drill', dimension: 'Edge' };
+
+function renderDrcPanel(): void {
+  if (!project) return;
+  const rules = designRules(project);
+  drcName.textContent = rules.get('@name') ?? (rules.size ? 'unnamed' : "Eagle's defaults");
+  if (drcLoad.options.length === 0) {
+    drcLoad.append(new Option('Load rules…', ''));
+    for (const path of Object.keys(sampleRules).sort()) drcLoad.append(new Option(path.split('/').pop()!, path));
+    drcLoad.append(new Option('From a .dru file…', 'open'));
+  }
+  drcList.replaceChildren();
+  if (!drcResult) {
+    drcSummary.className = 'drc-summary';
+    drcSummary.textContent = 'Not checked yet.';
+    return;
+  }
+  const n = drcResult.violations.length;
+  drcSummary.className = `drc-summary ${n ? 'bad' : 'ok'}`;
+  drcSummary.textContent = n ? `${n} problem${n > 1 ? 's' : ''}` : `✓ No problems (${drcResult.checked} copper items checked)`;
+  for (const v of drcResult.violations.slice(0, 500)) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.append(el('span', 'drc-kind', DRC_KIND[v.kind]), document.createTextNode(v.message.replace(/^Short: /, '')));
+    b.title = v.message;
+    if (v === drcActive) b.className = 'active';
+    b.addEventListener('click', () => showViolation(v));
+    drcList.append(b);
+  }
+}
+
+function runDrc(): void {
+  if (!project?.board) return;
+  if (move) commitMove();
+  drcResult = drc(project);
+  drcActive = undefined;
+  renderDrcPanel();
+  const n = drcResult.violations.length;
+  flash(n ? `DRC: ${n} problem${n > 1 ? 's' : ''} (marked on the board)` : 'DRC: no problems');
+  requestRender();
+}
+
+/** Zoom to a violation and select what is involved. */
+function showViolation(v: Violation): void {
+  drcActive = v;
+  const r = 2.5;
+  vp.fit({ minX: v.at[0] - r, minY: v.at[1] - r, maxX: v.at[0] + r, maxY: v.at[1] + r });
+  reselect(v.objects);
+  renderDrcPanel();
+  flash(v.message);
+  canvas.focus({ preventScroll: true });
+  requestRender();
+}
+
+async function loadRules(name: string, text: string): Promise<void> {
+  if (!editor) return;
+  try {
+    const err = editor.loadRules(name.replace(/\.dru$/i, ''), parseDru(text));
+    if (err) return showError(err);
+  } catch (e) {
+    return showError(`Could not read ${name}: ${e instanceof Error ? e.message : String(e)}`);
+  }
+  runDrc();
+  flash(`Loaded design rules ${name} · ${drcResult?.violations.length ? `${drcResult.violations.length} problem(s)` : 'no problems'}`);
+}
+
+$('drc-run').addEventListener('click', runDrc);
+drcLoad.addEventListener('change', async () => {
+  const v = drcLoad.value;
+  drcLoad.value = '';
+  if (v === 'open') druInput.click();
+  else if (v && sampleRules[v]) await loadRules(v.split('/').pop()!, (await sampleRules[v]!()) as string);
+});
+druInput.addEventListener('change', async () => {
+  const file = druInput.files?.[0];
+  druInput.value = '';
+  if (file) await loadRules(file.name, await file.text());
+});
 
 /** Wire ends snap to pins and wire ends within this many pixels. */
 const WIRE_SNAP_PX = 8;

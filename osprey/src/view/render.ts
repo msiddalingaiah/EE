@@ -29,6 +29,8 @@ export interface RenderState {
   grid?: number;
   /** A wire being drawn (world coordinates), in the colour of `layer`, and the cursor. */
   sketch?: Sketch;
+  /** Design-rule violations to mark (the active one stands out). */
+  markers?: { at: { x: number; y: number }; active: boolean }[];
 }
 
 type XY = { x: number; y: number };
@@ -106,6 +108,7 @@ export function render(ctx: CanvasRenderingContext2D, vp: Viewport, dpr: number,
   for (const owner of s.selection) highlight(owner, SELECT_COLOR, 1.5);
 
   if (s.box) drawBox(ctx, vp, dpr, s.box.rect, s.box.crossing);
+  if (s.markers) drawMarkers(ctx, vp, dpr, s.markers);
   if (s.sketch) drawSketch(ctx, vp, dpr, s.sketch, (layer) => layerColor(s.layers.get(layer)));
 }
 
@@ -149,6 +152,29 @@ function drawSketch(ctx: CanvasRenderingContext2D, vp: Viewport, dpr: number, k:
     ctx.lineTo(c.x, c.y + 6);
   }
   ctx.stroke();
+}
+
+/** Design-rule violations: a ring with a cross, in screen space so it stays visible at any zoom. */
+function drawMarkers(ctx: CanvasRenderingContext2D, vp: Viewport, dpr: number, markers: NonNullable<RenderState['markers']>): void {
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  for (const m of [...markers].sort((a, b) => Number(a.active) - Number(b.active))) {
+    const c = vp.toScreen(m.at.x, m.at.y);
+    const r = m.active ? 11 : 7;
+    const width = m.active ? 2.5 : 1.5;
+    ctx.beginPath();
+    ctx.arc(c.x, c.y, r, 0, Math.PI * 2);
+    ctx.moveTo(c.x - r * 0.6, c.y - r * 0.6);
+    ctx.lineTo(c.x + r * 0.6, c.y + r * 0.6);
+    ctx.moveTo(c.x + r * 0.6, c.y - r * 0.6);
+    ctx.lineTo(c.x - r * 0.6, c.y + r * 0.6);
+    // A dark halo keeps the mark visible on copper and on selected (yellow) objects.
+    ctx.lineWidth = width + 3;
+    ctx.strokeStyle = BACKGROUND;
+    ctx.stroke();
+    ctx.lineWidth = width;
+    ctx.strokeStyle = m.active ? '#ff4dff' : '#ff4d4d';
+    ctx.stroke();
+  }
 }
 
 function worldTransform(ctx: CanvasRenderingContext2D, vp: Viewport, dpr: number): void {

@@ -6,7 +6,7 @@ import type { Point, Transform } from '../geom/transform';
 import { apply, placement } from '../geom/transform';
 import type { ProjectIndex } from './derive';
 import { layerName, layerNumber } from './layers';
-import type { FootprintPlacement, GatePlacement, JsonML, Project, Pt } from './types';
+import type { FootprintPlacement, GatePlacement, Pt } from './types';
 
 export function rotation(rot: number | undefined, mirror: boolean | undefined, spin?: boolean): Rotation {
   return { angle: rot ?? 0, mirror: !!mirror, spin: !!spin };
@@ -53,22 +53,4 @@ export function mirrorLayer(name: string): string {
   return name;
 }
 
-/** Eagle design-rule parameters kept in the board's passthrough (name → raw value). */
-export function designRules(project: Project): Map<string, string> {
-  const out = new Map<string, string>();
-  const visit = (node: JsonML) => {
-    const [tag, ...rest] = node;
-    if (tag === 'param') {
-      const attrs = rest[0];
-      if (attrs && !Array.isArray(attrs) && typeof attrs === 'object') out.set(attrs.name ?? '', attrs.value ?? '');
-      return;
-    }
-    for (const c of rest) if (Array.isArray(c)) visit(c as JsonML);
-  };
-  for (const entry of project.eagle?.board ?? []) {
-    const [tag, ...rest] = entry;
-    if (tag !== 'board') continue;
-    for (const c of rest) if (Array.isArray(c) && c[0] === 'designrules') visit(c as JsonML);
-  }
-  return out;
-}
+export { designRules } from './rules';

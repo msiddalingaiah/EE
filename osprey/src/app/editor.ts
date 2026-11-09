@@ -11,6 +11,8 @@ import { deleteTargets } from '../edit/delete';
 import { History, insert, remove, Transaction } from '../edit/ops';
 import { copyTargets, pasteClip, type Clip, type Pasted } from '../edit/clipboard';
 import { addToLibrary, createPart, gatesToPlace } from '../edit/place';
+import { applyDru } from '../edit/rules';
+import type { DruFile } from '../model/rules';
 import { addRoute, anchors, bend45, copperLayers, traceWidth, viaDrill, type Anchor, type Leg } from '../edit/route';
 import { addWire, cleanPath, sheetPins, snapPoints, touchAt, usualWireWidth, type WireResult } from '../edit/wire';
 import { renameNet, renamePart, setPartValue, smash, unsmash } from '../edit/properties';
@@ -98,6 +100,15 @@ export class Editor {
       : n ? `Paste ${n} part${n > 1 ? 's' : ''} and wiring` : `Paste ${describe(pasted.targets)}`;
     const origin = { x: clip.origin[0], y: clip.origin[1] };
     return { session: new MoveSession(this, pasted.targets, grid, origin, origin, tx), pasted };
+  }
+
+  /** Replace the board's design rules with a .dru file's (one undo step). */
+  loadRules(name: string, dru: DruFile): string | undefined {
+    if (!this.project.board) return 'The project has no board';
+    const tx = new Transaction(`Load design rules ${name}`);
+    applyDru(this.project, name, dru, tx);
+    this.push(tx);
+    return undefined;
   }
 
   /** Start routing traces on the board. */

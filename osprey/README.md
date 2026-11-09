@@ -38,7 +38,13 @@ native model (see [docs/format.md](docs/format.md)). Eagle files are imported in
 - **Routing traces** (board): start on a pad, via or trace end and the route takes its net.
   Legs bend at 45°; changing layer adds a via. The route ends on copper of the same net, and
   the airwire it replaces disappears. Width and via drill come from the net class, else the
-  board's most common ones. (No design-rule checks yet: a route can cross other nets.)
+  board's most common ones. Routing doesn't stop you crossing other nets; the DRC finds it.
+- **Design-rule check** (board): the Design rules panel checks copper clearance between
+  nets (Eagle's wire/pad/SMD/via distances), shorts, minimum trace width and drill, and copper
+  near the board edge or holes. Problems are listed and marked on the board; clicking one zooms
+  to it and selects what's involved; the list updates as you edit. Rules come from the board
+  (as imported from Eagle) and can be loaded from an Eagle `.dru` file; values the file doesn't
+  set are kept. Pours aren't checked yet.
 - **One model, always consistent.** Each part and net is stored once. Deleting a part in
   either view removes it everywhere; board pad connections are derived from the schematic,
   so a schematic wire delete disconnects the pad on the board by itself.
@@ -88,6 +94,7 @@ OSPREY_CORPUS=~/designs npx vitest run -t corpus
 | Flip to other side (board) / mirror (schematic) | `F`, also while moving |
 | Delete | Del / Backspace |
 | Copy / cut / paste (schematic) | Ctrl+C / Ctrl+X / Ctrl+V; click places the paste, `R`/`F` while floating, Esc cancels |
+| Design-rule check (board) | Design rules panel: Check; Load rules… for a `.dru` file; click a problem to zoom to it |
 | Route traces (board) | `W` or the Route button; click a pad, via or trace end to start, click adds corners, `L` changes layer (adds a via), `/` flips the bend; ends on copper of the same net, or with a double click, Esc or right-click; Esc again stops |
 | Draw wires (schematic) | `W` or the Wire button; click to start, click adds a corner, `/` flips the bend; a wire ends on a pin or wire, or with a double click, Esc or right-click; Esc again stops |
 | Add part (schematic) | `A` to search, choose a component, Place (or Enter); click places each gate, `R`/`F` while placing, Esc or right-click stops |
@@ -108,12 +115,13 @@ OSPREY_CORPUS=~/designs npx vitest run -t corpus
 - `samples/eagle/`: sample Eagle files (`.sch`, `.brd`, `.lbr`)
 - `src/model/`: the native project model (`types.ts`), `.osprey` reading and writing
   (`file.ts`), Eagle import and export (`import-eagle.ts`, `export-eagle.ts`, `passthrough.ts`, `layers.ts`), derived facts
-  such as net pads (`derive.ts`), geometry (`geometry.ts`) and the ratsnest (`ratsnest.ts`)
+  such as net pads (`derive.ts`), geometry (`geometry.ts`), the ratsnest (`ratsnest.ts`), design
+  rules (`rules.ts`) and the design-rule check (`drc.ts`)
 - `src/eagle/`: Eagle XML parser and writer (`parse.ts`, `types.ts`), used by import and export
 - `src/edit/`: undoable operations and history (`ops.ts`), move/rotate/mirror with
   rubber-banding (`transform.ts`), delete (`delete.ts`), property edits (`properties.ts`) and
-  adding parts (`place.ts`), wires, which join nets (`wire.ts`), copy and paste (`clipboard.ts`) and
-  routing traces (`route.ts`)
+  adding parts (`place.ts`), wires, which join nets (`wire.ts`), copy and paste (`clipboard.ts`),
+  routing traces (`route.ts`) and loading design rules (`rules.ts`)
 - `src/scene/`: turns the model into drawable primitives in world space (mm, y-up), each tagged
   with its **owner**, the selectable object: `schematic.ts`, `board.ts`, `library.ts`, with
   shared `builder.ts` (graphics, pads, text) and `symbol.ts` (symbols and pins)
