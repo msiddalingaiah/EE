@@ -84,7 +84,7 @@ keeps them away.
 ```json
 "project": {
   "name": "TA7358A",
-  "imported": { "from": ["TA7358A.sch", "TA7358A.brd"], "eagle": "9.6.2", "date": "2026-11-09" }
+  "imported": { "from": ["TA7358A.sch", "TA7358A.brd"], "date": "2026-11-09", "eagleVersion": "9.6.2" }
 }
 ```
 
@@ -151,7 +151,7 @@ Pads are either SMD or through-hole:
 | --- | --- |
 | `smd: [dx, dy]`, `roundness` (%, default 0), `side` (`top`/`bottom`, default `top`), `mask`/`paste` (default true) | `drill`, `diameter` (default 0 = automatic from design rules), `shape` (`round` \| `square` \| `octagon` \| `long` \| `offset`), `first` |
 
-Both have `name`, `at`, `rot`. Footprints are always defined as seen from the top;
+Both have `name`, `at`, `rot`, and `thermals` (default true). Footprints are always defined as seen from the top;
 placing one on the bottom side mirrors it.
 
 ### Component (Eagle "device set" + "devices")
@@ -171,6 +171,10 @@ placing one on the bottom side mirrors it.
 - A **variant** (Eagle "device") chooses the footprint and maps each `gate.pin` to one or
   more pads. A variant without `footprint` is schematic-only (e.g. a ground symbol).
 - `technologies` (optional) on a variant: `{ "LS": { "attr": "value" }, "HC": { … } }`.
+  An attribute users may change per part is written `{ "value": "…", "constant": false }`.
+  Omitted when the variant has only the empty technology with no attributes.
+- A part that exists only on the board (no schematic) refers to a footprint-only component,
+  `"<footprint id>#footprint"`, with no gates and one variant naming the footprint.
 - Gate fields: `addLevel` (`next` | `must` | `can` | `always` | `request`, default `next`),
   `swap` (default 0).
 - **Generated value:** for components with `userValue: false`, a part's value is the
@@ -224,7 +228,8 @@ routing are how it's drawn and built.
 | `segments` | Schematic wiring, one per connected piece of wire on a sheet (Eagle "segment"): `sheet`, `pins` (the gate pins this piece touches), `wires`, `junctions` (`[x, y]` points), `labels`. |
 | `traces` | Board copper: lines and arcs with `width` and `layer`. |
 | `vias` | `{ "at": [x, y], "drill": 0.6, "diameter": 0, "layers": "1-16", "shape": "round" }`. |
-| `pours` | Copper pours: `{ "points": [[x, y], …], "width", "layer", "isolate", "spacing", "pour": "solid" }`. |
+| `pours` | Copper pours, as polygon shapes: `{ "polygon": [[x, y], …], "width", "layer", "isolate", "spacing", "rank", "pour" (`hatch` \| `cutout`), "thermals", "orphans" }`. |
+| `pads` | **Board-only projects only:** `[{ "part", "pad" }]`. Without a schematic there are no pins to derive pads from, so they are stored. |
 
 What is **derived, not stored**:
 
@@ -264,9 +269,10 @@ What is **derived, not stored**:
   `labels` is smashed: its name/value texts are placed independently. `smashed: true` with
   no labels hides them (Eagle allows this). Without either, the symbol's own `>NAME` and
   `>VALUE` texts are used.
-- **Label fields:** `attr`, `at`, `rot`, `mirror`, `spin`, `size`, `layer`, `ratio`
-  (default 8), `align` (default `bottom-left`), `display` (`value` | `name` | `both` |
-  `none`, default `value`).
+- **Label fields:** `attr`, `value` (only when the label carries its own value, e.g. a
+  board attribute such as `POPULARITY`), `at`, `rot`, `mirror`, `spin`, `size`, `layer`,
+  `ratio` (default 8), `align` (default `bottom-left`), `display` (`value` | `name` |
+  `both` | `none`, default `value`), `font`.
 - **Sheet fields:** `id` (stable, never renumbered), `description`, `gates`, `drawing`
   (free graphics, frames).
 - **Net labels** (in net segments): `{ "at", "rot", "size", "layer", "xref", "align" }`.
@@ -300,8 +306,10 @@ What is **derived, not stored**:
   Its pads' nets are derived from the part's pins.
 - **`layers`:** the copper stack, top to bottom.
 - **`classes`:** net classes; clearances between classes are kept in the passthrough for now.
-- **Design rules** are not modelled yet: they stay in `eagle.designRules` (see below), and
-  Osprey keeps reading pad and via restring from there as it does today.
+- **Design rules** are not modelled yet: they stay in the board's passthrough (see below),
+  and Osprey keeps reading pad and via restring from there as it does today.
+- **`grid`:** `step` and `fine` (alternate grid) in mm, and `unit` (`mil` | `inch` | `mic`;
+  omitted for mm), the unit shown to the user.
 
 ## Graphics
 
@@ -348,14 +356,24 @@ settings and are not stored in the project.
 ## Passthrough
 
 Eagle data that Osprey doesn't model is kept under `eagle` keys, in **JsonML**
-(`["tag", {attributes}, ...children]`, one element per line), so nothing is lost on import
-and it is written back on export:
+(`["tag", {attributes}, ...children]`, an element and its attributes on one line, child
+elements on the lines below), so nothing that matters is lost on import, and it is written
+back on export:
 
-- **Document level** (top-level `eagle`): `settings`, `designRules`, `autorouter`, `cam`
-  (manufacturing preview colours), `variantDefinitions`, `classClearances`,
-  `approvedErrors`, `compatibility`, and any element not recognised.
-- **Object level:** any object may carry `"eagle": { "attrs": { … } }` for attributes
-  Osprey doesn't recognise (e.g. `library_urn`, `package3d_urn`, `library_version`).
+- **Document level:** top-level `eagle` has a list per source document (`schematic`,
+  `board`). Each entry groups unmodelled XML under the element it came from:
+  `["eagle", …]` (root attributes), `["drawing", …]` (e.g. `settings`),
+  `["schematic"|"board", {attributes}, …]` (e.g. `designrules`, `autorouter`,
+  `mfgpreviewcolors`, `variantdefs`, `errors`), `["library", {name, urn}, …]` (library
+  descriptions, 3D package lists), `["layers", …]` (user-defined layers the design draws
+  on) and `["grid", {…}]` (grid display settings).
+- **Object level:** any object may carry `"eagle": { "attrs": { … }, "children": [ … ] }`
+  for attributes and child elements Osprey doesn't recognise (e.g. `package3d_urn`,
+  `library_version`, `<variant>` on parts).
+
+**Not kept**, because Eagle regenerates them or they are display settings: Eagle's
+compatibility notes, the standard layer table (colours, visibility) and declared but unused
+layers, airwires, and board contactrefs (derived from the netlist).
 
 As the model grows, data moves out of the passthrough into native fields (with a format
 version bump if it changes meaning). Projects created in Osprey have no `eagle` keys.
@@ -370,6 +388,7 @@ version bump if it changes meaning). Projects created in Osprey have no `eagle` 
    only one of them), the board's wins and the import report says so.
 3. Parts from the schematic, matched to board elements by name. Nets from schematic
    pinrefs, with traces, vias and pours from the board signal of the same name.
+   Libraries sharing a name but not a URN are told apart as `name@urn`.
 4. **Inconsistencies are reported, never silently resolved.** The consistency check runs
    first. If the pair disagrees, the import lists the differences and asks whether to
    import with the schematic as the authority for the netlist.

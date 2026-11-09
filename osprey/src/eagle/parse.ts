@@ -41,7 +41,7 @@ export function parseEagle(xml: string): EagleFile {
   const lbr = child(drawing, 'library');
   if (sch) file.schematic = parseSchematic(sch);
   else if (brd) file.board = parseBoard(brd);
-  else if (lbr) file.library = parseLibrary(lbr);
+  else if (lbr) file.library = link(parseLibrary(lbr), lbr);
   else throw new EagleParseError('Drawing contains no schematic, board or library');
   return file;
 }
@@ -360,7 +360,7 @@ function parseSymbol(el: Element_): Symbol {
     name: str(el, 'name', ''),
     description: descriptionOf(el),
     graphics: parseGraphics(el),
-    pins: all(el, 'pin').map(parsePin),
+    pins: all(el, 'pin').map(linked(parsePin)),
   };
 }
 
@@ -371,16 +371,16 @@ function parseDeviceSet(el: Element_): DeviceSet {
     uservalue: bool(el, 'uservalue', false),
     description: descriptionOf(el),
     gates: all(child(el, 'gates'), 'gate').map(
-      (g): Gate => ({
+      (g): Gate => link({
         name: str(g, 'name', ''),
         symbol: str(g, 'symbol', ''),
         x: num(g, 'x'),
         y: num(g, 'y'),
         addlevel: str(g, 'addlevel', 'next'),
         swaplevel: num(g, 'swaplevel'),
-      }),
+      }, g),
     ),
-    devices: all(child(el, 'devices'), 'device').map(parseDevice),
+    devices: all(child(el, 'devices'), 'device').map(linked(parseDevice)),
   };
 }
 
@@ -421,9 +421,9 @@ export function parseLibrary(el: Element_): Library {
     name: str(el, 'name', ''),
     urn: optStr(el, 'urn'),
     description: descriptionOf(el),
-    packages: byName(all(child(el, 'packages'), 'package').map(parsePackage)),
-    symbols: byName(all(child(el, 'symbols'), 'symbol').map(parseSymbol)),
-    devicesets: byName(all(child(el, 'devicesets'), 'deviceset').map(parseDeviceSet)),
+    packages: byName(all(child(el, 'packages'), 'package').map(linked(parsePackage))),
+    symbols: byName(all(child(el, 'symbols'), 'symbol').map(linked(parseSymbol))),
+    devicesets: byName(all(child(el, 'devicesets'), 'deviceset').map(linked(parseDeviceSet))),
   };
 }
 
@@ -446,12 +446,12 @@ function parsePlacedAttribute(el: Element_): PlacedAttribute {
 }
 
 function parseClasses(el: Element_ | undefined): NetClass[] {
-  return all(el, 'class').map((c) => ({
+  return all(el, 'class').map((c) => link({
     number: num(c, 'number'),
     name: str(c, 'name', ''),
     width: num(c, 'width'),
     drill: num(c, 'drill'),
-  }));
+  }, c));
 }
 
 function parseSegment(el: Element_): Segment {
@@ -514,7 +514,7 @@ function parseSheet(el: Element_): Sheet {
 
 function parseSchematic(el: Element_): Schematic {
   return {
-    libraries: all(child(el, 'libraries'), 'library').map(parseLibrary),
+    libraries: all(child(el, 'libraries'), 'library').map(linked(parseLibrary)),
     classes: parseClasses(child(el, 'classes')),
     parts: byName(
       all(child(el, 'parts'), 'part').map(
@@ -583,7 +583,7 @@ function parseBoard(el: Element_): Board {
     designRules.set(str(p, 'name', ''), str(p, 'value', ''));
   }
   return {
-    libraries: all(child(el, 'libraries'), 'library').map(parseLibrary),
+    libraries: all(child(el, 'libraries'), 'library').map(linked(parseLibrary)),
     classes: parseClasses(child(el, 'classes')),
     designRules,
     plain: parseGraphics(child(el, 'plain')),
