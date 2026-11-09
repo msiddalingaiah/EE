@@ -28,7 +28,18 @@ export interface RenderState {
   /** Grid spacing in mm; dots are drawn when it is coarse enough to see. */
   grid?: number;
   /** A wire being drawn (world coordinates), in the colour of `layer`, and the cursor. */
-  sketch?: { path: { x: number; y: number }[]; width: number; layer: number; cursor: { x: number; y: number }; snapped: boolean };
+  sketch?: Sketch;
+}
+
+type XY = { x: number; y: number };
+
+/** A wire or route being drawn, in world coordinates. `layer` is the current one (for the cursor). */
+export interface Sketch {
+  paths: { points: XY[]; width: number; layer: number }[];
+  vias?: { at: XY; radius: number }[];
+  layer: number;
+  cursor: XY;
+  snapped: boolean;
 }
 
 export function render(ctx: CanvasRenderingContext2D, vp: Viewport, dpr: number, s: RenderState): void {
@@ -95,28 +106,39 @@ export function render(ctx: CanvasRenderingContext2D, vp: Viewport, dpr: number,
   for (const owner of s.selection) highlight(owner, SELECT_COLOR, 1.5);
 
   if (s.box) drawBox(ctx, vp, dpr, s.box.rect, s.box.crossing);
-  if (s.sketch) drawSketch(ctx, vp, dpr, s.sketch, layerColor(s.layers.get(s.sketch.layer)));
+  if (s.sketch) drawSketch(ctx, vp, dpr, s.sketch, (layer) => layerColor(s.layers.get(layer)));
 }
 
-/** The wire in progress, and a cursor mark: a ring when it sits on a pin or wire end. */
-function drawSketch(ctx: CanvasRenderingContext2D, vp: Viewport, dpr: number, k: NonNullable<RenderState['sketch']>, color: string): void {
+/**
+ * A wire or route in progress: its paths (each in the colour of its layer), vias, and a
+ * cursor mark (a ring when it sits on copper or a pin it can connect to).
+ */
+function drawSketch(ctx: CanvasRenderingContext2D, vp: Viewport, dpr: number, k: Sketch, colorOf: (layer: number) => string): void {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  ctx.strokeStyle = color;
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
-  if (k.path.length > 1) {
-    ctx.lineWidth = Math.max(k.width * vp.zoom, 1.5);
+  for (const path of k.paths) {
+    if (path.points.length < 2) continue;
+    ctx.strokeStyle = colorOf(path.layer);
+    ctx.lineWidth = Math.max(path.width * vp.zoom, 1.5);
     ctx.beginPath();
-    k.path.forEach((p, i) => {
+    path.points.forEach((p, i) => {
       const q = vp.toScreen(p.x, p.y);
       if (i) ctx.lineTo(q.x, q.y);
       else ctx.moveTo(q.x, q.y);
     });
     ctx.stroke();
   }
+  for (const v of k.vias ?? []) {
+    const q = vp.toScreen(v.at.x, v.at.y);
+    ctx.fillStyle = colorOf(18);
+    ctx.beginPath();
+    ctx.arc(q.x, q.y, Math.max(v.radius * vp.zoom, 3), 0, Math.PI * 2);
+    ctx.fill();
+  }
   const c = vp.toScreen(k.cursor.x, k.cursor.y);
   ctx.lineWidth = 1.5;
-  ctx.strokeStyle = k.snapped ? SELECT_COLOR : color;
+  ctx.strokeStyle = k.snapped ? SELECT_COLOR : colorOf(k.layer);
   ctx.beginPath();
   if (k.snapped) {
     ctx.arc(c.x, c.y, 6, 0, Math.PI * 2);

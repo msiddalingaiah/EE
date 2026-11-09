@@ -11,6 +11,7 @@ import { deleteTargets } from '../edit/delete';
 import { History, insert, remove, Transaction } from '../edit/ops';
 import { copyTargets, pasteClip, type Clip, type Pasted } from '../edit/clipboard';
 import { addToLibrary, createPart, gatesToPlace } from '../edit/place';
+import { addRoute, anchors, bend45, copperLayers, traceWidth, viaDrill, type Anchor, type Leg } from '../edit/route';
 import { addWire, cleanPath, sheetPins, snapPoints, touchAt, usualWireWidth, type WireResult } from '../edit/wire';
 import { renameNet, renamePart, setPartValue, smash, unsmash } from '../edit/properties';
 import { isEditable, mirrorAbout, rotationAbout, transformTargets, translation } from '../edit/transform';
@@ -97,6 +98,11 @@ export class Editor {
       : n ? `Paste ${n} part${n > 1 ? 's' : ''} and wiring` : `Paste ${describe(pasted.targets)}`;
     const origin = { x: clip.origin[0], y: clip.origin[1] };
     return { session: new MoveSession(this, pasted.targets, grid, origin, origin, tx), pasted };
+  }
+
+  /** Start routing traces on the board. */
+  beginRoute(grid: (alt: boolean) => number): RouteSession | undefined {
+    return this.project.board ? new RouteSession(this, grid) : undefined;
   }
 
   /** Start drawing wires on a sheet. */
@@ -492,6 +498,161 @@ export class WireSession {
     if (Math.abs(last[0] - c[0]) < 1e-9 || Math.abs(last[1] - c[1]) < 1e-9) return [c];
     const corner: O.Pt = this.verticalFirst ? [last[0], c[1]] : [c[0], last[1]];
     return [corner, c];
+  }
+}
+
+/**
+ * Routing traces. The first click must be on copper of a net (pad, via or trace end): the route
+ * takes that net. Each click adds legs in 45° style on the current layer; switching layer puts
+ * a via at the last point. A click on copper of the same net, a double click or Esc finishes the
+ * route as one undo step. The route in progress isn't in the model until finished.
+ */
+export class RouteSession {
+  private net: string | undefined;
+  private layer: string;
+  private legs: Leg[] = [];
+  private vias: O.Pt[] = [];
+  /** The route's points on the current layer since the last via. */
+  private points: O.Pt[] = [];
+  private cursor: O.Pt = [0, 0];
+  private diagonalFirst = false;
+  private anchors: Anchor[] = [];
+  /** The copper the cursor sits on, if any. */
+  snappedTo: Anchor | undefined;
+
+  constructor(
+    private readonly editor: Editor,
+    private readonly grid: (alt: boolean) => number,
+  ) {
+    this.layer = copperLayers(editor.project)[0]!;
+    this.refresh();
+  }
+
+  /** The net being routed (undefined before the route starts). */
+  get netName(): string | undefined {
+    return this.net;
+  }
+
+  get currentLayer(): string {
+    return this.layer;
+  }
+
+  get at(): Point {
+    return { x: this.cursor[0], y: this.cursor[1] };
+  }
+
+  get width(): number {
+    return this.net ? traceWidth(this.editor.project, this.net) : traceWidth(this.editor.project, '');
+  }
+
+  get drill(): number {
+    return viaDrill(this.editor.project, this.net ?? '');
+  }
+
+  /** What to draw: the legs so far, the bend to the cursor, and the vias. */
+  get preview(): { paths: { points: Point[]; layer: string }[]; vias: Point[] } {
+    const P = ([x, y]: O.Pt) => ({ x, y });
+    const paths = this.legs.map((l) => ({ points: l.line.map(P), layer: l.layer }));
+    if (this.points.length) {
+      const last = this.points[this.points.length - 1]!;
+      paths.push({ points: [...this.points, ...bend45(last, this.cursor, this.diagonalFirst)].map(P), layer: this.layer });
+    }
+    return { paths, vias: this.vias.map(P) };
+  }
+
+  /** Move the cursor: onto copper within `tolerance` (any net before starting, then the route's net), else the grid. */
+  moveTo(p: Point, fineGrid: boolean, tolerance: number): void {
+    let best: Anchor | undefined;
+    let d = tolerance;
+    for (const a of this.anchors) {
+      if (this.net && (a.net !== this.net || !a.layers.includes(this.layer))) continue;
+      const e = Math.hypot(a.at[0] - p.x, a.at[1] - p.y);
+      // Prefer pads over trace ends at the same spot.
+      if (e < d || (e === d && best && best.kind !== 'pad' && a.kind === 'pad')) [best, d] = [a, e];
+    }
+    this.snappedTo = best;
+    if (best) {
+      this.cursor = [best.at[0], best.at[1]];
+    } else {
+      const g = this.grid(fineGrid);
+      const snap = (v: number) => Math.round(Math.round(v / g) * g * 1e6) / 1e6;
+      this.cursor = [snap(p.x), snap(p.y)];
+    }
+  }
+
+  flipBend(): void {
+    this.diagonalFirst = !this.diagonalFirst;
+  }
+
+  /**
+   * Click at the cursor. Returns 'nothing' when a route can't start here (not on copper of a
+   * net), 'finish' when the route reached copper of its net (the caller then finishes it).
+   */
+  click(): 'nothing' | 'started' | 'added' | 'finish' {
+    if (!this.net) {
+      const a = this.snappedTo;
+      if (!a) return 'nothing';
+      this.net = a.net;
+      if (!a.layers.includes(this.layer)) this.layer = a.layers[0]!;
+      this.points = [this.cursor];
+      return 'started';
+    }
+    const last = this.points[this.points.length - 1]!;
+    this.points = cleanPath([...this.points, ...bend45(last, this.cursor, this.diagonalFirst)]);
+    return this.snappedTo && (this.points.length >= 2 || this.legs.length) ? 'finish' : 'added';
+  }
+
+  /** Change to the other outer copper layer; while routing, through a via at the last point. */
+  switchLayer(): string {
+    const stack = copperLayers(this.editor.project);
+    const other = this.layer === stack[0] ? stack[stack.length - 1]! : stack[0]!;
+    if (this.net && this.points.length) {
+      const last = this.points[this.points.length - 1]!;
+      this.flush();
+      // No via needed where the copper already spans the layers (a via or through-hole pad).
+      const spans = this.anchors.some((a) => a.net === this.net && a.layers.length > 1 && Math.abs(a.at[0] - last[0]) < 1e-4 && Math.abs(a.at[1] - last[1]) < 1e-4);
+      if (!spans && !this.vias.some((v) => v[0] === last[0] && v[1] === last[1])) this.vias.push(last);
+      this.points = [last];
+    }
+    this.layer = other;
+    return other;
+  }
+
+  /** Add the route to the model (one undo step). Undefined when there was nothing to add. */
+  finish(): { net: string; traces: number; vias: number } | undefined {
+    const net = this.net;
+    this.flush();
+    const legs = this.legs;
+    const vias = this.vias;
+    this.reset();
+    if (!net || (!legs.length && !vias.length)) return undefined;
+    const tx = new Transaction(`Route ${net}`);
+    const res = addRoute(this.editor.project, net, legs, vias, tx);
+    this.editor.push(tx);
+    this.refresh();
+    return { net, traces: res.traces.length, vias: res.vias.length };
+  }
+
+  /** Drop the route in progress. */
+  cancel(): void {
+    this.reset();
+  }
+
+  /** Re-read the copper to snap to (after the model changed). */
+  refresh(): void {
+    this.anchors = anchors(this.editor.project, this.editor.index());
+  }
+
+  private flush(): void {
+    for (let i = 1; i < this.points.length; i++) this.legs.push({ line: [this.points[i - 1]!, this.points[i]!], layer: this.layer });
+    this.points = this.points.slice(-1);
+  }
+
+  private reset(): void {
+    this.net = undefined;
+    this.legs = [];
+    this.vias = [];
+    this.points = [];
   }
 }
 

@@ -1,6 +1,7 @@
 // Osprey application shell: opening, importing and saving, panels, canvas interaction, commands.
 
-import { Editor, subject, type MoveSession, type PlaceSession, type WireSession } from './app/editor';
+import { Editor, subject, type MoveSession, type PlaceSession, type RouteSession, type WireSession } from './app/editor';
+import { layerNumber } from './model/layers';
 import { canPickFiles, pickFiles, saveFile, type FileHandle } from './app/files';
 import { Selection, type SelectMode } from './app/selection';
 import { parseEagle } from './eagle/parse';
@@ -112,6 +113,8 @@ let chosen: { source: string; id: string } | undefined;
 
 /** Drawing wires (the W key): active until stopped. */
 let wiring: WireSession | undefined;
+/** Routing traces (the W key on the board): active until stopped. */
+let routing: RouteSession | undefined;
 
 /** An interactive move: started by dragging a selected object (`drag`) or by the M key. */
 let move: { session: MoveSession; start: Point; drag: boolean; paste?: Pasted } | undefined;
@@ -255,6 +258,7 @@ function openSources(sources: SourceFile[], initialView?: ViewKind): void {
     cancelMove();
     stopPlacing();
     stopWiring();
+    stopRouting();
     project = next.project;
     library = next.library;
     importReport = next.report;
@@ -357,7 +361,11 @@ function setupViewChrome(): void {
   }
   libraryPanel.hidden = view !== 'library';
   partsPanel.hidden = !(project && view === 'schematic');
-  wireBtn.hidden = partsPanel.hidden;
+  wireBtn.hidden = !(project && (view === 'schematic' || view === 'board'));
+  wireBtn.textContent = view === 'board' ? 'Route' : 'Wire';
+  wireBtn.title = view === 'board'
+    ? 'Route traces (W): start on a pad, via or trace end; click adds corners; L changes layer; ends on copper of the same net, or with a double click or Esc'
+    : 'Draw wires (W): click to start, click to add corners; a wire ends on a pin or wire, or with a double click or Esc';
   if (!partsPanel.hidden) renderPartsPanel();
   viewToggle.hidden = views().length < 2;
   for (const b of viewToggle.querySelectorAll('button')) {
@@ -365,7 +373,7 @@ function setupViewChrome(): void {
     b.hidden = !views().includes(b.dataset.view as ViewKind);
   }
   statusHint.textContent = view !== 'library'
-    ? `${view === 'schematic' ? 'A adds part · W draws wires · Ctrl+C/V copies · ' : ''}Drag or M moves · R rotates · F ${view === 'board' ? 'flips side' : 'mirrors'} · Del deletes · N name · V value · Ctrl+Z undo · Ctrl+S save · Space+drag pans · Home fits`
+    ? `${view === 'schematic' ? 'A adds part · W draws wires · Ctrl+C/V copies · ' : 'W routes · L layer · '}Drag or M moves · R rotates · F ${view === 'board' ? 'flips side' : 'mirrors'} · Del deletes · N name · V value · Ctrl+Z undo · Ctrl+S save · Space+drag pans · Home fits`
     : 'Click to select · Shift adds · Ctrl toggles · drag to box-select · Space+drag or right-drag pans · Home fits';
   // The hint is cut off on narrow windows; the tooltip always has all of it.
   statusHint.title = statusHint.textContent;
@@ -431,6 +439,7 @@ let listedLayers = '';
 /** Called by the editor after every change to the design (edit, undo, redo). */
 function onEdited(): void {
   wiring?.refresh();
+  routing?.refresh();
   rebuildScene({ fit: false, keepSelection: true });
   updateChrome();
 }
@@ -458,6 +467,7 @@ function saveViewState(): void {
 function showView(next: ViewKind, rememberCurrent: boolean): void {
   stopPlacing();
   stopWiring();
+  stopRouting();
   if (rememberCurrent) saveViewState();
   view = next;
   const state = viewStates.get(next);
@@ -672,6 +682,7 @@ function startPaste(clip: Clip): void {
   }
   stopPlacing();
   stopWiring();
+  stopRouting();
   if (move) commitMove();
   const r = editor.beginPaste(clip, Number(sheetSelect.value || 0), gridOf);
   if (!r) return;
@@ -1123,8 +1134,9 @@ function draw(): void {
     layers: layerMap,
     visible: isVisible,
     selection: selection.items,
-    hover: move || placing || wiring ? undefined : hover,
-    ...(wiring ? { sketch: { path: wiring.path, width: wiring.width, layer: 91, cursor: wiring.at, snapped: wiring.snapped } } : {}),
+    hover: move || placing || wiring || routing ? undefined : hover,
+    ...(wiring ? { sketch: { paths: [{ points: wiring.path, width: wiring.width, layer: 91 }], layer: 91, cursor: wiring.at, snapped: wiring.snapped } } : {}),
+    ...(routing ? { sketch: routeSketch(routing) } : {}),
     ...(box ? { box: boxSelection(box) } : {}),
     ...(editor && view !== 'library' ? { grid: gridOf() } : {}),
   });
@@ -1352,12 +1364,79 @@ lbrInput.addEventListener('change', async () => {
 // ---------------------------------------------------------------------------
 // Drawing wires
 
+// ---------------------------------------------------------------------------
+// Routing traces
+
+function startRouting(): void {
+  if (!editor || !project?.board || view !== 'board') return;
+  if (move) commitMove();
+  routing = editor.beginRoute(gridOf);
+  if (!routing) return;
+  routing.moveTo(cursor, false, WIRE_SNAP_PX / vp.zoom);
+  selection.clear();
+  canvas.classList.add('wiring');
+  wireBtn.classList.add('active');
+  canvas.focus({ preventScroll: true });
+  flash(`Route on ${routing.currentLayer.replace('copper.', '')}: click a pad, via or trace end to start · L changes layer · / flips the bend · Esc finishes`);
+  onEdited();
+}
+
+/** Stop routing (a route in progress is dropped). */
+function stopRouting(announce = false): void {
+  if (!routing) return;
+  routing.cancel();
+  routing = undefined;
+  canvas.classList.remove('wiring');
+  wireBtn.classList.remove('active');
+  if (announce) flash('Stopped routing');
+  requestRender();
+}
+
+function routeClick(double: boolean): void {
+  if (!routing) return;
+  const r = routing.click();
+  if (r === 'nothing') flash('Start a route on a pad, via or trace end of a net');
+  else if (r === 'started') flash(`Routing ${routing.netName} on ${routing.currentLayer.replace('copper.', '')} · L changes layer · ends on copper of ${routing.netName}`);
+  else if (r === 'finish' || (double && routing.netName)) finishRoute();
+  requestRender();
+}
+
+function finishRoute(): void {
+  if (!routing) return;
+  const res = routing.finish();
+  if (res) {
+    const left = index ? airwiresLeft(res.net) : 0;
+    flash(`Routed ${res.net}: ${res.traces} trace${res.traces === 1 ? '' : 's'}${res.vias ? `, ${res.vias} via${res.vias > 1 ? 's' : ''}` : ''}${left ? ` · ${left} airwire${left > 1 ? 's' : ''} left` : ' · fully routed'}`);
+  }
+  requestRender();
+}
+
+/** Airwires still shown for a net. */
+function airwiresLeft(net: string): number {
+  let n = 0;
+  for (const o of index!.scene.owners.values()) if (o.kind === 'airwire' && o.net === net) n++;
+  return n;
+}
+
+function routeSketch(r: RouteSession) {
+  const { paths, vias } = r.preview;
+  const radius = (r.drill + 0.5) / 2;
+  return {
+    paths: paths.map((p) => ({ points: p.points, width: r.width, layer: layerNumber(p.layer) })),
+    vias: vias.map((at) => ({ at, radius })),
+    layer: layerNumber(r.currentLayer),
+    cursor: r.at,
+    snapped: !!r.snappedTo,
+  };
+}
+
 /** Wire ends snap to pins and wire ends within this many pixels. */
 const WIRE_SNAP_PX = 8;
 
 function startWiring(): void {
   if (!editor || !project || view !== 'schematic') return;
   stopPlacing();
+  stopRouting();
   if (move) commitMove();
   wiring = editor.beginWire(Number(sheetSelect.value || 0), gridOf);
   if (!wiring) return;
@@ -1487,6 +1566,16 @@ canvas.addEventListener('pointerdown', (e) => {
     return;
   }
 
+  // Routing: left click adds a leg (double click finishes), right click finishes or stops.
+  if (routing && e.button !== 1 && !spaceDown) {
+    if (e.button === 0) routeClick(e.detail >= 2);
+    else if (e.button === 2) {
+      if (routing.netName) finishRoute();
+      else stopRouting(true);
+    }
+    return;
+  }
+
   // A keyboard-started move ends with a click: left places, right cancels.
   if (move && !move.drag) {
     if (e.button === 0) commitMove();
@@ -1517,6 +1606,11 @@ canvas.addEventListener('pointermove', (e) => {
 
   if (move) {
     updateMove(w, e.altKey);
+    return;
+  }
+  if (routing && !(pointer?.mode === 'pan')) {
+    routing.moveTo(w, e.altKey, WIRE_SNAP_PX / vp.zoom);
+    requestRender();
     return;
   }
   if (wiring && !(pointer?.mode === 'pan')) {
@@ -1658,7 +1752,9 @@ window.addEventListener('keydown', (e) => {
     spaceDown = true;
     e.preventDefault();
   } else if (e.key === 'Escape') {
-    if (wiring?.drawing) void finishWire();
+    if (routing?.netName) finishRoute();
+    else if (routing) stopRouting(true);
+    else if (wiring?.drawing) void finishWire();
     else if (wiring) stopWiring(true);
     else if (placing) stopPlacing(true);
     else if (move) cancelMove();
@@ -1682,9 +1778,16 @@ window.addEventListener('keydown', (e) => {
   } else if (key === 'w' && project && view === 'schematic') {
     if (wiring) stopWiring(true);
     else startWiring();
-  } else if (e.key === '/' && wiring) {
+  } else if (key === 'w' && project && view === 'board') {
+    if (routing) stopRouting(true);
+    else startRouting();
+  } else if (key === 'l' && routing) {
+    const layer = routing.switchLayer();
+    flash(`Routing on ${layer.replace('copper.', '')}${routing.netName ? ' (via added)' : ''}`);
+    requestRender();
+  } else if (e.key === '/' && (wiring || routing)) {
     e.preventDefault();
-    wiring.flipBend();
+    (wiring ?? routing)!.flipBend();
     requestRender();
   } else if (key === 'm') {
     beginMove(cursor, false);
@@ -1723,7 +1826,13 @@ for (const b of viewToggle.querySelectorAll<HTMLButtonElement>('button')) {
   });
 }
 $('fit-btn').addEventListener('click', fitView);
-wireBtn.addEventListener('click', () => (wiring ? stopWiring(true) : startWiring()));
+wireBtn.addEventListener('click', () => {
+  if (view === 'board') {
+    if (routing) stopRouting(true);
+    else startRouting();
+  } else if (wiring) stopWiring(true);
+  else startWiring();
+});
 undoBtn.addEventListener('click', undoCmd);
 redoBtn.addEventListener('click', redoCmd);
 saveBtn.addEventListener('click', () => void save());
