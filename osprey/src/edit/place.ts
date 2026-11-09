@@ -63,8 +63,13 @@ export function createPart(
 ): { part: O.Part; footprint?: O.FootprintPlacement } {
   const part: O.Part = { name: nextPartName(project, component.prefix), component: component.id, variant };
   if (technology) part.technology = technology;
+  return insertPart(project, part, component, tx);
+}
+
+/** Add a part to the project, parking its footprint beside the board if it has one. */
+export function insertPart(project: O.Project, part: O.Part, component: O.Component, tx: Transaction): { part: O.Part; footprint?: O.FootprintPlacement } {
   tx.run(insert(project.parts, part));
-  const v = component.variants.find((x) => x.name === variant);
+  const v = component.variants.find((x) => x.name === part.variant);
   if (!project.board || !v?.footprint) return { part };
   const fp: O.FootprintPlacement = { part: part.name, at: parkingSpot(project.board) };
   tx.run(insert(project.board.footprints, fp));

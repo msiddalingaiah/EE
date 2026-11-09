@@ -9,6 +9,7 @@ import type * as O from '../model/types';
 import type { Grid, Project } from '../model/types';
 import { deleteTargets } from '../edit/delete';
 import { History, insert, remove, Transaction } from '../edit/ops';
+import { copyTargets, pasteClip, type Clip, type Pasted } from '../edit/clipboard';
 import { addToLibrary, createPart, gatesToPlace } from '../edit/place';
 import { addWire, cleanPath, sheetPins, snapPoints, touchAt, usualWireWidth, type WireResult } from '../edit/wire';
 import { renameNet, renamePart, setPartValue, smash, unsmash } from '../edit/properties';
@@ -70,6 +71,32 @@ export class Editor {
     const sheet = this.project.schematic?.sheets[sheetIndex];
     if (!sheet) return undefined;
     return new PlaceSession(this, source, componentId, variant, technology, sheet, grid);
+  }
+
+  /** Copy schematic targets to a clip (undefined if nothing among them can be copied). */
+  copy(targets: Target[]): Clip | undefined {
+    return copyTargets(this.project, targets, this.grid('schematic'), this.index());
+  }
+
+  /**
+   * Paste a clip onto a sheet. The pasted objects float as a move (anchored at the clip's
+   * origin) until placed; placing commits the paste and the move as one undo step.
+   */
+  beginPaste(clip: Clip, sheetIndex: number, grid: (alt: boolean) => number): { session: MoveSession; pasted: Pasted } | undefined {
+    const sheet = this.project.schematic?.sheets[sheetIndex];
+    if (!sheet) return undefined;
+    const tx = new Transaction('');
+    const pasted = pasteClip(this.project, clip, sheet, tx);
+    if (!pasted.targets.length) {
+      tx.revert();
+      return undefined;
+    }
+    const n = pasted.parts.length;
+    tx.label = n === 1 && pasted.targets.length === pasted.targets.filter((t) => t.kind === 'gate').length
+      ? `Paste ${pasted.parts[0]}`
+      : n ? `Paste ${n} part${n > 1 ? 's' : ''} and wiring` : `Paste ${describe(pasted.targets)}`;
+    const origin = { x: clip.origin[0], y: clip.origin[1] };
+    return { session: new MoveSession(this, pasted.targets, grid, origin, origin, tx), pasted };
   }
 
   /** Start drawing wires on a sheet. */
@@ -176,6 +203,11 @@ export class MoveSession {
     private readonly pivot: Point,
     /** If set, this point lands on the grid; otherwise the displacement is snapped. */
     private readonly reference?: Point,
+    /**
+     * Edits made before the move that belong to the same undo step (a paste): the move is
+     * committed into it, and cancelling reverts it too.
+     */
+    private readonly base?: Transaction,
   ) {
     this.tx = new Transaction(`Move ${describe(targets)}`);
   }
@@ -211,7 +243,7 @@ export class MoveSession {
 
   commit(): void {
     const verb = this.turns % 4 || this.mirrored ? 'Move/rotate' : 'Move';
-    const final = new Transaction(`${verb} ${describe(this.targets)}`);
+    const final = this.base ?? new Transaction(`${verb} ${describe(this.targets)}`);
     final.subjects = this.targets.map(subject);
     this.tx.revert();
     this.editor.transform(this.targets, this.transform(), final);
@@ -221,6 +253,7 @@ export class MoveSession {
   cancel(): void {
     this.tx.revert();
     this.tx = new Transaction('');
+    this.base?.revert();
   }
 
   private transform(): Transform {

@@ -29,6 +29,12 @@ native model (see [docs/format.md](docs/format.md)). Eagle files are imported in
   A wire that connects different nets joins them, and the joined net keeps the strongest name
   (a supply name, then a name you gave it, then the lowest automatic N$n). If two nets you
   named meet, you choose which name stays. Board airwires follow straight away.
+- **Copy and paste** (schematic): copy a selection of parts, wiring and drawing, and paste it
+  as many times as needed; each copy floats until you click to place it. Names stay unique:
+  C4 becomes the next free C, RF becomes RF1, automatic nets get new numbers, named nets a
+  suffix (IN → IN_2), while supply nets (GND, VCC) join the existing net. A name that is free
+  is kept, so cut and paste keeps names. The clipboard holds the components the parts use,
+  so a selection can be pasted into another project.
 - **One model, always consistent.** Each part and net is stored once. Deleting a part in
   either view removes it everywhere; board pad connections are derived from the schematic,
   so a schematic wire delete disconnects the pad on the board by itself.
@@ -77,6 +83,7 @@ OSPREY_CORPUS=~/designs npx vitest run -t corpus
 | Rotate 90° | `R` (Shift+R clockwise), also while moving |
 | Flip to other side (board) / mirror (schematic) | `F`, also while moving |
 | Delete | Del / Backspace |
+| Copy / cut / paste (schematic) | Ctrl+C / Ctrl+X / Ctrl+V; click places the paste, `R`/`F` while floating, Esc cancels |
 | Draw wires (schematic) | `W` or the Wire button; click to start, click adds a corner, `/` flips the bend; a wire ends on a pin or wire, or with a double click, Esc or right-click; Esc again stops |
 | Add part (schematic) | `A` to search, choose a component, Place (or Enter); click places each gate, `R`/`F` while placing, Esc or right-click stops |
 | Edit name / net name, value | `N`, `V` (Enter applies, Esc cancels) |
@@ -100,7 +107,7 @@ OSPREY_CORPUS=~/designs npx vitest run -t corpus
 - `src/eagle/`: Eagle XML parser and writer (`parse.ts`, `types.ts`), used by import and export
 - `src/edit/`: undoable operations and history (`ops.ts`), move/rotate/mirror with
   rubber-banding (`transform.ts`), delete (`delete.ts`), property edits (`properties.ts`) and
-  adding parts (`place.ts`) and wires, which join nets (`wire.ts`)
+  adding parts (`place.ts`), wires, which join nets (`wire.ts`), and copy and paste (`clipboard.ts`)
 - `src/scene/`: turns the model into drawable primitives in world space (mm, y-up), each tagged
   with its **owner**, the selectable object: `schematic.ts`, `board.ts`, `library.ts`, with
   shared `builder.ts` (graphics, pads, text) and `symbol.ts` (symbols and pins)

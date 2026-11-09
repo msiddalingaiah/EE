@@ -4,6 +4,7 @@ import { Editor, subject, type MoveSession, type PlaceSession, type WireSession 
 import { canPickFiles, pickFiles, saveFile, type FileHandle } from './app/files';
 import { Selection, type SelectMode } from './app/selection';
 import { parseEagle } from './eagle/parse';
+import { parseClip, type Clip, type Pasted } from './edit/clipboard';
 import type { Layer } from './eagle/types';
 import type { Point } from './geom/transform';
 import { componentName, ProjectIndex } from './model/derive';
@@ -113,7 +114,9 @@ let chosen: { source: string; id: string } | undefined;
 let wiring: WireSession | undefined;
 
 /** An interactive move: started by dragging a selected object (`drag`) or by the M key. */
-let move: { session: MoveSession; start: Point; drag: boolean } | undefined;
+let move: { session: MoveSession; start: Point; drag: boolean; paste?: Pasted } | undefined;
+/** The last clip copied here (used when the system clipboard can't be read). */
+let lastClip: Clip | undefined;
 
 const isVisible = (layer: number) => visibility.get(layer) ?? true;
 
@@ -362,7 +365,7 @@ function setupViewChrome(): void {
     b.hidden = !views().includes(b.dataset.view as ViewKind);
   }
   statusHint.textContent = view !== 'library'
-    ? `${view === 'schematic' ? 'A adds part · W draws wires · ' : ''}Drag or M moves · R rotates · F ${view === 'board' ? 'flips side' : 'mirrors'} · Del deletes · N name · V value · Ctrl+Z undo · Ctrl+S save · Space+drag pans · Home fits`
+    ? `${view === 'schematic' ? 'A adds part · W draws wires · Ctrl+C/V copies · ' : ''}Drag or M moves · R rotates · F ${view === 'board' ? 'flips side' : 'mirrors'} · Del deletes · N name · V value · Ctrl+Z undo · Ctrl+S save · Space+drag pans · Home fits`
     : 'Click to select · Shift adds · Ctrl toggles · drag to box-select · Space+drag or right-drag pans · Home fits';
   // The hint is cut off on narrow windows; the tooltip always has all of it.
   statusHint.title = statusHint.textContent;
@@ -641,6 +644,77 @@ function deleteCmd(): void {
   if (locked.length) flash(`Not deleted: ${locked.join(', ')} ${locked.length > 1 ? 'are' : 'is'} locked on the board`);
 }
 
+// ---------------------------------------------------------------------------
+// Copy and paste (schematic)
+
+/** The selection as a clip, or undefined (with a message) when there's nothing to copy. */
+function copyClip(verb: string): Clip | undefined {
+  if (!editor || view !== 'schematic') {
+    flash(`${verb} works in the schematic`);
+    return undefined;
+  }
+  const clip = editor.copy(selectedTargets());
+  if (!clip) flash(`Select parts, wires or drawing to ${verb.toLowerCase()}`);
+  return clip;
+}
+
+function describeClip(clip: Clip): string {
+  const parts = clip.parts.length;
+  const wires = clip.nets.reduce((n, net) => n + net.segments.reduce((m, sg) => m + sg.wires.length, 0), 0);
+  const bits = [parts && `${parts} part${parts > 1 ? 's' : ''}`, wires && `${wires} wire${wires > 1 ? 's' : ''}`, clip.drawing.length && 'drawing'].filter(Boolean);
+  return bits.join(', ') || 'selection';
+}
+
+function startPaste(clip: Clip): void {
+  if (!editor || view !== 'schematic') {
+    flash('Paste works in the schematic');
+    return;
+  }
+  stopPlacing();
+  stopWiring();
+  if (move) commitMove();
+  const r = editor.beginPaste(clip, Number(sheetSelect.value || 0), gridOf);
+  if (!r) return;
+  move = { session: r.session, start: { x: clip.origin[0], y: clip.origin[1] }, drag: false, paste: r.pasted };
+  selection.clear();
+  canvas.classList.add('moving');
+  canvas.focus({ preventScroll: true });
+  updateMove(cursor, false);
+  const notes = r.pasted.libraryNotes.length ? ` (using the project's own ${r.pasted.libraryNotes.join(', ')})` : '';
+  flash(`Pasting ${describeClip(clip)}: click to place · R rotates · F mirrors · Esc cancels${notes}`);
+}
+
+/** Text selected on the page (e.g. in the inspector) is copied as text, not as design. */
+const pageTextSelected = () => !!window.getSelection()?.toString();
+
+document.addEventListener('copy', (e) => {
+  if (isTextEntry(e.target) || !editor || pageTextSelected()) return;
+  e.preventDefault();
+  const clip = copyClip('Copy');
+  if (!clip) return;
+  lastClip = clip;
+  e.clipboardData?.setData('text/plain', JSON.stringify(clip));
+  flash(`Copied ${describeClip(clip)} · Ctrl+V pastes`);
+});
+document.addEventListener('cut', (e) => {
+  if (isTextEntry(e.target) || !editor || pageTextSelected()) return;
+  e.preventDefault();
+  const clip = copyClip('Cut');
+  if (!clip) return;
+  lastClip = clip;
+  e.clipboardData?.setData('text/plain', JSON.stringify(clip));
+  deleteCmd();
+  flash(`Cut ${describeClip(clip)} · Ctrl+V pastes`);
+});
+document.addEventListener('paste', (e) => {
+  if (isTextEntry(e.target) || !editor) return;
+  e.preventDefault();
+  const text = e.clipboardData?.getData('text/plain') ?? '';
+  const clip = text ? parseClip(text) : lastClip;
+  if (clip) startPaste(clip);
+  else flash('The clipboard holds no Osprey selection');
+});
+
 /** Start a move. `drag` = following a held mouse button; otherwise it follows the cursor until a click. */
 function beginMove(start: Point, drag: boolean): void {
   if (move || !editor) return;
@@ -666,15 +740,22 @@ function commitMove(): void {
   canvas.classList.remove('moving');
   const { x, y } = m.session.offset;
   m.session.commit();
-  flash(x || y ? `Moved by (${round(x)}, ${round(y)}) mm` : '');
+  if (m.paste) {
+    reselect(m.session.targets.map(subject));
+    const renamed = [...m.paste.renamed].map(([a, b]) => `${a} → ${b}`);
+    flash(`Pasted${renamed.length ? `: ${renamed.slice(0, 6).join(', ')}${renamed.length > 6 ? ', …' : ''}` : ''}`);
+  } else {
+    flash(x || y ? `Moved by (${round(x)}, ${round(y)}) mm` : '');
+  }
 }
 
 function cancelMove(): void {
   if (!move) return;
+  const wasPaste = !!move.paste;
   move.session.cancel();
   move = undefined;
   canvas.classList.remove('moving');
-  flash('Move cancelled');
+  flash(wasPaste ? 'Paste cancelled' : 'Move cancelled');
   if (editor) onEdited();
 }
 
