@@ -393,9 +393,9 @@ async function makeCam(job: CamJob): Promise<void> {
     const name = `${project.project.name}_CAM.zip`;
     const result = await saveFile(zip(files), name, undefined, 'zip');
     if (!result) return;
-    const saved = `${result.method === 'written' ? 'Saved' : 'Downloaded'} ${result.handle?.name ?? name} (${files.size} files)`;
-    if (warnings.length) showError(`${saved}. ${warnings.join('; ')}.`);
-    else flash(saved);
+    hideError();
+    flash(`${result.method === 'written' ? 'Saved' : 'Downloaded'} ${result.handle?.name ?? name} (${files.size} files)`);
+    if (warnings.length) showError(`CAM: ${warnings.join('; ')}.`, 'notice');
   } catch (e) {
     showError(`Could not make CAM files: ${e instanceof Error ? e.message : String(e)}`);
   }
@@ -1312,10 +1312,14 @@ function button(text: string, onClick: () => void): HTMLButtonElement {
   return b;
 }
 
-function showError(msg: string): void {
-  errorBox.textContent = msg;
+/** Show a message above the canvas until closed: an error (red) or a notice (amber). */
+function showError(msg: string, kind: 'error' | 'notice' = 'error'): void {
+  $<HTMLSpanElement>('error-text').textContent = msg;
+  errorBox.classList.toggle('notice', kind === 'notice');
   errorBox.hidden = false;
 }
+
+$<HTMLButtonElement>('error-close').addEventListener('click', () => hideError());
 
 function hideError(): void {
   errorBox.hidden = true;
