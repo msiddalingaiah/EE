@@ -91,6 +91,24 @@ export class DesignRules {
   get thermalsForVias(): boolean {
     return this.ratio('slThermalsForVias', 0) !== 0;
   }
+
+  /**
+   * How far the solder mask opening extends beyond a pad, SMD, via or hole whose smaller
+   * dimension is `size`: a ratio of it, limited by a minimum and maximum.
+   */
+  stopFrame(size: number): number {
+    return Math.min(Math.max(size * this.ratio('rvStopMask', 1), this.dist('mlMinStopFrame', 4 * MIL)), this.dist('mlMaxStopFrame', 4 * MIL));
+  }
+
+  /** How far the solder paste is drawn in from an SMD's edge (the same way as the stop frame). */
+  creamFrame(size: number): number {
+    return Math.min(Math.max(size * this.ratio('rvCreamMask', 0), this.dist('mlMinCreamFrame', 0)), this.dist('mlMaxCreamFrame', 0));
+  }
+
+  /** Vias with a larger drill get a solder mask opening; smaller ones are covered (tented). */
+  get viaStopLimit(): number {
+    return this.dist('mlViaStopLimit', 100 * MIL);
+  }
 }
 
 const ORDER: CopperKind[] = ['wire', 'pad', 'smd', 'via'];

@@ -56,6 +56,7 @@ button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px s
 .brand { font-weight: 600; letter-spacing: 0.04em; color: var(--accent); margin-right: 6px; }
 .field { display: flex; align-items: center; gap: 6px; color: var(--text-dim); }
 .doc-title { color: var(--text-dim); margin-left: auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#cam-select { width: 6.5em; }
 
 /* Workspace */
 .workspace {

@@ -4,7 +4,7 @@
 interface FileHandle {
   name: string;
   getFile(): Promise<File>;
-  createWritable(): Promise<{ write(data: string): Promise<void>; close(): Promise<void> }>;
+  createWritable(): Promise<{ write(data: string | Uint8Array): Promise<void>; close(): Promise<void> }>;
 }
 
 interface FsWindow {
@@ -18,7 +18,9 @@ const PICKER_TYPES = [
 const SAVE_TYPES = {
   osprey: [{ description: 'Osprey project', accept: { 'application/json': ['.osprey'] } }],
   eagle: [{ description: 'Eagle file', accept: { 'application/xml': ['.sch', '.brd'] } }],
+  zip: [{ description: 'Zip archive', accept: { 'application/zip': ['.zip'] } }],
 };
+const MIME = { osprey: 'application/json', eagle: 'application/xml', zip: 'application/zip' };
 
 export interface OpenedFile {
   name: string;
@@ -53,11 +55,11 @@ export async function pickFiles(): Promise<OpenedFile[]> {
 }
 
 /**
- * Save text. Writes to `handle` when there is one; otherwise asks for a location
+ * Save text (or bytes). Writes to `handle` when there is one; otherwise asks for a location
  * (Chromium) or downloads the file. Returns the handle used, if any, or undefined if cancelled.
  */
 export async function saveFile(
-  text: string, name: string, handle: FileHandle | undefined, kind: 'osprey' | 'eagle' = 'osprey',
+  text: string | Uint8Array, name: string, handle: FileHandle | undefined, kind: keyof typeof SAVE_TYPES = 'osprey',
 ): Promise<{ handle?: FileHandle; method: 'written' | 'downloaded' } | undefined> {
   const w = window as FsWindow;
   try {
@@ -74,7 +76,7 @@ export async function saveFile(
     if (e instanceof DOMException && e.name === 'AbortError') return undefined;
     throw e;
   }
-  const url = URL.createObjectURL(new Blob([text], { type: kind === 'eagle' ? 'application/xml' : 'application/json' }));
+  const url = URL.createObjectURL(new Blob([text as BlobPart], { type: MIME[kind] }));
   const a = document.createElement('a');
   a.href = url;
   a.download = name;

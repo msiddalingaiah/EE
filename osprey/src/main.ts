@@ -15,6 +15,8 @@ import { readProject } from './model/file';
 import { freezePours } from './model/pour';
 import { designRules, parseDru } from './model/rules';
 import { exportEagle } from './model/export-eagle';
+import { DEFAULT_JOB, parseCamJob, runCam, type CamJob } from './cam/job';
+import { zip } from './cam/zip';
 import { importEagle, importLibrary } from './model/import-eagle';
 import type * as O from './model/types';
 import { buildBoardScene } from './scene/board';
@@ -63,6 +65,8 @@ const undoBtn = $<HTMLButtonElement>('undo-btn');
 const redoBtn = $<HTMLButtonElement>('redo-btn');
 const saveBtn = $<HTMLButtonElement>('save-btn');
 const exportBtn = $<HTMLButtonElement>('export-btn');
+const camSelect = $<HTMLSelectElement>('cam-select');
+const camInput = $<HTMLInputElement>('cam-input');
 const viewToggle = $<HTMLDivElement>('view-toggle');
 const projectPanel = $<HTMLElement>('project-panel');
 const partsPanel = $<HTMLElement>('parts-panel');
@@ -371,6 +375,57 @@ async function exportToEagle(): Promise<void> {
   }
 }
 
+// ---------------------------------------------------------------------------
+// CAM output
+
+const sampleCamJobs = import.meta.glob('../samples/eagle/*.cam', { query: '?raw', import: 'default' });
+
+camSelect.append(new Option('CAM…', ''), new Option(`${DEFAULT_JOB.name} (.zip)`, 'default'));
+for (const path of Object.keys(sampleCamJobs).sort()) camSelect.append(new Option(`Job ${path.split('/').pop()!}`, path));
+camSelect.append(new Option('From a .cam job file…', 'open'));
+
+/** Run a CAM job on the board and save the files as one zip. */
+async function makeCam(job: CamJob): Promise<void> {
+  if (!project?.board) return;
+  if (move) commitMove();
+  try {
+    const { files, warnings } = runCam(project, job);
+    const name = `${project.project.name}_CAM.zip`;
+    const result = await saveFile(zip(files), name, undefined, 'zip');
+    if (!result) return;
+    const saved = `${result.method === 'written' ? 'Saved' : 'Downloaded'} ${result.handle?.name ?? name} (${files.size} files)`;
+    if (warnings.length) showError(`${saved}. ${warnings.join('; ')}.`);
+    else flash(saved);
+  } catch (e) {
+    showError(`Could not make CAM files: ${e instanceof Error ? e.message : String(e)}`);
+  }
+}
+
+camSelect.addEventListener('change', async () => {
+  const v = camSelect.value;
+  camSelect.value = '';
+  if (v === 'open') camInput.click();
+  else if (v === 'default') await makeCam(DEFAULT_JOB);
+  else if (v && sampleCamJobs[v]) {
+    const name = v.split('/').pop()!;
+    try {
+      await makeCam(parseCamJob((await sampleCamJobs[v]!()) as string, name));
+    } catch (e) {
+      showError(`${name}: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
+});
+camInput.addEventListener('change', async () => {
+  const file = camInput.files?.[0];
+  camInput.value = '';
+  if (!file) return;
+  try {
+    await makeCam(parseCamJob(await file.text(), file.name));
+  } catch (e) {
+    showError(`${file.name}: ${e instanceof Error ? e.message : String(e)}`);
+  }
+});
+
 function confirmDiscard(): boolean {
   return !editor?.history.dirty || window.confirm(`Discard unsaved changes to ${saveName}?`);
 }
@@ -435,6 +490,7 @@ function updateChrome(): void {
   redoBtn.title = h?.redoLabel ? `Redo ${h.redoLabel} (Ctrl+Y)` : 'Redo (Ctrl+Y)';
   saveBtn.disabled = !editor;
   exportBtn.disabled = !project;
+  camSelect.disabled = !project?.board;
   saveBtn.textContent = dirty ? 'Save •' : 'Save';
   saveBtn.title = project ? `Save ${saveName} (Ctrl+S)` : 'Save (Ctrl+S)';
 }

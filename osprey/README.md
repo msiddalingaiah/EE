@@ -70,6 +70,16 @@ native model (see [docs/format.md](docs/format.md)). Eagle files are imported in
   them when it ends). The **pour fill** checkbox in the Layers panel (or P) shows them filled or
   as outlines only; that's just the view, so airwires and the DRC count the copper either way.
   Not yet: hatched fill (drawn solid), and removing copper narrower than the pour's width.
+- **CAM output** (board): the **CAM…** menu makes the manufacturing files as one zip: Gerber
+  (RS-274X with X2 file functions) for copper, solder mask, paste, silkscreen and the board
+  outline, and an Excellon drill file (plated and unplated holes merged). The built-in job writes
+  the common two-layer set (`.GTL`, `.GBL`, `.GTS`, … `.GKO`, `.XLN`, the files and layers of
+  JLCPCB's Eagle job); an Eagle `.cam` job file can be used instead. Pads are flashed with
+  Eagle's apertures; mask openings and paste follow the stop and cream rules (vias tented below
+  the via stop limit). Checked against Eagle's own CAM output for TA7358A: drill file, masks and
+  paste identical, pads, vias and traces identical, outline identical; poured copper within 1%
+  (see pours above). Not yet: silkscreen text (it needs Eagle's vector font; the files are made
+  without it and the omission is reported), and pick-and-place files.
 - **One model, always consistent.** Each part and net is stored once. Deleting a part in
   either view removes it everywhere; board pad connections are derived from the schematic,
   so a schematic wire delete disconnects the pad on the board by itself.
@@ -82,8 +92,8 @@ native model (see [docs/format.md](docs/format.md)). Eagle files are imported in
   and reports any disagreement between schematic and board. Verified on 152 real pairs: every
   net's derived pads match the pads Eagle stored.
 
-Not yet: library editing, Eagle's vector font (text uses a system sans-serif), busses beyond
-wires, push-and-shove routing.
+Not yet: library editing, Eagle's vector font (text uses a system sans-serif, and isn't
+plotted in CAM output), busses beyond wires, push-and-shove routing, pick-and-place files.
 
 ## Running
 

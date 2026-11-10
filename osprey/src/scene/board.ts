@@ -34,8 +34,14 @@ export { DesignRules } from '../model/rules';
 /**
  * `showPours`: draw poured copper (default), or only each pour's outline, dashed. A display
  * choice: airwires and the DRC count the poured copper either way.
+ *
+ * `cam`: only what manufacturing output takes from the scene: graphics, text, traces and poured
+ * copper (each island a poly with `holes`). Pads, vias, airwires and pour outlines are left out;
+ * CAM plots pads and vias itself, with their masks and drills.
  */
-export function buildBoardScene(project: O.Project, layers: Layer[], index = new ProjectIndex(project), opts: { showPours?: boolean } = {}): Scene {
+export function buildBoardScene(
+  project: O.Project, layers: Layer[], index = new ProjectIndex(project), opts: { showPours?: boolean; cam?: boolean } = {},
+): Scene {
   const board = project.board;
   if (!board) throw new Error('The project has no board');
   const b = new SceneBuilder('board', layers);
@@ -52,8 +58,10 @@ export function buildBoardScene(project: O.Project, layers: Layer[], index = new
     b.graphic(g, { owner: id, transform: IDENTITY, textContext: 'board' });
   }
 
-  for (const fp of board.footprints) emitFootprint(b, fp, index, rules);
-  emitNets(b, project, rules, index, opts.showPours ?? true);
+  const cam = opts.cam ?? false;
+  for (const fp of board.footprints) emitFootprint(b, fp, index, rules, cam);
+  emitNets(b, project, rules, index, cam || (opts.showPours ?? true), cam);
+  if (cam) return b.finish();
 
   for (const a of ratsnest(project)) {
     const id = b.addOwner({
@@ -65,7 +73,7 @@ export function buildBoardScene(project: O.Project, layers: Layer[], index = new
   return b.finish();
 }
 
-function emitFootprint(b: SceneBuilder, fp: O.FootprintPlacement, index: ProjectIndex, rules: DesignRules): void {
+function emitFootprint(b: SceneBuilder, fp: O.FootprintPlacement, index: ProjectIndex, rules: DesignRules, cam: boolean): void {
   const part = index.parts.get(fp.part);
   const fpId = part && index.variantOf(part)?.footprint;
   const footprint = fpId ? index.footprints.get(fpId) : undefined;
@@ -99,7 +107,7 @@ function emitFootprint(b: SceneBuilder, fp: O.FootprintPlacement, index: Project
     ...(bottom ? { layerMap: mirrorLayerNumber } : {}),
   };
   b.graphics(footprint.graphics, ctx);
-  for (const pad of footprint.pads) {
+  for (const pad of cam ? [] : footprint.pads) {
     b.pad(pad, ctx, (drill, d) => rules.padDiameter(drill, d), (shape) => rules.elongation(shape));
   }
   for (const l of fp.labels ?? []) {
@@ -112,7 +120,7 @@ function emitFootprint(b: SceneBuilder, fp: O.FootprintPlacement, index: Project
   }
 }
 
-function emitNets(b: SceneBuilder, project: O.Project, rules: DesignRules, index: ProjectIndex, showPours: boolean): void {
+function emitNets(b: SceneBuilder, project: O.Project, rules: DesignRules, index: ProjectIndex, showPours: boolean, cam: boolean): void {
   const base = { textContext: 'board' as const, transform: IDENTITY };
   const fills = pourFills(project, index);
   for (const net of project.nets) {
@@ -131,7 +139,7 @@ function emitNets(b: SceneBuilder, project: O.Project, rules: DesignRules, index
       });
       b.line(t, t.layer, { ...base, owner: id });
     }
-    for (const v of net.vias ?? []) {
+    for (const v of cam ? [] : net.vias ?? []) {
       const dia = rules.viaDiameter(v.drill, v.diameter ?? 0);
       const id = b.addOwner({
         id: `via:${objId(v)}`,
@@ -169,6 +177,7 @@ function emitNets(b: SceneBuilder, project: O.Project, rules: DesignRules, index
           width: 0, fill: true, layer, owner: id,
         });
       }
+      if (cam) continue;
       b.graphic(pour, { ...base, owner: id });
       const last = b.prims[b.prims.length - 1];
       if (last?.t === 'poly') {
