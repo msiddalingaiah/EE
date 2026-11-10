@@ -13,6 +13,8 @@ import { copyTargets, pasteClip, type Clip, type Pasted } from '../edit/clipboar
 import { addToLibrary, createPart, gatesToPlace } from '../edit/place';
 import { addPour, defaultPourNet, setOutline, setPourNet, setPourProps, withCornerAdded, withCornerMoved, withCornerRemoved, type PourPatch } from '../edit/pours';
 import { applyDru } from '../edit/rules';
+import { legalize, type LegalizeResult } from '../edit/legalize';
+import type { PlacementRules } from '../model/placement';
 import type { DruFile } from '../model/rules';
 import { ClearanceChecker, type Conflict, type ObstacleGrid } from '../model/drc';
 import { findDetour, findPath, type Detour } from '../edit/walkaround';
@@ -103,6 +105,17 @@ export class Editor {
       : n ? `Paste ${n} part${n > 1 ? 's' : ''} and wiring` : `Paste ${describe(pasted.targets)}`;
     const origin = { x: clip.origin[0], y: clip.origin[1] };
     return { session: new MoveSession(this, pasted.targets, grid, origin, origin, tx), pasted };
+  }
+
+  /**
+   * Spread board parts apart until none overlap each other, the holes or the board edge (one
+   * undo step). `parts` limits which may move (default: every unlocked part on the board).
+   */
+  legalize(parts?: string[], rules?: PlacementRules): LegalizeResult {
+    const tx = new Transaction('Spread parts apart');
+    const res = legalize(this.project, tx, { ...(parts ? { movable: parts } : {}), ...(rules ? { rules } : {}), index: this.index() });
+    if (res.moved.length) this.push(tx);
+    return res;
   }
 
   /** Replace the board's design rules with a .dru file's (one undo step). */
