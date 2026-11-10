@@ -13,6 +13,7 @@ import {
   boardArea, DEFAULT_PLACEMENT_RULES, footprintInfo, footprintInfos, onBoard, placementMetrics, rectCenter, rectGap, TOLERANCE,
 } from '../model/placement';
 import type * as O from '../model/types';
+import { improve, type ImproveOptions, type ImproveResult } from './improve';
 import type { Transaction } from './ops';
 import { rotationAbout, transformTargets, translation } from './transform';
 
@@ -304,6 +305,15 @@ export class Arrange {
       if (!changed) break;
     }
     return [...turned];
+  }
+
+  /**
+   * Improve the placement with small moves (toward connections, nudges, swaps of like parts,
+   * rotations) that shorten and untangle signal airwires and bring decoupling caps to their pins,
+   * keeping it legal. See improve.ts.
+   */
+  improve(opts: ImproveOptions = {}): ImproveResult {
+    return improve(this, opts);
   }
 
   /** Try a position without recording it (for scoring). */

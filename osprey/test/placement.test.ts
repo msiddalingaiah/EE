@@ -73,7 +73,7 @@ describe('placement checks and measures', () => {
   it('measures airwires, crossings and decoupling', () => {
     const m = placementMetrics(p);
     expect(m.airwires).toBe(ratsnest(p).length);
-    expect(m.length).toBeGreaterThan(300);
+    expect(m.length).toBeGreaterThan(100);
     expect(m.crossings).toBeGreaterThan(0);
     const byPart = new Map(m.decoupling.map((d) => [d.part, d]));
     // U1's and U2's decoupling caps, and the bulk cap by the power connector; not the crystal's

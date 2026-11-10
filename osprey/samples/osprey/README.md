@@ -14,4 +14,5 @@ npm run samples
 oscillator): a schematic and board placement generated from a circuit description by a
 script, as a first test of building designs with Claude, and placed with the placement toolkit
 (`src/edit/arrange.ts`): connectors on the edges, blocks beside the pins they connect to,
-rotations chosen by airwire length and crossings. Unrouted.
+rotations chosen by airwire length and crossings, then improved by small moves and swaps
+(`src/edit/improve.ts`). Unrouted.
