@@ -20,6 +20,9 @@ import { zip } from './cam/zip';
 import { importEagle, importLibrary } from './model/import-eagle';
 import type * as O from './model/types';
 import { buildBoardScene } from './scene/board';
+import { airwireNets, hideAirwires, type AirwireNet } from './scene/airwires';
+import { supplyReason } from './edit/properties';
+import { isGroundNet } from './model/placement';
 import { indexScene, type SceneIndex } from './scene/index';
 import { buildLibraryScene, type LibraryItemKind, type LibraryItemRef } from './scene/library';
 import { buildSchematicScene } from './scene/schematic';
@@ -134,6 +137,10 @@ let drcActive: Violation | undefined;
 
 /** Show poured copper, or only pour outlines. */
 let showPours = storeGet('osprey.showPours') !== 'no';
+
+/** Nets whose airwires are hidden (a view choice, per open project), and whether that list is open. */
+const hiddenAirwires = new Set<string>();
+let airwireNetsOpen = false;
 
 /** Drawing wires (the W key): active until stopped. */
 let wiring: WireSession | undefined;
@@ -305,6 +312,7 @@ function openSources(sources: SourceFile[], initialView?: ViewKind): void {
     editor = project ? new Editor(project, onEdited) : undefined;
     viewStates.clear();
     libraryItem = undefined;
+    hiddenAirwires.clear();
     hideError();
     if (library) setupLibrary();
     const vs = views();
@@ -500,7 +508,7 @@ function buildScene(): Scene | undefined {
   if (!project) return undefined;
   const ix = new ProjectIndex(project);
   if (view === 'schematic') return buildSchematicScene(project, layers, Number(sheetSelect.value || 0), ix);
-  return buildBoardScene(project, layers, ix, { showPours });
+  return hideAirwires(buildBoardScene(project, layers, ix, { showPours }), hiddenAirwires);
 }
 
 function rebuildScene(opts: { fit: boolean; keepSelection: boolean }): void {
@@ -520,7 +528,7 @@ function rebuildScene(opts: { fit: boolean; keepSelection: boolean }): void {
   }
   // The layer list changes when it must: a new view, or an edit that adds or empties a layer
   // (e.g. airwires appearing when a trace is deleted).
-  const used = index?.usedLayers.join(',') ?? '';
+  const used = `${index?.usedLayers.join(',') ?? ''}|${view === 'board' && index ? airwireNets(index.scene).map((a) => `${a.net}:${a.count}`).join(',') : ''}`;
   if (!opts.keepSelection || used !== listedLayers) renderLayerList();
   listedLayers = used;
   renderInspector();
@@ -953,6 +961,78 @@ function renderLayerList(): void {
     li.append(label);
     layerList.append(li);
   }
+  if (view === 'board') {
+    const nets = airwireNets(index.scene);
+    if (nets.length) layerList.append(airwireNetsItem(nets));
+  }
+}
+
+/** Supply nets: named by a supply symbol or power pin, or ground. */
+function isSupplyNet(net: string): boolean {
+  if (!project) return false;
+  const n = project.nets.find((x) => x.name === net);
+  return isGroundNet(net) || (!!n && !!supplyReason(project, n, new ProjectIndex(project)));
+}
+
+/** The "Airwires by net" list: show or hide each net's airwires. */
+function airwireNetsItem(nets: AirwireNet[]): HTMLLIElement {
+  const li = document.createElement('li');
+  li.className = 'airwire-nets';
+  const details = document.createElement('details');
+  details.open = airwireNetsOpen;
+  details.addEventListener('toggle', () => (airwireNetsOpen = details.open));
+  const summary = document.createElement('summary');
+  const hidden = nets.filter((a) => hiddenAirwires.has(a.net)).length;
+  summary.textContent = `Airwires by net${hidden ? ` (${hidden} hidden)` : ''}`;
+  summary.title = 'Show or hide airwires net by net, e.g. GND (a pour connects it) or VCC while routing signals';
+  const actions = document.createElement('div');
+  actions.className = 'airwire-actions';
+  const all = document.createElement('button');
+  all.type = 'button';
+  all.textContent = 'All';
+  all.title = 'Show the airwires of every net';
+  all.addEventListener('click', () => setAirwiresHidden([...hiddenAirwires], false));
+  const supplies = nets.filter((a) => isSupplyNet(a.net)).map((a) => a.net);
+  const hideSupplies = document.createElement('button');
+  hideSupplies.type = 'button';
+  hideSupplies.textContent = 'Hide supplies';
+  hideSupplies.title = supplies.length ? `Hide the airwires of ${supplies.join(', ')}` : 'No supply nets have airwires';
+  hideSupplies.disabled = !supplies.length;
+  hideSupplies.addEventListener('click', () => setAirwiresHidden(supplies, true));
+  actions.append(all, hideSupplies);
+  const ul = document.createElement('ul');
+  const sorted = [...nets].sort((a, b) => Number(isSupplyNet(b.net)) - Number(isSupplyNet(a.net)) || a.net.localeCompare(b.net, undefined, { numeric: true }));
+  for (const a of sorted) {
+    const row = document.createElement('li');
+    const label = document.createElement('label');
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.checked = !hiddenAirwires.has(a.net);
+    cb.addEventListener('change', () => setAirwiresHidden([a.net], !cb.checked));
+    const name = document.createElement('span');
+    name.textContent = a.net;
+    const count = document.createElement('span');
+    count.className = 'layer-num';
+    count.textContent = String(a.count);
+    label.append(cb, name, count);
+    row.append(label);
+    ul.append(row);
+  }
+  details.append(summary, actions, ul);
+  li.append(details);
+  return li;
+}
+
+function setAirwiresHidden(nets: string[], hide: boolean): void {
+  if (!nets.length) return;
+  for (const n of nets) {
+    if (hide) hiddenAirwires.add(n);
+    else hiddenAirwires.delete(n);
+  }
+  listedLayers = '';
+  rebuildScene({ fit: false, keepSelection: true });
+  const what = nets.length > 3 ? `${nets.length} nets` : nets.join(', ');
+  flash(`Airwires of ${what} ${hide ? 'hidden' : 'shown'}`);
 }
 
 function setShowPours(on: boolean): void {

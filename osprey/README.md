@@ -93,7 +93,10 @@ native model (see [docs/format.md](docs/format.md)). Eagle files are imported in
 - **Airwires are computed** after every edit, as Eagle does, with each poured island connecting
   what it reaches. Across 152 real boards they are identical to the airwires Eagle saved for
   every net, except four nets with pours: three boards were saved with their pours unpoured, and
-  one isn't explained yet.
+  one isn't explained yet. They're the shortest connections (a minimum spanning tree per net),
+  recomputed live while a part is dragged. **Airwires by net** in the Layers panel shows or
+  hides each net's airwires (**Hide supplies** hides GND, VCC and the like), to route signals
+  without the clutter; a view choice, so DRC and CAM are unaffected.
 - **Import** maps Eagle's model to Osprey's, keeps data Osprey doesn't model in a passthrough,
   and reports any disagreement between schematic and board. Verified on 152 real pairs: every
   net's derived pads match the pads Eagle stored.
