@@ -7,7 +7,7 @@
 
 import { ProjectIndex } from '../model/derive';
 import type { FootprintInfo, PlacementIssue, PlacementRules, Rect } from '../model/placement';
-import { boardArea, DEFAULT_PLACEMENT_RULES, footprintInfos, placementIssues, rectCenter } from '../model/placement';
+import { boardArea, DEFAULT_PLACEMENT_RULES, footprintInfos, onBoard, placementIssues, TOLERANCE } from '../model/placement';
 import type * as O from '../model/types';
 import type { Transaction } from './ops';
 import { transformTargets, translation } from './transform';
@@ -35,10 +35,7 @@ export function legalize(
   const area = board && boardArea(board);
   if (!board || !area) return { moved: [], issues: [] };
   const index = opts.index ?? new ProjectIndex(project);
-  const infos = footprintInfos(project, index).filter((f) => {
-    const c = rectCenter(f.box);
-    return c.x >= area.outline.minX && c.x <= area.outline.maxX && c.y >= area.outline.minY && c.y <= area.outline.maxY;
-  });
+  const infos = footprintInfos(project, index).filter((f) => onBoard(f.box, area.outline));
   const allowed = opts.movable ? new Set(opts.movable) : undefined;
   const canMove = (f: FootprintInfo) => !f.placement.locked && (!allowed || allowed.has(f.part));
   const off = infos.map(() => ({ x: 0, y: 0 }));
@@ -58,7 +55,7 @@ export function legalize(
       const left = a.maxX + gap - other.minX; // move i left by this
       const up = other.maxY + gap - a.minY;
       const down = a.maxY + gap - other.minY;
-      if (right <= 1e-9 || left <= 1e-9 || up <= 1e-9 || down <= 1e-9) return false;
+      if (right <= TOLERANCE / 2 || left <= TOLERANCE / 2 || up <= TOLERANCE / 2 || down <= TOLERANCE / 2) return false;
       const options: [number, number][] = [[right, 0], [-left, 0], [0, up], [0, -down]];
       options.sort((p, q) => Math.abs(p[0] + p[1]) - Math.abs(q[0] + q[1]));
       const [mx, my] = options[0]!;

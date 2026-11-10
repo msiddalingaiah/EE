@@ -12,4 +12,6 @@ npm run samples
 
 `wwvbfind.osprey` is the WWVB finder (ATtiny412, MPF102/2N3904 front end, 20 MHz Pierce
 oscillator): a schematic and board placement generated from a circuit description by a
-script, as a first test of building designs with Claude. Unrouted.
+script, as a first test of building designs with Claude, and placed with the placement toolkit
+(`src/edit/arrange.ts`): connectors on the edges, blocks beside the pins they connect to,
+rotations chosen by airwire length and crossings. Unrouted.

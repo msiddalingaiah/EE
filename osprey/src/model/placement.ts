@@ -205,6 +205,9 @@ export interface PlacementRules {
 
 export const DEFAULT_PLACEMENT_RULES: PlacementRules = { clearance: 0.25, edge: 0.5 };
 
+/** Shortfalls smaller than this (mm) don't count: positions are rounded to 0.01 mm. */
+export const TOLERANCE = 0.005;
+
 export type PlacementIssue =
   | { kind: 'overlap'; parts: [string, string]; gap: number }
   | { kind: 'hole'; part: string; gap: number }
@@ -212,7 +215,7 @@ export type PlacementIssue =
 
 /**
  * Parts closer than the clearance to each other, or than the edge distance to a hole or the
- * board edge (or outside the board). Parts parked off the board are ignored.
+ * board edge (or over it). Parts parked off the board, not touching it, are ignored.
  */
 export function placementIssues(project: O.Project, rules = DEFAULT_PLACEMENT_RULES, infos = footprintInfos(project)): PlacementIssue[] {
   const area = project.board && boardArea(project.board);
@@ -226,25 +229,27 @@ export function placementIssues(project: O.Project, rules = DEFAULT_PLACEMENT_RU
       // A top SMD part and a bottom SMD part don't collide.
       if (a.smd && b.smd && (a.placement.side === 'bottom') !== (b.placement.side === 'bottom')) continue;
       const gap = rectGap(a.box, b.box);
-      if (gap < rules.clearance - 1e-9) out.push({ kind: 'overlap', parts: [a.part, b.part], gap });
+      if (gap < rules.clearance - TOLERANCE) out.push({ kind: 'overlap', parts: [a.part, b.part], gap });
     }
   }
   for (const f of on) {
     for (const h of area.holes) {
       const gap = rectGap(f.box, h);
-      if (gap < rules.edge - 1e-9) out.push({ kind: 'hole', part: f.part, gap });
+      if (gap < rules.edge - TOLERANCE) out.push({ kind: 'hole', part: f.part, gap });
     }
     const o = area.outline;
     const gap = Math.min(f.box.minX - o.minX, f.box.minY - o.minY, o.maxX - f.box.maxX, o.maxY - f.box.maxY);
-    if (gap < rules.edge - 1e-9) out.push({ kind: 'edge', part: f.part, gap });
+    if (gap < rules.edge - TOLERANCE) out.push({ kind: 'edge', part: f.part, gap });
   }
   return out;
 }
 
-/** Is a part (its centre) on the board, rather than parked beside it? */
-function onBoard(box: Rect, outline: Rect): boolean {
-  const c = rectCenter(box);
-  return c.x >= outline.minX && c.x <= outline.maxX && c.y >= outline.minY && c.y <= outline.maxY;
+/**
+ * Is a part on the board, rather than parked beside it? Any part touching the board counts, so
+ * one that sticks out over the edge is a problem, not a parked part.
+ */
+export function onBoard(box: Rect, outline: Rect): boolean {
+  return box.maxX > outline.minX && box.minX < outline.maxX && box.maxY > outline.minY && box.minY < outline.maxY;
 }
 
 // ---------------------------------------------------------------------------
@@ -267,18 +272,37 @@ export interface PlacementMetrics {
   length: number;
   /** Pairs of airwires that cross. */
   crossings: number;
+  /**
+   * The same without ground nets (GND, AGND, …), which a ground pour or plane usually connects:
+   * what placement should shorten and untangle.
+   */
+  signalLength: number;
+  signalCrossings: number;
   decoupling: Decoupling[];
 }
+
+/** Ground nets: connected by a pour or plane on most boards, so not placement's concern. */
+export const isGroundNet = (net: string) => GROUND.test(net);
 
 export function placementMetrics(project: O.Project, infos = footprintInfos(project)): PlacementMetrics {
   const air = ratsnest(project);
   let length = 0;
-  for (const a of air) length += Math.hypot(a.to[0] - a.from[0], a.to[1] - a.from[1]);
-  let crossings = 0;
-  for (let i = 0; i < air.length; i++) {
-    for (let j = i + 1; j < air.length; j++) if (cross(air[i]!.from, air[i]!.to, air[j]!.from, air[j]!.to)) crossings++;
+  let signalLength = 0;
+  for (const a of air) {
+    const l = Math.hypot(a.to[0] - a.from[0], a.to[1] - a.from[1]);
+    length += l;
+    if (!isGroundNet(a.net)) signalLength += l;
   }
-  return { airwires: air.length, length, crossings, decoupling: decoupling(infos) };
+  let crossings = 0;
+  let signalCrossings = 0;
+  for (let i = 0; i < air.length; i++) {
+    for (let j = i + 1; j < air.length; j++) {
+      if (!cross(air[i]!.from, air[i]!.to, air[j]!.from, air[j]!.to)) continue;
+      crossings++;
+      if (!isGroundNet(air[i]!.net) && !isGroundNet(air[j]!.net)) signalCrossings++;
+    }
+  }
+  return { airwires: air.length, length, crossings, signalLength, signalCrossings, decoupling: decoupling(infos) };
 }
 
 /** Do segments ab and cd cross at a point that isn't an end of either? */

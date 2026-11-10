@@ -49,8 +49,19 @@ describe('footprint geometry', () => {
 });
 
 describe('placement checks and measures', () => {
-  it('finds what the hand placement got wrong: the crystal touching its neighbours', () => {
-    expect(kinds()).toEqual(['P1/C1', 'R11/X1', 'X1/C10', 'X1/C9', 'X1/R12'].sort());
+  it('the sample placement is clean; a crystal pushed into its neighbours is not', () => {
+    expect(placementIssues(p)).toEqual([]);
+    fp('X1').at = [fp('X1').at[0] - 2, fp('X1').at[1]];
+    const issues = placementIssues(p);
+    expect(issues.length).toBeGreaterThan(0);
+    for (const i of issues) expect(i.kind === 'overlap' ? i.parts : [i.part]).toContain('X1');
+  });
+
+  it('a part sticking out over the board edge is a problem, not a part parked beside the board', () => {
+    fp('C9').at = [47.2, 24];
+    expect(kinds()).toContain('edge C9');
+    fp('C9').at = [60, 24]; // wholly off the board: parked
+    expect(kinds()).not.toContain('edge C9');
   });
 
   it('finds parts on a hole or over the edge', () => {
@@ -74,8 +85,16 @@ describe('placement checks and measures', () => {
   });
 });
 
+/** Crowd the board: the crystal into its neighbours, the bulk cap into the power connector. */
+const crowd = () => {
+  fp('X1').at = [fp('X1').at[0] - 0.6, fp('X1').at[1]];
+  fp('C1').at = [fp('C1').at[0] - 0.5, fp('C1').at[1]];
+};
+
 describe('spreading parts apart', () => {
   it('clears every conflict with small moves, as one undo step', () => {
+    crowd();
+    expect(placementIssues(p).length).toBeGreaterThan(1);
     const before = new Map(p.board!.footprints.map((f) => [f.part, [...f.at]]));
     const air = ratsnest(p).length;
     const res = editor.legalize();
@@ -89,10 +108,11 @@ describe('spreading parts apart', () => {
   });
 
   it('leaves locked parts, and parts not listed, where they are', () => {
+    crowd();
     fp('X1').locked = true;
     const x1 = [...fp('X1').at];
     const c1 = [...fp('C1').at];
-    editor.legalize(['R11', 'R12', 'C9', 'C10']);
+    editor.legalize(p.board!.footprints.map((f) => f.part).filter((q) => !['C1', 'P1'].includes(q)));
     expect(fp('X1').at).toEqual(x1);
     expect(fp('C1').at).toEqual(c1);
     expect(kinds()).toEqual(['P1/C1']);
@@ -100,7 +120,7 @@ describe('spreading parts apart', () => {
 
   it('pulls apart two parts dropped on each other, and brings a part back inside the board', () => {
     fp('R1').at = [...fp('R2').at];
-    fp('R14').at = [46.5, 4];
+    fp('R14').at = [46.6, 24];
     editor.legalize();
     expect(placementIssues(p)).toEqual([]);
     expect(footprintInfo(p, 'R14')!.box.maxX).toBeLessThanOrEqual(47 - 0.5 + 1e-6);

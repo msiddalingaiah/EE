@@ -14,6 +14,7 @@ import { addToLibrary, createPart, gatesToPlace } from '../edit/place';
 import { addPour, defaultPourNet, setOutline, setPourNet, setPourProps, withCornerAdded, withCornerMoved, withCornerRemoved, type PourPatch } from '../edit/pours';
 import { applyDru } from '../edit/rules';
 import { legalize, type LegalizeResult } from '../edit/legalize';
+import { Arrange } from '../edit/arrange';
 import type { PlacementRules } from '../model/placement';
 import type { DruFile } from '../model/rules';
 import { ClearanceChecker, type Conflict, type ObstacleGrid } from '../model/drc';
@@ -116,6 +117,22 @@ export class Editor {
     const res = legalize(this.project, tx, { ...(parts ? { movable: parts } : {}), ...(rules ? { rules } : {}), index: this.index() });
     if (res.moved.length) this.push(tx);
     return res;
+  }
+
+  /**
+   * Arrange board parts with the placement toolkit (near, row, edge, bestRotation, …), as one
+   * undo step. If `run` throws, nothing changes.
+   */
+  arrange<T>(label: string, run: (a: Arrange) => T, rules?: PlacementRules): T {
+    const tx = new Transaction(label);
+    try {
+      const out = run(new Arrange(this.project, tx, { index: this.index(), ...(rules ? { rules } : {}) }));
+      if (!tx.empty) this.push(tx);
+      return out;
+    } catch (e) {
+      tx.revert();
+      throw e;
+    }
   }
 
   /** Replace the board's design rules with a .dru file's (one undo step). */
