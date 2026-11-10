@@ -103,6 +103,8 @@ export interface TextPrim extends PrimBase {
   /** Draw glyphs mirrored (bottom-side board text). */
   mirror: boolean;
   align: TextAlign;
+  /** Stroke width as % of size (Eagle's ratio); board text is drawn bolder when it's large. */
+  ratio?: number;
 }
 
 /** A drilled hole: drawn as a cut-out through everything below it. */

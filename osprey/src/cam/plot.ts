@@ -15,7 +15,9 @@ import { DesignRules } from '../model/rules';
 import type * as O from '../model/types';
 import { buildBoardScene } from '../scene/board';
 import { HOLES_LAYER } from '../scene/builder';
+import { strokeWidth } from '../scene/font';
 import type { Drill } from './excellon';
+import { textRegions } from './text';
 import type { Aperture } from './gerber';
 
 export type Feature =
@@ -30,8 +32,8 @@ export interface Plot {
   /** Features by Eagle layer number. */
   layers: Map<number, Feature[]>;
   drills: Drill[];
-  /** Texts by Eagle layer number, which aren't plotted yet (no stroke font). */
-  texts: Map<number, number>;
+  /** Texts by Eagle layer number: their stroke widths (mm), as plotted. */
+  texts: Map<number, number[]>;
 }
 
 /** Board copper layer names (top to bottom) as Eagle layer numbers. */
@@ -130,9 +132,13 @@ function plotScene(project: O.Project, index: ProjectIndex, plot: Plot, add: (la
         if (p.fill) add(p.layer, { t: 'region', pts: p.pts });
         if (p.width > 0 || !p.fill) add(p.layer, { t: 'stroke', pts: [...p.pts, p.pts[0]!], width: p.width });
         break;
-      case 'text':
-        plot.texts.set(p.layer, (plot.texts.get(p.layer) ?? 0) + 1);
+      case 'text': {
+        for (const pts of textRegions(p)) add(p.layer, { t: 'region', pts });
+        let widths = plot.texts.get(p.layer);
+        if (!widths) plot.texts.set(p.layer, (widths = []));
+        widths.push(strokeWidth(p.size, p.ratio));
         break;
+      }
       case 'drill': {
         // A hole (unplated): drilled, cleared in both masks, and drawn on the board outline.
         const at = { x: p.cx, y: p.cy };

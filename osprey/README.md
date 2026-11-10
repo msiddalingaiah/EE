@@ -78,8 +78,14 @@ native model (see [docs/format.md](docs/format.md)). Eagle files are imported in
   Eagle's apertures; mask openings and paste follow the stop and cream rules (vias tented below
   the via stop limit). Checked against Eagle's own CAM output for TA7358A: drill file, masks and
   paste identical, pads, vias and traces identical, outline identical; poured copper within 1%
-  (see pours above). Not yet: silkscreen text (it needs Eagle's vector font; the files are made
-  without it and the omission is reported), and pick-and-place files.
+  (see pours above). Silkscreen text is plotted in Roboto (below), where Eagle places its text
+  and at the same height; text with strokes thinner than 0.15 mm, which fabs may not print
+  well, is reported. Not yet: pick-and-place files.
+- **Board text in Roboto**: the board view draws text from Roboto's outlines, bundled with
+  Osprey, and CAM output plots the same outlines, so the screen shows exactly what is printed,
+  on any computer. Size, alignment and rotation are Eagle's; a text's ratio makes it bolder
+  where it asks for wider strokes than Roboto's own. (Eagle's vector font isn't used: it is
+  Autodesk's design.) The schematic keeps the system's sans-serif.
 - **One model, always consistent.** Each part and net is stored once. Deleting a part in
   either view removes it everywhere; board pad connections are derived from the schematic,
   so a schematic wire delete disconnects the pad on the board by itself.
@@ -92,14 +98,18 @@ native model (see [docs/format.md](docs/format.md)). Eagle files are imported in
   and reports any disagreement between schematic and board. Verified on 152 real pairs: every
   net's derived pads match the pads Eagle stored.
 
-Not yet: library editing, Eagle's vector font (text uses a system sans-serif, and isn't
-plotted in CAM output), busses beyond wires, push-and-shove routing, pick-and-place files.
+Not yet: library editing, busses beyond wires, push-and-shove routing, pick-and-place files.
 
 ## Running
 
 Requires Node.js 20+. The one runtime dependency is [clipper2-js](https://www.npmjs.com/package/clipper2-js)
 (polygon clipping for pours). It declares Angular as a peer dependency without using it, so
 `.npmrc` tells npm not to install peers.
+
+Board text uses [Roboto](https://github.com/googlefonts/roboto-classic) (SIL Open Font
+License, `src/scene/font-license.txt`), converted once to `src/scene/font-data.ts` by
+`node scripts/build-font.mjs <roboto-latin-400-normal.woff>` (from the `@fontsource/roboto`
+package); nothing is loaded at runtime.
 
 ```sh
 npm install

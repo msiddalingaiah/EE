@@ -85,6 +85,11 @@ export function parseCamJob(text: string, name = 'CAM job'): CamJob {
   return job;
 }
 
+/** Silkscreen layers: placement, names and values, top and bottom. */
+const SILK_LAYERS = new Set([21, 22, 25, 26, 27, 28]);
+/** The thinnest silkscreen line fabs commonly print reliably (JLCPCB: 0.15 mm). */
+export const MIN_SILK_STROKE = 0.15;
+
 export interface CamResult {
   /** File name → contents. */
   files: Map<string, string>;
@@ -103,8 +108,13 @@ export function runCam(project: O.Project, job: CamJob = DEFAULT_JOB, index = ne
     const features = out.layers.flatMap((l) => plot.layers.get(l) ?? []);
     writeFeatures(w, features);
     files.set(out.file.replace(/%N/g, name), w.toString());
-    const texts = out.layers.reduce((n, l) => n + (plot.texts.get(l) ?? 0), 0);
-    if (texts) warnings.push(`${out.name}: ${texts} text${texts === 1 ? '' : 's'} left out (text isn't plotted yet)`);
+    const thin = out.layers.filter((l) => SILK_LAYERS.has(l)).flatMap((l) => plot.texts.get(l) ?? []).filter((w) => w < MIN_SILK_STROKE - 1e-9);
+    if (thin.length) {
+      warnings.push(
+        `${out.name}: ${thin.length} text${thin.length === 1 ? ' has' : 's have'} strokes thinner than ${MIN_SILK_STROKE} mm ` +
+          `(thinnest ${Math.min(...thin).toFixed(3)} mm), which fabs may print faintly or not at all; a larger size or ratio makes them bolder`,
+      );
+    }
   }
   if (job.drill) files.set(job.drill.replace(/%N/g, name), writeExcellon(plot.drills));
   return { files, warnings };

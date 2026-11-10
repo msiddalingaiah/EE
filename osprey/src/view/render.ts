@@ -1,6 +1,7 @@
 // Canvas2D renderer for a Scene.
 
 import type { Layer } from '../eagle/types';
+import { boldness, EM_PER_SIZE, glyphPath, layout, unitScale } from '../scene/font';
 import type { SceneIndex } from '../scene/index';
 import type { Bounds, Prim, TextPrim } from '../scene/types';
 import { BACKGROUND, layerAlpha, layerColor } from './palette';
@@ -11,9 +12,11 @@ export const SELECT_COLOR = '#ffd84d';
 export const HOVER_COLOR = '#ffffff';
 const GRID_COLOR = '#3a414d';
 
-/** Ratio of the em size to Eagle's text size (Eagle size ≈ cap height). */
-const EM_PER_SIZE = 1.2;
+/** Schematic text: the system's sans-serif. (Board text is drawn from Roboto's outlines; see font.ts.) */
 const TEXT_FONT = '"Segoe UI", Roboto, Helvetica, Arial, sans-serif';
+/** Whether the scene being drawn is a board (text from glyph outlines, as fabricated). */
+let boardText = false;
+const glyphPaths = new Map<string, Path2D>();
 /** Text smaller than this (CSS px) is skipped: it would be unreadable and is slow to draw. */
 const MIN_TEXT_PX = 3;
 
@@ -55,6 +58,7 @@ export function render(ctx: CanvasRenderingContext2D, vp: Viewport, dpr: number,
 
   const view = vp.visibleBounds();
   const prims = s.index.scene.prims;
+  boardText = s.index.scene.kind === 'board';
   const inView = (i: number) => {
     const b = s.index.primBounds[i]!;
     return b.maxX >= view.minX && b.minX <= view.maxX && b.maxY >= view.minY && b.minY <= view.maxY;
@@ -302,6 +306,28 @@ function drawText(ctx: CanvasRenderingContext2D, vp: Viewport, dpr: number, p: T
   if (p.mirror) ctx.scale(-1, 1);
 
   ctx.fillStyle = color;
+  if (boardText) {
+    // Glyph outlines in font units (y up), placed in text-local mm (y up); screen y grows down.
+    const z = vp.zoom;
+    const k = unitScale(p.size);
+    const grow = boldness(p.size, p.ratio);
+    ctx.strokeStyle = color;
+    ctx.lineJoin = 'round';
+    for (const g of layout(p.text, p.size, p.align)) {
+      let path = glyphPaths.get(g.ch);
+      if (!path) glyphPaths.set(g.ch, (path = new Path2D(glyphPath(g.ch))));
+      ctx.save();
+      ctx.translate(g.x * z, -g.y * z);
+      ctx.scale(k * z, -k * z);
+      ctx.fill(path, 'nonzero');
+      if (grow > 0) {
+        ctx.lineWidth = (2 * grow) / k;
+        ctx.stroke(path);
+      }
+      ctx.restore();
+    }
+    return;
+  }
   ctx.font = `${sizePx * EM_PER_SIZE}px ${TEXT_FONT}`;
   const [v, h] = p.align === 'center' ? ['center', 'center'] : p.align.split('-');
   ctx.textAlign = h === 'left' ? 'left' : h === 'right' ? 'right' : 'center';

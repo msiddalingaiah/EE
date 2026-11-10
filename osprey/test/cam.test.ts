@@ -33,6 +33,27 @@ function diff(file: string, ours: string, opts: Parameters<typeof plotGerber>[2]
   return { ours: mm2(c.a), eagle: mm2(c.b), onlyOurs: mm2(c.onlyA), onlyEagle: mm2(c.onlyB) };
 }
 
+/** Pixels within r pixels (square neighbourhood) of a set pixel. */
+function dilate(r: ReturnType<typeof raster>, n: number): Uint8Array {
+  const { w, h, px } = r;
+  const rows = new Uint8Array(w * h);
+  for (let j = 0; j < h; j++) {
+    let last = -Infinity;
+    for (let i = 0; i < w; i++) if (px[j * w + i]) last = i; else if (i - last <= n) rows[j * w + i] = 1;
+    last = Infinity;
+    for (let i = w - 1; i >= 0; i--) if (px[j * w + i]) last = i; else if (last - i <= n) rows[j * w + i] = 1;
+    for (let i = 0; i < w; i++) if (px[j * w + i]) rows[j * w + i] = 1;
+  }
+  const out = new Uint8Array(w * h);
+  for (let i = 0; i < w; i++) {
+    let last = -Infinity;
+    for (let j = 0; j < h; j++) if (rows[j * w + i]) { last = j; out[j * w + i] = 1; } else if (j - last <= n) out[j * w + i] = 1;
+    last = Infinity;
+    for (let j = h - 1; j >= 0; j--) if (rows[j * w + i]) last = j; else if (last - j <= n) out[j * w + i] = 1;
+  }
+  return out;
+}
+
 describe('CAM output for TA7358A, against Eagle', () => {
   const { files, warnings } = runCam(project());
   const file = (ext: string) => files.get(`TA7358A.${ext}`)!;
@@ -75,13 +96,36 @@ describe('CAM output for TA7358A, against Eagle', () => {
     });
   }
 
-  it('silkscreen: identical but for the text, which is left out (and reported)', () => {
-    const top = diff('TA7358A.GTO', file('GTO'));
-    expect(top.onlyOurs).toBeLessThan(0.01);
+  it('silkscreen: lines, arcs and shapes identical to Eagle\'s', () => {
+    // Our text is plotted as regions, Eagle's as strokes: leave our regions out, and nothing of
+    // ours is missing from Eagle's (what only Eagle has is its text).
+    const top = diff('TA7358A.GTO', file('GTO'), { only: 'other' }, '.lines');
     expect(top.ours).toBeGreaterThan(80);
+    expect(top.onlyOurs).toBeLessThan(0.01);
     const bottom = diff('TA7358A.GBO', file('GBO'));
     expect(bottom.eagle + bottom.ours).toBe(0);
-    expect(warnings).toEqual(["Silkscreen Top: 51 texts left out (text isn't plotted yet)"]);
+  });
+
+  it('silkscreen text: in Roboto, where Eagle put it, at the same height', () => {
+    const ours = raster(-1, -1, 38, 38, RES);
+    const theirs = raster(-1, -1, 38, 38, RES);
+    plotGerber(file('GTO'), ours, { only: 'regions' });
+    plotGerber(eagle.get('TA7358A.GTO')!, theirs);
+    // Eagle's characters are wider (fixed pitch), so ours end sooner; but every bit of our text
+    // lies within 0.25 mm of Eagle's silkscreen.
+    const near = dilate(theirs, Math.round(0.25 / RES));
+    let inside = 0;
+    let total = 0;
+    for (let k = 0; k < ours.px.length; k++) {
+      if (!ours.px[k]) continue;
+      total++;
+      if (near[k]) inside++;
+    }
+    expect(mm2(total)).toBeGreaterThan(5);
+    expect(inside / total).toBeGreaterThan(0.99);
+    expect(warnings).toEqual([
+      'Silkscreen Top: 51 texts have strokes thinner than 0.15 mm (thinnest 0.044 mm), which fabs may print faintly or not at all; a larger size or ratio makes them bolder',
+    ]);
   });
 
   it('drills the same holes, with the same tools', () => {

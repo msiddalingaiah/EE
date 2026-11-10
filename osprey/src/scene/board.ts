@@ -116,7 +116,7 @@ function emitFootprint(b: SceneBuilder, fp: O.FootprintPlacement, index: Project
     const owner = b.addOwner(labelOwner(l, part.name, 'board', fp));
     b.text(text, l.at[0], l.at[1], l.size, rotation(l.rot, l.mirror, l.spin), l.align ?? 'bottom-left', layerNumber(l.layer), {
       owner, transform: IDENTITY, textContext: 'board',
-    });
+    }, l.ratio);
   }
 }
 

@@ -7,6 +7,7 @@ import { apply, compose, composeRotation, placement } from '../geom/transform';
 import { rotation } from '../model/geometry';
 import { layerNumber } from '../model/layers';
 import type * as O from '../model/types';
+import { textCorners } from './font';
 import type { Bounds, Owner, Prim, Scene } from './types';
 
 export type TextContext = 'schematic' | 'board';
@@ -81,7 +82,7 @@ export class SceneBuilder {
     } else if ('text' in g) {
       const text = ctx.substitute ? ctx.substitute(g.text) : g.text;
       if (text === undefined || text === '') return;
-      this.text(text, g.at[0], g.at[1], g.size, rotation(g.rot, g.mirror, g.spin), g.align ?? 'bottom-left', this.layer(g.layer, ctx), ctx);
+      this.text(text, g.at[0], g.at[1], g.size, rotation(g.rot, g.mirror, g.spin), g.align ?? 'bottom-left', this.layer(g.layer, ctx), ctx, g.ratio);
     } else if ('hole' in g) {
       const c = apply(T, g.hole[0], g.hole[1]);
       this.prims.push({ t: 'circle', cx: c.x, cy: c.y, r: g.drill / 2, width: 0.1, layer: HOLES_LAYER, owner: ctx.owner });
@@ -117,14 +118,14 @@ export class SceneBuilder {
   /** Emit text at local (x, y) with a local rotation, applying Eagle's readability rules. */
   text(
     text: string, x: number, y: number, size: number, rot: Rotation, align: TextAlign,
-    layer: number, ctx: EmitContext,
+    layer: number, ctx: EmitContext, ratio?: number,
   ): void {
     const p = apply(ctx.transform, x, y);
     const abs = composeRotation(ctx.transform, rot);
     const placed = readableText(abs, align, ctx.textContext);
     this.prims.push({
       t: 'text', x: p.x, y: p.y, text, size, angle: placed.angle, mirror: placed.mirror,
-      align: placed.align, layer, owner: ctx.owner,
+      align: placed.align, layer, owner: ctx.owner, ...(ratio !== undefined ? { ratio } : {}),
     });
   }
 
@@ -346,22 +347,8 @@ export function primBounds(p: Prim): Bounds {
   }
 }
 
-/** Approximate rotated bounding box of a text primitive (assumes ~0.7em average glyph width). */
-export function textCorners(p: {
-  x: number; y: number; text: string; size: number; angle: number; mirror: boolean; align: TextAlign;
-}): Point[] {
-  const lines = p.text.split('\n');
-  const w = Math.max(...lines.map((l) => l.length)) * p.size * 0.75;
-  const h = p.size * (1 + (lines.length - 1) * 1.5);
-  const [v, hz] = splitAlign(p.align);
-  const x0 = hz === 'left' ? 0 : hz === 'right' ? -w : -w / 2;
-  const y0 = v === 'bottom' ? 0 : v === 'top' ? -h : -h / 2;
-  // Drawing convention is R(angle)·M, which equals placement's M·R(-angle).
-  const T = placement(p.x, p.y, { angle: p.mirror ? -p.angle : p.angle, mirror: p.mirror, spin: false });
-  return [
-    apply(T, x0, y0), apply(T, x0 + w, y0), apply(T, x0 + w, y0 + h), apply(T, x0, y0 + h),
-  ];
-}
+/** Rotated box of a text primitive, from the board font's advance widths. */
+export { textCorners };
 
 export function emptyBounds(): Bounds {
   return { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity };
