@@ -39,16 +39,18 @@ self.addEventListener('activate', (e) => {
   );
 });
 
-// Cache first; pages fall back to the app itself.
+// Cache first; pages fall back to the app itself. Vary is ignored: the preview server sends
+// "Vary: Origin", and the stylesheet and script (crossorigin) are requested with an Origin
+// header the cached copies were fetched without, so they would never match.
 self.addEventListener('fetch', (e) => {
   const req = e.request;
   if (req.method !== 'GET' || new URL(req.url).origin !== location.origin) return;
   e.respondWith(
     caches.open(CACHE).then(async (c) => {
-      const hit = await c.match(req, { ignoreSearch: true });
+      const hit = await c.match(req, { ignoreSearch: true, ignoreVary: true });
       if (hit) return hit;
       if (req.mode === 'navigate') {
-        const page = await c.match('./index.html');
+        const page = await c.match('./index.html', { ignoreVary: true });
         if (page) return page;
       }
       return fetch(req);
