@@ -69,13 +69,14 @@ native model (see [docs/format.md](docs/format.md)). Eagle files are imported in
 - **Stretching drawing lines** (board, schematic): a selected line shows handles on its ends;
   drag one to move that end. The ends of other lines on the same layer that meet it move too,
   so dragging a board outline corner resizes the board and keeps the outline closed.
-- **Pours are computed** (board): each polygon pour is filled as Eagle does: clear of other
-  nets' copper by the larger of its isolate and the clearance rule, the edge distance inside the
-  board outline, out of keep-out areas, around holes and cutouts, in rank order; the net's pads
+- **Pours are computed** (board): each polygon pour is filled much as Eagle does, but with one
+  gap, its **isolate** (10 mil unless set), whatever the design rules say: that far from other
+  nets' copper, inside the board outline and around holes; out of keep-out areas and cutouts, in
+  rank order; the net's pads
   get thermal spokes (or connect fully with thermals off); islands that reach none of the net's
   copper are dropped (unless orphans are kept). Pours reflow after every edit (a drag reflows
   them when it ends). The **pour fill** checkbox in the Layers panel (or P) shows them filled or
-  as outlines only; that's just the view, so airwires and the DRC count the copper either way.
+  as outlines only (a pour's dashed outline shows only when it has no copper to show); that's just the view, so airwires and the DRC count the copper either way.
   Not yet: hatched fill (drawn solid), and removing copper narrower than the pour's width.
 - **CAM output** (board): the **CAM…** menu makes the manufacturing files as one zip: Gerber
   (RS-274X with X2 file functions) for copper, solder mask, paste, silkscreen and the board

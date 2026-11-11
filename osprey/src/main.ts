@@ -12,7 +12,7 @@ import type { Point } from './geom/transform';
 import { componentName, ProjectIndex } from './model/derive';
 import { drc, type DrcResult, type Violation } from './model/drc';
 import { readProject } from './model/file';
-import { freezePours } from './model/pour';
+import { freezePours, pourIsolate } from './model/pour';
 import { designRules, parseDru } from './model/rules';
 import { exportEagle } from './model/export-eagle';
 import { DEFAULT_JOB, parseCamJob, runCam, type CamJob } from './cam/job';
@@ -1349,7 +1349,8 @@ function pourFields(pour: O.PolygonShape, netName: string): { table: HTMLTableEl
   layerSel.addEventListener('change', () => done(ed.setPour(pour, { layer: layerSel.value }, 'Pour layer'), 'Layer'));
   row('Layer', layerSel);
   text('Width (mm)', 'width', String(pour.width), (v) => ed.setPour(pour, { width: mm(v) ?? NaN }, 'Pour width'));
-  text('Isolate (mm)', 'isolate', pour.isolate === undefined ? '' : String(pour.isolate), (v) => ed.setPour(pour, { isolate: mm(v) }, 'Pour isolation'));
+  // The gap to other nets, the board edge and holes; empty goes back to the default (10 mil).
+  text('Isolate (mm)', 'isolate', String(pourIsolate(pour)), (v) => ed.setPour(pour, { isolate: mm(v) }, 'Pour isolation'));
   text('Rank', 'rank', String(pour.rank ?? 1), (v) => ed.setPour(pour, { rank: v.trim() ? Number(v) : 1 }, 'Pour rank'));
   const fill = document.createElement('select');
   fill.append(new Option('solid', 'solid'), new Option('hatched (drawn solid)', 'hatch'));

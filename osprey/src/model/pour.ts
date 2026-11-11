@@ -1,11 +1,15 @@
 // Poured copper: what a net's polygon pour actually fills, as Eagle computes it.
 //
 // For each pour, on its layer, in rank order (rank 1 first):
-// 1. Start from the pour's outline (arcs flattened), within the board outline less the
-//    copper-to-edge distance.
+// 1. Start from the pour's outline (arcs flattened), within the board outline less the pour's
+//    isolate.
 // 2. Cut out other nets' copper (pads, SMDs, vias, traces, and the fills of pours of lower rank
-//    number), each grown by the larger of the pour's isolate and the clearance rule; cut out
-//    holes, cutout polygons and keep-out areas (restrict layers).
+//    number) and holes, each grown by the pour's isolate; cut out cutout polygons and keep-out
+//    areas (restrict layers).
+//
+// The isolate is the one gap a pour keeps, whatever the design rules say (unlike Eagle, which
+// takes the larger of it and the clearance rules, and the copper-to-edge rule at the edge):
+// 10 mil unless the pour sets it.
 // 3. Thermals: the net's own pads (and vias, if the rules say so) get a gap of the thermal
 //    isolate, crossed by four spokes along the pad's axes; with thermals off they connect fully.
 // 4. The copper reaches half the pour's width beyond its outline. (Eagle also removes copper
@@ -25,6 +29,14 @@ import { collect, dimension, type Item, type Shape } from './copper';
 import { ProjectIndex } from './derive';
 import { designRules, DesignRules } from './rules';
 import type * as O from './types';
+
+/** A pour's gap to other nets' copper, the board edge and holes when it doesn't set one: 10 mil. */
+export const DEFAULT_POUR_ISOLATE = 0.254;
+
+/** The gap a pour keeps to other nets' copper, the board edge and holes (mm). */
+export function pourIsolate(pour: O.PolygonShape): number {
+  return pour.isolate && pour.isolate > 0 ? pour.isolate : DEFAULT_POUR_ISOLATE;
+}
 
 /** Integer units per mm. */
 const S = 10_000;
@@ -323,28 +335,27 @@ export function computePours(project: O.Project, index = new ProjectIndex(projec
     const w = pour.width;
     const half = w / 2;
     const rank = pour.rank ?? 1;
-    const iso = (kind: Item['kind']) => Math.max(pour.isolate ?? 0, rules.clearance('wire', kind));
+    const iso = pourIsolate(pour);
 
     // 1. The pour's copper extends half its width beyond the outline's centre line, and stays
-    //    the copper-to-edge distance inside the board.
+    //    the isolate inside the board.
     let room = inflate(clip(ClipType.Union, paths(path(outline(pour))), new Paths64()), half);
-    if (area) room = clip(ClipType.Intersection, room, deflate(area, rules.copperDimension));
+    if (area) room = clip(ClipType.Intersection, room, deflate(area, iso));
 
     // 2. Cut-outs: other nets' copper (grown by the isolation), holes, cutouts, and fills of
     //    other nets' pours of lower rank number.
     const cut = new Paths64();
     for (const it of items) {
       if (it.net === net || !it.layers.has(layer)) continue;
-      const d = iso(it.kind);
-      for (const s of it.shapes) cut.push(grown(s, d));
+      for (const s of it.shapes) cut.push(grown(s, iso));
     }
-    for (const h of holes) cut.push(grown({ t: 'cap', a: { x: h.hole[0], y: h.hole[1] }, b: { x: h.hole[0], y: h.hole[1] }, r: h.drill / 2 }, rules.copperDimension));
+    for (const h of holes) cut.push(grown({ t: 'cap', a: { x: h.hole[0], y: h.hole[1] }, b: { x: h.hole[0], y: h.hole[1] }, r: h.drill / 2 }, iso));
     for (const g of board.drawing) {
       if ('polygon' in g && g.pour === 'cutout' && g.layer === layer) cut.push(...inflate(clip(ClipType.Union, paths(path(outline(g))), new Paths64()), g.width / 2));
     }
     cut.push(...keepouts.get(layer) ?? []);
     for (const f of filled) {
-      if (f.layer === layer && f.net !== net && f.rank < rank) cut.push(...inflate(f.copper, rules.clearance('wire', 'wire')));
+      if (f.layer === layer && f.net !== net && f.rank < rank) cut.push(...inflate(f.copper, iso));
     }
 
     // 3. Thermals: the net's own pads (and vias, by the rules) get a gap of the thermal

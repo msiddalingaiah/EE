@@ -4,7 +4,8 @@
 //   apart (Eagle's per-pair distances: wire, pad, SMD, via). Touching copper is a short.
 //   Pads on no net count as their own net.
 // - Width: traces at least the minimum width. Drill: vias, pads and holes at least the minimum.
-// - Dimension: copper at least the rule's distance from the board outline and holes; every
+// - Dimension: copper at least the rule's distance from the board outline and holes (poured
+//   copper: the pour's isolate, which it keeps whatever the rules say); every
 //   end of an outline line meets another (an open outline isn't a board shape).
 // - Unrouted: every airwire left (ratsnest.ts) is a problem, so a board passes only when each
 //   net's copper is joined (by traces, vias or pours).
@@ -19,7 +20,7 @@ import { apply } from '../geom/transform';
 import { boxOf, collect, coreDistance, dimension, gap, lineShapes, type Box, type Item, type Near, type Shape } from './copper';
 import { ProjectIndex } from './derive';
 import { footprintTransform } from './geometry';
-import { pourFills } from './pour';
+import { pourFills, pourIsolate } from './pour';
 import { ratsnest } from './ratsnest';
 import { designRules, DesignRules, type CopperKind } from './rules';
 import type * as O from './types';
@@ -60,7 +61,8 @@ export function drc(project: O.Project): DrcResult {
   const board = project.board;
   if (!board) return { rules, violations: [], checked: 0 };
   const index = new ProjectIndex(project);
-  const items = [...collect(project, rules, index), ...pourItems(project, index)];
+  const poured = pourItems(project, index);
+  const items = [...collect(project, rules, index), ...poured];
   const out: Violation[] = [];
 
   // Clearance and shorts: sweep over x, comparing items whose boxes come within the margin.
@@ -114,10 +116,11 @@ export function drc(project: O.Project): DrcResult {
   }
 
   // Copper to the board outline and holes.
-  const dim = rules.copperDimension;
   const edges = dimension(board);
   if (edges.length) {
+    const pours = new Set(poured);
     for (const item of items) {
+      const dim = pours.has(item) ? pourIsolate(item.obj as O.PolygonShape) : rules.copperDimension;
       let worst: { n: Near; obj: object } | undefined;
       for (const e of edges) {
         const box = boxOf(e.shapes);

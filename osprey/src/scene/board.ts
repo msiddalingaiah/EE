@@ -5,7 +5,7 @@ import type { Layer } from '../eagle/types';
 import { ProjectIndex } from '../model/derive';
 import { designRules, footprintTransform, rotation } from '../model/geometry';
 import { layerNumber } from '../model/layers';
-import { pourFills } from '../model/pour';
+import { pourFills, pourIsolate } from '../model/pour';
 import { ratsnest } from '../model/ratsnest';
 import { DesignRules } from '../model/rules';
 import type * as O from '../model/types';
@@ -163,12 +163,13 @@ function emitNets(b: SceneBuilder, project: O.Project, rules: DesignRules, index
         net: net.name,
         props: [
           ['Net', net.name], ['Layer', pour.layer], ['Points', String(pour.polygon.length)],
-          ['Isolate', pour.isolate === undefined ? '(default)' : `${fmtNum(pour.isolate)} mm`],
+          ['Isolate', `${fmtNum(pourIsolate(pour))} mm${pour.isolate ? '' : ' (default)'}`],
         ],
         target: { kind: 'pour', net, pour },
       });
-      // The poured copper, island by island; the outline stays visible as a thin dashed line
-      // (as Eagle shows a pour's outline) so an empty or partly filled pour can still be found.
+      // The poured copper, island by island. The outline is drawn as a dashed line only when
+      // there is no copper to show (pour fill off, or nothing poured), so an empty pour can still
+      // be found; under copper it would show where the fill was cut back (e.g. past the edge).
       const fill = showPours ? fills.get(pour) : undefined;
       const layer = layerNumber(pour.layer);
       for (const isl of fill?.islands ?? []) {
@@ -177,12 +178,12 @@ function emitNets(b: SceneBuilder, project: O.Project, rules: DesignRules, index
           width: 0, fill: true, layer, owner: id,
         });
       }
-      if (cam) continue;
+      if (cam || fill?.islands.length) continue;
       b.graphic(pour, { ...base, owner: id });
       const last = b.prims[b.prims.length - 1];
       if (last?.t === 'poly') {
         last.fill = false;
-        last.width = fill?.islands.length ? 0 : Math.max(pour.width, 0.1);
+        last.width = Math.max(pour.width, 0.1);
         last.dash = [pour.width * 4 || 0.5, pour.width * 4 || 0.5];
       }
     }

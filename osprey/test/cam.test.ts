@@ -77,14 +77,14 @@ describe('CAM output for TA7358A, against Eagle', () => {
       expect(d.onlyEagle).toBeLessThan(0.005);
     });
 
-    it(`${ext}: with poured copper, within 1% of Eagle's`, () => {
-      // Known differences, in the pour computation (not CAM): Eagle removes copper narrower than
-      // the pour's width (necks between close pads, slivers between holes and the board edge),
-      // and its thermal spokes are a little wider. (Eagle's spokes also run on under the pad,
-      // so pours alone aren't compared: only what shows.)
+    it(`${ext}: with poured copper, close to Eagle's`, () => {
+      // Pours keep their isolate (10 mil here) from everything, where Eagle keeps the larger of
+      // it and the clearance rules (6 mil) from copper and the copper-to-edge rule (15 mil) from
+      // the edge and holes: the gaps differ by a few mil all round. Also, Eagle removes copper
+      // narrower than the pour's width, and its thermal spokes are a little wider.
       const d = diff(`TA7358A.${ext}`, file(ext));
       expect(d.eagle).toBeGreaterThan(1000);
-      expect(d.onlyOurs + d.onlyEagle).toBeLessThan(0.01 * d.eagle);
+      expect(d.onlyOurs + d.onlyEagle).toBeLessThan(0.1 * d.eagle);
     });
   }
 

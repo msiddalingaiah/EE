@@ -8,7 +8,7 @@ import { collect, padShapes, type Item } from '../src/model/copper';
 import { ProjectIndex } from '../src/model/derive';
 import { drc } from '../src/model/drc';
 import { readProject } from '../src/model/file';
-import { computePours, freezePours, inIsland, pourFills, type PourFill } from '../src/model/pour';
+import { computePours, DEFAULT_POUR_ISOLATE, freezePours, inIsland, pourFills, pourIsolate, type PourFill } from '../src/model/pour';
 import { ratsnest } from '../src/model/ratsnest';
 import { DesignRules, designRules } from '../src/model/rules';
 import type * as O from '../src/model/types';
@@ -39,11 +39,32 @@ describe('the sample board', () => {
     expect(drc(p).violations).toEqual([]);
   });
 
-  it('stays the copper-to-edge distance inside the board outline', () => {
+  it('stays its isolate inside the board outline, whatever the copper-to-edge rule', () => {
     const f = fillOf('VCC');
+    expect(f.pour.isolate).toBeUndefined();
+    expect(pourIsolate(f.pour)).toBe(DEFAULT_POUR_ISOLATE); // 10 mil
+    expect(rules().copperDimension).toBeCloseTo(0.381, 6); // 15 mil: not used
     const xs = f.islands[0]!.outer.map((q) => q[0]);
-    expect(Math.min(...xs)).toBeGreaterThanOrEqual(rules().copperDimension);
-    expect(Math.min(...xs)).toBeLessThan(rules().copperDimension + 0.01);
+    expect(Math.min(...xs)).toBeGreaterThanOrEqual(DEFAULT_POUR_ISOLATE);
+    expect(Math.min(...xs)).toBeLessThan(DEFAULT_POUR_ISOLATE + 0.01);
+    f.pour.isolate = 0.5;
+    const ys = fillOf('VCC').islands.flatMap((i) => i.outer.map((q) => q[1]));
+    expect(Math.min(...ys)).toBeGreaterThanOrEqual(0.5);
+    expect(Math.min(...ys)).toBeLessThan(0.51);
+  });
+
+  it("keeps its isolate from holes and other nets' copper, not the clearance rules", () => {
+    const f = fillOf('GND');
+    const hole = p.board!.drawing.find((g): g is O.HoleShape => 'hole' in g);
+    if (hole) {
+      const r = hole.drill / 2 + pourIsolate(f.pour);
+      expect(copperAt(f, hole.hole[0] + r - 0.02, hole.hole[1])).toBe(false);
+    }
+    // A pad of another net: no copper closer than the isolate (10 mil), though the rules ask only 6 mil.
+    const pad = items().find((it) => it.net !== 'GND' && it.kind === 'pad' && it.layers.has('copper.bottom'))!;
+    const x = pad.box.maxX + pourIsolate(f.pour) - 0.03;
+    const y = (pad.box.minY + pad.box.maxY) / 2;
+    expect(copperAt(f, x, y)).toBe(false);
   });
 
   it('connects GND and VCC through the pours: no airwires', () => {
@@ -107,13 +128,13 @@ describe('islands', () => {
 
   it('keeps out of keep-out (restrict) areas', () => {
     const f0 = fillOf('VCC');
-    expect(copperAt(f0, 20, 34)).toBe(true);
-    const bottomBefore = copperAt(fillOf('GND'), 20, 34);
+    expect(copperAt(f0, 20, 33)).toBe(true);
+    const bottomBefore = copperAt(fillOf('GND'), 20, 33);
     p.board!.drawing.push({ rect: [[18, 32], [22, 35]], layer: 'restrict.top' });
     const f = fillOf('VCC');
-    expect(copperAt(f, 20, 34)).toBe(false);
+    expect(copperAt(f, 20, 33)).toBe(false);
     // Only on its own layer: the bottom pour is unchanged there.
-    expect(copperAt(fillOf('GND'), 20, 34)).toBe(bottomBefore);
+    expect(copperAt(fillOf('GND'), 20, 33)).toBe(bottomBefore);
   });
 });
 
