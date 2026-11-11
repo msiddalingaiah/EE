@@ -15,7 +15,8 @@ oscillator): a schematic and board placement generated from a circuit descriptio
 script, as a first test of building designs with Claude, and placed with the placement toolkit
 (`src/edit/arrange.ts`): connectors on the edges, blocks beside the pins they connect to,
 rotations chosen by airwire length and crossings, then improved by small moves and swaps
-(`src/edit/improve.ts`). Unrouted.
+(`src/edit/improve.ts`), then laid out again by hand on a smaller board (44.46 x 27.46 mm).
+The 2-pin headers (power P1, antenna P2, audio P3) have ground on pin 1. Unrouted.
 
 The JFET source follower drives the 2N3904's base directly: its source voltage biases the
 transistor, so there is no coupling capacitor or base divider. The emitter's bypassed

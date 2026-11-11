@@ -19,6 +19,8 @@ beforeEach(() => {
 });
 
 const fp = (part: string) => p.board!.footprints.find((f) => f.part === part)!;
+/** The board's right edge (x of the outline's rightmost point). */
+const right = () => Math.max(...p.board!.drawing.flatMap((g) => ('line' in g && g.layer === 'outline' ? g.line.map((q) => q[0]) : [])));
 const kinds = () => placementIssues(p).map((i) => (i.kind === 'overlap' ? `${i.parts.join('/')}` : `${i.kind} ${i.part}`)).sort();
 
 describe('footprint geometry', () => {
@@ -58,15 +60,15 @@ describe('placement checks and measures', () => {
   });
 
   it('a part sticking out over the board edge is a problem, not a part parked beside the board', () => {
-    fp('C9').at = [47.2, 24];
+    fp('C9').at = [right() + 0.2, 20];
     expect(kinds()).toContain('edge C9');
-    fp('C9').at = [60, 24]; // wholly off the board: parked
+    fp('C9').at = [right() + 13, 20]; // wholly off the board: parked
     expect(kinds()).not.toContain('edge C9');
   });
 
   it('finds parts on a hole or over the edge', () => {
     fp('C1').at = [2.54, 2.54];
-    fp('R1').at = [46.8, 15];
+    fp('R1').at = [right() - 0.2, 15];
     expect(kinds()).toEqual(expect.arrayContaining(['hole C1', 'edge R1']));
   });
 
@@ -120,10 +122,10 @@ describe('spreading parts apart', () => {
 
   it('pulls apart two parts dropped on each other, and brings a part back inside the board', () => {
     fp('R1').at = [...fp('R2').at];
-    fp('R14').at = [46.6, 24];
+    fp('R14').at = [right() - 0.4, 20];
     editor.legalize();
     expect(placementIssues(p)).toEqual([]);
-    expect(footprintInfo(p, 'R14')!.box.maxX).toBeLessThanOrEqual(47 - 0.5 + 1e-6);
+    expect(footprintInfo(p, 'R14')!.box.maxX).toBeLessThanOrEqual(right() - 0.5 + 1e-6);
   });
 
   it('moves traces with the parts', () => {
