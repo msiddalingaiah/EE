@@ -1208,12 +1208,9 @@
     { "name": "R1", "component": "madhu/RESISTOR", "variant": "0805-RES", "value": "3.3M" },
     { "name": "Q1", "component": "madhu/MPF102", "variant": "" },
     { "name": "R2", "component": "madhu/RESISTOR", "variant": "0805-RES", "value": "2.2k" },
-    { "name": "C2", "component": "madhu/CAPACITOR-NP", "variant": "0805", "value": "100n" },
-    { "name": "R3", "component": "madhu/RESISTOR", "variant": "0805-RES", "value": "47k" },
-    { "name": "R4", "component": "madhu/RESISTOR", "variant": "0805-RES", "value": "10k" },
     { "name": "Q2", "component": "madhu/MMBT3904", "variant": "L" },
     { "name": "R5", "component": "madhu/RESISTOR", "variant": "0805-RES", "value": "220" },
-    { "name": "R6", "component": "madhu/RESISTOR", "variant": "0805-RES", "value": "270" },
+    { "name": "R6", "component": "madhu/RESISTOR", "variant": "0805-RES", "value": "1k" },
     { "name": "C3", "component": "madhu/CAPACITOR-NP", "variant": "0805", "value": "10u" },
     { "name": "C4", "component": "madhu/CAPACITOR-NP", "variant": "0805", "value": "1.5n" },
     { "name": "L1", "component": "madhu/INDUCTOR-VAR2", "variant": "71K2" },
@@ -1227,7 +1224,6 @@
     { "name": "SUPPLY4", "component": "supply2/GND", "variant": "" },
     { "name": "SUPPLY5", "component": "supply2/GND", "variant": "" },
     { "name": "SUPPLY6", "component": "supply2/GND", "variant": "" },
-    { "name": "SUPPLY7", "component": "supply2/GND", "variant": "" },
     { "name": "SUPPLY8", "component": "supply2/GND", "variant": "" },
     { "name": "SUPPLY9", "component": "supply2/GND", "variant": "" },
     { "name": "SUPPLY10", "component": "supply2/GND", "variant": "" },
@@ -1401,15 +1397,6 @@
         },
         { "sheet": "1",
           "pins": [
-            { "part": "R4", "gate": "A", "pin": "1" },
-            { "part": "SUPPLY7", "gate": "GND", "pin": "GND" }
-          ],
-          "wires": [
-            { "line": [[58.42, 66.04], [58.42, 63.5]], "width": 0.1524 }
-          ]
-        },
-        { "sheet": "1",
-          "pins": [
             { "part": "R6", "gate": "A", "pin": "1" },
             { "part": "SUPPLY8", "gate": "GND", "pin": "GND" }
           ],
@@ -1567,28 +1554,11 @@
           "pins": [
             { "part": "Q1", "gate": "A", "pin": "S" },
             { "part": "R2", "gate": "A", "pin": "2" },
-            { "part": "C2", "gate": "A", "pin": "1" }
+            { "part": "Q2", "gate": "A", "pin": "B" }
           ],
           "wires": [
             { "line": [[40.64, 81.28], [45.72, 81.28]], "width": 0.1524 },
-            { "line": [[45.72, 81.28], [50.8, 81.28]], "width": 0.1524 }
-          ]
-        }
-      ]
-    },
-    { "name": "N$3",
-      "segments": [
-        { "sheet": "1", "junctions": [[58.42, 81.28]],
-          "pins": [
-            { "part": "C2", "gate": "A", "pin": "2" },
-            { "part": "Q2", "gate": "A", "pin": "B" },
-            { "part": "R3", "gate": "A", "pin": "1" },
-            { "part": "R4", "gate": "A", "pin": "2" }
-          ],
-          "wires": [
-            { "line": [[58.42, 81.28], [71.12, 81.28]], "width": 0.1524 },
-            { "line": [[58.42, 81.28], [58.42, 86.36]], "width": 0.1524 },
-            { "line": [[58.42, 81.28], [58.42, 76.2]], "width": 0.1524 }
+            { "line": [[45.72, 81.28], [71.12, 81.28]], "width": 0.1524 }
           ]
         }
       ]
@@ -1687,12 +1657,11 @@
     },
     { "name": "VCCA",
       "segments": [
-        { "sheet": "1", "junctions": [[40.64, 101.6], [58.42, 101.6], [83.82, 101.6]],
+        { "sheet": "1", "junctions": [[40.64, 101.6], [83.82, 101.6]],
           "pins": [
             { "part": "R10", "gate": "A", "pin": "2" },
             { "part": "C7", "gate": "A", "pin": "1" },
             { "part": "Q1", "gate": "A", "pin": "D" },
-            { "part": "R3", "gate": "A", "pin": "2" },
             { "part": "C4", "gate": "A", "pin": "1" },
             { "part": "L1", "gate": "A", "pin": "E1" },
             { "part": "L1", "gate": "A", "pin": "E" }
@@ -1701,7 +1670,6 @@
             { "line": [[17.78, 101.6], [20.32, 101.6]], "width": 0.1524 },
             { "line": [[20.32, 101.6], [91.44, 101.6]], "width": 0.1524 },
             { "line": [[40.64, 86.36], [40.64, 101.6]], "width": 0.1524 },
-            { "line": [[58.42, 96.52], [58.42, 101.6]], "width": 0.1524 },
             { "line": [[83.82, 93.98], [83.82, 101.6]], "width": 0.1524 },
             { "line": [[91.44, 96.52], [91.44, 101.6]], "width": 0.1524 },
             { "line": [[91.44, 93.98], [91.44, 96.52]], "width": 0.1524 }
@@ -1920,9 +1888,6 @@
           { "part": "R1", "gate": "A", "at": [17.78, 76.2], "rot": 90 },
           { "part": "Q1", "gate": "A", "at": [35.56, 83.82] },
           { "part": "R2", "gate": "A", "at": [45.72, 76.2], "rot": 90 },
-          { "part": "C2", "gate": "A", "at": [55.88, 81.28], "rot": 90 },
-          { "part": "R3", "gate": "A", "at": [58.42, 91.44], "rot": 90 },
-          { "part": "R4", "gate": "A", "at": [58.42, 71.12], "rot": 90 },
           { "part": "Q2", "gate": "A", "at": [73.66, 81.28] },
           { "part": "R5", "gate": "A", "at": [76.2, 66.04], "rot": 90 },
           { "part": "R6", "gate": "A", "at": [76.2, 50.8], "rot": 90 },
@@ -1939,7 +1904,6 @@
           { "part": "SUPPLY4", "gate": "GND", "at": [17.78, 66.04] },
           { "part": "SUPPLY5", "gate": "GND", "at": [10.16, 71.12] },
           { "part": "SUPPLY6", "gate": "GND", "at": [45.72, 66.04] },
-          { "part": "SUPPLY7", "gate": "GND", "at": [58.42, 60.96] },
           { "part": "SUPPLY8", "gate": "GND", "at": [76.2, 40.64] },
           { "part": "SUPPLY9", "gate": "GND", "at": [83.82, 45.72] },
           { "part": "SUPPLY10", "gate": "GND", "at": [116.84, 53.34] },
@@ -1989,13 +1953,10 @@
       { "part": "P1", "at": [8.998, 1.85], "rot": 180 },
       { "part": "C1", "at": [13.592, 1.85] },
       { "part": "P2", "at": [1.85, 15], "rot": 270 },
-      { "part": "R1", "at": [4.74, 15.54], "rot": 90 },
-      { "part": "Q1", "at": [9.17, 16.62], "rot": 180 },
-      { "part": "R2", "at": [10.78, 12.32], "rot": 90 },
-      { "part": "C2", "at": [14.11, 15.29] },
-      { "part": "R3", "at": [14.83, 18.03], "rot": 90 },
-      { "part": "R4", "at": [16.47, 12.7], "rot": 90 },
-      { "part": "Q2", "at": [17.42, 15.7] },
+      { "part": "R1", "at": [4.1, 15.18], "rot": 90 },
+      { "part": "Q1", "at": [10.53, 15.63], "rot": 180 },
+      { "part": "R2", "at": [11.99, 12.11] },
+      { "part": "Q2", "at": [17.67, 15.7] },
       { "part": "R5", "at": [18.37, 12.7], "rot": 90 },
       { "part": "R6", "at": [18.37, 9.42], "rot": 90 },
       { "part": "C3", "at": [19.82, 9.49], "rot": 270 },
@@ -2006,8 +1967,8 @@
       { "part": "R8", "at": [26.27, 14.29], "rot": 270 },
       { "part": "C6", "at": [26.72, 10.79], "rot": 270 },
       { "part": "R9", "at": [29.44, 11.48] },
-      { "part": "R10", "at": [15.02, 13], "rot": 90 },
-      { "part": "C7", "at": [13.28, 17.88], "rot": 90 },
+      { "part": "R10", "at": [15.27, 13.43], "rot": 90 },
+      { "part": "C7", "at": [14.34, 16.84], "rot": 90 },
       { "part": "U1", "at": [31.43, 14.87], "rot": 270 },
       { "part": "C8", "at": [29.78, 18.29] },
       { "part": "P4", "at": [33, 28.15] },

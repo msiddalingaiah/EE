@@ -16,3 +16,8 @@ script, as a first test of building designs with Claude, and placed with the pla
 (`src/edit/arrange.ts`): connectors on the edges, blocks beside the pins they connect to,
 rotations chosen by airwire length and crossings, then improved by small moves and swaps
 (`src/edit/improve.ts`). Unrouted.
+
+The JFET source follower drives the 2N3904's base directly: its source voltage biases the
+transistor, so there is no coupling capacitor or base divider. The emitter's bypassed
+resistor (R6, 1k) keeps the collector current near 1 mA for a typical MPF102; a JFET with a
+small pinch-off voltage may need a larger R2.
