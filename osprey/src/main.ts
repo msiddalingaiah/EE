@@ -2144,8 +2144,24 @@ function boxSelection(b: NonNullable<typeof box>): { rect: Bounds; crossing: boo
 
 const pickAt = (p: Point) => (index ? pick(index, vp.toWorld(p.x, p.y), PICK_TOLERANCE_PX / vp.zoom, isVisible) : undefined);
 
+/**
+ * Whether a left press is the second of a double click. Pointer events don't count clicks
+ * (Chrome sets `detail` to 0 on them), so presses close together in time and place count.
+ */
+let lastPress: { t: number; x: number; y: number } | undefined;
+function isDoubleClick(e: PointerEvent, p: Point): boolean {
+  if (e.button !== 0) return false;
+  const double = e.detail >= 2 || (!!lastPress && e.timeStamp - lastPress.t < DOUBLE_CLICK_MS && Math.hypot(p.x - lastPress.x, p.y - lastPress.y) < DOUBLE_CLICK_PX);
+  // A third press starts afresh rather than counting as another double click.
+  lastPress = double ? undefined : { t: e.timeStamp, x: p.x, y: p.y };
+  return double;
+}
+const DOUBLE_CLICK_MS = 500;
+const DOUBLE_CLICK_PX = 5;
+
 canvas.addEventListener('pointerdown', (e) => {
   const p = localPoint(e);
+  const double = isDoubleClick(e, p);
   canvas.setPointerCapture(e.pointerId);
   // preventDefault stops the browser from moving focus, so take it explicitly:
   // otherwise keyboard shortcuts would keep going to the last-used dropdown or checkbox.
@@ -2161,7 +2177,7 @@ canvas.addEventListener('pointerdown', (e) => {
 
   // Drawing wires: left click adds a leg (double click finishes), right click finishes or stops.
   if (wiring && e.button !== 1 && !spaceDown) {
-    if (e.button === 0) void wireClick(e.detail >= 2);
+    if (e.button === 0) void wireClick(double);
     else if (e.button === 2) {
       if (wiring.drawing) void finishWire();
       else stopWiring(true);
@@ -2171,7 +2187,7 @@ canvas.addEventListener('pointerdown', (e) => {
 
   // Drawing a pour: left click adds a corner (double click closes), right click closes or stops.
   if (pouring && e.button !== 1 && !spaceDown) {
-    if (e.button === 0) pourClick(e.detail >= 2);
+    if (e.button === 0) pourClick(double);
     else if (e.button === 2) {
       if (pouring.drawing) finishPour();
       else stopPouring(true);
@@ -2181,7 +2197,7 @@ canvas.addEventListener('pointerdown', (e) => {
 
   // Routing: left click adds a leg (double click finishes), right click finishes or stops.
   if (routing && e.button !== 1 && !spaceDown) {
-    if (e.button === 0) routeClick(e.detail >= 2, e.shiftKey);
+    if (e.button === 0) routeClick(double, e.shiftKey);
     else if (e.button === 2) {
       if (routing.netName) finishRoute();
       else stopRouting(true);
