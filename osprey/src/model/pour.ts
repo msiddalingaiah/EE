@@ -217,14 +217,21 @@ function outline(poly: O.PolygonShape): Point[] {
   return pts;
 }
 
-/** The board's area from its outline: closed loops chained from the outline segments (inner loops are cutouts). */
+/** Outline ends this close count as joined when finding the board's area (the DRC reports them as open). */
+const OUTLINE_JOIN = 0.05;
+
+/**
+ * The board's area from its outline: closed loops chained from the outline segments (inner
+ * loops are cutouts). Ends a hair apart (within OUTLINE_JOIN) still join, so a slightly open
+ * corner doesn't lose the pour's inset from the edge.
+ */
 function boardArea(board: O.Board): Paths64 | undefined {
   const segs: [Point, Point][] = [];
   for (const d of dimension(board)) {
     for (const s of d.shapes) if (s.t === 'cap' && (s.a.x !== s.b.x || s.a.y !== s.b.y)) segs.push([s.a, s.b]);
   }
   if (segs.length < 3) return undefined;
-  const near = (p: Point, q: Point) => Math.hypot(p.x - q.x, p.y - q.y) < 1e-3;
+  const near = (p: Point, q: Point) => Math.hypot(p.x - q.x, p.y - q.y) < OUTLINE_JOIN;
   const used = new Array<boolean>(segs.length).fill(false);
   const loops: Path64[] = [];
   for (let i = 0; i < segs.length; i++) {

@@ -4,7 +4,8 @@
 //   apart (Eagle's per-pair distances: wire, pad, SMD, via). Touching copper is a short.
 //   Pads on no net count as their own net.
 // - Width: traces at least the minimum width. Drill: vias, pads and holes at least the minimum.
-// - Dimension: copper at least the rule's distance from the board outline and holes.
+// - Dimension: copper at least the rule's distance from the board outline and holes; every
+//   end of an outline line meets another (an open outline isn't a board shape).
 // - Unrouted: every airwire left (ratsnest.ts) is a problem, so a board passes only when each
 //   net's copper is joined (by traces, vias or pours).
 //
@@ -136,6 +137,17 @@ export function drc(project: O.Project): DrcResult {
         });
       }
     }
+  }
+
+  // Open ends of the board outline.
+  for (const gap of outlineGaps(board)) {
+    out.push({
+      kind: 'dimension',
+      message: gap.b
+        ? `Board outline is open: ends ${fmt(gap.d)} apart at (${gap.a[0]}, ${gap.a[1]}) and (${gap.b[0]}, ${gap.b[1]})`
+        : `Board outline is open at (${gap.a[0]}, ${gap.a[1]})`,
+      at: gap.b ? [(gap.a[0] + gap.b[0]) / 2, (gap.a[1] + gap.b[1]) / 2] : gap.a, objects: gap.objects, nets: [], actual: gap.d,
+    });
   }
 
   // Connections not made yet.
@@ -318,6 +330,28 @@ export class ClearanceChecker {
 }
 
 const pt = (p: O.Pt): Point => ({ x: p[0], y: p[1] });
+
+/**
+ * Ends of outline lines that meet no other outline line's end, paired with the nearest other
+ * open end (each gap once). Outline circles are closed by themselves.
+ */
+function outlineGaps(board: O.Board): { a: O.Pt; b?: O.Pt; d: number; objects: object[] }[] {
+  const ends: { p: O.Pt; line: object }[] = [];
+  for (const g of board.drawing) if ('line' in g && g.layer === 'outline') ends.push({ p: g.line[0], line: g }, { p: g.line[1], line: g });
+  const dist = (a: O.Pt, b: O.Pt) => Math.hypot(a[0] - b[0], a[1] - b[1]);
+  const open = ends.filter((e) => !ends.some((o) => o !== e && o.line !== e.line && dist(o.p, e.p) < 1e-3));
+  const done = new Set<object>();
+  const out: { a: O.Pt; b?: O.Pt; d: number; objects: object[] }[] = [];
+  for (const e of open) {
+    if (done.has(e)) continue;
+    done.add(e);
+    let best: { p: O.Pt; line: object } | undefined;
+    for (const o of open) if (!done.has(o) && o.line !== e.line && (!best || dist(o.p, e.p) < dist(best.p, e.p))) best = o;
+    if (best) done.add(best);
+    out.push(best ? { a: e.p, b: best.p, d: dist(e.p, best.p), objects: [e.line, best.line] } : { a: e.p, d: 0, objects: [e.line] });
+  }
+  return out;
+}
 
 /** Poured copper as items: each island's outline and holes as edges (checked like a wire). */
 function pourItems(project: O.Project, index: ProjectIndex): Item[] {

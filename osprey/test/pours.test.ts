@@ -211,3 +211,32 @@ describe('editing a pour outline', () => {
     expect(editor.history.undoLabel).toBe('Delete pour corner');
   });
 });
+
+describe('the board outline', () => {
+  /** The extent of all poured copper. */
+  const extent = () => {
+    const pts = [...pourFills(p).values()].flatMap((f) => f.islands.flatMap((i) => i.outer));
+    return { minX: Math.min(...pts.map((q) => q[0])), minY: Math.min(...pts.map((q) => q[1])), maxX: Math.max(...pts.map((q) => q[0])), maxY: Math.max(...pts.map((q) => q[1])) };
+  };
+  const outline = () => p.board!.drawing.filter((g): g is O.Graphic & { line: [O.Pt, O.Pt] } => 'line' in g && g.layer === 'outline');
+
+  it('a corner a hair open still keeps pours inside the edge; the DRC reports the gap', () => {
+    // A pour over the whole board and beyond: only the outline limits it.
+    const xs = outline().flatMap((g) => g.line.map((q) => q[0]));
+    const ys = outline().flatMap((g) => g.line.map((q) => q[1]));
+    const [x0, x1, y0, y1] = [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)];
+    net('GND')!.pours = [{ polygon: [[x0 - 5, y0 - 5], [x1 + 5, y0 - 5], [x1 + 5, y1 + 5], [x0 - 5, y1 + 5]], width: 0.254, layer: 'copper.bottom' }];
+    const closed = extent();
+    expect(closed.minX).toBeGreaterThan(x0);
+    expect(closed.maxY).toBeLessThan(y1);
+    expect(drc(p).violations.some((v) => v.message.startsWith('Board outline is open'))).toBe(false);
+
+    const g = outline()[0]!;
+    g.line = [[g.line[0][0] + 0.01, g.line[0][1]], g.line[1]];
+    for (const [k, v] of Object.entries(extent())) expect(v).toBeCloseTo(closed[k as keyof typeof closed], 2);
+    const open = drc(p).violations.filter((v) => v.message.startsWith('Board outline is open'));
+    expect(open).toHaveLength(1);
+    expect(open[0]!.kind).toBe('dimension');
+    expect(open[0]!.actual).toBeCloseTo(0.01, 6);
+  });
+});
