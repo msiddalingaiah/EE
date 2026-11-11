@@ -25,6 +25,8 @@ beforeEach(() => {
 });
 
 const airwires = (net: string) => ratsnest(p).filter((a) => a.net === net);
+/** DRC problems other than connections still to make (these tests route part of a board). */
+const copperProblems = () => drc(p).violations.filter((v) => v.kind !== 'unrouted').map((v) => v.message);
 const padsOf = (net: string) => anchors(p).filter((a) => a.net === net && a.kind === 'pad');
 const at = (a: O.Pt) => ({ x: a[0], y: a[1] });
 
@@ -207,7 +209,7 @@ describe('routing around obstacles', () => {
     expect(leg.length).toBeLessThanOrEqual(8);
     expect(s.click()).toBe('added');
     s.finish();
-    expect(drc(p).violations).toEqual([]);
+    expect(copperProblems()).toEqual([]);
   });
 
   it('routes pad to pad around obstacles, connecting the net', () => {
@@ -216,7 +218,7 @@ describe('routing around obstacles', () => {
     const mx = (a!.at[0] + b!.at[0]) / 2;
     p.nets.find((n) => n.name === 'GND')!.traces!.push({ line: [[mx, a!.at[1] - 1.5], [mx, b!.at[1] + 1.5]], width: 0.254, layer: 'copper.top' });
     // (That trace itself crosses an N$3 trace: the route must add nothing to the DRC's list.)
-    const before = drc(p).violations.map((v) => v.message);
+    const before = copperProblems();
     const s = editor.beginRoute(grid)!;
     s.moveTo(at(a!.at), false, 0.5);
     s.click();
@@ -225,7 +227,7 @@ describe('routing around obstacles', () => {
     expect(s.click()).toBe('finish');
     s.finish();
     expect(airwires('N$1')).toHaveLength(0);
-    expect(drc(p).violations.map((v) => v.message)).toEqual(before);
+    expect(copperProblems()).toEqual(before);
   });
 
   it('with no way through, the direct leg stays blocked', () => {
@@ -277,7 +279,7 @@ describe('detours through vias', () => {
   it('goes under a wall on the other layer, through vias, and comes back up', () => {
     const [a, b] = padsOf('N$1'); // a: IC1 pin 4 (through-hole), b: C2 pin 2 (top SMD)
     wall(b!.at, 2.2);
-    const before = drc(p).violations.map((v) => v.message);
+    const before = copperProblems();
     const s = editor.beginRoute(grid)!;
     s.moveTo(at(a!.at), false, 0.5);
     s.click();
@@ -293,7 +295,7 @@ describe('detours through vias', () => {
     const res = s.finish()!;
     expect(res.vias).toBe(vias.length);
     expect(airwires('N$1')).toHaveLength(0);
-    expect(drc(p).violations.map((v) => v.message)).toEqual(before);
+    expect(copperProblems()).toEqual(before);
   });
 
   it('reaches copper only on the other layer through a via', () => {

@@ -5,6 +5,8 @@
 //   Pads on no net count as their own net.
 // - Width: traces at least the minimum width. Drill: vias, pads and holes at least the minimum.
 // - Dimension: copper at least the rule's distance from the board outline and holes.
+// - Unrouted: every airwire left (ratsnest.ts) is a problem, so a board passes only when each
+//   net's copper is joined (by traces, vias or pours).
 //
 // Copper shapes are exact for traces, vias, round/long/offset pads and SMDs (with roundness);
 // square and octagon pads are polygons. Arcs are split into short chords. Pours are checked as
@@ -17,10 +19,11 @@ import { boxOf, collect, coreDistance, dimension, gap, lineShapes, type Box, typ
 import { ProjectIndex } from './derive';
 import { footprintTransform } from './geometry';
 import { pourFills } from './pour';
+import { ratsnest } from './ratsnest';
 import { designRules, DesignRules, type CopperKind } from './rules';
 import type * as O from './types';
 
-export type ViolationKind = 'overlap' | 'clearance' | 'width' | 'drill' | 'dimension';
+export type ViolationKind = 'overlap' | 'clearance' | 'width' | 'drill' | 'dimension' | 'unrouted';
 
 export interface Violation {
   kind: ViolationKind;
@@ -135,7 +138,16 @@ export function drc(project: O.Project): DrcResult {
     }
   }
 
-  const order: ViolationKind[] = ['overlap', 'clearance', 'width', 'drill', 'dimension'];
+  // Connections not made yet.
+  const xy = (p: O.Pt) => `(${p[0].toFixed(2)}, ${p[1].toFixed(2)})`;
+  for (const a of ratsnest(project)) {
+    out.push({
+      kind: 'unrouted', message: `Unrouted: ${a.net} from ${xy(a.from)} to ${xy(a.to)}`,
+      at: mid({ d: 0, p: pt(a.from), q: pt(a.to) }), objects: [], nets: [a.net],
+    });
+  }
+
+  const order: ViolationKind[] = ['overlap', 'clearance', 'width', 'drill', 'dimension', 'unrouted'];
   out.sort((a, b) => order.indexOf(a.kind) - order.indexOf(b.kind));
   return { rules, violations: out, checked: items.length };
 }

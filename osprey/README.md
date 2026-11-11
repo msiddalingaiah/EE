@@ -48,7 +48,8 @@ native model (see [docs/format.md](docs/format.md)). Eagle files are imported in
   places the direct leg anyway; Shift+L a via).
 - **Design-rule check** (board): the Design rules panel checks copper clearance between
   nets (Eagle's wire/pad/SMD/via distances), shorts, minimum trace width and drill, and copper
-  near the board edge or holes. Problems are listed and marked on the board; clicking one zooms
+  near the board edge or holes, and lists every airwire left as unrouted (a board passes only
+  when it is fully connected). Problems are listed and marked on the board; clicking one zooms
   to it and selects what's involved; the list updates as you edit. Rules come from the board
   (as imported from Eagle) and can be loaded from an Eagle `.dru` file; values the file doesn't
   set are kept. Poured copper is checked too.

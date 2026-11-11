@@ -1883,7 +1883,7 @@ function routeSketch(r: RouteSession) {
 // Design rules and DRC
 
 const sampleRules = import.meta.glob('../samples/eagle/*.dru', { query: '?raw', import: 'default' });
-const DRC_KIND: Record<Violation['kind'], string> = { overlap: 'Short', clearance: 'Clearance', width: 'Width', drill: 'Drill', dimension: 'Edge' };
+const DRC_KIND: Record<Violation['kind'], string> = { overlap: 'Short', clearance: 'Clearance', width: 'Width', drill: 'Drill', dimension: 'Edge', unrouted: 'Unrouted' };
 
 function renderDrcPanel(): void {
   if (!project) return;

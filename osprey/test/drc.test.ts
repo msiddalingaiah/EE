@@ -50,6 +50,17 @@ describe('violations', () => {
     expect(Math.hypot(v.at[0] - pad.at[0], v.at[1] - pad.at[1])).toBeLessThan(1.5);
   });
 
+  it('airwires left after removing a net\'s traces are unrouted', () => {
+    const n = p.nets.find((x) => x.name !== 'GND' && (x.traces?.length ?? 0) > 0 && !x.pours?.length)!;
+    const traces = n.traces!;
+    n.traces = [];
+    const v = drc(p).violations.filter((x) => x.kind === 'unrouted');
+    expect(v.length).toBeGreaterThan(0);
+    expect(v.every((x) => x.nets[0] === n.name && x.message.startsWith(`Unrouted: ${n.name} from (`))).toBe(true);
+    n.traces = traces;
+    expect(kinds()).toEqual([]);
+  });
+
   it('two traces closer than the wire–wire rule', () => {
     const rules = drc(p).rules;
     const w = rules.clearance('wire', 'wire'); // 6 mil
