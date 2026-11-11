@@ -51,11 +51,12 @@ describe('footprint geometry', () => {
 });
 
 describe('placement checks and measures', () => {
-  it('the sample placement is clean; a crystal pushed into its neighbours is not', () => {
-    expect(placementIssues(p)).toEqual([]);
+  it('finds the sample\'s tight spots, and a crystal pushed into its neighbours', () => {
+    // The hand layout has two pairs a little under the 0.25 mm part spacing.
+    expect(kinds()).toEqual(['R11/X1', 'R7/C6']);
     fp('X1').at = [fp('X1').at[0] - 2, fp('X1').at[1]];
-    const issues = placementIssues(p);
-    expect(issues.length).toBeGreaterThan(0);
+    const issues = placementIssues(p).filter((i) => !(i.kind === 'overlap' && i.parts.join('/') === 'R7/C6'));
+    expect(issues.length).toBeGreaterThan(1);
     for (const i of issues) expect(i.kind === 'overlap' ? i.parts : [i.part]).toContain('X1');
   });
 
@@ -114,10 +115,10 @@ describe('spreading parts apart', () => {
     fp('X1').locked = true;
     const x1 = [...fp('X1').at];
     const c1 = [...fp('C1').at];
-    editor.legalize(p.board!.footprints.map((f) => f.part).filter((q) => !['C1', 'P1'].includes(q)));
+    editor.legalize(p.board!.footprints.map((f) => f.part).filter((q) => !['C1', 'VCC'].includes(q)));
     expect(fp('X1').at).toEqual(x1);
     expect(fp('C1').at).toEqual(c1);
-    expect(kinds()).toEqual(['P1/C1']);
+    expect(kinds()).toEqual(['VCC/C1']);
   });
 
   it('pulls apart two parts dropped on each other, and brings a part back inside the board', () => {

@@ -1199,12 +1199,12 @@
     ]
   },
   "parts": [
-    { "name": "P1", "component": "madhu/BERG-2", "variant": "" },
+    { "name": "VCC", "component": "madhu/BERG-2", "variant": "" },
     { "name": "C1", "component": "madhu/CAPACITOR-NP", "variant": "0805", "value": "10u" },
     { "name": "SUPPLY1", "component": "supply2/VCC", "variant": "" },
     { "name": "SUPPLY2", "component": "supply2/GND", "variant": "" },
     { "name": "SUPPLY3", "component": "supply2/GND", "variant": "" },
-    { "name": "P2", "component": "madhu/BERG-2", "variant": "" },
+    { "name": "IN", "component": "madhu/BERG-2", "variant": "" },
     { "name": "R1", "component": "madhu/RESISTOR", "variant": "0805-RES", "value": "3.3M" },
     { "name": "Q1", "component": "madhu/MPF102", "variant": "" },
     { "name": "R2", "component": "madhu/RESISTOR", "variant": "0805-RES", "value": "2.2k" },
@@ -1237,7 +1237,7 @@
     { "name": "C8", "component": "madhu/CAPACITOR-NP", "variant": "0805", "value": "100n" },
     { "name": "SUPPLY17", "component": "supply2/VCC", "variant": "" },
     { "name": "SUPPLY18", "component": "supply2/GND", "variant": "" },
-    { "name": "P4", "component": "madhu/BERG-3", "variant": "" },
+    { "name": "UPDI", "component": "madhu/BERG-3", "variant": "" },
     { "name": "SUPPLY19", "component": "supply2/GND", "variant": "" },
     { "name": "SUPPLY20", "component": "supply2/VCC", "variant": "" },
     { "name": "U2", "component": "madhu/NL27WZ14", "variant": "DTT1G" },
@@ -1256,7 +1256,7 @@
     { "name": "R13", "component": "madhu/RESISTOR", "variant": "0805-RES", "value": "2.2k" },
     { "name": "C12", "component": "madhu/CAPACITOR-NP", "variant": "0805", "value": "22n" },
     { "name": "C13", "component": "madhu/CAPACITOR-NP", "variant": "0805", "value": "10u" },
-    { "name": "P3", "component": "madhu/BERG-2", "variant": "" },
+    { "name": "VOUT", "component": "madhu/BERG-2", "variant": "" },
     { "name": "SUPPLY27", "component": "supply2/GND", "variant": "" },
     { "name": "SUPPLY28", "component": "supply2/GND", "variant": "" },
     { "name": "R14", "component": "madhu/RESISTOR", "variant": "0805-RES", "value": "1k" },
@@ -1268,7 +1268,7 @@
       "segments": [
         { "sheet": "1", "junctions": [[15.24, 50.8]],
           "pins": [
-            { "part": "P1", "gate": "A", "pin": "2" },
+            { "part": "VCC", "gate": "A", "pin": "2" },
             { "part": "C1", "gate": "A", "pin": "1" },
             { "part": "SUPPLY1", "gate": "G$1", "pin": "VCC" }
           ],
@@ -1317,7 +1317,7 @@
         },
         { "sheet": "1",
           "pins": [
-            { "part": "P4", "gate": "A", "pin": "1" },
+            { "part": "UPDI", "gate": "A", "pin": "1" },
             { "part": "SUPPLY20", "gate": "G$1", "pin": "VCC" }
           ],
           "wires": [
@@ -1350,7 +1350,7 @@
       "segments": [
         { "sheet": "1",
           "pins": [
-            { "part": "P1", "gate": "A", "pin": "1" },
+            { "part": "VCC", "gate": "A", "pin": "1" },
             { "part": "SUPPLY2", "gate": "GND", "pin": "GND" }
           ],
           "wires": [
@@ -1378,7 +1378,7 @@
         },
         { "sheet": "1",
           "pins": [
-            { "part": "P2", "gate": "A", "pin": "1" },
+            { "part": "IN", "gate": "A", "pin": "1" },
             { "part": "SUPPLY5", "gate": "GND", "pin": "GND" }
           ],
           "wires": [
@@ -1460,7 +1460,7 @@
         },
         { "sheet": "1",
           "pins": [
-            { "part": "P4", "gate": "A", "pin": "2" },
+            { "part": "UPDI", "gate": "A", "pin": "2" },
             { "part": "SUPPLY19", "gate": "GND", "pin": "GND" }
           ],
           "wires": [
@@ -1514,7 +1514,7 @@
         },
         { "sheet": "1",
           "pins": [
-            { "part": "P3", "gate": "A", "pin": "1" },
+            { "part": "VOUT", "gate": "A", "pin": "1" },
             { "part": "SUPPLY28", "gate": "GND", "pin": "GND" }
           ],
           "wires": [
@@ -1537,7 +1537,7 @@
       "segments": [
         { "sheet": "1",
           "pins": [
-            { "part": "P2", "gate": "A", "pin": "2" },
+            { "part": "IN", "gate": "A", "pin": "2" },
             { "part": "R1", "gate": "A", "pin": "2" },
             { "part": "Q1", "gate": "A", "pin": "G" }
           ],
@@ -1770,7 +1770,7 @@
         },
         { "sheet": "1",
           "pins": [
-            { "part": "P4", "gate": "A", "pin": "3" }
+            { "part": "UPDI", "gate": "A", "pin": "3" }
           ],
           "labels": [
             { "at": [233.172, 69.088], "size": 1.778, "layer": "names", "align": "bottom-right" }
@@ -1853,7 +1853,7 @@
         { "sheet": "1",
           "pins": [
             { "part": "C13", "gate": "A", "pin": "2" },
-            { "part": "P3", "gate": "A", "pin": "2" }
+            { "part": "VOUT", "gate": "A", "pin": "2" }
           ],
           "wires": [
             { "line": [[182.88, 40.64], [193.04, 40.64]], "width": 0.1524 }
@@ -1879,12 +1879,12 @@
     "sheets": [
       { "id": "1", "drawing": [],
         "gates": [
-          { "part": "P1", "gate": "A", "at": [5.08, 48.26] },
+          { "part": "VCC", "gate": "A", "at": [5.08, 48.26] },
           { "part": "C1", "gate": "A", "at": [20.32, 45.72] },
           { "part": "SUPPLY1", "gate": "G$1", "at": [15.24, 55.88] },
           { "part": "SUPPLY2", "gate": "GND", "at": [10.16, 40.64] },
           { "part": "SUPPLY3", "gate": "GND", "at": [20.32, 38.1] },
-          { "part": "P2", "gate": "A", "at": [5.08, 78.74] },
+          { "part": "IN", "gate": "A", "at": [5.08, 78.74] },
           { "part": "R1", "gate": "A", "at": [17.78, 76.2], "rot": 90 },
           { "part": "Q1", "gate": "A", "at": [35.56, 83.82] },
           { "part": "R2", "gate": "A", "at": [45.72, 76.2], "rot": 90 },
@@ -1917,7 +1917,7 @@
           { "part": "C8", "gate": "A", "at": [172.72, 96.52] },
           { "part": "SUPPLY17", "gate": "G$1", "at": [172.72, 106.68] },
           { "part": "SUPPLY18", "gate": "GND", "at": [172.72, 88.9] },
-          { "part": "P4", "gate": "A", "at": [223.52, 76.2], "rot": 270 },
+          { "part": "UPDI", "gate": "A", "at": [223.52, 76.2], "rot": 270 },
           { "part": "SUPPLY19", "gate": "GND", "at": [223.52, 66.04] },
           { "part": "SUPPLY20", "gate": "G$1", "at": [215.9, 76.2] },
           { "part": "U2", "gate": "A", "at": [38.1, 30.48] },
@@ -1938,7 +1938,7 @@
           { "part": "R13", "gate": "A", "at": [162.56, 40.64] },
           { "part": "C12", "gate": "A", "at": [170.18, 35.56] },
           { "part": "C13", "gate": "A", "at": [180.34, 40.64], "rot": 90 },
-          { "part": "P3", "gate": "A", "at": [195.58, 38.1], "mirror": true },
+          { "part": "VOUT", "gate": "A", "at": [195.58, 38.1], "mirror": true },
           { "part": "SUPPLY27", "gate": "GND", "at": [170.18, 27.94] },
           { "part": "SUPPLY28", "gate": "GND", "at": [187.96, 30.48] },
           { "part": "R14", "gate": "A", "at": [162.56, 20.32] },
@@ -1950,9 +1950,17 @@
   },
   "board": { "layers": ["copper.top", "copper.bottom"], "grid": { "step": 1.27, "fine": 0.127, "unit": "mil" },
     "footprints": [
-      { "part": "P1", "at": [2.54, 17.78], "rot": 90 },
-      { "part": "C1", "at": [5.08, 17.78], "rot": 90 },
-      { "part": "P2", "at": [1.85, 8.65], "rot": 270 },
+      { "part": "VCC", "at": [1.905, 16.129], "rot": 90, "smashed": true,
+        "labels": [
+          { "attr": "NAME", "at": [3.175, 19.939], "rot": 180, "size": 0.8128, "layer": "names.top", "ratio": 10 }
+        ]
+      },
+      { "part": "C1", "at": [4.445, 16.256], "rot": 270 },
+      { "part": "IN", "at": [1.85, 8.65], "rot": 90, "smashed": true,
+        "labels": [
+          { "attr": "NAME", "at": [2.413, 12.446], "rot": 180, "size": 0.8128, "layer": "names.top", "ratio": 10 }
+        ]
+      },
       { "part": "R1", "at": [4.1, 8.83], "rot": 90 },
       { "part": "Q1", "at": [8.89, 10.16], "rot": 180, "smashed": true,
         "labels": [
@@ -1965,49 +1973,62 @@
       { "part": "R5", "at": [13.97, 7.62] },
       { "part": "R6", "at": [13.97, 3.81], "rot": 180 },
       { "part": "C3", "at": [13.97, 5.842] },
-      { "part": "C4", "at": [16.51, 17.78], "rot": 270 },
-      { "part": "L1", "at": [10.87, 16.5], "rot": 270, "smashed": true },
-      { "part": "C5", "at": [16.51, 13.97], "rot": 270 },
-      { "part": "R7", "at": [18.415, 13.208], "rot": 90 },
-      { "part": "R8", "at": [21.209, 9.271], "rot": 90 },
-      { "part": "C6", "at": [17.399, 9.271], "rot": 270 },
-      { "part": "R9", "at": [19.304, 9.271], "rot": 270 },
-      { "part": "R10", "at": [8.89, 21.59] },
-      { "part": "C7", "at": [12.7, 21.59] },
-      { "part": "U1", "at": [23.81, 17.41], "rot": 270 },
-      { "part": "C8", "at": [22.86, 21.59] },
-      { "part": "P4", "at": [30.48, 11.43], "rot": 90 },
-      { "part": "U2", "at": [30.48, 19.05], "rot": 180, "smashed": true },
-      { "part": "R11", "at": [34.29, 19.05], "rot": 270 },
-      { "part": "X1", "at": [38.1, 15.24], "rot": 270, "smashed": true,
+      { "part": "C4", "at": [15.24, 17.78], "rot": 270 },
+      { "part": "L1", "at": [9.6, 16.5], "rot": 270, "smashed": true },
+      { "part": "C5", "at": [15.24, 13.97], "rot": 270 },
+      { "part": "R7", "at": [17.399, 10.414], "rot": 90 },
+      { "part": "R8", "at": [21.209, 6.731], "rot": 90 },
+      { "part": "C6", "at": [17.399, 6.731], "rot": 270 },
+      { "part": "R9", "at": [19.304, 6.731], "rot": 270 },
+      { "part": "R10", "at": [7.62, 21.59] },
+      { "part": "C7", "at": [11.43, 21.59] },
+      { "part": "U1", "at": [21.27, 18.68], "rot": 270, "smashed": true,
         "labels": [
-          { "attr": "VALUE", "at": [34.78, 21.94], "size": 1.27, "layer": "values.top", "ratio": 10 }
+          { "attr": "NAME", "at": [21.016, 20.712], "rot": 270, "size": 0.8128, "layer": "names.top" },
+          { "attr": "VALUE", "at": [16.51, 21.59], "rot": 270, "size": 0.8128, "layer": "names.top" }
         ]
       },
-      { "part": "R12", "at": [34.29, 14.986], "rot": 90 },
-      { "part": "C9", "at": [33.02, 22.86], "rot": 90 },
-      { "part": "C10", "at": [34.29, 10.795], "rot": 270 },
-      { "part": "C11", "at": [29.21, 22.86] },
-      { "part": "R13", "at": [26.289, 13.589] },
-      { "part": "C12", "at": [26.289, 11.557], "rot": 180 },
-      { "part": "C13", "at": [26.289, 9.525], "rot": 180 },
-      { "part": "P3", "at": [25.4, 6.35], "rot": 180 },
-      { "part": "R14", "at": [22.098, 13.97] },
-      { "part": "D1", "at": [22.098, 12.192], "smashed": true,
+      { "part": "C8", "at": [20.32, 22.86] },
+      { "part": "UPDI", "at": [27.94, 5.08], "rot": 90, "smashed": true,
         "labels": [
-          { "attr": "NAME", "at": [24.0665, 11.303], "rot": 90, "size": 0.6096, "layer": "names.top" }
+          { "attr": "NAME", "at": [29.21, 10.16], "rot": 180, "size": 0.8128, "layer": "names.top", "ratio": 10 }
+        ]
+      },
+      { "part": "U2", "at": [27.94, 19.05], "rot": 180, "smashed": true },
+      { "part": "R11", "at": [30.988, 19.05], "rot": 270 },
+      { "part": "X1", "at": [34.29, 13.97], "rot": 270, "smashed": true,
+        "labels": [
+          { "attr": "VALUE", "at": [31.75, 6.35], "size": 1.27, "layer": "values.top", "ratio": 10 }
+        ]
+      },
+      { "part": "R12", "at": [27.94, 13.97], "rot": 90 },
+      { "part": "C9", "at": [31.877, 22.098] },
+      { "part": "C10", "at": [29.845, 13.97], "rot": 90 },
+      { "part": "C11", "at": [27.178, 22.225] },
+      { "part": "R13", "at": [23.749, 14.859] },
+      { "part": "C12", "at": [23.749, 12.827], "rot": 180 },
+      { "part": "C13", "at": [23.749, 10.795], "rot": 180 },
+      { "part": "VOUT", "at": [24.13, 3.81], "rot": 90, "smashed": true,
+        "labels": [
+          { "attr": "NAME", "at": [25.4, 7.62], "rot": 180, "size": 0.8128, "layer": "names.top", "ratio": 10 }
+        ]
+      },
+      { "part": "R14", "at": [19.558, 15.24] },
+      { "part": "D1", "at": [19.558, 13.462], "smashed": true,
+        "labels": [
+          { "attr": "NAME", "at": [21.5265, 12.573], "rot": 90, "size": 0.6096, "layer": "names.top" }
         ]
       }
     ],
     "drawing": [
-      { "line": [[0, 0], [44.46, 0]], "width": 0, "layer": "outline" },
-      { "line": [[44.46, 0], [44.46, 27.46]], "width": 0, "layer": "outline" },
-      { "line": [[44.46, 27.46], [0, 27.46]], "width": 0, "layer": "outline" },
-      { "line": [[0, 27.46], [0, 0]], "width": 0, "layer": "outline" },
+      { "line": [[0, 0], [39.37, 0]], "width": 0, "layer": "outline" },
+      { "line": [[39.38, 0], [39.37, 26.162]], "width": 0, "layer": "outline" },
+      { "line": [[39.37, 26.162], [0, 26.19]], "width": 0, "layer": "outline" },
+      { "line": [[0, 26.162], [0, 0]], "width": 0, "layer": "outline" },
       { "hole": [2.54, 2.54], "drill": 3.175 },
-      { "hole": [41.92, 2.54], "drill": 3.175 },
-      { "hole": [2.54, 24.92], "drill": 3.175 },
-      { "hole": [41.92, 24.92], "drill": 3.175 }
+      { "hole": [36.84, 2.54], "drill": 3.175 },
+      { "hole": [2.54, 23.65], "drill": 3.175 },
+      { "hole": [36.84, 23.65], "drill": 3.175 }
     ]
   }
 }

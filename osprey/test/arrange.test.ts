@@ -60,7 +60,7 @@ describe('beside a pad or part', () => {
 
   it('can choose the rotation once there', () => {
     fp('Q1').rot = 0; // backwards: gate away from the antenna
-    const res = run((a) => a.near('Q1', 'P2', { side: 'right', gap: 2, rot: 'best' }));
+    const res = run((a) => a.near('Q1', 'IN', { side: 'right', gap: 2, rot: 'best' }));
     expect(res.rot).toBe(180);
   });
 });
@@ -77,9 +77,9 @@ describe('rows, edges and groups', () => {
   });
 
   it('puts a connector against an edge, lying along it', () => {
-    fp('P2').rot = 90; // standing up
-    run((a) => a.edge('P2', 'bottom', 20));
-    const b = box('P2');
+    fp('IN').rot = 90; // standing up
+    run((a) => a.edge('IN', 'bottom', 20));
+    const b = box('IN');
     expect(b.minY).toBeCloseTo(0.5, 2);
     expect(rectCenter(b).x).toBeCloseTo(20, 2);
     expect(b.maxX - b.minX).toBeGreaterThan(b.maxY - b.minY);
@@ -122,7 +122,7 @@ describe('rotation', () => {
     run((a) => {
       a.near('C8', 'U1.1');
       a.orient(['Q1', 'Q2', 'D1']);
-      a.edge('P3', 'bottom', 38);
+      a.edge('VOUT', 'bottom', 38);
     });
     editor.undo();
     expect(p.board!.footprints.map((f) => [f.part, [...f.at], f.rot])).toEqual(before);

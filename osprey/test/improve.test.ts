@@ -9,7 +9,7 @@ import { placementIssues, placementMetrics } from '../src/model/placement';
 import type * as O from '../src/model/types';
 
 const SAMPLE = readFileSync(join(__dirname, '..', 'samples', 'osprey', 'wwvbfind.osprey'), 'utf8');
-const CONNECTORS = ['P1', 'P2', 'P3', 'P4'];
+const CONNECTORS = ['VCC', 'IN', 'VOUT', 'UPDI'];
 
 let p: O.Project;
 let editor: Editor;
@@ -44,25 +44,26 @@ describe('improving a placement', () => {
   });
 
   it('swaps like parts that are in each other\'s places', () => {
-    // R11 (the oscillator's 1M feedback resistor, by U2) and R7 (the 100k bias feed, by U1's
-    // PA7): put each where the other belongs; only a swap can put them back.
+    // R1 (the JFET's gate resistor, by the antenna input) and R12 (the oscillator's series
+    // resistor, by X1): put each where the other belongs; only a swap can put them back.
     const home = where();
-    const [a, b] = [fp('R11'), fp('R7')];
+    const [a, b] = [fp('R1'), fp('R12')];
     [a.at, b.at] = [b.at, a.at];
     [a.rot, b.rot] = [b.rot, a.rot];
     for (const f of [a, b]) if (f.rot === undefined) delete f.rot;
-    editor.arrange('Improve', (x) => x.improve({ parts: ['R11', 'R7'], move: false, rotate: false }));
+    editor.arrange('Improve', (x) => x.improve({ parts: ['R1', 'R12'], move: false, rotate: false }));
     const near = (part: string) => where().get(part)!.map((v, i) => expect(v).toBeCloseTo(home.get(part)![i]!, 1));
-    near('R11');
-    near('R7');
+    near('R1');
+    near('R12');
   });
 
   it('brings a stray decoupling cap back to its IC', () => {
+    const issues = placementIssues(p); // the sample's own tight spots
     editor.arrange('Move', (a) => a.moveTo('C11', [20, 4]));
     expect(decoupling('C11').distance).toBeGreaterThan(10);
     editor.arrange('Improve', (a) => a.improve({ parts: ['C11'], maxStep: 3 }));
     expect(decoupling('C11').distance).toBeLessThan(3);
-    expect(placementIssues(p)).toEqual([]);
+    expect(placementIssues(p)).toEqual(issues);
   });
 
   it('gives the same result every time', () => {
