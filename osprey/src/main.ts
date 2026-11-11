@@ -1,6 +1,6 @@
 // Osprey application shell: opening, importing and saving, panels, canvas interaction, commands.
 
-import { Editor, subject, type CornerDrag, type MoveSession, type PlaceSession, type PourSession, type RouteSession, type WireSession } from './app/editor';
+import { Editor, subject, type CornerDrag, type LineEndDrag, type MoveSession, type PlaceSession, type PourSession, type RouteSession, type WireSession } from './app/editor';
 import { edgeMiddle } from './edit/pours';
 import { layerNumber } from './model/layers';
 import { canPickFiles, pickFiles, saveFile, type FileHandle } from './app/files';
@@ -151,6 +151,8 @@ let pouring: PourSession | undefined;
 /** A pour corner being dragged (from its handle), and the corner last clicked (Del removes it). */
 let cornerDrag: CornerDrag | undefined;
 let activeCorner: { pour: O.PolygonShape; index: number } | undefined;
+/** A drawing line end being dragged (from its handle), e.g. a board outline corner. */
+let lineDrag: LineEndDrag | undefined;
 /** The net of the last pour drawn (the default for the next one). */
 let lastPour: { net?: string } = {};
 /** The copper layer Route and Pour work on (the toolbar's Layer selector; remembered while the project is open). */
@@ -1439,7 +1441,7 @@ function draw(): void {
     visible: isVisible,
     selection: selection.items,
     hover: move || placing || wiring || routing || pouring ? undefined : hover,
-    ...(pourHandles().length ? { handles: pourHandles() } : {}),
+    ...(editHandles().length ? { handles: editHandles() } : {}),
     ...(wiring ? { sketch: { paths: [{ points: wiring.path, width: wiring.width, layer: 91 }], layer: 91, cursor: wiring.at, snapped: wiring.snapped } } : {}),
     ...(routing ? { sketch: routeSketch(routing) } : {}),
     ...(pouring ? { sketch: { paths: [{ points: pouring.path, width: 0, layer: layerNumber(pouring.layer) }], layer: layerNumber(pouring.layer), cursor: pouring.at, snapped: pouring.closing || !!pouring.over } } : {}),
@@ -1985,6 +1987,31 @@ function pourHandles(): NonNullable<Parameters<typeof render>[3]['handles']> {
   ];
 }
 
+/** The drawing line, when one line alone is selected in the board or schematic (and nothing else is going on). */
+function selectedLine(): { line: O.LineShape; container: O.Graphic[] } | undefined {
+  if (!editable() || move || routing || pouring || wiring || placing || selection.size !== 1) return undefined;
+  const t = selectedOwners()[0]?.target;
+  return t?.kind === 'drawing' && 'line' in t.graphic ? { line: t.graphic, container: t.container } : undefined;
+}
+
+/** Handles of the selected pour, or the ends of the selected drawing line. */
+function editHandles(): NonNullable<Parameters<typeof render>[3]['handles']> {
+  const line = lineDrag?.line ?? selectedLine()?.line;
+  if (!line) return pourHandles();
+  return line.line.map((q, i) => ({ at: { x: q[0], y: q[1] }, kind: 'corner' as const, active: i === lineDrag?.end }));
+}
+
+/** The end of the selected drawing line under a screen point, if any. */
+function lineEndAt(p: Point): { line: O.LineShape; container: O.Graphic[]; end: 0 | 1 } | undefined {
+  const sel = selectedLine();
+  if (!sel) return undefined;
+  const end = sel.line.line.findIndex((q) => {
+    const s = vp.toScreen(q[0], q[1]);
+    return Math.hypot(s.x - p.x, s.y - p.y) <= 7;
+  });
+  return end >= 0 ? { ...sel, end: end as 0 | 1 } : undefined;
+}
+
 /** The handle under a screen point (corners first), if any. */
 function handleAt(p: Point): { pour: O.PolygonShape; index: number; kind: 'corner' | 'middle' } | undefined {
   const pour = selectedPour();
@@ -2165,6 +2192,17 @@ canvas.addEventListener('pointerdown', (e) => {
     return;
   }
 
+  // A selected drawing line's ends: drag one to stretch the line (meeting ends move with it).
+  if (e.button === 0 && !spaceDown && !move && editor && project) {
+    const h = lineEndAt(p);
+    if (h) {
+      lineDrag = editor.dragLineEnd(h.line, h.end, h.container, gridOf);
+      if (view === 'board') freezePours(project, true);
+      requestRender();
+      return;
+    }
+  }
+
   // A selected pour's handles: drag a corner, or an edge's middle to add a corner.
   if (e.button === 0 && !spaceDown && !move) {
     const h = handleAt(p);
@@ -2204,6 +2242,11 @@ canvas.addEventListener('pointermove', (e) => {
   }
   if (cornerDrag) {
     cornerDrag.moveTo(w, e.altKey);
+    onEdited();
+    return;
+  }
+  if (lineDrag) {
+    lineDrag.moveTo(w, e.altKey);
     onEdited();
     return;
   }
@@ -2282,6 +2325,14 @@ canvas.addEventListener('pointerup', (e) => {
     } else if (!d.adding) {
       flash('Corner selected: drag to move it, Del removes it');
     }
+    onEdited();
+    return;
+  }
+  if (lineDrag) {
+    const d = lineDrag;
+    lineDrag = undefined;
+    if (project) freezePours(project, false);
+    if (d.commit()) flash(d.joined ? 'Corner moved (the lines meeting there moved with it)' : 'Line end moved');
     onEdited();
     return;
   }

@@ -62,6 +62,9 @@ native model (see [docs/format.md](docs/format.md)). Eagle files are imported in
   changes layer. A selected pour shows handles: drag a corner to move it, drag an edge's middle
   to add a corner, click a corner and press Del to remove it. Its net, layer, width, isolation,
   rank, fill, thermals and orphans are edited in the inspector.
+- **Stretching drawing lines** (board, schematic): a selected line shows handles on its ends;
+  drag one to move that end. The ends of other lines on the same layer that meet it move too,
+  so dragging a board outline corner resizes the board and keeps the outline closed.
 - **Pours are computed** (board): each polygon pour is filled as Eagle does: clear of other
   nets' copper by the larger of its isolate and the clearance rule, the edge distance inside the
   board outline, out of keep-out areas, around holes and cutouts, in rank order; the net's pads
@@ -148,6 +151,7 @@ OSPREY_CORPUS=~/designs npx vitest run -t corpus
 | Copper layer for Route and Pour (board) | Layer selector in the toolbar, or `L` |
 | Draw a pour (board) | Pour button; click corners, click the first corner / double-click / Enter closes, `L` layer, `/` any angle, Esc cancels |
 | Edit a pour's outline (board) | Select it; drag a corner, drag an edge's middle to add a corner, click a corner then Del to remove it |
+| Stretch a drawing line, e.g. resize the board outline | Select the line; drag a handle on its end (lines meeting there follow) |
 | Show / hide pour fill (board) | `P`, or the pour fill checkbox in the Layers panel |
 | Design-rule check (board) | Design rules panel: Check; Load rules… for a `.dru` file; click a problem to zoom to it |
 | Route traces (board) | `W` or the Route button; click a pad, via or trace end to start, click adds corners, `L` changes layer (adds a via), `/` flips the bend, Shift+click / Shift+L place a leg or via that breaks clearance; ends on copper of the same net, or with a double click, Esc or right-click; Esc again stops |

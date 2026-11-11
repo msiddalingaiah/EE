@@ -8,7 +8,7 @@ import { writeProject } from '../model/file';
 import type * as O from '../model/types';
 import type { Grid, Project } from '../model/types';
 import { deleteTargets } from '../edit/delete';
-import { History, insert, remove, Transaction } from '../edit/ops';
+import { History, insert, remove, set, Transaction } from '../edit/ops';
 import { copyTargets, pasteClip, type Clip, type Pasted } from '../edit/clipboard';
 import { addToLibrary, createPart, gatesToPlace } from '../edit/place';
 import { addPour, defaultPourNet, setOutline, setPourNet, setPourProps, withCornerAdded, withCornerMoved, withCornerRemoved, type PourPatch } from '../edit/pours';
@@ -152,6 +152,14 @@ export class Editor {
   /** Start dragging a pour corner, or a new corner out of edge `index` (`adding`). */
   dragCorner(pour: O.PolygonShape, index: number, adding: boolean, grid: (alt: boolean) => number): CornerDrag {
     return new CornerDrag(this, pour, index, adding, grid);
+  }
+
+  /**
+   * Start dragging one end of a drawing line (e.g. a board outline edge). Ends of other lines
+   * on the same layer that meet it there move with it, so a closed outline stays closed.
+   */
+  dragLineEnd(line: O.LineShape, end: 0 | 1, container: O.Graphic[], grid: (alt: boolean) => number): LineEndDrag {
+    return new LineEndDrag(this, line, end, container, grid);
   }
 
   /** Remove a pour corner (an outline keeps at least three). */
@@ -1054,6 +1062,77 @@ export class CornerDrag {
     this.tx.revert();
     const tx = new Transaction(this.adding ? 'Add pour corner' : 'Move pour corner');
     setOutline(this.pour, outline, tx);
+    this.editor.push(tx);
+    return true;
+  }
+
+  cancel(): void {
+    this.tx.revert();
+    this.tx = new Transaction('');
+  }
+}
+
+/**
+ * Dragging the end of a drawing line, with the ends of same-layer lines that meet it. Previewed
+ * in the model while dragging; commit makes it one undo step.
+ */
+export class LineEndDrag {
+  private tx = new Transaction('');
+  /** Every line end that moves: the dragged one first. */
+  private readonly ends: { line: O.LineShape; end: 0 | 1; original: [O.Pt, O.Pt] }[];
+  moved = false;
+
+  constructor(
+    private readonly editor: Editor,
+    readonly line: O.LineShape,
+    readonly end: 0 | 1,
+    container: O.Graphic[],
+    private readonly grid: (alt: boolean) => number,
+  ) {
+    const [x, y] = line.line[end];
+    const at = (q: O.Pt) => Math.abs(q[0] - x) < 1e-6 && Math.abs(q[1] - y) < 1e-6;
+    this.ends = [{ line, end, original: line.line }];
+    for (const g of container) {
+      if (g === line || !('line' in g) || g.layer !== line.layer) continue;
+      for (const e of [0, 1] as const) if (at(g.line[e])) this.ends.push({ line: g, end: e, original: g.line });
+    }
+  }
+
+  /** Whether other lines' ends move with the dragged one. */
+  get joined(): boolean {
+    return this.ends.length > 1;
+  }
+
+  moveTo(p: Point, fineGrid: boolean): void {
+    const g = this.grid(fineGrid);
+    const snap = (v: number) => Math.round(Math.round(v / g) * g * 1e6) / 1e6;
+    this.tx.revert();
+    this.tx = new Transaction('');
+    this.apply([snap(p.x), snap(p.y)], this.tx);
+    this.moved = true;
+  }
+
+  private apply(at: O.Pt, tx: Transaction): void {
+    // A line may meet the dragged end with both of its ends (a zero-length line): set each once.
+    const lines = new Map<O.LineShape, [O.Pt, O.Pt]>();
+    for (const { line, end } of this.ends) {
+      const pts = lines.get(line) ?? [...line.line] as [O.Pt, O.Pt];
+      pts[end] = at;
+      lines.set(line, pts);
+    }
+    for (const [line, pts] of lines) tx.run(set(line, { line: pts }));
+    tx.subjects.push(this.line);
+  }
+
+  /** Keep the change (one undo step); false when nothing moved. */
+  commit(): boolean {
+    if (!this.moved) return false;
+    const at = this.line.line[this.end];
+    this.tx.revert();
+    this.tx = new Transaction('');
+    if (at[0] === this.ends[0]!.original[this.end][0] && at[1] === this.ends[0]!.original[this.end][1]) return false;
+    const tx = new Transaction(this.joined ? 'Move corner' : 'Move line end');
+    this.apply(at, tx);
     this.editor.push(tx);
     return true;
   }
