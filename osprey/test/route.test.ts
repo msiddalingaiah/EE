@@ -48,6 +48,25 @@ describe('defaults', () => {
 });
 
 describe('routing', () => {
+  it('a grid point beside a pad of the net lines up with it, so the last leg runs straight in', () => {
+    const [a, b] = padsOf('N$1');
+    const g = 1.27;
+    const s = editor.beginRoute(() => g)!;
+    s.moveTo(at(a!.at), false, 0.5);
+    s.click();
+    // Beside b, on the side away from a, a few grid steps out (not near enough to snap onto it).
+    const dir = Math.sign(b!.at[0] - a!.at[0]) || 1;
+    const x = b!.at[0] + dir * 4 * g;
+    s.moveTo({ x, y: b!.at[1] + 0.3 }, false, 0.01);
+    expect(s.snappedTo).toBeUndefined();
+    expect(s.at.y).toBe(b!.at[1]);
+    expect(s.at.x).toBe(Math.round(Math.round(x / g) * g * 1e6) / 1e6); // x stays on the grid
+    // Before a route starts (no net yet), the cursor stays on the grid.
+    const before = editor.beginRoute(() => g)!;
+    before.moveTo({ x, y: b!.at[1] + 0.3 }, false, 0.01);
+    expect(before.at.y).toBe(Math.round(Math.round((b!.at[1] + 0.3) / g) * g * 1e6) / 1e6);
+  });
+
   it('a route from pad to pad replaces the airwire, as one undo step', () => {
     expect(airwires('N$1')).toHaveLength(1);
     const [a, b] = padsOf('N$1');

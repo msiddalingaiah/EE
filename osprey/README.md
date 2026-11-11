@@ -36,7 +36,9 @@ native model (see [docs/format.md](docs/format.md)). Eagle files are imported in
   is kept, so cut and paste keeps names. The clipboard holds the components the parts use,
   so a selection can be pasted into another project.
 - **Routing traces** (board): start on a pad, via or trace end and the route takes its net.
-  Legs bend at 45°; changing layer adds a via. The route ends on copper of the same net, and
+  Legs bend at 45°; changing layer adds a via. Corners snap to the grid, except that a grid line
+  within half a step of a pad of the net moves onto the pad's row or column, so a pad off the
+  grid can be reached with a straight last leg. The route ends on copper of the same net, and
   the airwire it replaces disappears. Width and via drill come from the net class, else the
   board's most common ones. Each leg is checked against other nets' copper and the board edge
   as you route. When the direct leg would break a clearance rule, the route goes around the

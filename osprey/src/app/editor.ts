@@ -685,9 +685,30 @@ export class RouteSession {
     } else {
       const g = this.grid_(fineGrid);
       const snap = (v: number) => Math.round(Math.round(v / g) * g * 1e6) / 1e6;
-      this.cursor = [snap(p.x), snap(p.y)];
+      this.cursor = this.alignToPads([snap(p.x), snap(p.y)], g);
     }
     this.update();
+  }
+
+  /**
+   * While routing, a grid point within half a grid step of a pad of the net's row or column
+   * moves onto it (the nearest such pad for each axis), so a leg can run straight into a pad
+   * that is off the grid.
+   */
+  private alignToPads(c: O.Pt, g: number): O.Pt {
+    if (!this.net) return c;
+    const out: O.Pt = [c[0], c[1]];
+    for (const axis of [0, 1] as const) {
+      let best: number | undefined;
+      let d = Infinity;
+      for (const a of this.anchors) {
+        if (a.net !== this.net || a.kind !== 'pad' || Math.abs(a.at[axis] - c[axis]) >= g / 2 - 1e-9) continue;
+        const e = Math.hypot(a.at[0] - c[0], a.at[1] - c[1]);
+        if (e < d) [best, d] = [a.at[axis], e];
+      }
+      if (best !== undefined) out[axis] = best;
+    }
+    return out;
   }
 
   flipBend(): void {
