@@ -1,6 +1,6 @@
 // Osprey application shell: opening, importing and saving, panels, canvas interaction, commands.
 
-import { Editor, subject, type CornerDrag, type LineEndDrag, type MoveSession, type PlaceSession, type PourSession, type RouteSession, type WireSession } from './app/editor';
+import { Editor, subject, type CornerDrag, type LineEndDrag, type MoveSession, type PlaceSession, type PourSession, type RouteSession, type ViaSession, type WireSession } from './app/editor';
 import { edgeMiddle } from './edit/pours';
 import { layerNumber } from './model/layers';
 import { canPickFiles, pickFiles, saveFile, type FileHandle } from './app/files';
@@ -80,6 +80,7 @@ const partsChoice = $<HTMLDivElement>('parts-choice');
 const lbrInput = $<HTMLInputElement>('lbr-input');
 const wireBtn = $<HTMLButtonElement>('wire-btn');
 const pourBtn = $<HTMLButtonElement>('pour-btn');
+const viaBtn = $<HTMLButtonElement>('via-btn');
 const layerField = $<HTMLLabelElement>('layer-field');
 const layerSelect = $<HTMLSelectElement>('layer-select');
 const drcPanel = $<HTMLElement>('drc-panel');
@@ -151,6 +152,8 @@ let wiring: WireSession | undefined;
 let routing: RouteSession | undefined;
 /** Drawing a pour (the Pour button): ends when the pour is closed or cancelled. */
 let pouring: PourSession | undefined;
+/** Placing vias (the Via button): active until stopped. */
+let vias: ViaSession | undefined;
 /** A pour corner being dragged (from its handle), and the corner last clicked (Del removes it). */
 let cornerDrag: CornerDrag | undefined;
 let activeCorner: { pour: O.PolygonShape; index: number } | undefined;
@@ -305,6 +308,7 @@ function openSources(sources: SourceFile[], initialView?: ViewKind): void {
     stopWiring();
     stopRouting();
     stopPouring();
+    stopVias();
     lastPour = {};
     activeLayer = undefined;
     drcResult = undefined;
@@ -468,6 +472,7 @@ function setupViewChrome(): void {
   if (!drcPanel.hidden) renderDrcPanel();
   wireBtn.textContent = view === 'board' ? 'Route' : 'Wire';
   pourBtn.hidden = !(project?.board && view === 'board');
+  viaBtn.hidden = pourBtn.hidden;
   layerField.hidden = pourBtn.hidden;
   if (!layerField.hidden) renderLayerSelect();
   wireBtn.title = view === 'board'
@@ -548,6 +553,7 @@ let listedLayers = '';
 function onEdited(): void {
   wiring?.refresh();
   routing?.refresh();
+  vias?.refresh();
   // While moving or drawing, the model changes on every mouse move: check once it settles.
   if (drcResult && project && !move && !placing) {
     drcResult = drc(project);
@@ -582,6 +588,7 @@ function showView(next: ViewKind, rememberCurrent: boolean): void {
   stopWiring();
   stopRouting();
   stopPouring();
+  stopVias();
   if (rememberCurrent) saveViewState();
   view = next;
   const state = viewStates.get(next);
@@ -1443,10 +1450,11 @@ function draw(): void {
     layers: layerMap,
     visible: isVisible,
     selection: selection.items,
-    hover: move || placing || wiring || routing || pouring ? undefined : hover,
+    hover: move || placing || wiring || routing || pouring || vias ? undefined : hover,
     ...(editHandles().length ? { handles: editHandles() } : {}),
     ...(wiring ? { sketch: { paths: [{ points: wiring.path, width: wiring.width, layer: 91 }], layer: 91, cursor: wiring.at, snapped: wiring.snapped } } : {}),
     ...(routing ? { sketch: routeSketch(routing) } : {}),
+    ...(vias ? { sketch: { paths: [], vias: [{ at: vias.at, radius: vias.diameter / 2 }], layer: layerNumber(activeLayer ?? 'copper.top'), cursor: vias.at, snapped: vias.snapped || !!vias.over } } : {}),
     ...(pouring ? { sketch: { paths: [{ points: pouring.path, width: 0, layer: layerNumber(pouring.layer) }], layer: layerNumber(pouring.layer), cursor: pouring.at, snapped: pouring.closing || !!pouring.over } } : {}),
     ...(view === 'board' && (drcResult || routing?.conflicts.length)
       ? {
@@ -1741,6 +1749,7 @@ function startPouring(): void {
   if (!editor || !project?.board || view !== 'board') return;
   stopRouting();
   if (move) commitMove();
+  stopVias();
   pouring = editor.beginPour(gridOf, lastPour.net, activeLayer);
   if (!pouring) return;
   pouring.moveTo(cursor, false, WIRE_SNAP_PX / vp.zoom);
@@ -1788,11 +1797,53 @@ function finishPour(): void {
 }
 
 // ---------------------------------------------------------------------------
+// Placing vias
+
+function startVias(): void {
+  if (!editor || !project?.board || view !== 'board') return;
+  stopRouting();
+  stopPouring();
+  if (move) commitMove();
+  vias = editor.beginVias(gridOf);
+  if (!vias) return;
+  vias.moveTo(cursor, false, WIRE_SNAP_PX / vp.zoom);
+  selection.clear();
+  canvas.classList.add('wiring');
+  viaBtn.classList.add('active');
+  canvas.focus({ preventScroll: true });
+  flash(`Vias (${fmtDrill(vias.drill)} drill): click to place one on the net of the copper under it (else ${vias.net ?? 'the last net'}) · Shift+click ignores clearance · Esc stops`);
+  requestRender();
+}
+
+function stopVias(announce = false): void {
+  if (!vias) return;
+  vias = undefined;
+  canvas.classList.remove('wiring');
+  viaBtn.classList.remove('active');
+  if (announce) flash('Stopped placing vias');
+  requestRender();
+}
+
+const fmtDrill = (mm: number) => `${mm} mm (${(mm / 0.0254).toFixed(1)} mil)`;
+
+function viaClick(force: boolean): void {
+  if (!vias) return;
+  const net = vias.net;
+  const r = vias.click(force);
+  if (r === 'placed') flash(`Via on ${net} (${fmtDrill(vias.drill)} drill)`);
+  else if (r === 'exists') flash(`There's already a via of ${net} here`);
+  else if (r === 'nonet') flash('Click on copper of a net to place a via there');
+  else flash(`No room for a via of ${net}: ${vias.conflicts[0]!.message.replace(/^Would touch/, 'it would touch')} · Shift+click places it anyway`);
+  requestRender();
+}
+
+// ---------------------------------------------------------------------------
 // Routing traces
 
 function startRouting(): void {
   if (!editor || !project?.board || view !== 'board') return;
   stopPouring();
+  stopVias();
   queueMicrotask(syncLayer);
   if (move) commitMove();
   routing = editor.beginRoute(gridOf, activeLayer);
@@ -1972,7 +2023,7 @@ druInput.addEventListener('change', async () => {
 
 /** The pour, when one pour alone is selected on the board (and nothing else is going on). */
 function selectedPour(): O.PolygonShape | undefined {
-  if (view !== 'board' || !editor || move || routing || pouring || selection.size !== 1) return undefined;
+  if (view !== 'board' || !editor || move || routing || pouring || vias || selection.size !== 1) return undefined;
   const t = selectedOwners()[0]?.target;
   return t?.kind === 'pour' ? t.pour : undefined;
 }
@@ -1994,7 +2045,7 @@ function pourHandles(): NonNullable<Parameters<typeof render>[3]['handles']> {
 
 /** The drawing line, when one line alone is selected in the board or schematic (and nothing else is going on). */
 function selectedLine(): { line: O.LineShape; container: O.Graphic[] } | undefined {
-  if (!editable() || move || routing || pouring || wiring || placing || selection.size !== 1) return undefined;
+  if (!editable() || move || routing || pouring || vias || wiring || placing || selection.size !== 1) return undefined;
   const t = selectedOwners()[0]?.target;
   return t?.kind === 'drawing' && 'line' in t.graphic ? { line: t.graphic, container: t.container } : undefined;
 }
@@ -2186,6 +2237,13 @@ canvas.addEventListener('pointerdown', (e) => {
     return;
   }
 
+  // Placing vias: left click places one (Shift: even if it breaks clearance), right click stops.
+  if (vias && e.button !== 1 && !spaceDown) {
+    if (e.button === 0) viaClick(e.shiftKey);
+    else if (e.button === 2) stopVias(true);
+    return;
+  }
+
   // Drawing a pour: left click adds a corner (double click closes), right click closes or stops.
   if (pouring && e.button !== 1 && !spaceDown) {
     if (e.button === 0) pourClick(double);
@@ -2273,6 +2331,11 @@ canvas.addEventListener('pointermove', (e) => {
   }
   if (pouring && !(pointer?.mode === 'pan')) {
     pouring.moveTo(w, e.altKey, WIRE_SNAP_PX / vp.zoom);
+    requestRender();
+    return;
+  }
+  if (vias && !(pointer?.mode === 'pan')) {
+    vias.moveTo(w, e.altKey, WIRE_SNAP_PX / vp.zoom);
     requestRender();
     return;
   }
@@ -2442,6 +2505,8 @@ window.addEventListener('keydown', (e) => {
   } else if (e.key === ' ') {
     spaceDown = true;
     e.preventDefault();
+  } else if (e.key === 'Escape' && vias) {
+    stopVias(true);
   } else if (e.key === 'Escape' && pouring) {
     if (pouring.drawing) {
       pouring.cancel();
@@ -2549,6 +2614,7 @@ for (const b of viewToggle.querySelectorAll<HTMLButtonElement>('button')) {
 }
 $('fit-btn').addEventListener('click', fitView);
 pourBtn.addEventListener('click', () => (pouring ? stopPouring(true) : startPouring()));
+viaBtn.addEventListener('click', () => (vias ? stopVias(true) : startVias()));
 wireBtn.addEventListener('click', () => {
   if (view === 'board') {
     if (routing) stopRouting(true);

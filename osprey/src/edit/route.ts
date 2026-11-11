@@ -11,7 +11,8 @@ import { insert, set, type Transaction } from './ops';
 const EPS = 1e-4;
 const round = (v: number) => Math.round(v * 1e6) / 1e6;
 export const DEFAULT_TRACE_WIDTH = 0.254;
-export const DEFAULT_VIA_DRILL = 0.6;
+/** The drill most of Eagle's boards use for vias (13.8 mil). */
+export const DEFAULT_VIA_DRILL = 0.35;
 
 /** Copper a route can start or end on. */
 export interface Anchor {

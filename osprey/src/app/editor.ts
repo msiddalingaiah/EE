@@ -24,6 +24,8 @@ import { addWire, cleanPath, sheetPins, snapPoints, touchAt, usualWireWidth, typ
 import { renameNet, renamePart, setPartValue, smash, unsmash } from '../edit/properties';
 import { isEditable, mirrorAbout, rotationAbout, transformTargets, translation } from '../edit/transform';
 import type { Target } from '../scene/types';
+import { collect, coreDistance, type Item } from '../model/copper';
+import { inIsland, pourFills } from '../model/pour';
 
 export class Editor {
   readonly history = new History();
@@ -180,6 +182,11 @@ export class Editor {
   /** Change pour properties. */
   setPour(pour: O.PolygonShape, patch: PourPatch, label: string): string | undefined {
     return this.property(label, (tx) => setPourProps(pour, patch, tx));
+  }
+
+  /** Start placing vias on the board. */
+  beginVias(grid: (alt: boolean) => number): ViaSession | undefined {
+    return this.project.board ? new ViaSession(this, grid) : undefined;
   }
 
   /** Start routing traces on the board. */
@@ -1038,6 +1045,113 @@ export class PourSession {
   private leg(): O.Pt[] {
     const last = this.points[this.points.length - 1]!;
     return this.freeAngle ? [this.cursor] : bend45(last, this.cursor, false);
+  }
+}
+
+/**
+ * Placing vias, one per click (each one undo step), e.g. to stitch a ground pour. A via takes
+ * the net of the copper under the cursor (a pad, trace, via or poured copper), else the net of
+ * the last via placed, else the usual pour net (GND). Its drill is the net class's, else the
+ * board's usual one. A via that would break a clearance rule is refused unless forced.
+ */
+export class ViaSession {
+  private cursor: O.Pt = [0, 0];
+  private anchors: Anchor[] = [];
+  private items: Item[] = [];
+  private checker!: ClearanceChecker;
+  /** The copper under the cursor (a via there takes its net). */
+  over: { net: string; label: string } | undefined;
+  /** Whether the cursor snapped onto a pad, via or trace end. */
+  snapped = false;
+  /** The net of the last via placed. */
+  private lastNet: string | undefined;
+  /** Rules a via at the cursor would break (nearest first). */
+  conflicts: Conflict[] = [];
+
+  constructor(
+    private readonly editor: Editor,
+    private readonly grid: (alt: boolean) => number,
+  ) {
+    this.refresh();
+  }
+
+  get at(): Point {
+    return { x: this.cursor[0], y: this.cursor[1] };
+  }
+
+  /** The net a via at the cursor would be on. */
+  get net(): string | undefined {
+    return this.over?.net ?? this.lastNet ?? defaultPourNet(this.editor.project);
+  }
+
+  get drill(): number {
+    return viaDrill(this.editor.project, this.net ?? '');
+  }
+
+  /** The via's copper diameter (by the rules' annular ring). */
+  get diameter(): number {
+    return this.checker.rules.viaDiameter(this.drill, 0);
+  }
+
+  /** Move the cursor: onto a pad, via or trace end within `tolerance`, else the grid. */
+  moveTo(p: Point, fineGrid: boolean, tolerance: number): void {
+    let best: Anchor | undefined;
+    let d = tolerance;
+    for (const a of this.anchors) {
+      const e = Math.hypot(a.at[0] - p.x, a.at[1] - p.y);
+      if (e < d) [best, d] = [a, e];
+    }
+    this.snapped = !!best;
+    if (best) this.cursor = [best.at[0], best.at[1]];
+    else {
+      const g = this.grid(fineGrid);
+      const snap = (v: number) => Math.round(Math.round(v / g) * g * 1e6) / 1e6;
+      this.cursor = [snap(p.x), snap(p.y)];
+    }
+    this.update();
+  }
+
+  /** Place a via at the cursor. */
+  click(force = false): 'placed' | 'blocked' | 'exists' | 'nonet' {
+    const net = this.net;
+    if (!net) return 'nonet';
+    if (this.editor.project.nets.find((n) => n.name === net)?.vias?.some((v) => Math.abs(v.at[0] - this.cursor[0]) < 1e-4 && Math.abs(v.at[1] - this.cursor[1]) < 1e-4)) return 'exists';
+    if (this.conflicts.length && !force) return 'blocked';
+    const tx = new Transaction(`Via on ${net}`);
+    addRoute(this.editor.project, net, [], [this.cursor], tx);
+    this.editor.push(tx);
+    this.lastNet = net;
+    this.refresh();
+    return 'placed';
+  }
+
+  /** Re-read the copper (after the model changed). */
+  refresh(): void {
+    const index = this.editor.index();
+    this.anchors = anchors(this.editor.project, index);
+    this.checker = new ClearanceChecker(this.editor.project, index);
+    this.items = collect(this.editor.project, this.checker.rules, index);
+    this.update();
+  }
+
+  private update(): void {
+    this.over = this.copperAt(this.cursor);
+    const net = this.net;
+    this.conflicts = net ? this.checker.via(net, this.cursor, this.drill) : [];
+  }
+
+  /** The copper of a net at a point, on any layer: pads, traces and vias first, then pours. */
+  private copperAt([x, y]: O.Pt): { net: string; label: string } | undefined {
+    const pt = { t: 'cap' as const, a: { x, y }, b: { x, y }, r: 0 };
+    for (const it of this.items) {
+      if (it.net.startsWith(' ')) continue; // pads on no net
+      if (x < it.box.minX || x > it.box.maxX || y < it.box.minY || y > it.box.maxY) continue;
+      if (it.shapes.some((s) => coreDistance(pt, s).d - s.r <= 1e-6)) return { net: it.net, label: it.label };
+    }
+    for (const f of pourFills(this.editor.project).values()) {
+      if (f.islands.some((isl) => inIsland(isl, { x, y }))) return { net: f.net, label: `pour of ${f.net}` };
+    }
+    return undefined;
   }
 }
 

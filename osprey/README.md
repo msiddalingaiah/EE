@@ -66,6 +66,12 @@ native model (see [docs/format.md](docs/format.md)). Eagle files are imported in
   changes layer. A selected pour shows handles: drag a corner to move it, drag an edge's middle
   to add a corner, click a corner and press Del to remove it. Its net, layer, width, isolation,
   rank, fill, thermals and orphans are edited in the inspector.
+- **Placing vias** (board): the **Via** button places vias one click at a time (each its own
+  undo step), e.g. to stitch a ground pour. A via takes the net of the copper under it (pad,
+  trace, via or poured copper), else the last via's net, else GND; it snaps onto pads, vias and
+  trace ends. The drill is the net class's, else the board's usual one, else 0.35 mm (13.8 mil:
+  what most Eagle boards use). A via that breaks clearance is refused; Shift+click places it
+  anyway.
 - **Stretching drawing lines** (board, schematic): a selected line shows handles on its ends;
   drag one to move that end. The ends of other lines on the same layer that meet it move too,
   so dragging a board outline corner resizes the board and keeps the outline closed.
@@ -155,6 +161,7 @@ OSPREY_CORPUS=~/designs npx vitest run -t corpus
 | Copy / cut / paste (schematic) | Ctrl+C / Ctrl+X / Ctrl+V; click places the paste, `R`/`F` while floating, Esc cancels |
 | Copper layer for Route and Pour (board) | Layer selector in the toolbar, or `L` |
 | Draw a pour (board) | Pour button; click corners, click the first corner / double-click / Enter closes, `L` layer, `/` any angle, Esc cancels |
+| Place vias (board) | Via button; click places one (net from the copper under it), Shift+click ignores clearance, Esc or right-click stops |
 | Edit a pour's outline (board) | Select it; drag a corner, drag an edge's middle to add a corner, click a corner then Del to remove it |
 | Stretch a drawing line, e.g. resize the board outline | Select the line; drag a handle on its end (lines meeting there follow) |
 | Show / hide pour fill (board) | `P`, or the pour fill checkbox in the Layers panel |
