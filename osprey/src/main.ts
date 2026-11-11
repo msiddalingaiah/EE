@@ -2745,3 +2745,9 @@ function storeSet(key: string, value: string): void {
 
 resize();
 initSamples();
+
+// Installed as an app (a PWA), the service worker keeps every file cached so it runs with no
+// server; see vite.config.ts. Only in builds: the dev server serves fresh files.
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+  navigator.serviceWorker.register('./sw.js').catch((e: unknown) => console.warn('Service worker not registered:', e));
+}

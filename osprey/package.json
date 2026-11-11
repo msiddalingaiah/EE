@@ -11,7 +11,9 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "samples": "vitest run test/samples.test.ts -u"
+    "samples": "vitest run test/samples.test.ts -u",
+    "app": "npm run build && vite preview --port 4173 --strictPort --open",
+    "icons": "node scripts/build-icons.mjs"
   },
   "devDependencies": {
     "@types/jsdom": "^30.0.0",

@@ -1,0 +1,15 @@
+{
+  "name": "Osprey",
+  "short_name": "Osprey",
+  "description": "Electronic CAD: schematics and boards, with Eagle files in and out",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0d0f12",
+  "theme_color": "#15181d",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml" }
+  ]
+}

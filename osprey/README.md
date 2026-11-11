@@ -138,7 +138,26 @@ npm test           # unit tests against the samples
 npm run samples    # regenerate samples/osprey/ from samples/eagle/ (after importer changes)
 npm run typecheck
 npm run build
+npm run app        # build, serve it at http://localhost:4173 and open it (to install, below)
 ```
+
+### As an installed app (no server)
+
+Osprey can be installed as a progressive web app, which then runs in its own window with no
+server: a service worker (`sw.js`, written by `vite.config.ts` at build time) caches every file
+of the build. To install:
+
+1. `npm run app` (builds, then serves `dist/` at http://localhost:4173 and opens it in the browser).
+2. In Chrome or Edge, click the install icon at the right of the address bar (or menu → *Cast,
+   save and share* → *Install page as app*). Osprey gets a Start menu entry and its own window.
+3. Stop the server (Ctrl+C). The installed app keeps working.
+
+To update an installed app, run `npm run app` again (same port: the app is tied to
+`localhost:4173`), and reopen it once it has loaded; the new build takes over the next time it
+starts. The icons are drawn by `npm run icons` (`scripts/build-icons.mjs`, into `public/`).
+
+Opening `dist/index.html` straight from disk doesn't work: browsers don't run module scripts
+from `file://`.
 
 The app opens the `TA7358A` Osprey project by default; the Sample menu also offers the
 original Eagle pair (imported on the fly) and an Eagle library. A sample can be opened by URL,
