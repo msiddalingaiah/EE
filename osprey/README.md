@@ -133,6 +133,30 @@ Not yet: library editing, busses beyond wires, push-and-shove routing, pick-and-
    text, pin-to-pad mapping) in the project's library and save them back, with placed parts
    following the change.
 
+### Roadmap
+
+After those, to take a board through manufacturing and assembly:
+
+- **BOM and pick-and-place files**, for assembly services (e.g. JLCPCB), from the parts,
+  values and footprint placements already in the model.
+- **Electrical rule check (ERC)** on the schematic: unconnected pins, single-pin nets, outputs
+  driving each other — what the board DRC can't see. Best before library editing, since new
+  parts are where pin mistakes start.
+- **Design rules edited in place:** type a clearance, width or drill in the Design rules
+  panel, without a `.dru` file.
+- **Pours drop copper narrower than their width** (slivers between close pads and at the
+  edge), as Eagle does.
+- **Board text:** add and edit silkscreen text (revision, connector labels).
+- **Net classes:** set trace width, clearance and via drill per class (e.g. wider supplies),
+  and which class a net is in.
+
+Smaller:
+
+- **Routing alignment guide:** show a faint line when the cursor lines up with a pad's row or
+  column, and line up only with pads the route isn't connected to yet.
+- **Open `.osprey` files from Explorer:** the installed app registers for them (file
+  handlers), so double-clicking a project opens it in Osprey.
+
 ## Running
 
 Requires Node.js 20+. The one runtime dependency is [clipper2-js](https://www.npmjs.com/package/clipper2-js)
