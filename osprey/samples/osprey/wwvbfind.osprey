@@ -1317,7 +1317,7 @@
         },
         { "sheet": "1",
           "pins": [
-            { "part": "UPDI", "gate": "A", "pin": "1" },
+            { "part": "UPDI", "gate": "A", "pin": "3" },
             { "part": "SUPPLY20", "gate": "G$1", "pin": "VCC" }
           ],
           "wires": [
@@ -1770,7 +1770,7 @@
         },
         { "sheet": "1",
           "pins": [
-            { "part": "UPDI", "gate": "A", "pin": "3" }
+            { "part": "UPDI", "gate": "A", "pin": "1" }
           ],
           "labels": [
             { "at": [233.172, 69.088], "size": 1.778, "layer": "names", "align": "bottom-right" }
@@ -1917,7 +1917,7 @@
           { "part": "C8", "gate": "A", "at": [172.72, 96.52] },
           { "part": "SUPPLY17", "gate": "G$1", "at": [172.72, 106.68] },
           { "part": "SUPPLY18", "gate": "GND", "at": [172.72, 88.9] },
-          { "part": "UPDI", "gate": "A", "at": [223.52, 76.2], "rot": 270 },
+          { "part": "UPDI", "gate": "A", "at": [223.52, 76.2], "rot": 270, "mirror": true },
           { "part": "SUPPLY19", "gate": "GND", "at": [223.52, 66.04] },
           { "part": "SUPPLY20", "gate": "G$1", "at": [215.9, 76.2] },
           { "part": "U2", "gate": "A", "at": [38.1, 30.48] },
@@ -1989,7 +1989,7 @@
         ]
       },
       { "part": "C8", "at": [20.32, 22.86] },
-      { "part": "UPDI", "at": [27.94, 5.08], "rot": 90, "smashed": true,
+      { "part": "UPDI", "at": [27.94, 5.08], "rot": 270, "smashed": true,
         "labels": [
           { "attr": "NAME", "at": [29.21, 10.16], "rot": 180, "size": 0.8128, "layer": "names.top", "ratio": 10 }
         ]
