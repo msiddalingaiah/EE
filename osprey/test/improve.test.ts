@@ -1,14 +1,14 @@
 // Local improvement of a placement (Arrange.improve), on the wwvbfind sample.
 
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { Editor } from '../src/app/editor';
 import { readProject } from '../src/model/file';
 import { placementIssues, placementMetrics } from '../src/model/placement';
 import type * as O from '../src/model/types';
+import { unroutedSample } from './unrouted';
 
-const SAMPLE = readFileSync(join(__dirname, '..', 'samples', 'osprey', 'wwvbfind.osprey'), 'utf8');
+// Unrouted: placement is measured by airwires.
+const SAMPLE = unroutedSample('wwvbfind');
 const CONNECTORS = ['VCC', 'IN', 'VOUT', 'UPDI'];
 
 let p: O.Project;

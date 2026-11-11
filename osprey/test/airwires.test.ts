@@ -1,15 +1,15 @@
 // Showing and hiding airwires net by net.
 
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { readProject } from '../src/model/file';
 import { ratsnest } from '../src/model/ratsnest';
 import { airwireNets, hideAirwires } from '../src/scene/airwires';
 import { buildBoardScene } from '../src/scene/board';
 import { AIRWIRES_LAYER } from '../src/scene/builder';
+import { unroutedSample } from './unrouted';
 
-const p = readProject(readFileSync(join(__dirname, '..', 'samples', 'osprey', 'wwvbfind.osprey'), 'utf8'));
+// Unrouted, so every net has airwires.
+const p = readProject(unroutedSample('wwvbfind'));
 const scene = buildBoardScene(p, []);
 const drawn = (s: typeof scene, net: string) => s.prims.filter((q) => q.layer === AIRWIRES_LAYER && s.owners.get(q.owner)?.net === net).length;
 

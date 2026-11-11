@@ -1,15 +1,15 @@
 // Arranging parts by relation: beside a part or pad, rows, board edges, groups, best rotation.
 
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { Editor } from '../src/app/editor';
 import type { Arrange } from '../src/edit/arrange';
 import { readProject } from '../src/model/file';
 import { footprintInfo, placementIssues, placementMetrics, rectCenter } from '../src/model/placement';
 import type * as O from '../src/model/types';
+import { unroutedSample } from './unrouted';
 
-const SAMPLE = readFileSync(join(__dirname, '..', 'samples', 'osprey', 'wwvbfind.osprey'), 'utf8');
+// Unrouted: placement is measured by airwires.
+const SAMPLE = unroutedSample('wwvbfind');
 
 let p: O.Project;
 let editor: Editor;

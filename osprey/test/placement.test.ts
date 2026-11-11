@@ -1,15 +1,15 @@
 // Placement geometry, checks and measures, and spreading parts apart (on the wwvbfind sample).
 
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { Editor } from '../src/app/editor';
 import { ratsnest } from '../src/model/ratsnest';
 import { readProject } from '../src/model/file';
 import { footprintInfo, footprintInfos, placementIssues, placementMetrics, rectHeight, rectWidth } from '../src/model/placement';
 import type * as O from '../src/model/types';
+import { unroutedSample } from './unrouted';
 
-const SAMPLE = readFileSync(join(__dirname, '..', 'samples', 'osprey', 'wwvbfind.osprey'), 'utf8');
+// Unrouted: placement is measured by airwires.
+const SAMPLE = unroutedSample('wwvbfind');
 
 let p: O.Project;
 let editor: Editor;
