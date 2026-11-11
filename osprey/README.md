@@ -120,6 +120,19 @@ native model (see [docs/format.md](docs/format.md)). Eagle files are imported in
 
 Not yet: library editing, busses beyond wires, push-and-shove routing, pick-and-place files.
 
+### Next
+
+1. **Driving the app for development:** `scripts/drive.mjs` runs headless Chrome (over the
+   DevTools protocol) against the dev server: open a sample, switch views, click at board
+   coordinates in mm, press keys, type into inspector fields, take screenshots. A dev-only
+   `window.__osprey` hook exposes the project, selection, DRC result and active mode, so checks
+   read state rather than pixels. It gives the editor's mouse and keyboard handling the tests it
+   lacks (double-click detection and the installed app's caching both broke there unnoticed),
+   and lets an agent see a change working in the real app, not only in unit tests.
+2. **Library editing:** edit symbols, footprints and components (pins and pads, outlines,
+   text, pin-to-pad mapping) in the project's library and save them back, with placed parts
+   following the change.
+
 ## Running
 
 Requires Node.js 20+. The one runtime dependency is [clipper2-js](https://www.npmjs.com/package/clipper2-js)
