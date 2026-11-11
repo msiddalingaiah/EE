@@ -131,9 +131,12 @@ const loadedLibraries = new Map<string, O.Library>();
 /** The component chosen in the Add part panel. */
 let chosen: { source: string; id: string } | undefined;
 
-/** The last design-rule check (kept up to date after edits once run), and the violation in focus. */
+/**
+ * The last design-rule check (kept up to date after edits once run), and the problems chosen in
+ * the list to be marked on the board (by message, so they stay chosen as the check reruns).
+ */
 let drcResult: DrcResult | undefined;
-let drcActive: Violation | undefined;
+const drcShown = new Set<string>();
 
 /** Show poured copper, or only pour outlines. */
 let showPours = storeGet('osprey.showPours') !== 'no';
@@ -305,7 +308,7 @@ function openSources(sources: SourceFile[], initialView?: ViewKind): void {
     lastPour = {};
     activeLayer = undefined;
     drcResult = undefined;
-    drcActive = undefined;
+    drcShown.clear();
     project = next.project;
     library = next.library;
     importReport = next.report;
@@ -548,7 +551,6 @@ function onEdited(): void {
   // While moving or drawing, the model changes on every mouse move: check once it settles.
   if (drcResult && project && !move && !placing) {
     drcResult = drc(project);
-    if (drcActive) drcActive = drcResult.violations.find((v) => v.message === drcActive!.message);
     if (view === 'board') renderDrcPanel();
   }
   rebuildScene({ fit: false, keepSelection: true });
@@ -1448,7 +1450,7 @@ function draw(): void {
     ...(view === 'board' && (drcResult || routing?.conflicts.length)
       ? {
         markers: [
-          ...(drcResult?.violations ?? []).map((v) => ({ at: { x: v.at[0], y: v.at[1] }, active: v === drcActive })),
+          ...(drcResult?.violations ?? []).filter((v) => drcShown.has(v.message)).map((v) => ({ at: { x: v.at[0], y: v.at[1] }, active: true })),
           ...(routing?.conflicts.slice(0, 1) ?? []).map((c) => ({ at: { x: c.at[0], y: c.at[1] }, active: true })),
         ],
       }
@@ -1908,8 +1910,8 @@ function renderDrcPanel(): void {
     b.type = 'button';
     b.append(el('span', 'drc-kind', DRC_KIND[v.kind]), document.createTextNode(v.message.replace(/^Short: /, '')));
     b.title = v.message;
-    if (v === drcActive) b.className = 'active';
-    b.addEventListener('click', () => showViolation(v));
+    if (drcShown.has(v.message)) b.className = 'active';
+    b.addEventListener('click', () => toggleViolation(v));
     drcList.append(b);
   }
 }
@@ -1918,22 +1920,24 @@ function runDrc(): void {
   if (!project?.board) return;
   if (move) commitMove();
   drcResult = drc(project);
-  drcActive = undefined;
+  drcShown.clear();
   renderDrcPanel();
   const n = drcResult.violations.length;
-  flash(n ? `DRC: ${n} problem${n > 1 ? 's' : ''} (marked on the board)` : 'DRC: no problems');
+  flash(n ? `DRC: ${n} problem${n > 1 ? 's' : ''} (choose one in the list to mark it on the board)` : 'DRC: no problems');
   requestRender();
 }
 
-/** Zoom to a violation and select what is involved. */
-function showViolation(v: Violation): void {
-  drcActive = v;
-  const r = 2.5;
-  vp.fit({ minX: v.at[0] - r, minY: v.at[1] - r, maxX: v.at[0] + r, maxY: v.at[1] + r });
+/** Mark a problem on the board (and select what is involved), or unmark it if it was marked. The view stays put. */
+function toggleViolation(v: Violation): void {
+  if (drcShown.delete(v.message)) {
+    renderDrcPanel();
+    requestRender();
+    return;
+  }
+  drcShown.add(v.message);
   reselect(v.objects);
   renderDrcPanel();
   flash(v.message);
-  canvas.focus({ preventScroll: true });
   requestRender();
 }
 

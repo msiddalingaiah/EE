@@ -49,8 +49,9 @@ native model (see [docs/format.md](docs/format.md)). Eagle files are imported in
 - **Design-rule check** (board): the Design rules panel checks copper clearance between
   nets (Eagle's wire/pad/SMD/via distances), shorts, minimum trace width and drill, and copper
   near the board edge or holes, and lists every airwire left as unrouted (a board passes only
-  when it is fully connected). Problems are listed and marked on the board; clicking one zooms
-  to it and selects what's involved; the list updates as you edit. Rules come from the board
+  when it is fully connected). Problems are listed; clicking one marks it on the board and selects
+  what's involved (the view stays put), clicking it again unmarks it, and only the problems
+  chosen are marked. The list updates as you edit. Rules come from the board
   (as imported from Eagle) and can be loaded from an Eagle `.dru` file; values the file doesn't
   set are kept. Poured copper is checked too.
 - **The copper layer** (board): the toolbar's **Layer** selector is the layer Route and Pour
@@ -154,7 +155,7 @@ OSPREY_CORPUS=~/designs npx vitest run -t corpus
 | Edit a pour's outline (board) | Select it; drag a corner, drag an edge's middle to add a corner, click a corner then Del to remove it |
 | Stretch a drawing line, e.g. resize the board outline | Select the line; drag a handle on its end (lines meeting there follow) |
 | Show / hide pour fill (board) | `P`, or the pour fill checkbox in the Layers panel |
-| Design-rule check (board) | Design rules panel: Check; Load rules… for a `.dru` file; click a problem to zoom to it |
+| Design-rule check (board) | Design rules panel: Check; Load rules… for a `.dru` file; click a problem to mark it on the board, again to unmark it |
 | Route traces (board) | `W` or the Route button; click a pad, via or trace end to start, click adds corners, `L` changes layer (adds a via), `/` flips the bend, Shift+click / Shift+L place a leg or via that breaks clearance; ends on copper of the same net, or with a double click, Esc or right-click; Esc again stops |
 | Draw wires (schematic) | `W` or the Wire button; click to start, click adds a corner, `/` flips the bend; a wire ends on a pin or wire, or with a double click, Esc or right-click; Esc again stops |
 | Add part (schematic) | `A` to search, choose a component, Place (or Enter); click places each gate, `R`/`F` while placing, Esc or right-click stops |
