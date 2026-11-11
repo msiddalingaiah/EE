@@ -1241,6 +1241,7 @@ function smashCmd(on: boolean): void {
 function propertyFields(o: Owner): { table: HTMLTableElement; covers: Set<string> } | undefined {
   if (!editable() || !editor) return undefined;
   if (o.target?.kind === 'pour') return pourFields(o.target.pour, o.target.net.name);
+  if (o.target?.kind === 'drawing' && 'line' in o.target.graphic) return lineFields(o.target.graphic, o.target.container);
   const ed = editor;
   const rows: [label: string, field: string, value: string, commit: (v: string) => string | undefined][] = [];
   const covers = new Set<string>();
@@ -1373,7 +1374,74 @@ function pourFields(pour: O.PolygonShape, netName: string): { table: HTMLTableEl
   };
   check('Thermals', pour.thermals !== false, (v) => ({ thermals: v }));
   check('Keep orphans', !!pour.orphans, (v) => ({ orphans: v }));
+  // Corners, as typed points (the one last clicked is marked).
+  const active = activeCorner?.pour === pour ? activeCorner.index : -1;
+  pour.polygon.slice(0, 64).forEach((v, i) => {
+    pointRow(table, `${i === active ? '▸ ' : ''}Corner ${i + 1} (mm)`, `corner${i}`, [v[0], v[1]], (p) => ed.movePourCorner(pour, i, p));
+  });
   return { table, covers };
+}
+
+/** A point as typed in the inspector: "x, y" in mm (a space works too). */
+function parsePt(v: string): O.Pt | undefined {
+  const m = /^\s*(-?\d*\.?\d+)\s*(?:mm)?\s*[,\s]\s*(-?\d*\.?\d+)\s*(?:mm)?\s*$/.exec(v);
+  return m ? [Number(m[1]), Number(m[2])] : undefined;
+}
+const fmtPt = (p: O.Pt) => `${Math.round(p[0] * 1e4) / 1e4}, ${Math.round(p[1] * 1e4) / 1e4}`;
+
+/** A point field: Enter applies (one undo step), Esc restores; an error marks the field. */
+function pointRow(table: HTMLTableElement, label: string, field: string, value: O.Pt, commit: (p: O.Pt) => string | undefined): void {
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.value = fmtPt(value);
+  input.dataset.field = field;
+  input.spellcheck = false;
+  input.title = 'x, y in mm';
+  input.setAttribute('aria-label', label);
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      if (input.value === fmtPt(value)) return canvas.focus({ preventScroll: true });
+      const p = parsePt(input.value);
+      const err = p ? commit(p) : 'Enter the point as x, y in mm';
+      if (err) {
+        input.classList.add('invalid');
+        flash(err);
+      } else {
+        flash(`${label} moved to ${fmtPt(p!)}`);
+        canvas.focus({ preventScroll: true });
+      }
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      input.value = fmtPt(value);
+      input.classList.remove('invalid');
+      canvas.focus({ preventScroll: true });
+    }
+  });
+  input.addEventListener('input', () => input.classList.remove('invalid'));
+  const tr = document.createElement('tr');
+  const td = document.createElement('td');
+  td.append(input);
+  tr.append(el('th', '', label), td);
+  table.append(tr);
+}
+
+/** A drawing line's ends (e.g. a board outline edge), editable; ends of lines meeting one move with it. */
+function lineFields(line: O.LineShape, container: O.Graphic[]): { table: HTMLTableElement; covers: Set<string> } {
+  const ed = editor!;
+  const table = document.createElement('table');
+  table.className = 'props fields';
+  ([0, 1] as const).forEach((end) => {
+    pointRow(table, end === 0 ? 'Start (mm)' : 'End (mm)', end === 0 ? 'start' : 'end', line.line[end], (p) => {
+      ed.setLineEnd(line, end, container, p);
+      return undefined;
+    });
+  });
+  const [[x1, y1], [x2, y2]] = line.line;
+  const tr = document.createElement('tr');
+  tr.append(el('th', '', 'Length'), el('td', '', `${Math.round(Math.hypot(x2 - x1, y2 - y1) * 1e4) / 1e4} mm`));
+  table.append(tr);
+  return { table, covers: new Set() };
 }
 
 /** Jump to a property field of the selection (N: name/net, V: value). */

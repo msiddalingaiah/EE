@@ -159,6 +159,17 @@ describe('changing a pour', () => {
 });
 
 describe('editing a pour outline', () => {
+  it('moves a corner to a typed point (off the grid), one undo step', () => {
+    const pour = net('GND')!.pours![0]!;
+    const before = writeProject(p);
+    expect(editor.movePourCorner(pour, 2, [36.5, 36.123])).toBeUndefined();
+    expect(pour.polygon[2]!.slice(0, 2)).toEqual([36.5, 36.123]);
+    expect(editor.history.undoLabel).toBe('Move pour corner');
+    expect(editor.movePourCorner(pour, 99, [0, 0])).toBe('No such corner');
+    editor.undo();
+    expect(writeProject(p)).toBe(before);
+  });
+
   const square: O.PolyPt[] = [[0, 0], [10, 0], [10, 10], [0, 10]];
 
   it('moves, adds and removes corners (curved edges keep their curve)', () => {

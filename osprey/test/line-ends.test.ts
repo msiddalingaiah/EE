@@ -69,3 +69,25 @@ describe('dragging a line end', () => {
     expect(editor.dragLineEnd(silk, 0, p.board!.drawing, grid).commit()).toBe(false);
   });
 });
+
+describe('typing a line end', () => {
+  it('puts the end exactly where typed (off the grid), with the lines meeting it; one undo step', () => {
+    const before = writeProject(p);
+    expect(editor.setLineEnd(drawing()[1]!, 1, p.board!.drawing, [39.37, 26.162])).toBe(true);
+    expect(lines().slice(0, 4)).toEqual([[[0, 0], [40, 0]], [[40, 0], [39.37, 26.162]], [[39.37, 26.162], [0, 30]], [[0, 30], [0, 0]]]);
+    expect(drawing()[4]!.line).toEqual([[40, 30], [45, 35]]); // silkscreen stays
+    expect(editor.history.undoLabel).toBe('Move corner');
+    editor.undo();
+    expect(writeProject(p)).toBe(before);
+  });
+
+  it('closes a gap: an end typed onto another line\'s end', () => {
+    // Open the corner at (40, 0) a hair, then type the stray end back.
+    drawing()[1]!.line = [[40.01, 0], [40, 30]];
+    expect(editor.setLineEnd(drawing()[1]!, 0, p.board!.drawing, [40, 0])).toBe(true);
+    expect(drawing()[1]!.line[0]).toEqual([40, 0]);
+    expect(editor.history.undoLabel).toBe('Move line end');
+    // Typing the same point again changes nothing.
+    expect(editor.setLineEnd(drawing()[1]!, 0, p.board!.drawing, [40, 0])).toBe(false);
+  });
+});

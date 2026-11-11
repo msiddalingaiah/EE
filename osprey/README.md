@@ -64,7 +64,8 @@ native model (see [docs/format.md](docs/format.md)). Eagle files are imported in
   (45° edges; / for any angle), and click the first corner, double-click or press Enter to
   close it. The first click on copper picks the net (otherwise the last one used, or GND); L
   changes layer. A selected pour shows handles: drag a corner to move it, drag an edge's middle
-  to add a corner, click a corner and press Del to remove it. Its net, layer, width, isolation,
+  to add a corner, click a corner and press Del to remove it; the inspector lists the corners as
+  x, y in mm, to type a position exactly. Its net, layer, width, isolation,
   rank, fill, thermals and orphans are edited in the inspector.
 - **Placing vias** (board): the **Via** button places vias one click at a time (each its own
   undo step), e.g. to stitch a ground pour. A via takes the net of the copper under it (pad,
@@ -74,7 +75,9 @@ native model (see [docs/format.md](docs/format.md)). Eagle files are imported in
   anyway.
 - **Stretching drawing lines** (board, schematic): a selected line shows handles on its ends;
   drag one to move that end. The ends of other lines on the same layer that meet it move too,
-  so dragging a board outline corner resizes the board and keeps the outline closed.
+  so dragging a board outline corner resizes the board and keeps the outline closed. The
+  inspector shows the line's Start and End as x, y in mm: type a point (off the grid too) and
+  press Enter to move that end the same way.
 - **Pours are computed** (board): each polygon pour is filled much as Eagle does, but with one
   gap, its **isolate** (10 mil unless set), whatever the design rules say: that far from other
   nets' copper, inside the board outline and around holes; out of keep-out areas and cutouts, in

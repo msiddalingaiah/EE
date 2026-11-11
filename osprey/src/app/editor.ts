@@ -164,6 +164,25 @@ export class Editor {
     return new LineEndDrag(this, line, end, container, grid);
   }
 
+  /**
+   * Put one end of a drawing line at a point, as typed (no grid); ends of same-layer lines that
+   * meet it move too, as when dragging. One undo step; false when nothing changed.
+   */
+  setLineEnd(line: O.LineShape, end: 0 | 1, container: O.Graphic[], at: O.Pt): boolean {
+    const d = new LineEndDrag(this, line, end, container, () => 1);
+    d.place(at);
+    return d.commit();
+  }
+
+  /** Move a pour corner to a point, as typed (no grid). */
+  movePourCorner(pour: O.PolygonShape, index: number, at: O.Pt): string | undefined {
+    if (!pour.polygon[index]) return 'No such corner';
+    return this.property('Move pour corner', (tx) => {
+      setOutline(pour, withCornerMoved(pour.polygon, index, at), tx);
+      return undefined;
+    });
+  }
+
   /** Remove a pour corner (an outline keeps at least three). */
   removePourCorner(pour: O.PolygonShape, index: number): string | undefined {
     const outline = withCornerRemoved(pour.polygon, index);
@@ -1144,7 +1163,7 @@ export class ViaSession {
   private copperAt([x, y]: O.Pt): { net: string; label: string } | undefined {
     const pt = { t: 'cap' as const, a: { x, y }, b: { x, y }, r: 0 };
     for (const it of this.items) {
-      if (it.net.startsWith(' ')) continue; // pads on no net
+      if (it.net.startsWith('\u0000')) continue; // pads on no net
       if (x < it.box.minX || x > it.box.maxX || y < it.box.minY || y > it.box.maxY) continue;
       if (it.shapes.some((s) => coreDistance(pt, s).d - s.r <= 1e-6)) return { net: it.net, label: it.label };
     }
@@ -1244,6 +1263,14 @@ export class LineEndDrag {
     this.tx.revert();
     this.tx = new Transaction('');
     this.apply([snap(p.x), snap(p.y)], this.tx);
+    this.moved = true;
+  }
+
+  /** Put the end exactly at `at` (no grid). */
+  place(at: O.Pt): void {
+    this.tx.revert();
+    this.tx = new Transaction('');
+    this.apply(at, this.tx);
     this.moved = true;
   }
 
