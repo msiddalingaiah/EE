@@ -29,7 +29,8 @@ export function buildSymbolInto(
   for (const pin of sym.pins) emitPin(b, pin, padsByPin.get(pin.name) ?? '', T, owner);
 }
 
-function emitPin(b: SceneBuilder, pin: O.Pin, pads: string, parent: Transform, owner: string): void {
+/** Emit one pin (its line, decorations, name and pad numbers) under the parent transform. */
+export function emitPin(b: SceneBuilder, pin: O.Pin, pads: string, parent: Transform, owner: string): void {
   const T = compose(parent, placement(pin.at[0], pin.at[1], rotation(pin.rot, false)));
   const ctx: EmitContext = { owner, transform: T, textContext: 'schematic' };
   const len = PIN_LENGTH[pin.length ?? 'long'];

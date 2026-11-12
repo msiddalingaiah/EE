@@ -22,6 +22,7 @@ import { findDetour, findPath, type Detour } from '../edit/walkaround';
 import { addRoute, anchors, bend45, copperLayers, traceWidth, viaDrill, type Anchor, type Leg } from '../edit/route';
 import { addWire, cleanPath, sheetPins, snapPoints, touchAt, usualWireWidth, type WireResult } from '../edit/wire';
 import { renameNet, renamePart, setPartValue, smash, unsmash } from '../edit/properties';
+import { renamePad, renamePin, setPad, setPin, type PadPatch, type PinPatch } from '../edit/library';
 import { isEditable, mirrorAbout, rotationAbout, transformTargets, translation } from '../edit/transform';
 import type { Target } from '../scene/types';
 import { collect, coreDistance, type Item } from '../model/copper';
@@ -231,6 +232,30 @@ export class Editor {
 
   renameNet(oldName: string, newName: string): string | undefined {
     return this.property(`Rename net ${oldName}`, (tx) => renameNet(this.project, oldName, newName, tx, this.index()));
+  }
+
+  /** Move objects by typing a position: the point `from` (e.g. a pin's origin) goes to `to`. */
+  moveTo(targets: Target[], from: Point, to: Point): void {
+    if (Math.abs(to.x - from.x) < 1e-9 && Math.abs(to.y - from.y) < 1e-9) return;
+    this.commit('Move', targets, translation(to.x - from.x, to.y - from.y));
+  }
+
+  /** Rename a pin of a library symbol (the components using it follow). */
+  renamePin(symbol: O.Symbol, pin: O.Pin, name: string): string | undefined {
+    return this.property(`Rename pin ${pin.name}`, (tx) => renamePin(this.project.library, symbol, pin, name, tx));
+  }
+
+  /** Rename a pad of a library footprint (the components using it follow). */
+  renamePad(footprint: O.Footprint, pad: O.Pad, name: string): string | undefined {
+    return this.property(`Rename pad ${pad.name}`, (tx) => renamePad(this.project.library, footprint, pad, name, tx));
+  }
+
+  setPin(pin: O.Pin, patch: PinPatch, label: string): string | undefined {
+    return this.property(`${label} of pin ${pin.name}`, (tx) => setPin(pin, patch, tx));
+  }
+
+  setPad(pad: O.Pad, patch: PadPatch, label: string): string | undefined {
+    return this.property(`${label} of pad ${pad.name}`, (tx) => setPad(pad, patch, tx));
   }
 
   /** Approve electrical rule check problems (by key), or withdraw their approval. */
@@ -1344,6 +1369,8 @@ function describe(ts: Target[]): string {
       case 'pour': return `pour on ${t.net.name}`;
       case 'drawing': return 'drawing';
       case 'label': return `${t.placement.part} ${t.label.attr.toLowerCase()}`;
+      case 'pin': return `pin ${t.pin.name}`;
+      case 'pad': return `pad ${t.pad.name}`;
     }
   }
   return `${ts.length} objects`;
@@ -1362,5 +1389,7 @@ export function subject(t: Target): object {
     case 'pour': return t.pour;
     case 'drawing': return t.graphic;
     case 'label': return t.label;
+    case 'pin': return t.pin;
+    case 'pad': return t.pad;
   }
 }

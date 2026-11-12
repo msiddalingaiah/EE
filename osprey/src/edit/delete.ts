@@ -11,6 +11,7 @@ import { pinPosition } from '../model/geometry';
 import type * as O from '../model/types';
 import type { Target, WireSegment } from '../scene/types';
 import { dropIfEmpty, remove, type Transaction } from './ops';
+import { deletePad, deletePin } from './library';
 import { isEditable } from './transform';
 
 const EPS = 1e-4;
@@ -69,6 +70,8 @@ export function deleteTargets(project: O.Project, targets: Target[], tx: Transac
           tx.run(dropIfEmpty(t.placement, 'labels'));
         }
         break;
+      case 'pin': deletePin(project.library, t.symbol, t.pin, tx); break;
+      case 'pad': deletePad(project.library, t.footprint, t.pad, tx); break;
     }
   }
   return [...locked];

@@ -43,6 +43,9 @@ export function docOf(t: Target): 'schematic' | 'board' {
     case 'gate': case 'wire': case 'junction': case 'netlabel': return 'schematic';
     case 'footprint': case 'trace': case 'via': case 'pour': return 'board';
     case 'drawing': case 'label': return t.doc;
+    // In a library: symbols are schematic-like, footprints board-like (layers mirror).
+    case 'pin': return 'schematic';
+    case 'pad': return 'board';
   }
 }
 
@@ -67,6 +70,21 @@ const at = (E: Transform, p: O.Pt): O.Pt => {
 function turned(E: Transform, rot: number | undefined, mirror: boolean | undefined, spin?: boolean) {
   const r = composeRotation(E, rotation(rot, mirror, spin));
   return { rot: r.angle || undefined, mirror: r.mirror || undefined };
+}
+
+/**
+ * The rotation of something that has a direction but no mirrored form (a pin, a pad) after E:
+ * the direction it points, turned (and reflected) by E, as an angle snapped to `step` degrees
+ * (any angle when 0). undefined for 0, so the field is omitted.
+ */
+function turnedDirection(E: Transform, rot: number | undefined, step: number): number | undefined {
+  const a = ((rot ?? 0) * Math.PI) / 180;
+  const dx = E.a * Math.cos(a) + E.c * Math.sin(a);
+  const dy = E.b * Math.cos(a) + E.d * Math.sin(a);
+  let deg = (Math.atan2(dy, dx) * 180) / Math.PI;
+  if (step) deg = Math.round(deg / step) * step;
+  deg = round(((deg % 360) + 360) % 360);
+  return deg === 0 || deg === 360 ? undefined : deg;
 }
 
 /** Apply edit transform E to targets (schematic and/or board) inside `tx`. */
@@ -109,6 +127,8 @@ export function transformTargets(project: O.Project, targets: Target[], E: Trans
         // A label moves with its part when both are selected.
         if (!placements.has(t.placement)) moveLabel(t.label, c, t.doc === 'board');
         break;
+      case 'pin': c.tx.run(set(t.pin, { at: at(E, t.pin.at), rot: turnedDirection(E, t.pin.rot, 90) })); break;
+      case 'pad': c.tx.run(set(t.pad, { at: at(E, t.pad.at), rot: turnedDirection(E, t.pad.rot, 0) })); break;
     }
   }
 

@@ -144,6 +144,39 @@ describe.skipIf(!findChrome())('libraries in the browser', () => {
     expect(d.problems).toEqual([]);
   });
 
+  const lib = <T>(expr: string) => d.evaluate<T>(`(() => { const lib = __osprey.editor.project.library; return ${expr}; })()`);
+
+  it('edits a symbol: drags a pin on the grid, renames it, and undoes both', async () => {
+    await d.open('madhu.ospreylib');
+    await d.button('#library-list button[data-kind="symbol"][title="madhu/DIODE"]');
+    await d.click(-2.3, 0);
+    expect((await d.state()).selection).toEqual([{ kind: 'pin', label: 'Pin A' }]);
+    await d.drag(-2.3, 0, -4.8, 0.1);
+    expect(await lib(`lib.symbols.find((s) => s.id === 'madhu/DIODE').pins[0].at`)).toEqual([-5.08, 0]);
+    await d.type('name', 'ANODE');
+    let s = await d.state();
+    expect([s.undo, s.dirty]).toEqual(['Rename pin A', true]);
+    expect(await lib(`Object.keys(lib.components.find((c) => c.id === 'madhu/1N4001').variants[0].pads)`)).toContain('A.ANODE');
+    await d.key('Ctrl+z');
+    await d.key('Ctrl+z');
+    s = await d.state();
+    expect([s.undo, s.dirty]).toEqual([undefined, false]);
+    expect(d.problems).toEqual([]);
+  });
+
+  it('edits a footprint: changes a pad drill from the inspector, and deletes the pad', async () => {
+    await d.open('madhu.ospreylib');
+    await d.button('#library-list button[data-kind="footprint"][title="madhu/DO-41"]');
+    await d.click(4.4, 0.5);
+    expect((await d.state()).selection).toEqual([{ kind: 'pad', label: 'Pad A' }]);
+    await d.type('drill', '1.2');
+    expect(await lib(`lib.footprints.find((f) => f.id === 'madhu/DO-41').pads[1].drill`)).toBe(1.2);
+    await d.key('Delete');
+    expect(await lib(`lib.footprints.find((f) => f.id === 'madhu/DO-41').pads.map((p) => p.name)`)).toEqual(['C']);
+    expect((await d.state()).undo).toBe('Delete pad A');
+    expect(d.problems).toEqual([]);
+  });
+
   it('opens an Osprey library, and places parts from one', async () => {
     await d.open('madhu.ospreylib');
     expect((await d.state()).view).toBe('library');

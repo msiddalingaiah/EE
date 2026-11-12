@@ -7,8 +7,11 @@ import type * as O from '../model/types';
 import { DesignRules } from './board';
 import { SceneBuilder, type EmitContext } from './builder';
 import { splitPinKey } from './schematic';
-import { buildSymbolInto } from './symbol';
-import type { Scene } from './types';
+import { drawingKind } from './schematic';
+import { buildSymbolInto, emitPin } from './symbol';
+import { fmtRot, fmtXY } from './text';
+import type { Owner, Scene } from './types';
+import { objId } from '../eagle/dom';
 
 export type LibraryItemKind = 'component' | 'symbol' | 'footprint';
 
@@ -27,24 +30,47 @@ export function buildLibraryScene(lib: O.Library, layers: Layer[], item: Library
     case 'symbol': {
       const sym = lib.symbols.find((s) => s.id === item.id);
       if (!sym) break;
-      b.addOwner({
-        id: owner, kind: 'library-item', label: `Symbol ${name}`,
-        props: [['Symbol', name], ['Pins', String(sym.pins.length)], ['Description', plain(sym.description)]],
-      });
-      buildSymbolInto(b, sym, IDENTITY, owner, new Map(), (t) => t);
+      // Each graphic and pin is an object of its own, to select and edit.
+      for (const g of sym.graphics) {
+        const id = b.addOwner(drawingOwner(g, 'schematic', sym.graphics));
+        b.graphic(g, { owner: id, transform: IDENTITY, textContext: 'schematic' });
+      }
+      for (const pin of sym.pins) {
+        const id = b.addOwner({
+          id: `pin:${objId(pin)}`, kind: 'pin', label: `Pin ${pin.name}`, origin: { x: pin.at[0], y: pin.at[1] },
+          props: [
+            ['Name', pin.name], ['Direction', pin.direction ?? 'io'], ['Length', pin.length ?? 'long'],
+            ['Function', pin.function ?? 'none'], ['Visible', pin.visible ?? 'both'], ['Swap level', String(pin.swap ?? 0)],
+            ['Position', fmtXY(pin.at[0], pin.at[1])], ['Rotation', fmtRot(pin.rot)],
+          ],
+          target: { kind: 'pin', symbol: sym, pin },
+        });
+        emitPin(b, pin, '', IDENTITY, id);
+      }
       break;
     }
     case 'footprint': {
       const fp = lib.footprints.find((f) => f.id === item.id);
       if (!fp) break;
-      b.addOwner({
-        id: owner, kind: 'library-item', label: `Footprint ${name}`,
-        props: [['Footprint', name], ['Pads', String(fp.pads.length)], ['Description', plain(fp.description)]],
-      });
       const rules = new DesignRules(new Map());
-      const ctx: EmitContext = { owner, transform: IDENTITY, textContext: 'board' };
-      b.graphics(fp.graphics, ctx);
-      for (const pad of fp.pads) b.pad(pad, ctx, (d, dia) => rules.padDiameter(d, dia), (s) => rules.elongation(s));
+      for (const g of fp.graphics) {
+        // 'schematic': mirroring keeps a graphic on its layer (in a placed footprint it flips side).
+        const id = b.addOwner(drawingOwner(g, 'schematic', fp.graphics));
+        b.graphic(g, { owner: id, transform: IDENTITY, textContext: 'board' });
+      }
+      for (const pad of fp.pads) {
+        const id = b.addOwner({
+          id: `pad:${objId(pad)}`, kind: 'pad', label: `Pad ${pad.name}`, origin: { x: pad.at[0], y: pad.at[1] },
+          props: pad.smd
+            ? [['Name', pad.name], ['Type', 'SMD'], ['Size', `${fmtNum(pad.smd[0])} × ${fmtNum(pad.smd[1])} mm`], ['Roundness', `${pad.roundness ?? 0}%`],
+              ['Side', pad.side ?? 'top'], ['Position', fmtXY(pad.at[0], pad.at[1])], ['Rotation', fmtRot(pad.rot)]]
+            : [['Name', pad.name], ['Type', 'Through-hole'], ['Drill', `${fmtNum(pad.drill ?? 0)} mm`], ['Diameter', pad.diameter ? `${fmtNum(pad.diameter)} mm` : 'auto'],
+              ['Shape', pad.shape ?? 'round'], ['Position', fmtXY(pad.at[0], pad.at[1])], ['Rotation', fmtRot(pad.rot)]],
+          target: { kind: 'pad', footprint: fp, pad },
+        });
+        const ctx: EmitContext = { owner: id, transform: IDENTITY, textContext: 'board' };
+        b.pad(pad, ctx, (d, dia) => rules.padDiameter(d, dia), (s) => rules.elongation(s));
+      }
       break;
     }
     case 'component': {
@@ -83,6 +109,31 @@ export function buildLibraryScene(lib: O.Library, layers: Layer[], item: Library
     }
   }
   return b.finish();
+}
+
+/** A symbol's or footprint's graphic, as an object of its own. */
+function drawingOwner(g: O.Graphic, doc: 'schematic' | 'board', container: O.Graphic[]): Owner {
+  return {
+    id: `drawing:${objId(g)}`, kind: 'drawing', label: 'text' in g ? `Text "${g.text}"` : drawingKind(g),
+    props: [['Type', drawingKind(g)], ...('layer' in g && g.layer ? [['Layer', g.layer] as [string, string]] : [])],
+    target: { kind: 'drawing', doc, graphic: g, container },
+  };
+}
+
+const fmtNum = (n: number) => String(Math.round(n * 10000) / 10000);
+
+/** What a library item is, for the inspector when nothing in it is selected. */
+export function libraryItemProps(lib: O.Library, item: LibraryItemRef): [string, string][] {
+  const name = componentName(item.id);
+  if (item.kind === 'symbol') {
+    const sym = lib.symbols.find((s) => s.id === item.id);
+    return sym ? [['Symbol', name], ['Pins', String(sym.pins.length)], ['Description', plain(sym.description)]] : [];
+  }
+  if (item.kind === 'footprint') {
+    const fp = lib.footprints.find((f) => f.id === item.id);
+    return fp ? [['Footprint', name], ['Pads', String(fp.pads.length)], ['Description', plain(fp.description)]] : [];
+  }
+  return [];
 }
 
 /** Strip HTML tags from descriptions for display. */

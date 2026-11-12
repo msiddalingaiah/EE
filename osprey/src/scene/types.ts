@@ -20,6 +20,9 @@ export type Target =
   | { kind: 'trace'; net: O.Net; trace: O.Trace }
   | { kind: 'via'; net: O.Net; via: O.Via }
   | { kind: 'pour'; net: O.Net; pour: O.PolygonShape }
+  // Library: a symbol's pins, a footprint's pads (their graphics are drawings)
+  | { kind: 'pin'; symbol: O.Symbol; pin: O.Pin }
+  | { kind: 'pad'; footprint: O.Footprint; pad: O.Pad }
   // Either
   | { kind: 'drawing'; doc: 'schematic' | 'board'; graphic: O.Graphic; container: O.Graphic[] }
   | { kind: 'label'; doc: 'schematic' | 'board'; placement: O.GatePlacement | O.FootprintPlacement; label: O.Label };

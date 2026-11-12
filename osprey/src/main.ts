@@ -25,7 +25,8 @@ import { airwireNets, hideAirwires, type AirwireNet } from './scene/airwires';
 import { supplyReason } from './edit/properties';
 import { isGroundNet } from './model/placement';
 import { indexScene, type SceneIndex } from './scene/index';
-import { buildLibraryScene, type LibraryItemKind, type LibraryItemRef } from './scene/library';
+import { buildLibraryScene, libraryItemProps, type LibraryItemKind, type LibraryItemRef } from './scene/library';
+import { libraryProject } from './edit/library';
 import { buildSchematicScene } from './scene/schematic';
 import type { Bounds, Owner, Scene, Target } from './scene/types';
 import { pick, pickBox } from './view/hittest';
@@ -186,7 +187,8 @@ function views(): ViewKind[] {
   return out;
 }
 
-const editable = () => !!editor && view !== 'library';
+/** Whether the view can be edited: a project, or a library's symbol or footprint (components not yet). */
+const editable = () => !!editor && (view !== 'library' || libraryItem?.kind === 'symbol' || libraryItem?.kind === 'footprint');
 
 // ---------------------------------------------------------------------------
 // Opening, importing and saving
@@ -335,7 +337,7 @@ function openSources(sources: SourceFile[], initialView?: ViewKind): void {
     importReport = next.report;
     saveName = next.name;
     saveHandle = next.handle;
-    editor = project ? new Editor(project, onEdited) : undefined;
+    editor = project ? new Editor(project, onEdited) : library ? new Editor(libraryProject(library.file), onEdited) : undefined;
     viewStates.clear();
     libraryItem = undefined;
     hiddenAirwires.clear();
@@ -395,12 +397,14 @@ async function save(): Promise<void> {
 
 async function saveLibrary(file: O.LibraryFile): Promise<void> {
   try {
+    if (move) commitMove();
     const result = await saveFile(writeLibrary(file), saveName, saveHandle, 'ospreylib');
     if (!result) return; // cancelled
     if (result.handle) {
       saveHandle = result.handle;
       saveName = result.handle.name;
     }
+    editor?.history.markSaved();
     flash(`${result.method === 'written' ? 'Saved' : 'Downloaded'} ${saveName}`);
     updateChrome();
   } catch (e) {
@@ -532,7 +536,7 @@ function setupViewChrome(): void {
   }
   statusHint.textContent = view !== 'library'
     ? `${view === 'schematic' ? 'A adds part · W draws wires · Ctrl+C/V copies · ' : 'W routes · L layer · P pours · '}Drag or M moves · R rotates · F ${view === 'board' ? 'flips side' : 'mirrors'} · Del deletes · N name · V value · Ctrl+Z undo · Ctrl+S save · Space+drag pans · Home fits`
-    : 'Click to select · Shift adds · Ctrl toggles · drag to box-select · Space+drag or right-drag pans · Home fits';
+    : 'Click to select · Drag or M moves · R rotates · F mirrors · Del deletes · N name · Ctrl+Z undo · Ctrl+S save · Space+drag pans · Home fits';
   // The hint is cut off on narrow windows; the tooltip always has all of it.
   statusHint.title = statusHint.textContent;
   updateChrome();
@@ -706,7 +710,9 @@ function renderProjectPanel(): void {
 
 /** Grid spacing of the current view (`alt` = fine grid). */
 function gridOf(alt = false): number {
-  return editor && view !== 'library' ? editor.grid(view, alt) : 1.27;
+  if (!editor) return 1.27;
+  if (view === 'library') return editor.grid(libraryItem?.kind === 'footprint' ? 'board' : 'schematic', alt);
+  return editor.grid(view, alt);
 }
 
 function snap(v: number, alt = false): number {
@@ -768,7 +774,7 @@ function pivotFor(grab: Point): Point {
 /** Explain why a command does nothing, or return the editable targets. */
 function commandTargets(verb: string): Target[] | undefined {
   if (!editable()) {
-    flash(`${verb} works on projects; libraries are view-only`);
+    flash(view === 'library' ? `${verb} works on symbols and footprints; components can't be edited yet` : `${verb} needs a project`);
     return undefined;
   }
   if (!editor) return undefined;
@@ -1144,6 +1150,7 @@ function renderLibraryList(): void {
       btn.type = 'button';
       btn.textContent = componentName(id);
       btn.title = id;
+      btn.dataset.kind = kind;
       if (libraryItem?.kind === kind && libraryItem.id === id) btn.className = 'active';
       btn.addEventListener('click', () => {
         libraryItem = { kind, id };
@@ -1167,6 +1174,8 @@ const KIND_LABEL: Record<Owner['kind'], string> = {
   pour: 'Copper pour',
   drawing: 'Drawing',
   label: 'Smashed text',
+  pin: 'Pin',
+  pad: 'Pad',
   airwire: 'Airwire (computed)',
   'library-item': 'Library item',
 };
@@ -1183,10 +1192,20 @@ function renderInspector(): void {
       '<p>Nothing selected.</p>' +
       '<p>Click an object to select it. Drag left-to-right to select objects fully inside the box, ' +
       'right-to-left to select anything the box touches. Hold Shift to add, Ctrl to toggle.</p>' +
-      (view !== 'library'
+      (editable()
         ? '<p>Then act on the selection: drag it or press <b>M</b> to move, <b>R</b> to rotate, ' +
           `<b>F</b> to ${view === 'board' ? 'flip to the other side' : 'mirror'}, <b>Del</b> to delete.</p>`
-        : '<p>Libraries are view-only so far.</p>');
+        : '<p>Components can\'t be edited yet; their symbols and footprints can.</p>');
+    if (view === 'library' && library && libraryItem) {
+      const table = document.createElement('table');
+      table.className = 'props';
+      for (const [k, v] of libraryItemProps(library.lib, libraryItem)) {
+        const tr = document.createElement('tr');
+        tr.append(el('th', '', k), el('td', '', v));
+        table.append(tr);
+      }
+      inspector.append(table);
+    }
     inspector.append(hint);
     return;
   }
@@ -1292,6 +1311,8 @@ function smashCmd(on: boolean): void {
 function propertyFields(o: Owner): { table: HTMLTableElement; covers: Set<string> } | undefined {
   if (!editable() || !editor) return undefined;
   if (o.target?.kind === 'pour') return pourFields(o.target.pour, o.target.net.name);
+  if (o.target?.kind === 'pin') return pinFields(o.target.symbol, o.target.pin);
+  if (o.target?.kind === 'pad') return padFields(o.target.footprint, o.target.pad);
   if (o.target?.kind === 'drawing' && 'line' in o.target.graphic) return lineFields(o.target.graphic, o.target.container);
   const ed = editor;
   const rows: [label: string, field: string, value: string, commit: (v: string) => string | undefined][] = [];
@@ -1431,6 +1452,114 @@ function pourFields(pour: O.PolygonShape, netName: string): { table: HTMLTableEl
     pointRow(table, `${i === active ? '▸ ' : ''}Corner ${i + 1} (mm)`, `corner${i}`, [v[0], v[1]], (p) => ed.movePourCorner(pour, i, p));
   });
   return { table, covers };
+}
+
+/**
+ * Rows of inspector fields: text fields (Enter applies as one undo step, Esc restores) and
+ * dropdowns (a change applies). A commit returns an error message, which marks the field.
+ */
+function fieldTable() {
+  const table = document.createElement('table');
+  table.className = 'props fields';
+  const row = (label: string, control: HTMLElement) => {
+    const tr = document.createElement('tr');
+    const td = document.createElement('td');
+    td.append(control);
+    tr.append(el('th', '', label), td);
+    table.append(tr);
+  };
+  const done = (err: string | undefined, what: string, input?: HTMLElement) => {
+    if (err) {
+      input?.classList.add('invalid');
+      flash(err);
+    } else {
+      flash(`${what} changed`);
+      canvas.focus({ preventScroll: true });
+    }
+  };
+  const text = (label: string, field: string, value: string, commit: (v: string) => string | undefined) => {
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.value = value;
+    input.dataset.field = field;
+    input.spellcheck = false;
+    input.setAttribute('aria-label', label);
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        if (input.value === value) return canvas.focus({ preventScroll: true });
+        done(commit(input.value), label, input);
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        input.value = value;
+        input.classList.remove('invalid');
+        canvas.focus({ preventScroll: true });
+      }
+    });
+    input.addEventListener('input', () => input.classList.remove('invalid'));
+    row(label, input);
+  };
+  const choice = (label: string, field: string, value: string, options: string[], commit: (v: string) => string | undefined) => {
+    const sel = document.createElement('select');
+    sel.dataset.field = field;
+    sel.setAttribute('aria-label', label);
+    for (const o of options) sel.append(new Option(o, o));
+    sel.value = value;
+    sel.addEventListener('change', () => done(commit(sel.value), label, sel));
+    row(label, sel);
+  };
+  return { table, text, choice };
+}
+
+/** A number typed in mm ("1.2" or "1.2 mm"); NaN when it isn't one. */
+const mmValue = (v: string) => Number(v.trim().replace(/\s*mm$/, ''));
+
+/** A library symbol's pin: name, electrical direction, drawing, position. */
+function pinFields(symbol: O.Symbol, pin: O.Pin): { table: HTMLTableElement; covers: Set<string> } {
+  const ed = editor!;
+  const f = fieldTable();
+  f.text('Name', 'name', pin.name, (v) => ed.renamePin(symbol, pin, v));
+  f.choice('Direction', 'direction', pin.direction ?? 'io', ['io', 'in', 'out', 'oc', 'hiz', 'passive', 'power', 'supply', 'nc'],
+    (v) => ed.setPin(pin, { direction: v as O.PinDirection }, 'Direction'));
+  f.choice('Length', 'length', pin.length ?? 'long', ['long', 'middle', 'short', 'point'],
+    (v) => ed.setPin(pin, { length: v === 'long' ? undefined : v as O.Pin['length'] }, 'Length'));
+  f.choice('Function', 'function', pin.function ?? 'none', ['none', 'dot', 'clock', 'dotclock'],
+    (v) => ed.setPin(pin, { function: v === 'none' ? undefined : v as O.Pin['function'] }, 'Function'));
+  f.choice('Visible', 'visible', pin.visible ?? 'both', ['both', 'pin', 'pad', 'none'],
+    (v) => ed.setPin(pin, { visible: v === 'both' ? undefined : v as O.Pin['visible'] }, 'Visible'));
+  f.text('Swap level', 'swap', String(pin.swap ?? 0), (v) => ed.setPin(pin, { swap: Number(v) }, 'Swap level'));
+  pointRow(f.table, 'Position (mm)', 'at', pin.at, (p) => {
+    ed.moveTo([{ kind: 'pin', symbol, pin }], { x: pin.at[0], y: pin.at[1] }, { x: p[0], y: p[1] });
+    return undefined;
+  });
+  return { table: f.table, covers: new Set(['Name', 'Direction', 'Length', 'Function', 'Visible', 'Swap level', 'Position']) };
+}
+
+/** A library footprint's pad: name, size or drill, shape, position, rotation. */
+function padFields(footprint: O.Footprint, pad: O.Pad): { table: HTMLTableElement; covers: Set<string> } {
+  const ed = editor!;
+  const f = fieldTable();
+  f.text('Name', 'name', pad.name, (v) => ed.renamePad(footprint, pad, v));
+  if (pad.smd) {
+    f.text('Size (mm)', 'size', fmtPt(pad.smd), (v) => {
+      const p = parsePt(v);
+      return p ? ed.setPad(pad, { smd: p }, 'Size') : 'Enter the size as width, height in mm';
+    });
+    f.text('Roundness (%)', 'roundness', String(pad.roundness ?? 0), (v) => ed.setPad(pad, { roundness: Number(v.replace(/%$/, '')) }, 'Roundness'));
+  } else {
+    f.text('Drill (mm)', 'drill', String(pad.drill ?? 0), (v) => ed.setPad(pad, { drill: mmValue(v) }, 'Drill'));
+    // 0 (or empty): the diameter comes from the drill and the design rules.
+    f.text('Diameter (mm)', 'diameter', pad.diameter ? String(pad.diameter) : 'auto',
+      (v) => ed.setPad(pad, { diameter: /^\s*(auto)?\s*$/i.test(v) ? 0 : mmValue(v) }, 'Diameter'));
+    f.choice('Shape', 'shape', pad.shape ?? 'round', ['round', 'square', 'octagon', 'long', 'offset'],
+      (v) => ed.setPad(pad, { shape: v as O.Pad['shape'] | 'round' }, 'Shape'));
+  }
+  pointRow(f.table, 'Position (mm)', 'at', pad.at, (p) => {
+    ed.moveTo([{ kind: 'pad', footprint, pad }], { x: pad.at[0], y: pad.at[1] }, { x: p[0], y: p[1] });
+    return undefined;
+  });
+  f.text('Rotation (°)', 'rot', String(pad.rot ?? 0), (v) => ed.setPad(pad, { rot: Number(v.replace(/°$/, '')) }, 'Rotation'));
+  return { table: f.table, covers: new Set(['Name', 'Type', 'Size', 'Roundness', 'Drill', 'Diameter', 'Shape', 'Position', 'Rotation']) };
 }
 
 /** A point as typed in the inspector: "x, y" in mm (a space works too). */
@@ -1585,7 +1714,7 @@ function draw(): void {
       }
       : {}),
     ...(box ? { box: boxSelection(box) } : {}),
-    ...(editor && view !== 'library' ? { grid: gridOf() } : {}),
+    ...(editable() ? { grid: gridOf() } : {}),
   });
   statusZoom.textContent = `${vp.zoom < 10 ? vp.zoom.toFixed(2) : vp.zoom.toFixed(0)} px/mm`;
 }

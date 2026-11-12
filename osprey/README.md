@@ -10,10 +10,16 @@ native model (see [docs/format.md](docs/format.md)). Eagle files are imported in
 - **Open** an `.osprey` project, or **import** an Eagle `.sch` + `.brd` pair (select both, or
   drop both on the canvas).
 - **Save** (Ctrl+S) writes one `.osprey` file: JSON in a canonical, diff-friendly layout.
+  In Chromium browsers a project opened with Open… is saved in place.
 - **Libraries:** open an Osprey library (`.ospreylib`), or import an Eagle library (`.lbr`);
   Save writes an `.ospreylib` (the same canonical JSON) and Export Eagle writes an `.lbr`.
-  Browsing only for now: editing comes next.
-  In Chromium browsers a project opened with Open… is saved in place.
+- **Editing symbols and footprints** (library): pins, pads, lines, shapes and text are objects
+  of their own, selected, moved (symbols on a 0.1 inch grid, footprints on 0.635 mm; Alt for the
+  fine grid), rotated, mirrored and deleted as on a sheet or board, with undo. The inspector
+  changes a pin's name, direction, length, function, visibility, swap level and position, and
+  a pad's name, size and roundness (SMD) or drill, diameter and shape, position and rotation.
+  Renaming or deleting a pin or pad updates the pin-to-pad maps of the library's components
+  that use it, so the library stays consistent. Components are view-only so far.
 - **Export Eagle…** writes the project back as an Eagle 9 `.sch` + `.brd`, with pad lists and
   airwires regenerated and the Eagle data Osprey doesn't model written back. Importing the
   exported files gives the same project again (checked on 152 real pairs).
@@ -136,8 +142,8 @@ Not yet: library editing, busses beyond wires, push-and-shove routing, pick-and-
 
 1. **Library editing,** in library files, as in Eagle: projects keep their copies until
    updated from the library.
-   - Symbols and footprints: select, move, delete and change pins, pads, lines and text; then
-     tools to draw new ones; a new, empty library.
+   - Symbols and footprints: tools to draw new pins, pads, lines, shapes and text; new items;
+     a new, empty library.
    - Components: gates, variants and the pin-to-pad map.
    - **Update from library** in a project: see which parts differ and how, and apply as one
      step that can be undone, with ERC run afterwards (a renamed or moved pin shows as a
