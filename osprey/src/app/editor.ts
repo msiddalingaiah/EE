@@ -235,6 +235,24 @@ export class Editor {
     return this.property(`Set value of ${partName}`, (tx) => setPartValue(this.project, partName, value, tx, this.index()));
   }
 
+  /**
+   * Set a part's LCSC part number (C25804…), which assembly files give the board house to pick
+   * the part; empty removes it. It is stored as the part's LCSC attribute (Eagle keeps it too).
+   */
+  setLcsc(partName: string, raw: string): string | undefined {
+    const part = this.project.parts.find((p) => p.name === partName);
+    if (!part) return `No part named ${partName}`;
+    const v = raw.trim().toUpperCase();
+    if (v && !/^C\d+$/.test(v)) return 'An LCSC part number is C followed by digits, e.g. C25804';
+    return this.property(`Set LCSC part number of ${partName}`, (tx) => {
+      const attributes = { ...part.attributes };
+      if (v) attributes.LCSC = v;
+      else delete attributes.LCSC;
+      tx.run(set(part, { attributes: Object.keys(attributes).length ? attributes : undefined }));
+      return undefined;
+    });
+  }
+
   renameNet(oldName: string, newName: string): string | undefined {
     return this.property(`Rename net ${oldName}`, (tx) => renameNet(this.project, oldName, newName, tx, this.index()));
   }

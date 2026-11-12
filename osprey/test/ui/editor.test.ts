@@ -9,6 +9,7 @@ import { findChrome, launch, type Driver } from '../../scripts/drive.mjs';
 import { JSDOM } from 'jsdom';
 import { parseEagle } from '../../src/eagle/parse';
 import { readLibrary, writeLibrary } from '../../src/model/file';
+import { unzip } from '../unzip';
 import { importLibraryFile } from '../../src/model/import-eagle';
 import type * as O from '../../src/model/types';
 
@@ -143,6 +144,30 @@ describe.skipIf(!findChrome())('editor in the browser', () => {
     await d.choose('#inspector select[data-field="layer"]', 'names');
     expect(((await drawing()).at(-1) as O.TextShape).layer).toBe('names');
     expect(d.problems).toEqual([]);
+  });
+
+  it('sets a part\'s LCSC number, and makes the assembly files', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'osprey-assembly-'));
+    try {
+      const { at } = await footprint('R1');
+      await d.click(at[0], at[1]);
+      await d.type('lcsc', 'c17414');
+      expect(await d.evaluate('__osprey.project.parts.find((p) => p.name === "R1").attributes')).toEqual({ LCSC: 'C17414' });
+      await d.downloads(dir);
+      await d.choose('#cam-select', 'assembly');
+      const file = join(dir, 'wwvbfind_assembly.zip');
+      for (let i = 0; i < 100 && !existsSync(file); i++) await new Promise((r) => setTimeout(r, 50));
+      await new Promise((r) => setTimeout(r, 100));
+      const files = unzip(readFileSync(file));
+      expect([...files.keys()].sort()).toEqual(['wwvbfind_BOM.csv', 'wwvbfind_CPL.csv']);
+      expect(files.get('wwvbfind_BOM.csv')).toContain('3.3M,R1,0805,C17414,1,,,SMD');
+      expect(files.get('wwvbfind_CPL.csv')!.split('\r\n')[0]).toBe('Designator,Mid X,Mid Y,Layer,Rotation');
+      // The parts still without LCSC numbers are pointed out.
+      expect((await d.state()).error).toMatch(/34 of 35 parts have no LCSC part number/);
+      expect(d.problems).toEqual([]);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 
   it('checks the design rules from the panel', async () => {

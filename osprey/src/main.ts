@@ -17,6 +17,7 @@ import { freezePours, pourIsolate } from './model/pour';
 import { designRules, parseDru } from './model/rules';
 import { exportEagle, exportEagleLibrary } from './model/export-eagle';
 import { DEFAULT_JOB, parseCamJob, runCam, type CamJob } from './cam/job';
+import { assemblyFiles } from './cam/assembly';
 import { zip } from './cam/zip';
 import { importEagle, importLibrary, importLibraryFile } from './model/import-eagle';
 import type * as O from './model/types';
@@ -467,6 +468,24 @@ const sampleCamJobs = import.meta.glob('../samples/eagle/*.cam', { query: '?raw'
 camSelect.append(new Option('CAM…', ''), new Option(`${DEFAULT_JOB.name} (.zip)`, 'default'));
 for (const path of Object.keys(sampleCamJobs).sort()) camSelect.append(new Option(`Job ${path.split('/').pop()!}`, path));
 camSelect.append(new Option('From a .cam job file…', 'open'));
+camSelect.append(new Option('Assembly: BOM + pick-and-place (.zip)', 'assembly'));
+
+/** Save the bill of materials and pick-and-place list (JLCPCB's format) as one zip. */
+async function makeAssembly(): Promise<void> {
+  if (!project?.board) return;
+  if (move) commitMove();
+  try {
+    const { files, warnings } = assemblyFiles(project);
+    const name = `${project.project.name}_assembly.zip`;
+    const result = await saveFile(zip(files), name, undefined, 'zip');
+    if (!result) return;
+    hideError();
+    flash(`${result.method === 'written' ? 'Saved' : 'Downloaded'} ${result.handle?.name ?? name} (bill of materials and pick-and-place)`);
+    if (warnings.length) showError(`Assembly: ${warnings.join('; ')}.`, 'notice');
+  } catch (e) {
+    showError(`Could not make assembly files: ${e instanceof Error ? e.message : String(e)}`);
+  }
+}
 
 /** Run a CAM job on the board and save the files as one zip. */
 async function makeCam(job: CamJob): Promise<void> {
@@ -489,6 +508,7 @@ camSelect.addEventListener('change', async () => {
   const v = camSelect.value;
   camSelect.value = '';
   if (v === 'open') camInput.click();
+  else if (v === 'assembly') await makeAssembly();
   else if (v === 'default') await makeCam(DEFAULT_JOB);
   else if (v && sampleCamJobs[v]) {
     const name = v.split('/').pop()!;
@@ -1542,7 +1562,9 @@ function propertyFields(o: Owner): { table: HTMLTableElement; covers: Set<string
     const value = o.props.find(([k]) => k === 'Value')?.[1] ?? '';
     rows.push(['Name', 'name', part, (v) => ed.renamePart(part, v)]);
     rows.push(['Value', 'value', value, (v) => ed.setValue(part, v)]);
-    for (const k of ['Name', 'Part', 'Value']) covers.add(k);
+    // The LCSC part number assembly files give the board house (JLCPCB) to pick the part.
+    rows.push(['LCSC part', 'lcsc', project?.parts.find((p) => p.name === part)?.attributes?.LCSC ?? '', (v) => ed.setLcsc(part, v)]);
+    for (const k of ['Name', 'Part', 'Value', 'LCSC']) covers.add(k);
   } else if (o.net !== undefined && o.kind !== 'bus-wire' && o.kind !== 'airwire') {
     const net = o.net;
     rows.push(['Net', 'net', net, (v) => ed.renameNet(net, v)]);

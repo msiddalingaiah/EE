@@ -136,6 +136,15 @@ native model (see [docs/format.md](docs/format.md)). Eagle files are imported in
   them when it ends). The **pour fill** checkbox in the Layers panel (or P) shows them filled or
   as outlines only (a pour's dashed outline shows only when it has no copper to show); that's just the view, so airwires and the DRC count the copper either way.
   Not yet: hatched fill (drawn solid), and removing copper narrower than the pour's width.
+- **Assembly files** (board): **CAM… → Assembly** saves a zip with a bill of materials and a
+  pick-and-place list in JLCPCB's format. The BOM has one row per group of identical parts
+  (value, footprint, LCSC part number, manufacturer and MPN alike): designators, quantity, and
+  whether they are SMD or through-hole. The pick-and-place list gives each part's centre (the
+  middle of its pads, not its footprint's origin), side and rotation. A part's **LCSC part** is
+  set in the inspector (C25804…; checked, kept through Eagle export); parts without one are
+  pointed out, as JLCPCB then matches them by hand. Parts without a footprint (supply symbols)
+  are left out. A board house's zero rotation for some packages (SOT-23, diodes) differs from
+  the library's: their preview shows it, and parts on the bottom are flagged to check.
 - **CAM output** (board): the **CAM…** menu makes the manufacturing files as one zip: Gerber
   (RS-274X with X2 file functions) for copper, solder mask, paste, silkscreen and the board
   outline, and an Excellon drill file (plated and unplated holes merged). The built-in job writes
@@ -168,7 +177,7 @@ native model (see [docs/format.md](docs/format.md)). Eagle files are imported in
   net's derived pads match the pads Eagle stored.
 
 Not yet: updating a project from a library, busses beyond wires, push-and-shove routing,
-pick-and-place files, text on copper.
+text on copper.
 
 ### Next
 
@@ -182,8 +191,6 @@ pick-and-place files, text on copper.
 
 Then, to take a board through manufacturing and assembly:
 
-- **BOM and pick-and-place files**, for assembly services (e.g. JLCPCB), from the parts,
-  values and footprint placements already in the model.
 - **Design rules edited in place:** type a clearance, width or drill in the Design rules
   panel, without a `.dru` file.
 - **Pours drop copper narrower than their width** (slivers between close pads and at the
