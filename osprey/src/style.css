@@ -47,15 +47,20 @@ button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px s
 .toolbar {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 6px;
   padding: 6px 12px;
   background: var(--panel);
   border-bottom: 1px solid var(--border);
   min-width: 0;
+  flex-wrap: wrap;
+  row-gap: 4px;
 }
 .brand { font-weight: 600; letter-spacing: 0.04em; color: var(--accent); margin-right: 6px; }
 .field { display: flex; align-items: center; gap: 6px; color: var(--text-dim); }
-.doc-title { color: var(--text-dim); margin-left: auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.doc-title { color: var(--text-dim); margin-left: auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1 1 0; min-width: 0; text-align: right; }
+/* Buttons keep their labels on one line; a narrow window wraps the toolbar to a second row. */
+.toolbar > button, .toolbar > span > button, .toolbar select { white-space: nowrap; flex: none; }
+#sample-select { max-width: 15em; }
 #cam-select { width: 6.5em; }
 
 /* Workspace */

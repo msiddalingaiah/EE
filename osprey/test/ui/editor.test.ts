@@ -10,6 +10,7 @@ import { JSDOM } from 'jsdom';
 import { parseEagle } from '../../src/eagle/parse';
 import { readLibrary, writeLibrary } from '../../src/model/file';
 import { importLibraryFile } from '../../src/model/import-eagle';
+import type * as O from '../../src/model/types';
 
 const ROOT = join(__dirname, '..', '..');
 
@@ -100,6 +101,28 @@ describe.skipIf(!findChrome())('editor in the browser', () => {
     s = await d.state();
     expect(s.erc).toEqual(['unconnected: U1 pin PA2 is unconnected']);
     expect(s.ercApproved).toBeUndefined();
+    expect(d.problems).toEqual([]);
+  });
+
+  it('adds board text with T, types it, flips it to the bottom, and undoes', async () => {
+    const texts = () => d.evaluate<O.TextShape[]>('__osprey.project.board.drawing.filter((g) => "text" in g)');
+    expect(await texts()).toEqual([]);
+    await d.key('t');
+    expect((await d.state()).mode).toBe('text');
+    await d.click(3, 24.5);
+    // The new text is selected, with its text field ready to type into.
+    expect(await d.evaluate('document.activeElement.dataset.field')).toBe('text');
+    await d.type('text', 'REV A');
+    expect(await texts()).toEqual([{ text: 'REV A', at: [2.54, 24.13], size: 1.27, ratio: 15, layer: 'silk.top' }]);
+    await d.key('f');
+    expect(await texts()).toMatchObject([{ layer: 'silk.bottom', mirror: true }]);
+    await d.choose('#inspector select[data-field="layer"]', 'silk.top');
+    expect((await texts())[0]!.mirror).toBeUndefined();
+    await d.key('Ctrl+z');
+    await d.key('Ctrl+z');
+    await d.key('Ctrl+z');
+    await d.key('Ctrl+z');
+    expect(await texts()).toEqual([]);
     expect(d.problems).toEqual([]);
   });
 

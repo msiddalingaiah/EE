@@ -102,6 +102,12 @@ native model (see [docs/format.md](docs/format.md)). Eagle files are imported in
   work on, remembered while the project is open; L switches it (with nothing active, while
   routing through a via, while drawing a pour). It follows the route when the route changes
   layer itself (starting on one-sided copper, or a detour through vias).
+- **Board text** (board): the **Text** button (or T) places a text where you click and opens
+  its text field to type into. It goes on the top silkscreen, or the bottom one (mirrored, to
+  read from below) when the layer is bottom; F flips it to the other side. The inspector sets
+  the text, size, ratio (stroke width as a percentage of the size: the default 1.27 mm at 15% gives
+  0.19 mm strokes), rotation, layer (silkscreen, document, fab) and position. Text is plotted into
+  the silkscreen Gerbers; strokes thinner than 0.15 mm are reported when making CAM files.
 - **Drawing and editing pours** (board): the **Pour** button draws one: click the corners
   (45° edges; / for any angle), and click the first corner, double-click or press Enter to
   close it. The first click on copper picks the net (otherwise the last one used, or GND); L
@@ -160,7 +166,8 @@ native model (see [docs/format.md](docs/format.md)). Eagle files are imported in
   and reports any disagreement between schematic and board. Verified on 152 real pairs: every
   net's derived pads match the pads Eagle stored.
 
-Not yet: library editing, busses beyond wires, push-and-shove routing, pick-and-place files.
+Not yet: updating a project from a library, busses beyond wires, push-and-shove routing,
+pick-and-place files, text on copper.
 
 ### Next
 
@@ -172,7 +179,7 @@ Not yet: library editing, busses beyond wires, push-and-shove routing, pick-and-
 
 ### Roadmap
 
-After those, to take a board through manufacturing and assembly:
+Then, to take a board through manufacturing and assembly:
 
 - **BOM and pick-and-place files**, for assembly services (e.g. JLCPCB), from the parts,
   values and footprint placements already in the model.
@@ -180,7 +187,6 @@ After those, to take a board through manufacturing and assembly:
   panel, without a `.dru` file.
 - **Pours drop copper narrower than their width** (slivers between close pads and at the
   edge), as Eagle does.
-- **Board text:** add and edit silkscreen text (revision, connector labels).
 - **Net classes:** set trace width, clearance and via drill per class (e.g. wider supplies),
   and which class a net is in.
 

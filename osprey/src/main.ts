@@ -88,6 +88,7 @@ const lbrInput = $<HTMLInputElement>('lbr-input');
 const wireBtn = $<HTMLButtonElement>('wire-btn');
 const pourBtn = $<HTMLButtonElement>('pour-btn');
 const viaBtn = $<HTMLButtonElement>('via-btn');
+const textBtn = $<HTMLButtonElement>('text-btn');
 const layerField = $<HTMLLabelElement>('layer-field');
 const layerSelect = $<HTMLSelectElement>('layer-select');
 const drcPanel = $<HTMLElement>('drc-panel');
@@ -544,6 +545,7 @@ function setupViewChrome(): void {
   wireBtn.textContent = view === 'board' ? 'Route' : 'Wire';
   pourBtn.hidden = !(project?.board && view === 'board');
   viaBtn.hidden = pourBtn.hidden;
+  textBtn.hidden = pourBtn.hidden;
   layerField.hidden = pourBtn.hidden;
   if (!layerField.hidden) renderLayerSelect();
   wireBtn.title = view === 'board'
@@ -556,7 +558,7 @@ function setupViewChrome(): void {
     b.hidden = !views().includes(b.dataset.view as ViewKind);
   }
   statusHint.textContent = view !== 'library'
-    ? `${view === 'schematic' ? 'A adds part · W draws wires · Ctrl+C/V copies · ' : 'W routes · L layer · P pours · '}Drag or M moves · R rotates · F ${view === 'board' ? 'flips side' : 'mirrors'} · Del deletes · N name · V value · Ctrl+Z undo · Ctrl+S save · Space+drag pans · Home fits`
+    ? `${view === 'schematic' ? 'A adds part · W draws wires · Ctrl+C/V copies · ' : 'W routes · L layer · P pours · T text · '}Drag or M moves · R rotates · F ${view === 'board' ? 'flips side' : 'mirrors'} · Del deletes · N name · V value · Ctrl+Z undo · Ctrl+S save · Space+drag pans · Home fits`
     : 'Click to select · Drag or M moves · R rotates · F mirrors · Del deletes · N name · Ctrl+Z undo · Ctrl+S save · Space+drag pans · Home fits';
   // The hint is cut off on narrow windows; the tooltip always has all of it.
   statusHint.title = statusHint.textContent;
@@ -662,6 +664,7 @@ function saveViewState(): void {
 /** Show a view, restoring what it remembered. */
 function showView(next: ViewKind, rememberCurrent: boolean): void {
   stopDrafting();
+  stopBoardText();
   stopPlacing();
   stopWiring();
   stopRouting();
@@ -1527,7 +1530,7 @@ function propertyFields(o: Owner): { table: HTMLTableElement; covers: Set<string
   if (!editable() || !editor) return undefined;
   if (o.target?.kind === 'pour') return pourFields(o.target.pour, o.target.net.name);
   if (o.target?.kind === 'pin') return pinFields(o.target.symbol, o.target.pin);
-  if (o.target?.kind === 'drawing' && view === 'library') return graphicFields(o.target);
+  if (o.target?.kind === 'drawing' && (view === 'library' || (view === 'board' && 'text' in o.target.graphic))) return graphicFields(o.target);
   if (o.target?.kind === 'pad') return padFields(o.target.footprint, o.target.pad);
   if (o.target?.kind === 'libgate') return gateFields(o.target.component, o.target.gate);
   if (o.target?.kind === 'drawing' && 'line' in o.target.graphic) return lineFields(o.target.graphic, o.target.container);
@@ -1915,11 +1918,12 @@ function draw(): void {
     layers: layerMap,
     visible: isVisible,
     selection: selection.items,
-    hover: move || placing || wiring || routing || pouring || vias || drafting ? undefined : hover,
+    hover: move || placing || wiring || routing || pouring || vias || drafting || placingText ? undefined : hover,
     ...(editHandles().length ? { handles: editHandles() } : {}),
     ...(wiring ? { sketch: { paths: [{ points: wiring.path, width: wiring.width, layer: 91 }], layer: 91, cursor: wiring.at, snapped: wiring.snapped } } : {}),
     ...(routing ? { sketch: routeSketch(routing) } : {}),
     ...(drafting ? { sketch: draftSketch(drafting) } : {}),
+    ...(placingText ? { sketch: { paths: [], layer: layerNumber(boardTextLayer().layer), cursor: { x: snap(cursor.x), y: snap(cursor.y) }, snapped: true } } : {}),
     ...(vias ? { sketch: { paths: [], vias: [{ at: vias.at, radius: vias.diameter / 2 }], layer: layerNumber(activeLayer ?? 'copper.top'), cursor: vias.at, snapped: vias.snapped || !!vias.over } } : {}),
     ...(pouring ? { sketch: { paths: [{ points: pouring.path, width: 0, layer: layerNumber(pouring.layer) }], layer: layerNumber(pouring.layer), cursor: pouring.at, snapped: pouring.closing || !!pouring.over } } : {}),
     ...(view === 'schematic' && ercShown.size ? { markers: ercMarkers() } : {}),
@@ -2970,19 +2974,27 @@ function graphicFields(target: Extract<Target, { kind: 'drawing' }>): { table: H
   const ed = editor!;
   const g = target.graphic;
   const t = draftTarget();
-  if (!t) return undefined;
+  const board = view === 'board';
+  if (!t && !board) return undefined;
   const f = fieldTable();
   const covers = new Set(['Layer']);
   if ('text' in g) {
     f.text('Text', 'text', g.text, (v) => ed.setGraphic(g, { text: v }, 'Change text'));
     f.text('Size (mm)', 'size', String(g.size), (v) => ed.setGraphic(g, { size: mmValue(v) }, 'Text size'));
+    // The stroke width: the size times the ratio (manufacturers want silkscreen strokes of about 0.15 mm or more).
+    f.text('Ratio (%)', 'ratio', String(g.ratio ?? 8), (v) => ed.setGraphic(g, { ratio: Number(v.replace(/%$/, '')) }, 'Text ratio'));
+    f.text('Rotation (°)', 'rot', String(g.rot ?? 0), (v) => ed.setGraphic(g, { rot: Number(v.replace(/°$/, '')) }, 'Text rotation'));
   }
   if ('layer' in g) {
-    const layers = t.kind === 'symbol'
-      ? ['symbols', 'names', 'values', 'pins', 'info', 'guide']
-      : ['silk.top', 'names.top', 'values.top', 'document', 'keepout.top', 'restrict.top', 'restrict.vias', 'mask.top', 'paste.top', 'copper.top', 'fab.top', 'milling', 'reference'];
+    const layers = board
+      ? BOARD_TEXT_LAYERS
+      : t!.kind === 'symbol'
+        ? ['symbols', 'names', 'values', 'pins', 'info', 'guide']
+        : ['silk.top', 'names.top', 'values.top', 'document', 'keepout.top', 'restrict.top', 'restrict.vias', 'mask.top', 'paste.top', 'copper.top', 'fab.top', 'milling', 'reference'];
     const current = String(g.layer);
-    f.choice('Layer', 'layer', current, layers.includes(current) ? layers : [current, ...layers], (v) => ed.setGraphic(g, { layer: v }, 'Change layer'));
+    // On the board, text on a bottom layer reads mirrored (from below), as Eagle does.
+    f.choice('Layer', 'layer', current, layers.includes(current) ? layers : [current, ...layers],
+      (v) => ed.setGraphic(g, { layer: v, ...(board && 'text' in g ? { mirror: v.endsWith('.bottom') } : {}) }, 'Change layer'));
   }
   if ('width' in g && !('polygon' in g)) f.text('Width (mm)', 'width', String(g.width), (v) => ed.setGraphic(g, { width: mmValue(v) }, 'Line width'));
   if ('circle' in g) f.text('Radius (mm)', 'radius', String(g.radius), (v) => ed.setGraphic(g, { radius: mmValue(v) }, 'Circle radius'));
@@ -3001,6 +3013,63 @@ function graphicFields(target: Extract<Target, { kind: 'drawing' }>): { table: H
     });
   }
   return { table: f.table, covers };
+}
+
+// ---------------------------------------------------------------------------
+// Board text
+
+/**
+ * Layers board text can go on. Not copper yet: the design-rule check doesn't look at text, so
+ * copper text could short a trace unnoticed.
+ */
+const BOARD_TEXT_LAYERS = ['silk.top', 'silk.bottom', 'document', 'fab.top', 'fab.bottom'];
+
+/** Placing a board text: the next click puts it there. */
+let placingText = false;
+
+/** Where new board text goes: the top silkscreen, or the bottom (mirrored) when working on the bottom layer. */
+function boardTextLayer(): { layer: string; mirror: boolean } {
+  const bottom = activeLayer === 'copper.bottom';
+  return { layer: bottom ? 'silk.bottom' : 'silk.top', mirror: bottom };
+}
+
+function startBoardText(): void {
+  if (!editor || !project?.board || view !== 'board') return;
+  stopRouting();
+  stopPouring();
+  stopVias();
+  if (move) commitMove();
+  placingText = true;
+  canvas.classList.add('wiring');
+  textBtn.classList.add('active');
+  canvas.focus({ preventScroll: true });
+  flash(`Text on ${boardTextLayer().layer.replace('.', ' ')}: click where it goes, then type it · Esc cancels`);
+  requestRender();
+}
+
+function stopBoardText(announce = false): void {
+  if (!placingText) return;
+  placingText = false;
+  canvas.classList.remove('wiring');
+  textBtn.classList.remove('active');
+  if (announce) flash('Stopped adding text');
+  requestRender();
+}
+
+/**
+ * Put a text at the cursor (on the grid) and select it, with its text field ready to type into.
+ * Size 1.27 mm at 15%: strokes of 0.19 mm, which board houses print reliably.
+ */
+function placeBoardText(): void {
+  const board = project?.board;
+  if (!editor || !board) return;
+  const { layer, mirror } = boardTextLayer();
+  const g: O.TextShape = { text: 'TEXT', at: [Math.round(snap(cursor.x) * 1e6) / 1e6, Math.round(snap(cursor.y) * 1e6) / 1e6], size: 1.27, ratio: 15, layer, ...(mirror ? { mirror: true } : {}) };
+  editor.addGraphic(board.drawing, g, 'Add text');
+  stopBoardText();
+  reselect([g]);
+  focusField(['text']);
+  flash('Type the text, then Enter (Esc keeps TEXT)');
 }
 
 // ---------------------------------------------------------------------------
@@ -3205,6 +3274,13 @@ canvas.addEventListener('pointerdown', (e) => {
   e.preventDefault();
   canvas.focus({ preventScroll: true });
 
+  // Adding board text: left click places it (then type it), right click cancels.
+  if (placingText && e.button !== 1 && !spaceDown) {
+    if (e.button === 0) placeBoardText();
+    else if (e.button === 2) stopBoardText(true);
+    return;
+  }
+
   // Drawing in a library: left click places or adds a point (double click ends a line), right click ends or stops.
   if (drafting && e.button !== 1 && !spaceDown) {
     if (e.button === 0) draftClick(double);
@@ -3312,6 +3388,10 @@ canvas.addEventListener('pointermove', (e) => {
 
   if (move) {
     updateMove(w, e.altKey);
+    return;
+  }
+  if (placingText && !(pointer?.mode === 'pan')) {
+    requestRender();
     return;
   }
   if (drafting && !(pointer?.mode === 'pan')) {
@@ -3505,6 +3585,11 @@ window.addEventListener('keydown', (e) => {
   } else if (e.key === ' ') {
     spaceDown = true;
     e.preventDefault();
+  } else if (e.key === 'Escape' && placingText) {
+    stopBoardText(true);
+  } else if (key === 't' && view === 'board' && project?.board) {
+    if (placingText) stopBoardText(true);
+    else startBoardText();
   } else if (e.key === 'Escape' && drafting) {
     if (drafting.points.length) endDraftShape();
     else stopDrafting(true);
@@ -3619,6 +3704,7 @@ for (const b of viewToggle.querySelectorAll<HTMLButtonElement>('button')) {
   });
 }
 $('fit-btn').addEventListener('click', fitView);
+textBtn.addEventListener('click', () => (placingText ? stopBoardText(true) : startBoardText()));
 $('new-lib-btn').addEventListener('click', () => {
   if (!confirmDiscard()) return;
   const file: O.LibraryFile = { osprey: FORMAT_VERSION, name: 'untitled', library: { symbols: [], footprints: [], components: [] } };
@@ -3724,7 +3810,7 @@ if (import.meta.env.PROD && 'serviceWorker' in navigator) {
 
 if (import.meta.env.DEV) {
   const mode = () =>
-    drafting ? `draw:${drafting.tool}` : placing ? 'place' : wiring ? 'wire' : routing ? 'route' : pouring ? 'pour' : vias ? 'via'
+    drafting ? `draw:${drafting.tool}` : placingText ? 'text' : placing ? 'place' : wiring ? 'wire' : routing ? 'route' : pouring ? 'pour' : vias ? 'via'
       : move ? 'move' : cornerDrag ? 'corner' : lineDrag ? 'line-end' : undefined;
   Object.assign(window, {
     __osprey: {

@@ -279,9 +279,15 @@ export interface GraphicPatch {
   radius?: number;
   text?: string;
   size?: number;
+  /** A text's stroke width as a percentage of its size (Eagle's ratio, default 8). */
+  ratio?: number;
+  /** A text's rotation in degrees (any angle). */
+  rot?: number;
+  /** A text read from the other side (bottom-side silkscreen). */
+  mirror?: boolean;
 }
 
-/** Change a graphic's layer, width, radius, text or text size. Returns an error message, or undefined. */
+/** Change a graphic's layer, width, radius, or a text's wording, size, ratio, rotation or mirroring. Returns an error message, or undefined. */
 export function setGraphic(g: O.Graphic, patch: GraphicPatch, tx: Transaction): string | undefined {
   const out: Record<string, unknown> = {};
   if (patch.layer !== undefined) out.layer = patch.layer;
@@ -304,6 +310,21 @@ export function setGraphic(g: O.Graphic, patch: GraphicPatch, tx: Transaction): 
     if (!('text' in g)) return 'Only a text has a size';
     if (!(patch.size > 0)) return 'A text size needs to be above 0';
     out.size = patch.size;
+  }
+  if (patch.ratio !== undefined) {
+    if (!('text' in g)) return 'Only a text has a ratio';
+    if (!(patch.ratio >= 0 && patch.ratio <= 31)) return 'The ratio is the stroke width as a percentage of the size, 0 to 31';
+    out.ratio = patch.ratio === 8 ? undefined : patch.ratio;
+  }
+  if (patch.rot !== undefined) {
+    if (!('text' in g)) return 'Only a text has a rotation here';
+    if (!Number.isFinite(patch.rot)) return 'The rotation is an angle in degrees';
+    const r = Math.round((((patch.rot % 360) + 360) % 360) * 1e6) / 1e6;
+    out.rot = r || undefined;
+  }
+  if (patch.mirror !== undefined) {
+    if (!('text' in g)) return 'Only a text can be mirrored here';
+    out.mirror = patch.mirror || undefined;
   }
   tx.run(set(g, out));
   return undefined;
