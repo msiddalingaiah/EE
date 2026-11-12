@@ -2,7 +2,7 @@
 // keys in a fixed order, one record per line, numbers to 1 nm, LF line endings.
 // The same project always produces the same bytes, so git diffs show real changes only.
 
-import { FORMAT_VERSION, type Project } from './types';
+import { FORMAT_VERSION, type LibraryFile, type Project } from './types';
 
 export class OspreyFormatError extends Error {}
 
@@ -52,6 +52,11 @@ function orderedKeys(o: Record<string, unknown>): string[] {
 /** Serialize a project in the canonical layout. */
 export function writeProject(p: Project): string {
   return write(p, 0, true) + '\n';
+}
+
+/** Serialize a library file (`.ospreylib`) in the same canonical layout. */
+export function writeLibrary(f: LibraryFile): string {
+  return write(f, 0, true) + '\n';
 }
 
 const pad = (n: number) => '  '.repeat(n);
@@ -121,6 +126,26 @@ function writeJsonML(v: unknown[], indent: number): string {
  * sections; unknown fields are kept (they are written back unchanged).
  */
 export function readProject(text: string): Project {
+  const data = parseVersioned(text, 'project');
+  const need = needs('project');
+  need(isObject(data.project) && typeof data.project.name === 'string', 'missing project name');
+  checkLibrary(data.library, need);
+  need(Array.isArray(data.parts), 'missing parts');
+  need(Array.isArray(data.nets), 'missing nets');
+  need(data.schematic !== undefined || data.board !== undefined, 'neither a schematic nor a board');
+  return data as unknown as Project;
+}
+
+/** Parse a library file (`.ospreylib`), checked as a project is. */
+export function readLibrary(text: string): LibraryFile {
+  const data = parseVersioned(text, 'library');
+  const need = needs('library');
+  need(typeof data.name === 'string' && data.name !== '', 'missing library name');
+  checkLibrary(data.library, need);
+  return data as unknown as LibraryFile;
+}
+
+function parseVersioned(text: string, what: 'project' | 'library'): Record<string, unknown> {
   let data: unknown;
   try {
     data = JSON.parse(text);
@@ -128,20 +153,19 @@ export function readProject(text: string): Project {
     throw new OspreyFormatError(`Not a valid Osprey file: ${e instanceof Error ? e.message : String(e)}`);
   }
   if (!isObject(data) || typeof data.osprey !== 'number') {
-    throw new OspreyFormatError('Not an Osprey project (no "osprey" version field)');
+    throw new OspreyFormatError(`Not an Osprey ${what} (no "osprey" version field)`);
   }
   if (data.osprey > FORMAT_VERSION) {
-    throw new OspreyFormatError(`This project uses format version ${data.osprey}; this Osprey supports up to ${FORMAT_VERSION}. Update Osprey to open it.`);
+    throw new OspreyFormatError(`This ${what} uses format version ${data.osprey}; this Osprey supports up to ${FORMAT_VERSION}. Update Osprey to open it.`);
   }
-  const need = (cond: boolean, what: string) => {
-    if (!cond) throw new OspreyFormatError(`Damaged Osprey project: ${what}`);
-  };
-  need(isObject(data.project) && typeof data.project.name === 'string', 'missing project name');
-  need(isObject(data.library), 'missing library');
-  const lib = data.library as Record<string, unknown>;
-  for (const k of ['symbols', 'footprints', 'components']) need(Array.isArray(lib[k]), `library has no ${k}`);
-  need(Array.isArray(data.parts), 'missing parts');
-  need(Array.isArray(data.nets), 'missing nets');
-  need(data.schematic !== undefined || data.board !== undefined, 'neither a schematic nor a board');
-  return data as unknown as Project;
+  return data;
+}
+
+const needs = (what: string) => (cond: boolean, problem: string): void => {
+  if (!cond) throw new OspreyFormatError(`Damaged Osprey ${what}: ${problem}`);
+};
+
+function checkLibrary(lib: unknown, need: (cond: boolean, problem: string) => void): void {
+  need(isObject(lib), 'missing library');
+  for (const k of ['symbols', 'footprints', 'components']) need(Array.isArray((lib as Record<string, unknown>)[k]), `library has no ${k}`);
 }

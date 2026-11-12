@@ -334,6 +334,19 @@ export interface DocumentPassthrough {
   board?: JsonML[];
 }
 
+/**
+ * A library file (`.ospreylib`): symbols, footprints and components to place in projects,
+ * kept apart from any design. Item ids are "library/name" as in a project, so a part placed
+ * from the library keeps the library's ids (docs/format.md, "Library files").
+ */
+export interface LibraryFile {
+  osprey: number;
+  /** The library's name: the "library" in its items' ids. */
+  name: string;
+  description?: string;
+  library: Library;
+}
+
 export interface Project {
   osprey: number;
   project: ProjectInfo;

@@ -13,8 +13,8 @@
   <body>
     <header class="toolbar">
       <span class="brand">Osprey</span>
-      <button id="open-btn" type="button" title="Open a schematic and its board together (select both), or a library. Files can also be dropped on the canvas.">Open…</button>
-      <input id="file-input" type="file" accept=".sch,.brd,.lbr" multiple hidden />
+      <button id="open-btn" type="button" title="Open an Osprey project or library, Eagle schematic and board (select both) to import, or an Eagle library. Files can also be dropped on the canvas.">Open…</button>
+      <input id="file-input" type="file" accept=".osprey,.ospreylib,.sch,.brd,.lbr" multiple hidden />
       <label class="field">
         <span>Sample</span>
         <select id="sample-select"></select>
@@ -52,7 +52,7 @@
           <div id="parts-list" class="library-list parts-list"></div>
           <div id="parts-choice" class="parts-choice" hidden></div>
         </section>
-        <input id="lbr-input" type="file" accept=".lbr" multiple hidden />
+        <input id="lbr-input" type="file" accept=".ospreylib,.lbr" multiple hidden />
         <section id="drc-panel" hidden>
           <h2>Design rules <span class="panel-actions"><button id="drc-run" type="button" title="Check the board against its design rules">Check</button></span></h2>
           <div class="drc-rules">Rules: <span id="drc-name"></span></div>

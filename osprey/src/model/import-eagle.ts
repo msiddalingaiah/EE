@@ -180,6 +180,18 @@ export function importEagle(sources: ImportSource[], date = new Date().toISOStri
 }
 
 /** Import an Eagle library (.lbr) as a native library, keyed by the library's file name. */
+/** Import an Eagle library (.lbr) as a library file, named as importLibrary names its items. */
+export function importLibraryFile(name: string, file: E.EagleFile): O.LibraryFile {
+  const library = importLibrary(name, file);
+  const description = file.library?.description;
+  return {
+    osprey: FORMAT_VERSION,
+    name: file.library?.name || name.replace(/\.[^.]*$/, ''),
+    ...(description ? { description } : {}),
+    library,
+  };
+}
+
 export function importLibrary(name: string, file: E.EagleFile): O.Library {
   if (!file.library) throw new Error(`${name} is not an Eagle library`);
   const builder = new LibraryBuilder([]);

@@ -8,8 +8,11 @@ An Osprey **project** is one `.osprey` file holding a schematic and its board as
 native model (see [docs/format.md](docs/format.md)). Eagle files are imported into it.
 
 - **Open** an `.osprey` project, or **import** an Eagle `.sch` + `.brd` pair (select both, or
-  drop both on the canvas). Eagle libraries (`.lbr`) open read-only for browsing.
+  drop both on the canvas).
 - **Save** (Ctrl+S) writes one `.osprey` file: JSON in a canonical, diff-friendly layout.
+- **Libraries:** open an Osprey library (`.ospreylib`), or import an Eagle library (`.lbr`);
+  Save writes an `.ospreylib` (the same canonical JSON) and Export Eagle writes an `.lbr`.
+  Browsing only for now: editing comes next.
   In Chromium browsers a project opened with Open… is saved in place.
 - **Export Eagle…** writes the project back as an Eagle 9 `.sch` + `.brd`, with pad lists and
   airwires regenerated and the Eagle data Osprey doesn't model written back. Importing the
@@ -22,8 +25,8 @@ native model (see [docs/format.md](docs/format.md)). Eagle files are imported in
 - **Commands** (the verbs): move (drag, or M then click), rotate (R), flip to the other board
   side / mirror in the schematic (F), delete (Del), rename part or net (N), value (V),
   smash/unsmash. Moves snap to the grid (Alt = fine grid). Undo/redo for everything.
-- **Adding parts** (schematic): pick a component from the project's library, a sample library
-  or any Eagle `.lbr`, then click to place each gate. The component, its symbols and
+- **Adding parts** (schematic): pick a component from the project's library, a sample library,
+  an Osprey `.ospreylib` or any Eagle `.lbr`, then click to place each gate. The component, its symbols and
   footprints are copied into the project; the footprint is parked beside the board outline.
 - **Drawing wires** (schematic): wires snap to pins and wire ends and connect what they touch.
   A wire that connects different nets joins them, and the joined net keeps the strongest name
@@ -131,9 +134,14 @@ Not yet: library editing, busses beyond wires, push-and-shove routing, pick-and-
 
 ### Next
 
-1. **Library editing:** edit symbols, footprints and components (pins and pads, outlines,
-   text, pin-to-pad mapping) in the project's library and save them back, with placed parts
-   following the change.
+1. **Library editing,** in library files, as in Eagle: projects keep their copies until
+   updated from the library.
+   - Symbols and footprints: select, move, delete and change pins, pads, lines and text; then
+     tools to draw new ones; a new, empty library.
+   - Components: gates, variants and the pin-to-pad map.
+   - **Update from library** in a project: see which parts differ and how, and apply as one
+     step that can be undone, with ERC run afterwards (a renamed or moved pin shows as a
+     problem rather than a silently broken connection).
 
 ### Roadmap
 
@@ -212,7 +220,8 @@ Opening `dist/index.html` straight from disk doesn't work: browsers don't run mo
 from `file://`.
 
 The app opens the `TA7358A` Osprey project by default; the Sample menu also offers the
-original Eagle pair (imported on the fly) and an Eagle library. A sample can be opened by URL,
+original Eagle pair (imported on the fly), an Osprey library and the Eagle library it was
+imported from. A sample can be opened by URL,
 e.g. `http://localhost:5173/#TA7358A.osprey`, or `#TA7358A.osprey/board` for the board view.
 
 To also check import, airwires and export against a folder of your own Eagle designs (every

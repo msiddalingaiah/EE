@@ -181,6 +181,25 @@ placing one on the bottom side mirrors it.
   component name with `*` replaced by the technology and `?` by the variant (the variant
   name is appended when there is no `?`): `74*151` + `LS` + `D` → `74LS151D`.
 
+### Library files (`.ospreylib`)
+
+A library kept apart from any design, to place parts from: the same canonical JSON, with the
+library's `name` and `description` and a `library` section as in a project.
+
+```json
+{
+  "osprey": 1,
+  "name": "madhu",
+  "description": "Commonly used parts.",
+  "library": { "symbols": [ … ], "footprints": [ … ], "components": [ … ] }
+}
+```
+
+Item ids keep the `"library/name"` form, normally with the library's `name`, so a part placed
+from the library has the same ids in the project, and a project can later be updated from the
+library by id. An Eagle `.lbr` is imported under its file name (`madhu.lbr` → `madhu`) and
+its description; exporting writes an `.lbr` with every symbol, footprint and component.
+
 ## Parts
 
 ```json

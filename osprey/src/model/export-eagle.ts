@@ -26,6 +26,12 @@ export function exportEagle(project: O.Project): ExportResult {
   return { files };
 }
 
+/** Export a library file as an Eagle library (.lbr): every symbol, footprint and component. */
+export function exportEagleLibrary(f: O.LibraryFile): string {
+  const project: O.Project = { osprey: f.osprey, project: { name: f.name }, library: f.library, parts: [], nets: [] };
+  return writeEagleDocument(openEmptyContainers(new ExportContext(project).libraryDocument(f.description)));
+}
+
 /** Elements Eagle writes as <x>⏎</x> even when empty (leaf elements stay <x/>). */
 const CONTAINERS = new Set([
   'drawing', 'settings', 'layers', 'schematic', 'board', 'libraries', 'library', 'packages', 'symbols',
@@ -311,6 +317,28 @@ class ExportContext {
     return root;
   }
 
+  /** An Eagle library document: <eagle><drawing><grid/><layers/><library>, the library unnamed (the file names it). */
+  libraryDocument(description: string | undefined): globalThis.Element {
+    const doc = new DOMParser().parseFromString('<eagle/>', 'application/xml');
+    const x = new Xml(doc);
+    const root = doc.documentElement;
+    root.setAttribute('version', EAGLE_VERSION);
+    const drawing = x.add(root, x.el('drawing'))!;
+    // Eagle's own default for a new library: a 0.1 inch grid.
+    x.add(drawing, x.el('grid', [
+      ['distance', 0.1], ['unitdist', 'inch'], ['unit', 'inch'], ['style', 'lines'], ['multiple', 1], ['display', 'no'],
+      ['altdistance', 0.01], ['altunitdist', 'inch'], ['altunit', 'inch'],
+    ]));
+    x.add(drawing, this.layers(x, 'library'));
+    const lib = this.project.library;
+    const e = this.library(x, { name: '' }, ['library', {}], lib.footprints, lib.symbols, lib.components.filter((c) => !c.id.endsWith('#footprint')));
+    if (description) x.add(e, x.text('description', description));
+    x.order(e, DTD.library);
+    x.add(drawing, e);
+    x.order(drawing, DTD.drawing);
+    return root;
+  }
+
   /** The common skeleton: <eagle><drawing><grid/><layers/><schematic|board/>. */
   private document(kind: 'schematic' | 'board') {
     const doc = new DOMParser().parseFromString('<eagle/>', 'application/xml');
@@ -376,10 +404,10 @@ class ExportContext {
     return x.el('grid', attrs);
   }
 
-  private layers(x: Xml, kind: 'schematic' | 'board'): Element {
+  private layers(x: Xml, kind: 'schematic' | 'board' | 'library'): Element {
     const layers = x.el('layers');
     const user = new Map<number, Element>();
-    for (const entry of this.project.eagle?.[kind] ?? []) {
+    for (const entry of (kind === 'library' ? undefined : this.project.eagle?.[kind]) ?? []) {
       if (entry[0] !== 'layers') continue;
       for (const l of entry.slice(1)) {
         if (!Array.isArray(l)) continue;
@@ -395,7 +423,7 @@ class ExportContext {
         continue;
       }
       const [, name, color, fill, visible] = EAGLE_LAYERS.find(([m]) => m === n)!;
-      const active = kind === 'board' ? n < 90 : n >= 90 || (n >= 1 && n <= 16) || n === 17 || n === 18;
+      const active = kind === 'library' || (kind === 'board' ? n < 90 : n >= 90 || (n >= 1 && n <= 16) || n === 17 || n === 18);
       x.add(layers, x.el('layer', [['number', n], ['name', name], ['color', color], ['fill', fill], ['visible', visible ? 'yes' : 'no'], ['active', active ? 'yes' : 'no']]));
     }
     return layers;

@@ -13,14 +13,15 @@ interface FsWindow {
 }
 
 const PICKER_TYPES = [
-  { description: 'Osprey projects and Eagle files', accept: { 'application/octet-stream': ['.osprey', '.sch', '.brd', '.lbr'] } },
+  { description: 'Osprey projects and libraries, Eagle files', accept: { 'application/octet-stream': ['.osprey', '.ospreylib', '.sch', '.brd', '.lbr'] } },
 ];
 const SAVE_TYPES = {
   osprey: [{ description: 'Osprey project', accept: { 'application/json': ['.osprey'] } }],
-  eagle: [{ description: 'Eagle file', accept: { 'application/xml': ['.sch', '.brd'] } }],
+  ospreylib: [{ description: 'Osprey library', accept: { 'application/json': ['.ospreylib'] } }],
+  eagle: [{ description: 'Eagle file', accept: { 'application/xml': ['.sch', '.brd', '.lbr'] } }],
   zip: [{ description: 'Zip archive', accept: { 'application/zip': ['.zip'] } }],
 };
-const MIME = { osprey: 'application/json', eagle: 'application/xml', zip: 'application/zip' };
+const MIME = { osprey: 'application/json', ospreylib: 'application/json', eagle: 'application/xml', zip: 'application/zip' };
 
 export interface OpenedFile {
   name: string;

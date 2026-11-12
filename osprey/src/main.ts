@@ -12,13 +12,13 @@ import type { Point } from './geom/transform';
 import { componentName, ProjectIndex } from './model/derive';
 import { drc, type DrcResult, type Violation } from './model/drc';
 import { erc, ercKey, type ErcProblem, type ErcResult } from './model/erc';
-import { readProject } from './model/file';
+import { readLibrary, readProject, writeLibrary } from './model/file';
 import { freezePours, pourIsolate } from './model/pour';
 import { designRules, parseDru } from './model/rules';
-import { exportEagle } from './model/export-eagle';
+import { exportEagle, exportEagleLibrary } from './model/export-eagle';
 import { DEFAULT_JOB, parseCamJob, runCam, type CamJob } from './cam/job';
 import { zip } from './cam/zip';
-import { importEagle, importLibrary } from './model/import-eagle';
+import { importEagle, importLibrary, importLibraryFile } from './model/import-eagle';
 import type * as O from './model/types';
 import { buildBoardScene } from './scene/board';
 import { airwireNets, hideAirwires, type AirwireNet } from './scene/airwires';
@@ -101,7 +101,7 @@ const vp = new Viewport();
 const selection = new Selection();
 /** The open project (schematic and/or board), or a library being viewed. */
 let project: O.Project | undefined;
-let library: { name: string; lib: O.Library } | undefined;
+let library: { name: string; lib: O.Library; file: O.LibraryFile } | undefined;
 /** File name the project saves to, and where (when opened through the native dialog). */
 let saveName = '';
 let saveHandle: FileHandle | undefined;
@@ -192,7 +192,7 @@ const editable = () => !!editor && view !== 'library';
 // Opening, importing and saving
 
 const samples = {
-  ...import.meta.glob('../samples/osprey/*.osprey', { query: '?raw', import: 'default' }),
+  ...import.meta.glob('../samples/osprey/*.{osprey,ospreylib}', { query: '?raw', import: 'default' }),
   ...import.meta.glob('../samples/eagle/*.{sch,brd,lbr}', { query: '?raw', import: 'default' }),
 };
 
@@ -219,6 +219,7 @@ function sampleList(): Map<string, Sample> {
     const exts = ps.map((p) => p.slice(p.lastIndexOf('.') + 1)).sort().reverse(); // sch before brd
     out.set(`${base}.${exts.join('+')}`, { label: `${base} (import Eagle .${exts.join(' + .')})`, paths: ps });
   }
+  for (const p of paths.filter((x) => x.endsWith('.ospreylib'))) out.set(file(p), { label: `${file(p).replace(/\.ospreylib$/, '')} (Osprey library)`, paths: [p] });
   for (const p of paths.filter((x) => x.endsWith('.lbr'))) out.set(file(p), { label: `${file(p)} (Eagle library)`, paths: [p] });
   return out;
 }
@@ -293,18 +294,25 @@ function openSources(sources: SourceFile[], initialView?: ViewKind): void {
   const ext = (s: SourceFile) => s.name.slice(s.name.lastIndexOf('.')).toLowerCase();
   try {
     const kinds = new Set(sources.map(ext));
-    let next: { project?: O.Project; library?: { name: string; lib: O.Library }; report: string[]; name: string; handle?: FileHandle };
+    let next: { project?: O.Project; library?: { name: string; lib: O.Library; file: O.LibraryFile }; report: string[]; name: string; handle?: FileHandle };
     if (kinds.has('.osprey')) {
       if (sources.length > 1) throw new Error('Open one Osprey project at a time');
       const src = sources[0]!;
       next = { project: readProject(src.text), report: [], name: src.name, ...(src.handle ? { handle: src.handle } : {}) };
-    } else if (kinds.has('.lbr')) {
+    } else if (kinds.has('.lbr') || kinds.has('.ospreylib')) {
       if (sources.length > 1) throw new Error('Open a library on its own');
       const src = sources[0]!;
-      next = { library: { name: src.name, lib: importLibrary(src.name, parseEagle(src.text)) }, report: [], name: src.name };
+      // An Eagle library is imported; saving writes it as an Osprey library.
+      const eagle = ext(src) === '.lbr';
+      const file = eagle ? importLibraryFile(src.name, parseEagle(src.text)) : readLibrary(src.text);
+      next = {
+        library: { name: file.name, lib: file.library, file }, report: [],
+        name: eagle ? `${file.name}.ospreylib` : src.name,
+        ...(!eagle && src.handle ? { handle: src.handle } : {}),
+      };
     } else {
       const eagle = sources.filter((s) => ['.sch', '.brd'].includes(ext(s)));
-      if (!eagle.length) throw new Error('Choose an .osprey project, or Eagle .sch/.brd files to import');
+      if (!eagle.length) throw new Error('Choose an .osprey project or .ospreylib library, Eagle .sch/.brd files to import, or an Eagle .lbr library');
       const { project: p, report } = importEagle(eagle.map((s) => ({ name: s.name, file: parseEagle(s.text) })));
       const missing = !p.schematic ? '.sch' : !p.board ? '.brd' : undefined;
       if (missing) report.unshift(`Only one file was imported; select the ${missing} too to import the whole project.`);
@@ -336,6 +344,7 @@ function openSources(sources: SourceFile[], initialView?: ViewKind): void {
     const vs = views();
     showView(initialView && vs.includes(initialView) ? initialView : vs[0]!, false);
     if (importReport.length) flash(`Imported with ${importReport.length} note(s); see the Project panel`);
+    else if (library && sources[0] && ext(sources[0]) === '.lbr') flash(`Imported ${sources[0].name}; Save writes it as ${saveName}`);
   } catch (e) {
     const what = sources.map((x) => x.name).join(' + ');
     showError(`Could not open ${what}: ${e instanceof Error ? e.message : String(e)}`);
@@ -364,8 +373,9 @@ async function openDropped(files: File[]): Promise<void> {
   clearSampleLink();
 }
 
-/** Save the project as one `.osprey` file. */
+/** Save the project as one `.osprey` file, or the library as an `.ospreylib` file. */
 async function save(): Promise<void> {
+  if (library) return saveLibrary(library.file);
   if (!editor || !project) return;
   if (move) commitMove();
   try {
@@ -383,8 +393,33 @@ async function save(): Promise<void> {
   }
 }
 
-/** Export the project as an Eagle schematic and board (one save dialog or download each). */
+async function saveLibrary(file: O.LibraryFile): Promise<void> {
+  try {
+    const result = await saveFile(writeLibrary(file), saveName, saveHandle, 'ospreylib');
+    if (!result) return; // cancelled
+    if (result.handle) {
+      saveHandle = result.handle;
+      saveName = result.handle.name;
+    }
+    flash(`${result.method === 'written' ? 'Saved' : 'Downloaded'} ${saveName}`);
+    updateChrome();
+  } catch (e) {
+    showError(`Could not save ${saveName}: ${e instanceof Error ? e.message : String(e)}`);
+  }
+}
+
+/** Export the project as an Eagle schematic and board (one save dialog or download each), or the library as an Eagle library. */
 async function exportToEagle(): Promise<void> {
+  if (library) {
+    const name = `${library.file.name}.lbr`;
+    try {
+      const result = await saveFile(exportEagleLibrary(library.file), name, undefined, 'eagle');
+      if (result) flash(`Exported ${result.handle?.name ?? name}`);
+    } catch (e) {
+      showError(`Could not export: ${e instanceof Error ? e.message : String(e)}`);
+    }
+    return;
+  }
   if (!project) return;
   if (move) commitMove();
   try {
@@ -507,9 +542,9 @@ function setupViewChrome(): void {
 function updateChrome(): void {
   const dirty = editor?.history.dirty ?? false;
   const name = library ? library.name : project?.project.name ?? '';
-  const kinds = library ? 'Library (view only)' : views().map((v) => v[0]!.toUpperCase() + v.slice(1)).join(' + ');
+  const kinds = library ? 'Library' : views().map((v) => v[0]!.toUpperCase() + v.slice(1)).join(' + ');
   docTitle.textContent = `${dirty ? '● ' : ''}${name} — ${kinds}`;
-  docTitle.title = project ? `Saves to ${saveName}` : '';
+  docTitle.title = project || library ? `Saves to ${saveName}` : '';
   document.title = `${dirty ? '• ' : ''}${name} · Osprey`;
   renderProjectPanel();
   const h = editor?.history;
@@ -517,11 +552,12 @@ function updateChrome(): void {
   redoBtn.disabled = !h?.canRedo;
   undoBtn.title = h?.undoLabel ? `Undo ${h.undoLabel} (Ctrl+Z)` : 'Undo (Ctrl+Z)';
   redoBtn.title = h?.redoLabel ? `Redo ${h.redoLabel} (Ctrl+Y)` : 'Redo (Ctrl+Y)';
-  saveBtn.disabled = !editor;
-  exportBtn.disabled = !project;
+  saveBtn.disabled = !editor && !library;
+  exportBtn.disabled = !project && !library;
+  exportBtn.title = library ? 'Export the library as an Eagle library (.lbr)' : 'Export the project as an Eagle schematic and board (.sch + .brd)';
   camSelect.disabled = !project?.board;
   saveBtn.textContent = dirty ? 'Save •' : 'Save';
-  saveBtn.title = project ? `Save ${saveName} (Ctrl+S)` : 'Save (Ctrl+S)';
+  saveBtn.title = project || library ? `Save ${saveName} (Ctrl+S)` : 'Save (Ctrl+S)';
 }
 
 function buildScene(): Scene | undefined {
@@ -1602,7 +1638,14 @@ const round = (n: number) => Math.round(n * 1000) / 1000;
 // Adding parts
 
 const PROJECT_SOURCE = 'project';
-const sampleLibraries = import.meta.glob('../samples/eagle/*.lbr', { query: '?raw', import: 'default' });
+const sampleLibraries = {
+  ...import.meta.glob('../samples/osprey/*.ospreylib', { query: '?raw', import: 'default' }),
+  ...import.meta.glob('../samples/eagle/*.lbr', { query: '?raw', import: 'default' }),
+};
+
+/** A library to place parts from: an Osprey library, or an Eagle one imported. */
+const libraryFrom = (name: string, text: string): O.Library =>
+  name.toLowerCase().endsWith('.ospreylib') ? readLibrary(text).library : importLibrary(name, parseEagle(text));
 
 /** The library a source key stands for (loading a sample library on first use). */
 async function librarySource(key: string): Promise<O.Library | undefined> {
@@ -1610,7 +1653,7 @@ async function librarySource(key: string): Promise<O.Library | undefined> {
   if (loadedLibraries.has(key)) return loadedLibraries.get(key);
   const path = Object.keys(sampleLibraries).find((p) => p.endsWith(`/${key}`));
   if (!path) return undefined;
-  const lib = importLibrary(key, parseEagle((await sampleLibraries[path]!()) as string));
+  const lib = libraryFrom(key, (await sampleLibraries[path]!()) as string);
   loadedLibraries.set(key, lib);
   return lib;
 }
@@ -1760,7 +1803,7 @@ partsFilter.addEventListener('keydown', (e) => {
 lbrInput.addEventListener('change', async () => {
   for (const f of [...(lbrInput.files ?? [])]) {
     try {
-      loadedLibraries.set(f.name, importLibrary(f.name, parseEagle(await f.text())));
+      loadedLibraries.set(f.name, libraryFrom(f.name, await f.text()));
     } catch (e) {
       showError(`Could not open ${f.name}: ${e instanceof Error ? e.message : String(e)}`);
     }

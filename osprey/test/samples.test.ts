@@ -6,8 +6,8 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, it } from 'vitest';
 import { parseEagle } from '../src/eagle/parse';
-import { readProject, writeProject } from '../src/model/file';
-import { importEagle } from '../src/model/import-eagle';
+import { readLibrary, readProject, writeLibrary, writeProject } from '../src/model/file';
+import { importEagle, importLibraryFile } from '../src/model/import-eagle';
 
 const eagle = (name: string) => readFileSync(join(__dirname, '..', 'samples', 'eagle', name), 'utf8');
 
@@ -23,4 +23,10 @@ it('samples/osprey/TA7358A.osprey is the import of the Eagle TA7358A pair', asyn
   const text = writeProject(project);
   expect(writeProject(readProject(text))).toBe(text);
   await expect(text).toMatchFileSnapshot('../samples/osprey/TA7358A.osprey');
+});
+
+it('samples/osprey/madhu.ospreylib is the import of the Eagle library madhu.lbr', async () => {
+  const text = writeLibrary(importLibraryFile('madhu.lbr', parseEagle(eagle('madhu.lbr'))));
+  expect(writeLibrary(readLibrary(text))).toBe(text);
+  await expect(text).toMatchFileSnapshot('../samples/osprey/madhu.ospreylib');
 });

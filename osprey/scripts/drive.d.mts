@@ -31,6 +31,8 @@ export interface Driver {
   send(method: string, params?: object): Promise<any>;
   evaluate<T = unknown>(expression: string): Promise<T>;
   settle(): Promise<void>;
+  /** Until fn (run in the page, with args) returns something truthy; that value. */
+  waitFor<T>(fn: (...args: any[]) => T, what: string, timeout?: number, ...args: unknown[]): Promise<T>;
   goto(url: string): Promise<void>;
   open(sample: string, view?: 'schematic' | 'board'): Promise<void>;
   view(kind: 'schematic' | 'board'): Promise<void>;
@@ -42,6 +44,8 @@ export interface Driver {
   type(field: string, text: string): Promise<void>;
   button(target: string): Promise<void>;
   choose(selector: string, value: string): Promise<void>;
+  /** Save files the page saves (Save, Export) into dir, as downloads, instead of showing a save dialog. */
+  downloads(dir: string): Promise<void>;
   state(): Promise<EditorState>;
   shot(file: string): Promise<void>;
   close(): Promise<void>;

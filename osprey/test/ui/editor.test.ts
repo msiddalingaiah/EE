@@ -1,11 +1,15 @@
 // The editor's mouse and keyboard handling, driven in headless Chrome (scripts/drive.mjs).
 // Run with `npm run test:ui`; skipped when no Chrome, Edge or Chromium is installed.
 
-import { mkdtempSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { findChrome, launch, type Driver } from '../../scripts/drive.mjs';
+import { JSDOM } from 'jsdom';
+import { parseEagle } from '../../src/eagle/parse';
+import { writeLibrary } from '../../src/model/file';
+import { importLibraryFile } from '../../src/model/import-eagle';
 
 const ROOT = join(__dirname, '..', '..');
 
@@ -102,6 +106,51 @@ describe.skipIf(!findChrome())('editor in the browser', () => {
   it('checks the design rules from the panel', async () => {
     await d.button('#drc-run');
     expect((await d.state()).drc).toEqual([]);
+  });
+});
+
+describe.skipIf(!findChrome())('libraries in the browser', () => {
+  let d: Driver;
+  let dir: string;
+  beforeAll(async () => {
+    d = await launch();
+    dir = mkdtempSync(join(tmpdir(), 'osprey-downloads-'));
+  });
+  afterAll(async () => {
+    await d?.close();
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  const downloaded = async (name: string) => {
+    const file = join(dir, name);
+    for (let i = 0; i < 100 && !existsSync(file); i++) await new Promise((r) => setTimeout(r, 50));
+    await new Promise((r) => setTimeout(r, 100)); // let the download finish writing
+    return readFileSync(file, 'utf8');
+  };
+  const sample = readFileSync(join(ROOT, 'samples', 'osprey', 'madhu.ospreylib'), 'utf8');
+
+  it('imports an Eagle library, saves it as an Osprey library, and exports it back to Eagle', async () => {
+    await d.open('madhu.lbr');
+    expect((await d.state()).view).toBe('library');
+    expect(await d.evaluate('document.getElementById("doc-title").textContent')).toBe('madhu — Library');
+    await d.downloads(dir);
+    await d.button('#save-btn');
+    expect(await downloaded('madhu.ospreylib')).toBe(sample);
+    await d.button('#export-btn');
+    const lbr = await downloaded('madhu.lbr');
+    // The UI tests run in Node, which has no DOMParser; the Eagle parser needs one.
+    globalThis.DOMParser ??= new JSDOM().window.DOMParser;
+    expect(writeLibrary(importLibraryFile('madhu.lbr', parseEagle(lbr)))).toBe(sample);
+    expect(d.problems).toEqual([]);
+  });
+
+  it('opens an Osprey library, and places parts from one', async () => {
+    await d.open('madhu.ospreylib');
+    expect((await d.state()).view).toBe('library');
+    await d.open('wwvbfind.osprey', 'schematic');
+    await d.choose('#parts-source', 'madhu.ospreylib');
+    await d.waitFor(() => document.querySelectorAll('#parts-list button').length > 10, 'the library parts');
+    expect(d.problems).toEqual([]);
   });
 });
 

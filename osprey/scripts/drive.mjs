@@ -347,6 +347,15 @@ export async function launch({ url, width = 1400, height = 900, chrome = findChr
       await settle();
     },
 
+    /**
+     * Save files the page saves into `dir`, as downloads: the save dialog (File System Access)
+     * is turned off, so Save and Export download instead.
+     */
+    async downloads(dir) {
+      await cdp.send('Browser.setDownloadBehavior', { behavior: 'allow', downloadPath: dir });
+      await evaluate('window.showSaveFilePicker = undefined');
+    },
+
     /** The editor's state (see the hook in src/main.ts). */
     state: () => evaluate('window.__osprey.state()'),
 
