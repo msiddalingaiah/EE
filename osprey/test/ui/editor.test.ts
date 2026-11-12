@@ -1,0 +1,113 @@
+// The editor's mouse and keyboard handling, driven in headless Chrome (scripts/drive.mjs).
+// Run with `npm run test:ui`; skipped when no Chrome, Edge or Chromium is installed.
+
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { findChrome, launch, type Driver } from '../../scripts/drive.mjs';
+
+const ROOT = join(__dirname, '..', '..');
+
+describe.skipIf(!findChrome())('editor in the browser', () => {
+  let d: Driver;
+  beforeAll(async () => {
+    d = await launch();
+  });
+  afterAll(async () => {
+    await d?.close();
+  });
+  beforeEach(async () => {
+    d.problems.length = 0;
+    await d.open('wwvbfind.osprey', 'board');
+  });
+
+  const footprint = (part: string) =>
+    d.evaluate<{ at: [number, number]; rot?: number }>(`__osprey.project.board.footprints.find((f) => f.part === ${JSON.stringify(part)})`);
+
+  it('selects a part by clicking it, rotates it with R and undoes with Ctrl+Z', async () => {
+    const { at, rot } = await footprint('R1');
+    await d.click(at[0], at[1]);
+    expect((await d.state()).selection).toEqual([{ kind: 'footprint', label: 'R1' }]);
+    await d.key('r');
+    expect((await footprint('R1')).rot).toBe(((rot ?? 0) + 90) % 360);
+    expect((await d.state()).undo).toBe('Rotate R1');
+    await d.key('Ctrl+z');
+    expect((await footprint('R1')).rot).toBe(rot);
+    expect((await d.state()).redo).toBe('Rotate R1');
+    expect(d.problems).toEqual([]);
+  });
+
+  it('finishes a pour with a double click', async () => {
+    await d.button('Pour');
+    expect((await d.state()).mode).toBe('pour');
+    await d.click(30, 2);
+    await d.click(37, 2);
+    await d.dblclick(37, 6);
+    const s = await d.state();
+    expect(s.undo).toBe('Add pour on GND');
+    expect(s.selection).toEqual([{ kind: 'pour', label: 'Pour GND', net: 'GND' }]);
+    expect(d.problems).toEqual([]);
+  });
+
+  it('counts two quick separate presses as a double click (pointer events carry no click count)', async () => {
+    await d.button('Pour');
+    await d.click(30, 2);
+    await d.click(37, 2);
+    await d.click(37, 6);
+    await d.click(37, 6);
+    expect((await d.state()).undo).toBe('Add pour on GND');
+  });
+
+  it('changes a value typed in the inspector, and switches views with Tab', async () => {
+    const { at } = await footprint('R1');
+    await d.click(at[0], at[1]);
+    await d.type('value', '4.7M');
+    expect(await d.evaluate(`__osprey.project.parts.find((p) => p.name === 'R1').value`)).toBe('4.7M');
+    await d.key('Tab');
+    expect((await d.state()).view).toBe('schematic');
+    expect(d.problems).toEqual([]);
+  });
+
+  it('checks the design rules from the panel', async () => {
+    await d.button('#drc-run');
+    expect((await d.state()).drc).toEqual([]);
+  });
+});
+
+describe.skipIf(!findChrome())('installed app', () => {
+  it('opens with no server once installed', async () => {
+    const { build, preview } = await import('vite');
+    const outDir = mkdtempSync(join(tmpdir(), 'osprey-build-'));
+    // Vitest sets NODE_ENV=test, which would build without the service worker (PROD false).
+    const env = process.env.NODE_ENV;
+    process.env.NODE_ENV = 'production';
+    try {
+      await build({ root: ROOT, mode: 'production', logLevel: 'error', build: { outDir, emptyOutDir: true } });
+    } finally {
+      process.env.NODE_ENV = env;
+    }
+    const server = await preview({ root: ROOT, logLevel: 'error', build: { outDir }, preview: { port: 0, host: '127.0.0.1' } });
+    const url = server.resolvedUrls!.local[0]!;
+    const d = await launch({ url });
+    try {
+      const title = () => d.evaluate<string>('document.getElementById("doc-title").textContent');
+      const opened = async () => {
+        for (let i = 0; i < 200 && !(await title()).includes('wwvbfind'); i++) await new Promise((r) => setTimeout(r, 50));
+        return title();
+      };
+      await d.goto(`${url}#wwvbfind.osprey/board`);
+      expect(await opened()).toContain('wwvbfind');
+      expect(await d.evaluate('Promise.race([navigator.serviceWorker.ready.then(() => "installed"), new Promise((r) => setTimeout(() => r("no service worker"), 10000))])')).toBe('installed');
+      const http = server.httpServer as import('node:http').Server;
+      const closed = new Promise<void>((r) => http.close(() => r()));
+      http.closeAllConnections();
+      await closed;
+      await d.goto(`${url}#wwvbfind.osprey/board`);
+      expect(await opened()).toContain('wwvbfind');
+    } finally {
+      await d.close();
+      rmSync(outDir, { recursive: true, force: true });
+    }
+  }, 60000);
+});

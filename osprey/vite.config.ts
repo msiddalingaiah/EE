@@ -70,5 +70,6 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     include: ['test/**/*.test.ts'],
+    exclude: ['test/ui/**', 'node_modules/**'],
   },
 });

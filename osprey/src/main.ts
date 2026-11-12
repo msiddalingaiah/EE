@@ -2751,3 +2751,51 @@ initSamples();
 if (import.meta.env.PROD && 'serviceWorker' in navigator) {
   navigator.serviceWorker.register('./sw.js').catch((e: unknown) => console.warn('Service worker not registered:', e));
 }
+
+// ---------------------------------------------------------------------------
+// Development: a hook for scripts/drive.mjs and the UI tests (test/ui), so they read the
+// editor's state rather than pixels. Not in builds.
+
+if (import.meta.env.DEV) {
+  const mode = () =>
+    placing ? 'place' : wiring ? 'wire' : routing ? 'route' : pouring ? 'pour' : vias ? 'via'
+      : move ? 'move' : cornerDrag ? 'corner' : lineDrag ? 'line-end' : undefined;
+  Object.assign(window, {
+    __osprey: {
+      get project() { return project; },
+      get editor() { return editor; },
+      get drc() { return drcResult; },
+      /** A world point (mm) in page CSS pixels, for clicking it. */
+      toPage(x: number, y: number): Point {
+        const r = canvas.getBoundingClientRect();
+        const p = vp.toScreen(x, y);
+        return { x: r.left + p.x, y: r.top + p.y };
+      },
+      /** A page point (CSS pixels) in world mm. */
+      toWorld(x: number, y: number): Point {
+        const r = canvas.getBoundingClientRect();
+        return vp.toWorld(x - r.left, y - r.top);
+      },
+      /** What the editor shows, as plain data. */
+      state() {
+        const h = editor?.history;
+        return {
+          loaded: !!index,
+          sample: openSample || undefined,
+          view,
+          mode: mode(),
+          layer: view === 'board' ? activeLayer : undefined,
+          selection: selectedOwners().map((o) => ({ kind: o.kind, label: o.label, ...(o.net ? { net: o.net } : {}) })),
+          status: statusMsg.textContent || undefined,
+          error: errorBox.hidden ? undefined : $('error-text').textContent,
+          dialog: document.querySelector('dialog[open]') ? true : undefined,
+          undo: h?.undoLabel,
+          redo: h?.redoLabel,
+          dirty: h?.dirty ?? false,
+          drc: drcResult ? drcResult.violations.map((v) => `${v.kind}: ${v.message}`) : undefined,
+          viewport: { cx: round(vp.cx), cy: round(vp.cy), zoom: round(vp.zoom) },
+        };
+      },
+    },
+  });
+}

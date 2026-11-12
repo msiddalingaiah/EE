@@ -122,14 +122,7 @@ Not yet: library editing, busses beyond wires, push-and-shove routing, pick-and-
 
 ### Next
 
-1. **Driving the app for development:** `scripts/drive.mjs` runs headless Chrome (over the
-   DevTools protocol) against the dev server: open a sample, switch views, click at board
-   coordinates in mm, press keys, type into inspector fields, take screenshots. A dev-only
-   `window.__osprey` hook exposes the project, selection, DRC result and active mode, so checks
-   read state rather than pixels. It gives the editor's mouse and keyboard handling the tests it
-   lacks (double-click detection and the installed app's caching both broke there unnoticed),
-   and lets an agent see a change working in the real app, not only in unit tests.
-2. **Library editing:** edit symbols, footprints and components (pins and pads, outlines,
+1. **Library editing:** edit symbols, footprints and components (pins and pads, outlines,
    text, pin-to-pad mapping) in the project's library and save them back, with placed parts
    following the change.
 
@@ -172,11 +165,27 @@ package); nothing is loaded at runtime.
 npm install
 npm run dev        # http://localhost:5173 — open a sample, or drop files on the canvas
 npm test           # unit tests against the samples
+npm run test:ui    # the editor driven in headless Chrome (test/ui; skipped without Chrome)
 npm run samples    # regenerate samples/osprey/ from samples/eagle/ (after importer changes)
 npm run typecheck
 npm run build
 npm run app        # build, serve it at http://localhost:4173 and open it (to install, below)
 ```
+
+### Driving the app
+
+`scripts/drive.mjs` runs the app in headless Chrome (or Edge; `CHROME_PATH` picks one) over the
+DevTools protocol, against a dev server it starts: open a sample, switch views, click at world
+coordinates in mm, press keys, type into inspector fields, click buttons, take screenshots. A
+dev-only `window.__osprey` hook (end of `src/main.ts`) gives the project and the editor's
+state (view, mode, selection, status, undo, DRC), so checks read state rather than pixels.
+The UI tests use it, and so can you:
+
+```sh
+npm run drive -- open:wwvbfind.osprey/board click:4.1,8.83 key:r state shot:out.png
+```
+
+The steps are listed at the top of the script. Errors the page logs are printed at the end.
 
 ### As an installed app (no server)
 

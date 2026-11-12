@@ -11,6 +11,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:ui": "vitest run --config vitest.ui.config.ts",
+    "drive": "node scripts/drive.mjs",
     "samples": "vitest run test/samples.test.ts -u",
     "app": "npm run build && vite preview --port 4173 --strictPort --open",
     "icons": "node scripts/build-icons.mjs"
