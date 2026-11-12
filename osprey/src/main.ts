@@ -17,7 +17,7 @@ import { freezePours, pourIsolate } from './model/pour';
 import { designRules, parseDru } from './model/rules';
 import { exportEagle, exportEagleLibrary } from './model/export-eagle';
 import { DEFAULT_JOB, parseCamJob, runCam, type CamJob } from './cam/job';
-import { assemblyFiles } from './cam/assembly';
+import { assemblyFiles, doNotPlace } from './cam/assembly';
 import { zip } from './cam/zip';
 import { importEagle, importLibrary, importLibraryFile } from './model/import-eagle';
 import type * as O from './model/types';
@@ -468,14 +468,15 @@ const sampleCamJobs = import.meta.glob('../samples/eagle/*.cam', { query: '?raw'
 camSelect.append(new Option('CAM…', ''), new Option(`${DEFAULT_JOB.name} (.zip)`, 'default'));
 for (const path of Object.keys(sampleCamJobs).sort()) camSelect.append(new Option(`Job ${path.split('/').pop()!}`, path));
 camSelect.append(new Option('From a .cam job file…', 'open'));
-camSelect.append(new Option('Assembly: BOM + pick-and-place (.zip)', 'assembly'));
+camSelect.append(new Option('Assembly: SMD parts (BOM + pick-and-place .zip)', 'assembly'));
+camSelect.append(new Option('Assembly: SMD and through-hole parts', 'assembly-tht'));
 
 /** Save the bill of materials and pick-and-place list (JLCPCB's format) as one zip. */
-async function makeAssembly(): Promise<void> {
+async function makeAssembly(throughHole: boolean): Promise<void> {
   if (!project?.board) return;
   if (move) commitMove();
   try {
-    const { files, warnings } = assemblyFiles(project);
+    const { files, warnings } = assemblyFiles(project, { throughHole });
     const name = `${project.project.name}_assembly.zip`;
     const result = await saveFile(zip(files), name, undefined, 'zip');
     if (!result) return;
@@ -508,7 +509,7 @@ camSelect.addEventListener('change', async () => {
   const v = camSelect.value;
   camSelect.value = '';
   if (v === 'open') camInput.click();
-  else if (v === 'assembly') await makeAssembly();
+  else if (v === 'assembly' || v === 'assembly-tht') await makeAssembly(v === 'assembly-tht');
   else if (v === 'default') await makeCam(DEFAULT_JOB);
   else if (v && sampleCamJobs[v]) {
     const name = v.split('/').pop()!;
@@ -1608,7 +1609,40 @@ function propertyFields(o: Owner): { table: HTMLTableElement; covers: Set<string
     tr.append(el('th', '', label), td);
     table.append(tr);
   }
+  const p = part !== undefined ? project?.parts.find((x) => x.name === part) : undefined;
+  if (p) {
+    // A part without its own LCSC number uses its component's (from the library): shown as a hint.
+    const fallback = libraryLcsc(p);
+    const lcsc = table.querySelector<HTMLInputElement>('input[data-field="lcsc"]');
+    if (lcsc && fallback) {
+      lcsc.placeholder = `${fallback} (component's)`;
+      lcsc.title = `Empty uses the component's LCSC part number, ${fallback}`;
+    }
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.dataset.field = 'dnp';
+    cb.checked = doNotPlace(p);
+    cb.title = 'Leave this part out of the assembly files (to solder by hand, or not fit)';
+    cb.addEventListener('change', () => {
+      const err = ed.setDoNotPlace(p.name, cb.checked);
+      flash(err ?? (cb.checked ? `${p.name} won't be placed by the assembler` : `${p.name} will be placed by the assembler`));
+    });
+    const tr = document.createElement('tr');
+    const td = document.createElement('td');
+    td.append(cb);
+    tr.append(el('th', '', 'Do not place'), td);
+    table.append(tr);
+    covers.add('DNP');
+  }
   return { table, covers };
+}
+
+/** A part's LCSC part number from its component's variant and technology (the library's default). */
+function libraryLcsc(p: O.Part): string {
+  if (!project) return '';
+  const index = new ProjectIndex(project);
+  const v = index.variantOf(p)?.technologies?.[p.technology ?? '']?.LCSC;
+  return typeof v === 'string' ? v : v?.value ?? '';
 }
 
 /**
@@ -2792,6 +2826,20 @@ function componentFields(c: O.Component): HTMLElement[] {
   for (const o of vf.table.querySelectorAll<HTMLOptionElement>('select[data-field="footprint"] option')) o.text = o.value ? componentName(o.value) : '(none: symbol only)';
   out.push(vf.table);
   if (v.footprint && lib.footprints.some((x) => x.id === v.footprint)) out.push(linkLine('Open footprint', [itemLink('footprint', v.footprint)]));
+  // The LCSC part number its parts get, unless they have their own: only for a component whose
+  // value is its name (a chip is the same part each time; a resistor's number depends on its value).
+  if (v.footprint && c.userValue) {
+    out.push(el('p', 'pin-map-note', 'LCSC part numbers go on each part (the value is typed per part, and the number follows it).'));
+  } else if (v.footprint) {
+    const lf = fieldTable();
+    const techs = Object.keys(v.technologies ?? { '': {} });
+    for (const tech of techs) {
+      const cur = v.technologies?.[tech]?.LCSC;
+      lf.text(techs.length > 1 ? `LCSC part (${tech || "''"})` : 'LCSC part', `lcsc:${tech}`, typeof cur === 'string' ? cur : cur?.value ?? '',
+        (x) => ed.setVariantLcsc(c, v, tech, x));
+    }
+    out.push(lf.table);
+  }
 
   // The pin-to-pad map: each gate's pins, and the pads they connect to.
   const fp = v.footprint ? lib.footprints.find((x) => x.id === v.footprint) : undefined;

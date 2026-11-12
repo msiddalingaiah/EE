@@ -23,9 +23,9 @@ import { addRoute, anchors, bend45, copperLayers, traceWidth, viaDrill, type Anc
 import { addWire, cleanPath, sheetPins, snapPoints, touchAt, usualWireWidth, type WireResult } from '../edit/wire';
 import { renameNet, renamePart, setPartValue, smash, unsmash } from '../edit/properties';
 import {
-  addComponent, addGate, addItem, addVariant, autoConnect, connectPin, copyItem, deleteVariant, duplicateItem, nextPadName,
+  addComponent, addGate, addItem, addVariant, autoConnect, connectPin, copyItem, deleteVariant, duplicateItem, lcscNumber, nextPadName,
   nextPinName, renameGate, renameItem, renameLibrary, renamePad, renamePin, renameVariant, setComponent, setGate, setGraphic,
-  setPad, setPin, setVariantFootprint, type ComponentPatch, type CopyResult, type GatePatch, type GraphicPatch, type ItemKind,
+  setPad, setPin, setVariantAttribute, setVariantFootprint, type ComponentPatch, type CopyResult, type GatePatch, type GraphicPatch, type ItemKind,
   type PadPatch, type PinPatch,
 } from '../edit/library';
 import { isEditable, mirrorAbout, rotationAbout, transformTargets, translation } from '../edit/transform';
@@ -240,15 +240,38 @@ export class Editor {
    * the part; empty removes it. It is stored as the part's LCSC attribute (Eagle keeps it too).
    */
   setLcsc(partName: string, raw: string): string | undefined {
+    const { value, problem } = lcscNumber(raw);
+    if (problem) return problem;
+    return this.setPartAttribute(partName, 'LCSC', value, `Set LCSC part number of ${partName}`);
+  }
+
+  /** Mark a part not to be placed by the assembler (its DNP attribute), or to be placed again. */
+  setDoNotPlace(partName: string, on: boolean): string | undefined {
+    return this.setPartAttribute(partName, 'DNP', on ? 'yes' : '', on ? `Do not place ${partName}` : `Place ${partName}`);
+  }
+
+  /** Set (or with an empty value, remove) one of a part's attributes. */
+  private setPartAttribute(partName: string, name: string, value: string, label: string): string | undefined {
     const part = this.project.parts.find((p) => p.name === partName);
     if (!part) return `No part named ${partName}`;
-    const v = raw.trim().toUpperCase();
-    if (v && !/^C\d+$/.test(v)) return 'An LCSC part number is C followed by digits, e.g. C25804';
-    return this.property(`Set LCSC part number of ${partName}`, (tx) => {
+    return this.property(label, (tx) => {
       const attributes = { ...part.attributes };
-      if (v) attributes.LCSC = v;
-      else delete attributes.LCSC;
+      if (value) attributes[name] = value;
+      else delete attributes[name];
       tx.run(set(part, { attributes: Object.keys(attributes).length ? attributes : undefined }));
+      return undefined;
+    });
+  }
+
+  /**
+   * A component variant's default LCSC part number (for a technology), which its parts use
+   * unless they have their own. Empty removes it.
+   */
+  setVariantLcsc(c: O.Component, v: O.Variant, technology: string, raw: string): string | undefined {
+    const { value, problem } = lcscNumber(raw);
+    if (problem) return problem;
+    return this.property(`LCSC part number of ${componentName(c.id)}${v.name ? ` ${v.name}` : ''}`, (tx) => {
+      setVariantAttribute(v, technology, 'LCSC', value, tx);
       return undefined;
     });
   }

@@ -478,6 +478,29 @@ export function connectPin(lib: O.Library, v: O.Variant, key: string, padNames: 
   return undefined;
 }
 
+/** An LCSC part number as typed (" c20526 " → C20526), or why it isn't one. Empty is allowed (none). */
+export function lcscNumber(raw: string): { value: string; problem?: string } {
+  const value = raw.trim().toUpperCase();
+  if (value && !/^C\d+$/.test(value)) return { value, problem: 'An LCSC part number is C followed by digits, e.g. C25804' };
+  return { value };
+}
+
+/**
+ * Set (or with an empty value, remove) an attribute of one of a variant's technologies, as Eagle
+ * keeps MF, MPN and the like: a component's default LCSC part number, say. A variant left with
+ * only the unnamed technology and no attributes stores no technologies, as an import would.
+ */
+export function setVariantAttribute(v: O.Variant, technology: string, name: string, value: string, tx: Transaction): void {
+  const techs = structuredClone(v.technologies ?? {});
+  const attrs = { ...(techs[technology] ?? {}) };
+  if (value) attrs[name] = value;
+  else delete attrs[name];
+  techs[technology] = attrs;
+  const names = Object.keys(techs);
+  const trivial = names.length === 1 && names[0] === '' && Object.keys(techs['']!).length === 0;
+  tx.run(set(v, { technologies: trivial ? undefined : techs }));
+}
+
 /**
  * Connect the pins left unconnected to the pads left free: first a pin to the pad of the same
  * name (A to A, GND to GND), then the rest in order (gates, then pins, in order; pads by

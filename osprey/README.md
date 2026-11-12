@@ -43,7 +43,10 @@ native model (see [docs/format.md](docs/format.md)). Eagle files are imported in
   footprint (or none, for a supply symbol), and the pin-to-pad map: type each pin's pads ("1",
   or "4, 8" for a pin on two pads). A pad belongs to one pin. **Connect the rest** connects
   pins left open to free pads: the pad of the same name, else the next in order. Renaming a gate
-  or changing a footprint keeps the map consistent.
+  or changing a footprint keeps the map consistent. A component whose value is its name (a chip,
+  a transistor) can have a default **LCSC part** number per variant (and technology), which its
+  parts use unless they have their own; it is stored as a technology attribute, as Eagle keeps
+  MF and MPN. Components with typed values (resistors) take the number on each part instead.
 - **Export Eagle…** writes the project back as an Eagle 9 `.sch` + `.brd`, with pad lists and
   airwires regenerated and the Eagle data Osprey doesn't model written back. Importing the
   exported files gives the same project again (checked on 152 real pairs).
@@ -137,11 +140,15 @@ native model (see [docs/format.md](docs/format.md)). Eagle files are imported in
   as outlines only (a pour's dashed outline shows only when it has no copper to show); that's just the view, so airwires and the DRC count the copper either way.
   Not yet: hatched fill (drawn solid), and removing copper narrower than the pour's width.
 - **Assembly files** (board): **CAM… → Assembly** saves a zip with a bill of materials and a
-  pick-and-place list in JLCPCB's format. The BOM has one row per group of identical parts
+  pick-and-place list in JLCPCB's format: SMD parts, or SMD and through-hole parts (a choice in
+  the menu; a board house's standard assembly is SMD, through-hole parts are usually soldered by
+  hand). Parts marked **Do not place** (a checkbox in the inspector, the part's DNP attribute)
+  are left out too, and what was left out is listed. The BOM has one row per group of identical parts
   (value, footprint, LCSC part number, manufacturer and MPN alike): designators, quantity, and
   whether they are SMD or through-hole. The pick-and-place list gives each part's centre (the
   middle of its pads, not its footprint's origin), side and rotation. A part's **LCSC part** is
-  set in the inspector (C25804…; checked, kept through Eagle export); parts without one are
+  set in the inspector (C25804…; checked, kept through Eagle export), or comes from its
+  component in the library (see below); parts without one are
   pointed out, as JLCPCB then matches them by hand. Parts without a footprint (supply symbols)
   are left out. A board house's zero rotation for some packages (SOT-23, diodes) differs from
   the library's: their preview shows it, and parts on the bottom are flagged to check.

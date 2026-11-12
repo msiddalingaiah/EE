@@ -44,21 +44,46 @@ function mounting(fp: O.Footprint): 'SMD' | 'THT' | 'SMD+THT' {
   return smd && tht ? 'SMD+THT' : tht ? 'THT' : 'SMD';
 }
 
-export function assemblyFiles(project: O.Project, index = new ProjectIndex(project)): AssemblyResult {
+/** A part marked not to be placed by the assembler (its DNP attribute: yes, true or 1). */
+export function doNotPlace(part: O.Part): boolean {
+  return /^(yes|true|1)$/i.test(part.attributes?.DNP ?? '');
+}
+
+export interface AssemblyOptions {
+  /**
+   * Include through-hole parts. Off by default: a board house's standard assembly places SMD
+   * parts, and through-hole ones (headers, connectors) are usually soldered by hand. A part
+   * with SMD pads and some through-hole ones (pegs) counts as SMD.
+   */
+  throughHole?: boolean;
+}
+
+export function assemblyFiles(project: O.Project, options: AssemblyOptions = {}, index = new ProjectIndex(project)): AssemblyResult {
   const warnings: string[] = [];
   const board = project.board;
   const files = new Map<string, string>();
   if (!board) return { files, warnings: ['The project has no board'] };
 
-  // The parts to assemble: those placed on the board with a footprint that has pads.
+  // The parts to assemble: those placed on the board with a footprint that has pads, unless
+  // marked not to place, or through-hole when those are left for hand soldering.
   const placed: { part: O.Part; f: O.FootprintPlacement; fp: O.Footprint }[] = [];
+  const leftOut = { tht: [] as string[], dnp: [] as string[] };
   for (const f of board.footprints) {
     const part = index.parts.get(f.part);
     const fpId = part && index.variantOf(part)?.footprint;
     const fp = fpId ? index.footprints.get(fpId) : undefined;
-    if (part && fp?.pads.length) placed.push({ part, f, fp });
+    if (!part || !fp?.pads.length) continue;
+    if (doNotPlace(part)) leftOut.dnp.push(part.name);
+    else if (!options.throughHole && mounting(fp) === 'THT') leftOut.tht.push(part.name);
+    else placed.push({ part, f, fp });
   }
   placed.sort((a, b) => natural(a.part.name, b.part.name));
+  const list = (names: string[]) => names.sort(natural).join(', ');
+  const notPlaced = [
+    leftOut.tht.length ? `${leftOut.tht.length} through-hole part${leftOut.tht.length > 1 ? 's' : ''} (${list(leftOut.tht)})` : '',
+    leftOut.dnp.length ? `${leftOut.dnp.length} marked do-not-place (${list(leftOut.dnp)})` : '',
+  ].filter(Boolean);
+  if (notPlaced.length) warnings.push(`Not placed: ${notPlaced.join(' and ')}; solder these yourself`);
 
   // Bill of materials: parts with the same value, footprint and part numbers share a row.
   const groups = new Map<string, { value: string; footprint: string; lcsc: string; mf: string; mpn: string; type: string; names: string[] }>();
@@ -90,9 +115,10 @@ export function assemblyFiles(project: O.Project, index = new ProjectIndex(proje
     cpl.push(row([part.name, mm(x), mm(y), f.side === 'bottom' ? 'Bottom' : 'Top', String(Math.round(rot * 1e4) / 1e4)]));
   }
 
-  const missing = placed.filter(({ part }) => !attribute(index, part, LCSC_ATTRIBUTE)).length;
-  if (missing) {
-    warnings.push(`${missing} of ${placed.length} parts have no LCSC part number (JLCPCB matches those by value and footprint, to check by hand)`);
+  const missing = placed.filter(({ part }) => !attribute(index, part, LCSC_ATTRIBUTE)).map(({ part }) => part.name);
+  if (missing.length) {
+    const named = missing.length > 30 ? `${missing.slice(0, 30).join(', ')} and ${missing.length - 30} more` : missing.join(', ');
+    warnings.push(`${missing.length} of ${placed.length} parts have no LCSC part number (JLCPCB matches those by value and footprint, to check by hand): ${named}`);
   }
   if (placed.some(({ f }) => f.side === 'bottom')) warnings.push('Some parts are on the bottom: check their rotations in the board house\'s preview');
   const name = project.project.name;

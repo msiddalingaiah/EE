@@ -162,8 +162,12 @@ describe.skipIf(!findChrome())('editor in the browser', () => {
       expect([...files.keys()].sort()).toEqual(['wwvbfind_BOM.csv', 'wwvbfind_CPL.csv']);
       expect(files.get('wwvbfind_BOM.csv')).toContain('3.3M,R1,0805,C17414,1,,,SMD');
       expect(files.get('wwvbfind_CPL.csv')!.split('\r\n')[0]).toBe('Designator,Mid X,Mid Y,Layer,Rotation');
-      // The parts still without LCSC numbers are pointed out.
-      expect((await d.state()).error).toMatch(/34 of 35 parts have no LCSC part number/);
+      // SMD parts only, by default: the through-hole ones, and parts still without LCSC numbers, are pointed out.
+      expect(files.get('wwvbfind_BOM.csv')).not.toContain('BERG-2');
+      expect((await d.state()).error).toMatch(/Not placed: \d+ through-hole parts \(.*IN.*\); solder these yourself; \d+ of \d+ parts have no LCSC part number/);
+      // Do not place: a checkbox on the part.
+      await d.button('#inspector input[data-field="dnp"]');
+      expect(await d.evaluate('__osprey.project.parts.find((p) => p.name === "R1").attributes')).toEqual({ LCSC: 'C17414', DNP: 'yes' });
       expect(d.problems).toEqual([]);
     } finally {
       rmSync(dir, { recursive: true, force: true });
