@@ -128,6 +128,23 @@ describe.skipIf(!findChrome())('editor in the browser', () => {
     expect(d.problems).toEqual([]);
   });
 
+  it('adds a note of several lines to a schematic sheet', async () => {
+    await d.view('schematic');
+    const drawing = () => d.evaluate<O.Graphic[]>('__osprey.project.schematic.sheets[0].drawing');
+    const before = (await drawing()).length;
+    await d.key('t');
+    await d.click(10, 10);
+    expect(await d.evaluate('document.activeElement.tagName')).toBe('TEXTAREA');
+    // Line breaks are typed into the field; Enter (without Shift) applies.
+    await d.type('text', 'Notes:\nC2 is a film cap');
+    const added = (await drawing()).slice(before);
+    expect(added).toEqual([{ text: 'Notes:\nC2 is a film cap', at: [10.16, 10.16], size: 1.778, layer: 'info' }]);
+    expect(await d.evaluate('document.querySelector("#inspector textarea[data-field=text]").rows')).toBe(2);
+    await d.choose('#inspector select[data-field="layer"]', 'names');
+    expect(((await drawing()).at(-1) as O.TextShape).layer).toBe('names');
+    expect(d.problems).toEqual([]);
+  });
+
   it('checks the design rules from the panel', async () => {
     await d.button('#drc-run');
     expect((await d.state()).drc).toEqual([]);

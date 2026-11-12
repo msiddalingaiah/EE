@@ -64,3 +64,17 @@ describe('board text', () => {
     expect([text.text, text.layer, text.mirror]).toEqual(['WWVB  REV B', 'silk.bottom', true]);
   });
 });
+
+describe('text on a schematic sheet', () => {
+  it('keeps several lines through export to Eagle and back', async () => {
+    const { parseEagle } = await import('../src/eagle/parse');
+    const { exportEagle } = await import('../src/model/export-eagle');
+    const { importEagle } = await import('../src/model/import-eagle');
+    const sheet = p.schematic!.sheets[0]!;
+    const note: O.TextShape = { text: 'Notes:\nC2 is a film cap', at: [10.16, 10.16], size: 1.778, layer: 'info' };
+    ed.addGraphic(sheet.drawing, note, 'Add text');
+    const { files } = exportEagle(p);
+    const back = importEagle([...files].map(([name, text]) => ({ name, file: parseEagle(text) })), 'D').project;
+    expect(back.schematic!.sheets[0]!.drawing).toContainEqual(note);
+  });
+});

@@ -321,7 +321,7 @@ export async function launch({ url, width = 1400, height = 900, chrome = findChr
 
     /** Type into an inspector field (data-field: name, value, net, x, y …) and press Enter. */
     async type(field, text) {
-      const p = await elementCentre(`#inspector input[data-field="${field}"]`);
+      const p = await elementCentre(`#inspector :is(input, textarea)[data-field="${field}"]`);
       await clickAt(p);
       await evaluate('document.activeElement.select()');
       await send('Input.insertText', { text });

@@ -102,8 +102,9 @@ native model (see [docs/format.md](docs/format.md)). Eagle files are imported in
   work on, remembered while the project is open; L switches it (with nothing active, while
   routing through a via, while drawing a pour). It follows the route when the route changes
   layer itself (starting on one-sided copper, or a detour through vias).
-- **Board text** (board): the **Text** button (or T) places a text where you click and opens
-  its text field to type into. It goes on the top silkscreen, or the bottom one (mirrored, to
+- **Text** (board and schematic): the **Text** button (or T) places a text where you click and
+  opens its text field to type into (Shift+Enter starts a new line; Enter applies). On a sheet
+  it goes on the info layer at 1.778 mm, for notes. On the board it goes on the top silkscreen, or the bottom one (mirrored, to
   read from below) when the layer is bottom; F flips it to the other side. The inspector sets
   the text, size, ratio (stroke width as a percentage of the size: the default 1.27 mm at 15% gives
   0.19 mm strokes), rotation, layer (silkscreen, document, fab) and position. Text is plotted into
