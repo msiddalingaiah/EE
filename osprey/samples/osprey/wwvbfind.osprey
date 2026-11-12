@@ -2191,7 +2191,9 @@
       { "hole": [2.54, 2.54], "drill": 3.175 },
       { "hole": [36.84, 2.54], "drill": 3.175 },
       { "hole": [2.54, 23.65], "drill": 3.175 },
-      { "hole": [36.84, 23.65], "drill": 3.175 }
+      { "hole": [36.84, 23.65], "drill": 3.175 },
+      { "text": "WWVB Find", "at": [7.62, 22.86], "size": 1.27, "layer": "silk.top", "ratio": 15 },
+      { "text": "20261111", "at": [6.35, 1.27], "size": 1, "layer": "silk.top", "ratio": 15 }
     ]
   },
   "eagle": {

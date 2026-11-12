@@ -105,24 +105,26 @@ describe.skipIf(!findChrome())('editor in the browser', () => {
   });
 
   it('adds board text with T, types it, flips it to the bottom, and undoes', async () => {
+    // The sample's own texts stay as they are; a new one is added after them.
     const texts = () => d.evaluate<O.TextShape[]>('__osprey.project.board.drawing.filter((g) => "text" in g)');
-    expect(await texts()).toEqual([]);
+    const before = await texts();
+    const added = async () => (await texts()).slice(before.length);
     await d.key('t');
     expect((await d.state()).mode).toBe('text');
     await d.click(3, 24.5);
     // The new text is selected, with its text field ready to type into.
     expect(await d.evaluate('document.activeElement.dataset.field')).toBe('text');
     await d.type('text', 'REV A');
-    expect(await texts()).toEqual([{ text: 'REV A', at: [2.54, 24.13], size: 1.27, ratio: 15, layer: 'silk.top' }]);
+    expect(await added()).toEqual([{ text: 'REV A', at: [2.54, 24.13], size: 1.27, ratio: 15, layer: 'silk.top' }]);
     await d.key('f');
-    expect(await texts()).toMatchObject([{ layer: 'silk.bottom', mirror: true }]);
+    expect(await added()).toMatchObject([{ layer: 'silk.bottom', mirror: true }]);
     await d.choose('#inspector select[data-field="layer"]', 'silk.top');
-    expect((await texts())[0]!.mirror).toBeUndefined();
+    expect((await added())[0]!.mirror).toBeUndefined();
     await d.key('Ctrl+z');
     await d.key('Ctrl+z');
     await d.key('Ctrl+z');
     await d.key('Ctrl+z');
-    expect(await texts()).toEqual([]);
+    expect(await texts()).toEqual(before);
     expect(d.problems).toEqual([]);
   });
 
