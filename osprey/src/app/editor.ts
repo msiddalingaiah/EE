@@ -3,6 +3,7 @@
 
 import type { Point, Transform } from '../geom/transform';
 import { compose } from '../geom/transform';
+import { BLOCK_ATTRIBUTE, blockOf, normalizeBlockPath } from '../model/blocks';
 import { componentName, ProjectIndex } from '../model/derive';
 import { writeProject } from '../model/file';
 import type * as O from '../model/types';
@@ -248,6 +249,26 @@ export class Editor {
   /** Mark a part not to be placed by the assembler (its DNP attribute), or to be placed again. */
   setDoNotPlace(partName: string, on: boolean): string | undefined {
     return this.setPartAttribute(partName, 'DNP', on ? 'yes' : '', on ? `Do not place ${partName}` : `Place ${partName}`);
+  }
+
+  /**
+   * Put parts in a block (a path such as "rx/frontend", in their BLOCK attribute), or with an
+   * empty path take them out of any. One undo step. Returns how many parts changed.
+   */
+  setBlock(partNames: string[], raw: string): number {
+    const path = normalizeBlockPath(raw);
+    const parts = this.project.parts.filter((p) => partNames.includes(p.name) && (blockOf(p) ?? '') !== path);
+    if (!parts.length) return 0;
+    const what = parts.length === 1 ? parts[0]!.name : `${parts.length} parts`;
+    const tx = new Transaction(path ? `Put ${what} in block ${path}` : `Take ${what} out of blocks`);
+    for (const part of parts) {
+      const attributes = { ...part.attributes };
+      if (path) attributes[BLOCK_ATTRIBUTE] = path;
+      else delete attributes[BLOCK_ATTRIBUTE];
+      tx.run(set(part, { attributes: Object.keys(attributes).length ? attributes : undefined }));
+    }
+    this.push(tx);
+    return parts.length;
   }
 
   /** Set (or with an empty value, remove) one of a part's attributes. */

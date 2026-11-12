@@ -30,6 +30,8 @@ import { buildLibraryScene, libraryItemProps, type LibraryItemKind, type Library
 import { libraryProject } from './edit/library';
 import { FORMAT_VERSION } from './model/types';
 import { buildSchematicScene } from './scene/schematic';
+import { blockShapes, type BlockShape } from './scene/blocks';
+import { blockOf, blockPaths, inBlock } from './model/blocks';
 import type { Bounds, Owner, Scene, Target } from './scene/types';
 import { pick, pickBox } from './view/hittest';
 import { displayLayers, layerColor, layerName } from './view/palette';
@@ -165,6 +167,9 @@ const ercShown = new Set<string>();
 
 /** Show poured copper, or only pour outlines. */
 let showPours = storeGet('osprey.showPours') !== 'no';
+/** Show block outlines (Shift+B), and the outlines of the current view. */
+let showBlocks = storeGet('osprey.showBlocks') !== 'no';
+let blocks: BlockShape[] = [];
 
 /** Nets whose airwires are hidden (a view choice, per open project), and whether that list is open. */
 const hiddenAirwires = new Set<string>();
@@ -620,6 +625,7 @@ function rebuildScene(opts: { fit: boolean; keepSelection: boolean }): void {
   try {
     const scene = buildScene();
     index = scene ? indexScene(scene) : undefined;
+    blocks = project && index ? blockShapes(project, index) : [];
   } catch (e) {
     index = undefined;
     showError(`Could not display the ${view}: ${e instanceof Error ? e.message : String(e)}`);
@@ -633,7 +639,7 @@ function rebuildScene(opts: { fit: boolean; keepSelection: boolean }): void {
   }
   // The layer list changes when it must: a new view, or an edit that adds or empties a layer
   // (e.g. airwires appearing when a trace is deleted).
-  const used = `${index?.usedLayers.join(',') ?? ''}|${view === 'board' && index ? airwireNets(index.scene).map((a) => `${a.net}:${a.count}`).join(',') : ''}`;
+  const used = `${index?.usedLayers.join(',') ?? ''}|${blocks.length ? 'blocks' : ''}|${view === 'board' && index ? airwireNets(index.scene).map((a) => `${a.net}:${a.count}`).join(',') : ''}`;
   if (!opts.keepSelection || used !== listedLayers) renderLayerList();
   listedLayers = used;
   renderInspector();
@@ -1029,30 +1035,18 @@ function reselect(objects: object[]): void {
 function renderLayerList(): void {
   layerList.replaceChildren();
   if (!index) return;
-  // Poured copper on or off (P): a display choice, kept in the browser.
+  // Display choices kept in the browser: poured copper on or off (P), block outlines (Shift+B).
+  const toggles: HTMLLIElement[] = [];
   if (view === 'board' && project?.nets.some((n) => n.pours?.length)) {
-    const li = document.createElement('li');
-    li.className = 'pours-toggle';
-    const label = document.createElement('label');
-    const cb = document.createElement('input');
-    cb.type = 'checkbox';
-    cb.id = 'pours-toggle';
-    cb.checked = showPours;
-    cb.addEventListener('change', () => setShowPours(cb.checked));
-    // Laid out like a layer row: no colour, the key where the layer number goes.
-    const sw = document.createElement('span');
-    sw.className = 'swatch';
-    sw.style.visibility = 'hidden';
-    const key = document.createElement('span');
-    key.className = 'layer-num';
-    key.textContent = 'P';
-    const name = document.createElement('span');
-    name.textContent = 'pour fill';
-    label.append(cb, sw, key, name);
-    label.title = 'Show poured copper, or only the pour outlines (P). Airwires and the DRC count the copper either way.';
-    li.append(label);
-    layerList.append(li);
+    toggles.push(toggleRow('pours-toggle', 'P', 'pour fill', showPours, setShowPours,
+      'Show poured copper, or only the pour outlines (P). Airwires and the DRC count the copper either way.'));
   }
+  if (project && view !== 'library' && blockPaths(project).length) {
+    toggles.push(toggleRow('blocks-toggle', '⇧B', 'blocks', showBlocks, setShowBlocks,
+      'Show the outline of each block of parts (Shift+B). B edits the block of the selected parts.'));
+  }
+  toggles.at(-1)?.classList.add('toggles-end');
+  layerList.append(...toggles);
   for (const n of index.usedLayers) {
     const li = document.createElement('li');
     const label = document.createElement('label');
@@ -1148,6 +1142,39 @@ function setAirwiresHidden(nets: string[], hide: boolean): void {
   rebuildScene({ fit: false, keepSelection: true });
   const what = nets.length > 3 ? `${nets.length} nets` : nets.join(', ');
   flash(`Airwires of ${what} ${hide ? 'hidden' : 'shown'}`);
+}
+
+/** A display choice laid out like a layer row: no colour, its key where the layer number goes. */
+function toggleRow(id: string, keyText: string, text: string, checked: boolean, change: (on: boolean) => void, title: string): HTMLLIElement {
+  const li = document.createElement('li');
+  li.className = 'display-toggle';
+  const label = document.createElement('label');
+  const cb = document.createElement('input');
+  cb.type = 'checkbox';
+  cb.id = id;
+  cb.checked = checked;
+  cb.addEventListener('change', () => change(cb.checked));
+  const sw = document.createElement('span');
+  sw.className = 'swatch';
+  sw.style.visibility = 'hidden';
+  const key = document.createElement('span');
+  key.className = 'layer-num';
+  key.textContent = keyText;
+  const name = document.createElement('span');
+  name.textContent = text;
+  label.append(cb, sw, key, name);
+  label.title = title;
+  li.append(label);
+  return li;
+}
+
+function setShowBlocks(on: boolean): void {
+  showBlocks = on;
+  storeSet('osprey.showBlocks', on ? 'yes' : 'no');
+  const cb = document.getElementById('blocks-toggle') as HTMLInputElement | null;
+  if (cb) cb.checked = on;
+  requestRender();
+  flash(on ? 'Block outlines shown' : 'Block outlines hidden (Shift+B shows them)');
 }
 
 function setShowPours(on: boolean): void {
@@ -1462,6 +1489,8 @@ function renderInspector(): void {
   }
 
   inspector.append(...commandButtons());
+  const bf = blockField();
+  if (bf) inspector.append(bf);
 
   if (owners.length === 1) {
     const fields = propertyFields(owners[0]!);
@@ -1534,6 +1563,91 @@ function commandButtons(): HTMLElement[] {
   }
   out.push(grid);
   return out;
+}
+
+/** Parts of the selection (by their symbols, footprints or labels). */
+function selectedParts(): string[] {
+  const out = new Set<string>();
+  for (const t of selectedTargets()) {
+    if (t.kind === 'gate') out.add(t.gate.part);
+    else if (t.kind === 'footprint') out.add(t.footprint.part);
+    else if (t.kind === 'label') out.add(t.placement.part);
+  }
+  return [...out];
+}
+
+/**
+ * The block of the selected parts: typing a path ("rx/frontend") puts them all in it, a new
+ * block or an existing one (offered as you type); empty takes them out. With the parts in one
+ * block, buttons select the whole block, or the block it is in.
+ */
+function blockField(): HTMLElement | undefined {
+  if (!editable() || !editor || !project) return undefined;
+  const names = selectedParts();
+  if (!names.length) return undefined;
+  const parts = names.map((n) => project!.parts.find((p) => p.name === n)).filter((p): p is O.Part => !!p);
+  const paths = new Set(parts.map((p) => blockOf(p) ?? ''));
+  const common = paths.size === 1 ? [...paths][0]! : undefined;
+  const wrap = document.createElement('div');
+  wrap.className = 'block-field';
+  const table = document.createElement('table');
+  table.className = 'props fields';
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.value = common ?? '';
+  input.placeholder = common === undefined ? 'mixed' : 'none';
+  input.dataset.field = 'block';
+  input.spellcheck = false;
+  input.setAttribute('aria-label', 'Block');
+  input.title = 'The block these parts belong to: a name, or a path such as rx/frontend for a block inside another. Empty takes them out.';
+  const list = document.createElement('datalist');
+  list.id = 'block-paths';
+  for (const p of blockPaths(project)) list.append(new Option(p));
+  input.setAttribute('list', list.id);
+  const done = () => canvas.focus({ preventScroll: true });
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      if (input.value === (common ?? '')) return done();
+      const n = editor!.setBlock(names, input.value);
+      const path = blockOf(parts[0]!);
+      flash(!n ? 'No change' : path ? `${n} part(s) put in block ${path}` : `${n} part(s) taken out of their blocks`);
+      done();
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      input.value = common ?? '';
+      done();
+    }
+  });
+  const tr = document.createElement('tr');
+  const td = document.createElement('td');
+  td.append(input, list);
+  tr.append(el('th', '', 'Block'), td);
+  table.append(tr);
+  wrap.append(table);
+  if (common) {
+    const actions = document.createElement('div');
+    actions.className = 'sel-actions';
+    const sel = button(`Select block ${common.slice(common.lastIndexOf('/') + 1)}`, () => selectBlock(common));
+    sel.title = `Select every part in ${common}, blocks inside it included`;
+    actions.append(sel);
+    const parent = common.includes('/') ? common.slice(0, common.lastIndexOf('/')) : undefined;
+    if (parent) {
+      const up = button(`Select ${parent.slice(parent.lastIndexOf('/') + 1)}`, () => selectBlock(parent));
+      up.title = `Select every part in ${parent}, the block this one is in`;
+      actions.append(up);
+    }
+    wrap.append(actions);
+  }
+  return wrap;
+}
+
+/** Select every part of a block (blocks inside it included) in the current view. */
+function selectBlock(path: string): void {
+  if (!project) return;
+  const parts = new Set(project.parts.filter((p) => inBlock(blockOf(p), path)).map((p) => p.name));
+  selection.select(ownersFor({ parts, nets: new Set() }), 'replace');
+  flash(`Block ${path}: ${parts.size} part(s)`);
 }
 
 function smashCmd(on: boolean): void {
@@ -2019,6 +2133,7 @@ function draw(): void {
       }
       : {}),
     ...(box ? { box: boxSelection(box) } : {}),
+    ...(showBlocks && blocks.length ? { blocks } : {}),
     ...(editable() ? { grid: gridOf() } : {}),
   });
   statusZoom.textContent = `${vp.zoom < 10 ? vp.zoom.toFixed(2) : vp.zoom.toFixed(0)} px/mm`;
@@ -3755,6 +3870,12 @@ window.addEventListener('keydown', (e) => {
   } else if (key === 'v') {
     e.preventDefault();
     focusField(['value']);
+  } else if (key === 'b' && e.shiftKey && project && view !== 'library') {
+    setShowBlocks(!showBlocks);
+  } else if (key === 'b' && project && view !== 'library') {
+    e.preventDefault();
+    if (selectedParts().length) focusField(['block']);
+    else flash('Select the parts to put in a block first');
   } else if (key === 'a' && project && view === 'schematic') {
     e.preventDefault();
     partsFilter.focus();

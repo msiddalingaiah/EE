@@ -174,6 +174,28 @@ describe.skipIf(!findChrome())('editor in the browser', () => {
     }
   });
 
+  it('puts parts in a block from the inspector, outlines it, selects it, and undoes', async () => {
+    const r1 = await footprint('R1');
+    const r2 = await footprint('R2');
+    await d.click(r1.at[0], r1.at[1]);
+    await d.click(r2.at[0], r2.at[1], { modifiers: 8 }); // Shift
+    await d.type('block', ' rx / frontend ');
+    const block = (part: string) => d.evaluate(`__osprey.project.parts.find((p) => p.name === ${JSON.stringify(part)}).attributes?.BLOCK`);
+    expect(await block('R1')).toBe('rx/frontend');
+    expect(await block('R2')).toBe('rx/frontend');
+    expect((await d.state()).undo).toBe('Put 2 parts in block rx/frontend');
+    // The display toggle appears with the first block.
+    expect(await d.evaluate('!!document.getElementById("blocks-toggle")')).toBe(true);
+    // Select the block from one of its parts.
+    await d.key('Escape');
+    await d.click(r1.at[0], r1.at[1]);
+    await d.button('Select block frontend');
+    expect((await d.state()).selection.map((s: { label: string }) => s.label).sort()).toEqual(['R1', 'R2']);
+    await d.key('Ctrl+z');
+    expect(await block('R1')).toBeUndefined();
+    expect(d.problems).toEqual([]);
+  });
+
   it('checks the design rules from the panel', async () => {
     await d.button('#drc-run');
     expect((await d.state()).drc).toEqual([]);

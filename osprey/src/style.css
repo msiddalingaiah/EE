@@ -233,7 +233,7 @@ button:disabled:hover { border-color: var(--border); }
 .panel-actions kbd { font-family: var(--mono); font-size: 11px; color: var(--text-dim); text-transform: none; letter-spacing: 0; }
 #canvas.placing { cursor: copy; }
 #canvas.wiring { cursor: none; }
-.layer-list .pours-toggle { border-bottom: 1px solid var(--border); padding-bottom: 4px; margin-bottom: 4px; }
+.layer-list .toggles-end { border-bottom: 1px solid var(--border); padding-bottom: 4px; margin-bottom: 4px; }
 .layer-field { display: inline-flex; align-items: center; gap: 4px; color: var(--text-dim); }
 .layer-field select { min-width: 5.5em; }
 #pour-btn.active, #wire-btn.active { background: #2b3343; color: var(--accent); border-color: #3d4452; }

@@ -2,6 +2,7 @@
 
 import type { Layer } from '../eagle/types';
 import { boldness, EM_PER_SIZE, glyphPath, layout, unitScale } from '../scene/font';
+import type { BlockShape } from '../scene/blocks';
 import type { SceneIndex } from '../scene/index';
 import type { Bounds, Prim, TextPrim } from '../scene/types';
 import { BACKGROUND, layerAlpha, layerColor } from './palette';
@@ -36,6 +37,8 @@ export interface RenderState {
   handles?: { at: { x: number; y: number }; kind: 'corner' | 'middle'; active: boolean }[];
   /** Design-rule violations to mark (the active one stands out). */
   markers?: { at: { x: number; y: number }; active: boolean }[];
+  /** Block outlines: tinted under the design, outlined and named over it. */
+  blocks?: BlockShape[];
 }
 
 type XY = { x: number; y: number };
@@ -77,6 +80,8 @@ export function render(ctx: CanvasRenderingContext2D, vp: Viewport, dpr: number,
     return pat;
   };
 
+  if (s.blocks) drawBlocks(ctx, vp, dpr, s.blocks, 'fill');
+
   for (const { layer, prims: ids } of s.index.layers) {
     if (!s.visible(layer)) continue;
     const color = layerColor(s.layers.get(layer));
@@ -91,6 +96,8 @@ export function render(ctx: CanvasRenderingContext2D, vp: Viewport, dpr: number,
     const p = prims[i]!;
     if (s.visible(p.layer) && inView(i)) drawPrim(ctx, vp, dpr, p, BACKGROUND, 0);
   }
+
+  if (s.blocks) drawBlocks(ctx, vp, dpr, s.blocks, 'outline');
 
   // Highlights draw over the whole design so selected objects stand out.
   const highlight = (owner: string, color: string, grow: number) => {
@@ -118,6 +125,49 @@ export function render(ctx: CanvasRenderingContext2D, vp: Viewport, dpr: number,
   if (s.markers) drawMarkers(ctx, vp, dpr, s.markers);
   if (s.handles) drawHandles(ctx, vp, dpr, s.handles);
   if (s.sketch) drawSketch(ctx, vp, dpr, s.sketch, (layer) => layerColor(s.layers.get(layer)));
+}
+
+/** Block names are never drawn smaller than this (CSS px). */
+const BLOCK_LABEL_MIN_PX = 8;
+
+/**
+ * Block outlines, in two passes: a faint tint of each block's area under the design (`fill`),
+ * then its outline and its name just above its top-left corner over it (`outline`).
+ */
+function drawBlocks(ctx: CanvasRenderingContext2D, vp: Viewport, dpr: number, blocks: BlockShape[], pass: 'fill' | 'outline'): void {
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  for (const b of blocks) {
+    const path = new Path2D();
+    for (const ring of b.rings) {
+      ring.forEach((p, i) => {
+        const q = vp.toScreen(p.x, p.y);
+        if (i) path.lineTo(q.x, q.y);
+        else path.moveTo(q.x, q.y);
+      });
+      path.closePath();
+    }
+    if (pass === 'fill') {
+      ctx.globalAlpha = 0.09;
+      ctx.fillStyle = b.color;
+      ctx.fill(path, 'evenodd');
+      ctx.globalAlpha = 1;
+      continue;
+    }
+    ctx.globalAlpha = 0.85;
+    ctx.strokeStyle = b.color;
+    ctx.lineWidth = 1.25;
+    ctx.lineJoin = 'miter';
+    ctx.stroke(path);
+    const c = vp.toScreen(b.corner.x, b.corner.y);
+    const px = Math.max(BLOCK_LABEL_MIN_PX, b.labelSize * vp.zoom);
+    ctx.font = `600 ${px}px ${TEXT_FONT}`;
+    ctx.fillStyle = b.color;
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'bottom';
+    ctx.fillText(b.name, c.x + px * 0.2, c.y - px * 0.15);
+    ctx.globalAlpha = 1;
+  }
+  ctx.textBaseline = 'alphabetic';
 }
 
 /**

@@ -152,6 +152,14 @@ native model (see [docs/format.md](docs/format.md)). Eagle files are imported in
   pointed out, as JLCPCB then matches them by hand. Parts without a footprint (supply symbols)
   are left out. A board house's zero rotation for some packages (SOT-23, diodes) differs from
   the library's: their preview shows it, and parts on the bottom are flagged to check.
+- **Blocks** (schematic and board): parts that belong together (a filter, an oscillator) form a
+  block, and blocks can sit inside blocks. Select parts and type a block in the inspector's
+  **Block** field (or B): a name, or a path such as `rx/frontend` for a block inside `rx`; empty
+  takes them out. Each block is outlined with right-angled corners and tinted in its own colour,
+  the same in both views (Shift+B or the blocks checkbox shows or hides the outlines); supply
+  symbols belong to none. **Select block** selects a block's parts, blocks inside it included.
+  A part's block is its BLOCK attribute, so it is kept through Eagle export. Placement is to work
+  block by block.
 - **CAM output** (board): the **CAM…** menu makes the manufacturing files as one zip: Gerber
   (RS-274X with X2 file functions) for copper, solder mask, paste, silkscreen and the board
   outline, and an Excellon drill file (plated and unplated holes merged). The built-in job writes
@@ -296,6 +304,8 @@ OSPREY_CORPUS=~/designs npx vitest run -t corpus
 | Edit a pour's outline (board) | Select it; drag a corner, drag an edge's middle to add a corner, click a corner then Del to remove it |
 | Stretch a drawing line, e.g. resize the board outline | Select the line; drag a handle on its end (lines meeting there follow) |
 | Show / hide pour fill (board) | `P`, or the pour fill checkbox in the Layers panel |
+| Put the selected parts in a block | `B`, type a name or path (`rx/frontend`), Enter; empty takes them out |
+| Show / hide block outlines | Shift+B, or the blocks checkbox in the Layers panel |
 | Design-rule check (board) | Design rules panel: Check; Load rules… for a `.dru` file; click a problem to mark it on the board, again to unmark it |
 | Route traces (board) | `W` or the Route button; click a pad, via or trace end to start, click adds corners, `L` changes layer (adds a via), `/` flips the bend, Shift+click / Shift+L place a leg or via that breaks clearance; ends on copper of the same net, or with a double click, Esc or right-click; Esc again stops |
 | Draw wires (schematic) | `W` or the Wire button; click to start, click adds a corner, `/` flips the bend; a wire ends on a pin or wire, or with a double click, Esc or right-click; Esc again stops |
