@@ -1,6 +1,6 @@
 // Board placement as geometry: each footprint's area and pads (with their nets), what's wrong
 // with a placement (parts overlapping each other, the mounting holes or the board edge), and how
-// good it is (airwire length and crossings, decoupling capacitors' distance from their ICs).
+// good it is (airwire length and crossings, decoupling, the board area the parts need, rows and columns).
 //
 // A footprint's area is the box around its pads and its body as drawn on the silkscreen, fab
 // (Eagle's tDocu), keep-out and restrict layers; names and values aren't part of it. Boxes are
@@ -10,7 +10,7 @@ import { arcFromChord, arcPoints } from '../geom/arc';
 import type { Point, Transform } from '../geom/transform';
 import { apply, compose, placement } from '../geom/transform';
 import { padShapes, transformShape } from './copper';
-import { netPads, ProjectIndex } from './derive';
+import { netPads, ProjectIndex, supplySource } from './derive';
 import { designRules, footprintTransform } from './geometry';
 import { ratsnest } from './ratsnest';
 import { DesignRules } from './rules';
@@ -197,13 +197,19 @@ export function boardArea(board: O.Board): BoardArea | undefined {
 // Problems
 
 export interface PlacementRules {
-  /** Space to keep between parts (mm). */
+  /** Space to keep between two through-hole parts (mm). */
   clearance: number;
+  /** Space to keep when either part is SMD (mm): SMD parts can sit closer. */
+  smdClearance: number;
   /** Space to keep between parts and the board edge or holes (mm). */
   edge: number;
 }
 
-export const DEFAULT_PLACEMENT_RULES: PlacementRules = { clearance: 0.25, edge: 0.5 };
+export const DEFAULT_PLACEMENT_RULES: PlacementRules = { clearance: 0.25, smdClearance: 0.15, edge: 0.5 };
+
+/** The space to keep between two parts. */
+export const partClearance = (rules: PlacementRules, a: { smd: boolean }, b: { smd: boolean }) =>
+  a.smd || b.smd ? rules.smdClearance : rules.clearance;
 
 /** Shortfalls smaller than this (mm) don't count: positions are rounded to 0.01 mm. */
 export const TOLERANCE = 0.005;
@@ -229,7 +235,7 @@ export function placementIssues(project: O.Project, rules = DEFAULT_PLACEMENT_RU
       // A top SMD part and a bottom SMD part don't collide.
       if (a.smd && b.smd && (a.placement.side === 'bottom') !== (b.placement.side === 'bottom')) continue;
       const gap = rectGap(a.box, b.box);
-      if (gap < rules.clearance - TOLERANCE) out.push({ kind: 'overlap', parts: [a.part, b.part], gap });
+      if (gap < partClearance(rules, a, b) - TOLERANCE) out.push({ kind: 'overlap', parts: [a.part, b.part], gap });
     }
   }
   for (const f of on) {
@@ -273,25 +279,37 @@ export interface PlacementMetrics {
   /** Pairs of airwires that cross. */
   crossings: number;
   /**
-   * The same without ground nets (GND, AGND, …), which a ground pour or plane usually connects:
-   * what placement should shorten and untangle.
+   * The same without supply nets (ground, VCC, …), which pours, planes or a few wide traces
+   * connect wherever the parts are: what placement should shorten and untangle.
    */
   signalLength: number;
   signalCrossings: number;
   decoupling: Decoupling[];
 }
 
-/** Ground nets: connected by a pour or plane on most boards, so not placement's concern. */
+/** Ground nets, by name (GND, AGND, VSS, …). */
 export const isGroundNet = (net: string) => GROUND.test(net);
 
-export function placementMetrics(project: O.Project, infos = footprintInfos(project)): PlacementMetrics {
+/**
+ * Supply nets: ground, and nets named by a supply symbol or by power pins (VCC, say). Placement
+ * mostly leaves them aside: they only need a path to every power pin, which a pour, a plane or a
+ * few wide traces give whatever the arrangement.
+ */
+export function supplyNets(project: O.Project, index = new ProjectIndex(project)): Set<string> {
+  const out = new Set<string>();
+  for (const n of project.nets) if (isGroundNet(n.name) || supplySource(project, n, index)) out.add(n.name);
+  return out;
+}
+
+export function placementMetrics(project: O.Project, infos = footprintInfos(project), supplies = supplyNets(project)): PlacementMetrics {
   const air = ratsnest(project);
+  const signal = (net: string) => !supplies.has(net) && !isGroundNet(net);
   let length = 0;
   let signalLength = 0;
   for (const a of air) {
     const l = Math.hypot(a.to[0] - a.from[0], a.to[1] - a.from[1]);
     length += l;
-    if (!isGroundNet(a.net)) signalLength += l;
+    if (signal(a.net)) signalLength += l;
   }
   let crossings = 0;
   let signalCrossings = 0;
@@ -299,10 +317,86 @@ export function placementMetrics(project: O.Project, infos = footprintInfos(proj
     for (let j = i + 1; j < air.length; j++) {
       if (!cross(air[i]!.from, air[i]!.to, air[j]!.from, air[j]!.to)) continue;
       crossings++;
-      if (!isGroundNet(air[i]!.net) && !isGroundNet(air[j]!.net)) signalCrossings++;
+      if (signal(air[i]!.net) && signal(air[j]!.net)) signalCrossings++;
     }
   }
   return { airwires: air.length, length, crossings, signalLength, signalCrossings, decoupling: decoupling(infos) };
+}
+
+// ---------------------------------------------------------------------------
+// The score
+
+/** What each thing costs, in mm of signal airwire. */
+export const SCORE_WEIGHTS = {
+  /** Per crossing of two signal airwires. */
+  crossing: 3,
+  /** Per mm from a decoupling capacitor to its IC power pin. */
+  decoupling: 2,
+  /** Per mm² of the box around all the parts: the board they need, which is what it costs. */
+  area: 0.1,
+  /** Per mm a part is off the nearest row or column line of a neighbour (see `misalignment`). */
+  misalignment: 5,
+};
+
+/** Neighbours a part lines up with are within this distance (centre to centre, mm). */
+const ALIGN_RADIUS = 8;
+/** A part this far (mm) or more off every neighbour's lines counts as not lined up at all. */
+const ALIGN_CAP = 1;
+
+export interface PlacementScore {
+  signalLength: number;
+  signalCrossings: number;
+  /** Sum of decoupling capacitors' distances to their IC power pins (mm). */
+  decoupling: number;
+  /** The box around all the parts on the board (mm²). */
+  area: number;
+  /** Sum over parts of how far each is off lining up with a neighbour (mm, see `misalignment`). */
+  misalignment: number;
+  /** All of it, weighted (SCORE_WEIGHTS): lower is better. */
+  total: number;
+}
+
+/**
+ * How good a placement is, as one number (lower is better) and its parts: short, untangled
+ * signal airwires, decoupling caps at their pins, a small board, and parts in rows and columns.
+ */
+export function placementScore(project: O.Project, infos = footprintInfos(project)): PlacementScore {
+  const area = project.board && boardArea(project.board);
+  const on = area ? infos.filter((f) => onBoard(f.box, area.outline)) : infos;
+  const m = placementMetrics(project, infos);
+  const box = empty();
+  for (const f of on) {
+    extend(box, f.box.minX, f.box.minY);
+    extend(box, f.box.maxX, f.box.maxY);
+  }
+  const s = {
+    signalLength: m.signalLength,
+    signalCrossings: m.signalCrossings,
+    decoupling: m.decoupling.reduce((t, d) => t + d.distance, 0),
+    area: on.length ? rectWidth(box) * rectHeight(box) : 0,
+    misalignment: misalignment(on.map((f) => rectCenter(f.box))),
+  };
+  const w = SCORE_WEIGHTS;
+  const total = s.signalLength + w.crossing * s.signalCrossings + w.decoupling * s.decoupling + w.area * s.area + w.misalignment * s.misalignment;
+  return { ...s, total };
+}
+
+/**
+ * How far parts are from rows and columns: for each part, the smallest offset in x or y between
+ * its centre and a neighbour's (within ALIGN_RADIUS), capped at ALIGN_CAP, summed. Zero when
+ * every part shares a centre line with some neighbour.
+ */
+export function misalignment(centers: Point[]): number {
+  let sum = 0;
+  centers.forEach((a, i) => {
+    let best = ALIGN_CAP;
+    centers.forEach((b, j) => {
+      if (i === j || Math.hypot(a.x - b.x, a.y - b.y) > ALIGN_RADIUS) return;
+      best = Math.min(best, Math.abs(a.x - b.x), Math.abs(a.y - b.y));
+    });
+    sum += best;
+  });
+  return sum;
 }
 
 /** Do segments ab and cd cross at a point that isn't an end of either? */

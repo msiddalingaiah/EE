@@ -7,7 +7,7 @@
 
 import { ProjectIndex } from '../model/derive';
 import type { FootprintInfo, PlacementIssue, PlacementRules, Rect } from '../model/placement';
-import { boardArea, DEFAULT_PLACEMENT_RULES, footprintInfos, onBoard, placementIssues, TOLERANCE } from '../model/placement';
+import { boardArea, DEFAULT_PLACEMENT_RULES, footprintInfos, onBoard, partClearance, placementIssues, TOLERANCE } from '../model/placement';
 import type * as O from '../model/types';
 import type { Transaction } from './ops';
 import { transformTargets, translation } from './transform';
@@ -74,7 +74,7 @@ export function legalize(
         const share = ma && mb ? 0.5 : 1;
         // Push i away from j, and j by the opposite of i's move.
         const before = { ...push[i]! };
-        if (!separate(i, box(j), rules.clearance, 1)) continue;
+        if (!separate(i, box(j), partClearance(rules, a, b), 1)) continue;
         conflicts++;
         const mx = push[i]!.x - before.x;
         const my = push[i]!.y - before.y;

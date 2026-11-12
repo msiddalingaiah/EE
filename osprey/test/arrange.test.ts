@@ -34,7 +34,7 @@ describe('beside a pad or part', () => {
     const before = placementMetrics(p).decoupling.find((d) => d.part === 'C8')!.distance;
     run((a) => a.near('C8', 'U1.1', { pad: '1' }));
     // U1 pin 1 (VDD) is on its top edge, so C8 goes above, pad 1 straight above pin 1.
-    expect(box('C8').minY).toBeGreaterThanOrEqual(box('U1').maxY + 0.25 - 1e-6);
+    expect(box('C8').minY).toBeGreaterThanOrEqual(box('U1').maxY + 0.15 - 1e-6);
     expect(pad('C8', '1').at.x).toBeCloseTo(pad('U1', '1').at.x, 2);
     const after = placementMetrics(p).decoupling.find((d) => d.part === 'C8')!.distance;
     expect(after).toBeLessThan(before);

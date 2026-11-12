@@ -1,16 +1,16 @@
 // Local improvement of a placement: small moves (toward what a part connects to, nudges, swaps
 // of like parts, rotations) kept when they make the placement better and leave it legal.
 //
-// "Better" is a score: the length of the airwires on signal nets (ground aside: a pour connects
-// it), plus a cost per crossing, plus decoupling capacitors' distance from the IC power pins they
-// serve. Airwires here are each net's minimum spanning tree over its pads: right for an unrouted
-// board, which is when placement is done. The search runs on its own copy of the geometry
-// (footprint shapes per rotation are computed once), so thousands of moves take a moment; the
-// result is then applied through the move command.
+// "Better" is a score: the length of the airwires on signal nets (supply nets aside: pours and
+// planes connect them), plus a cost per crossing, plus decoupling capacitors' distance from the
+// IC power pins they serve. Airwires here are each net's minimum spanning tree over its pads:
+// right for an unrouted board, which is when placement is done. The search runs on its own copy
+// of the geometry (footprint shapes per rotation are computed once), so thousands of moves take a
+// moment; the result is then applied through the move command.
 
 import type { Point } from '../geom/transform';
 import type { Rect } from '../model/placement';
-import { boardArea, footprintInfo, footprintInfos, isGroundNet, onBoard, rectCenter, rectGap, TOLERANCE } from '../model/placement';
+import { boardArea, footprintInfo, footprintInfos, isGroundNet, onBoard, partClearance, rectCenter, rectGap, supplyNets, TOLERANCE } from '../model/placement';
 import type { Arrange } from './arrange';
 
 export interface ImproveOptions {
@@ -108,11 +108,12 @@ export function improve(arr: Arrange, opts: ImproveOptions = {}): ImproveResult 
   };
   const padsOf = (s: PartState) => shape(s, s.rot).pads.map((q) => ({ net: q.net, x: q.x + s.at.x, y: q.y + s.at.y }));
 
-  // Nets that count, and which parts are on each.
+  // Nets that count (supply nets aside), and which parts are on each.
+  const supplies = supplyNets(project, arr.index);
   const netParts = new Map<string, Set<PartState>>();
   for (const s of states) {
     for (const q of shape(s, s.rot).pads) {
-      if (!q.net || isGroundNet(q.net)) continue;
+      if (!q.net || isGroundNet(q.net) || supplies.has(q.net)) continue;
       let set = netParts.get(q.net);
       if (!set) netParts.set(q.net, (set = new Set()));
       set.add(s);
@@ -204,7 +205,7 @@ export function improve(arr: Arrange, opts: ImproveOptions = {}): ImproveResult 
     for (const t of states) {
       if (t === s) continue;
       if (s.smd && t.smd && s.bottom !== t.bottom) continue;
-      if (rectGap(b, boxOf(t)) < rules.clearance - TOLERANCE) return false;
+      if (rectGap(b, boxOf(t)) < partClearance(rules, s, t) - TOLERANCE) return false;
     }
     return true;
   };

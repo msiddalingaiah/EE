@@ -80,6 +80,28 @@ export function netPads(project: Project, index = new ProjectIndex(project)): Ma
   return out;
 }
 
+/**
+ * What makes a net a supply net, if anything: a supply symbol on it (`symbol`), or power pins
+ * that connect to it by name (`pin`, Eagle's implicit power connections). `part` is the part.
+ */
+export function supplySource(project: Project, net: Net, index = new ProjectIndex(project)): { part: string; by: 'symbol' | 'pin' } | undefined {
+  const pinOf = (part: string, gate: string, pin: string) => {
+    const g = index.components.get(index.parts.get(part)?.component ?? '')?.gates.find((x) => x.name === gate);
+    return g ? index.symbols.get(g.symbol)?.pins.find((p) => p.name === pin) : undefined;
+  };
+  for (const seg of net.segments ?? []) {
+    for (const pr of seg.pins) if (pinOf(pr.part, pr.gate, pr.pin)?.direction === 'supply') return { part: pr.part, by: 'symbol' };
+  }
+  for (const part of project.parts) {
+    for (const gate of index.components.get(part.component)?.gates ?? []) {
+      for (const pin of index.symbols.get(gate.symbol)?.pins ?? []) {
+        if (pin.direction === 'power' && pin.name.replace(/@.*$/, '') === net.name) return { part: part.name, by: 'pin' };
+      }
+    }
+  }
+  return undefined;
+}
+
 export function netByName(project: Project, name: string): Net | undefined {
   return project.nets.find((n) => n.name === name);
 }

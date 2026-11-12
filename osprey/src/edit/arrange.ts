@@ -10,7 +10,7 @@ import type { Point } from '../geom/transform';
 import { ProjectIndex } from '../model/derive';
 import type { FootprintInfo, PlacementMetrics, PlacementRules, Rect } from '../model/placement';
 import {
-  boardArea, DEFAULT_PLACEMENT_RULES, footprintInfo, footprintInfos, onBoard, placementMetrics, rectCenter, rectGap, TOLERANCE,
+  boardArea, DEFAULT_PLACEMENT_RULES, footprintInfo, footprintInfos, onBoard, partClearance, placementMetrics, rectCenter, rectGap, TOLERANCE,
 } from '../model/placement';
 import type * as O from '../model/types';
 import { improve, type ImproveOptions, type ImproveResult } from './improve';
@@ -134,8 +134,8 @@ export class Arrange {
     if (aPad !== undefined && !pad) throw new Error(`${aPart} has no pad ${aPad}`);
     const side = opts.side ?? (pad ? sideOf(a.box, pad.at) : undefined);
     if (!side) throw new Error('near: give a side when the anchor is a whole part');
-    const gap = opts.gap ?? this.rules.clearance;
     const f = this.fp(part);
+    const gap = opts.gap ?? partClearance(this.rules, this.info(part), a);
     const rot = typeof opts.rot === 'number' ? opts.rot : f.rot ?? 0;
     const target = pad ? pad.at : rectCenter(a.box);
     const at = this.besideSpot(part, rot, a.box, side, gap, target, opts.pad);
@@ -180,7 +180,7 @@ export class Arrange {
       if (other.part === part) continue;
       if (area && !onBoard(other.box, area.outline)) continue;
       if (b.smd && other.smd && (other.placement.side === 'bottom') !== (this.fp(part).side === 'bottom')) continue;
-      if (rectGap(b.box, other.box) < this.rules.clearance - TOLERANCE) return false;
+      if (rectGap(b.box, other.box) < partClearance(this.rules, b, other) - TOLERANCE) return false;
     }
     return true;
   }
@@ -209,15 +209,17 @@ export class Arrange {
    */
   row(parts: string[], start: Point, opts: { dir?: 'right' | 'left' | 'up' | 'down'; gap?: number; rot?: number } = {}): void {
     const dir = opts.dir ?? 'right';
-    const gap = opts.gap ?? this.rules.clearance;
     let c = { ...start };
     let prev: Rect | undefined;
+    let prevInfo: { smd: boolean } | undefined;
     for (const part of parts) {
       const rot = opts.rot ?? this.fp(part).rot ?? 0;
-      const size = this.info(part, { rot }).box;
+      const info = this.info(part, { rot });
+      const size = info.box;
       const w = size.maxX - size.minX;
       const h = size.maxY - size.minY;
-      if (prev) {
+      if (prev && prevInfo) {
+        const gap = opts.gap ?? partClearance(this.rules, prevInfo, info);
         const pw = prev.maxX - prev.minX;
         const ph = prev.maxY - prev.minY;
         if (dir === 'right') c = { x: c.x + pw / 2 + gap + w / 2, y: c.y };
@@ -227,6 +229,7 @@ export class Arrange {
       }
       this.moveTo(part, this.originFor(part, rot, c), rot);
       prev = this.info(part).box;
+      prevInfo = info;
     }
   }
 

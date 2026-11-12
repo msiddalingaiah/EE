@@ -51,11 +51,11 @@ describe('footprint geometry', () => {
 });
 
 describe('placement checks and measures', () => {
-  it('finds the sample\'s tight spots, and a crystal pushed into its neighbours', () => {
-    // The hand layout has two pairs a little under the 0.25 mm part spacing.
-    expect(kinds()).toEqual(['R11/X1', 'R7/C6']);
+  it('finds a crystal pushed into its neighbours', () => {
+    // The hand layout's tightest gaps (0.16 mm, beside SMD parts) are within the SMD spacing.
+    expect(kinds()).toEqual([]);
     fp('X1').at = [fp('X1').at[0] - 2, fp('X1').at[1]];
-    const issues = placementIssues(p).filter((i) => !(i.kind === 'overlap' && i.parts.join('/') === 'R7/C6'));
+    const issues = placementIssues(p);
     expect(issues.length).toBeGreaterThan(1);
     for (const i of issues) expect(i.kind === 'overlap' ? i.parts : [i.part]).toContain('X1');
   });

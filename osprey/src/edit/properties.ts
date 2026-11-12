@@ -4,7 +4,7 @@
 // a message instead of changing anything when the edit isn't allowed.
 
 import { composeRotation } from '../geom/transform';
-import { componentName, ProjectIndex } from '../model/derive';
+import { componentName, ProjectIndex, supplySource } from '../model/derive';
 import { footprintTransform, gateTransform, mirrorLayer, rotation } from '../model/geometry';
 import type * as O from '../model/types';
 import { apply } from '../geom/transform';
@@ -72,31 +72,13 @@ export function renameNet(project: O.Project, oldName: string, raw: string, tx: 
   return undefined;
 }
 
-function pinOf(index: ProjectIndex, partName: string, gateName: string, pinName: string): O.Pin | undefined {
-  const component = index.components.get(index.parts.get(partName)?.component ?? '');
-  const gate = component?.gates.find((g) => g.name === gateName);
-  return gate ? index.symbols.get(gate.symbol)?.pins.find((p) => p.name === pinName) : undefined;
-}
-
 /** Why a net's name is fixed by power connections, if it is. */
 export function supplyReason(project: O.Project, net: O.Net, index: ProjectIndex): string | undefined {
-  for (const seg of net.segments ?? []) {
-    for (const pr of seg.pins) {
-      if (pinOf(index, pr.part, pr.gate, pr.pin)?.direction === 'supply') {
-        return `${net.name} is named by its supply symbol (${pr.part}); it can't be renamed`;
-      }
-    }
-  }
-  for (const part of project.parts) {
-    for (const gate of index.components.get(part.component)?.gates ?? []) {
-      for (const pin of index.symbols.get(gate.symbol)?.pins ?? []) {
-        if (pin.direction === 'power' && pin.name.replace(/@.*$/, '') === net.name) {
-          return `${net.name} is a supply net (power pins of ${part.name} connect to it by name); it can't be renamed`;
-        }
-      }
-    }
-  }
-  return undefined;
+  const s = supplySource(project, net, index);
+  if (!s) return undefined;
+  return s.by === 'symbol'
+    ? `${net.name} is named by its supply symbol (${s.part}); it can't be renamed`
+    : `${net.name} is a supply net (power pins of ${s.part} connect to it by name); it can't be renamed`;
 }
 
 // ---------------------------------------------------------------------------
