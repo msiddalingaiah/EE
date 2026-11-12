@@ -234,13 +234,17 @@ export function renameItem(lib: O.Library, kind: ItemKind, item: Item, raw: stri
   return undefined;
 }
 
+/** Give an item a new id, where the new id sorts (files stay in name order); references follow. */
 function renameId(lib: O.Library, kind: ItemKind, item: Item, id: string, tx: Transaction): void {
   const old = item.id;
   for (const c of lib.components) {
     if (kind === 'symbol') for (const g of c.gates) if (g.symbol === old) tx.run(set(g, { symbol: id }));
     if (kind === 'footprint') for (const v of c.variants) if (v.footprint === old) tx.run(set(v, { footprint: id }));
   }
+  const list = listOf(lib, kind) as Item[];
+  tx.run(remove(list, item));
   tx.run(set(item, { id }));
+  insertSorted(list, item, tx);
 }
 
 /**

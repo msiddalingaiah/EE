@@ -127,20 +127,27 @@ describe.skipIf(!findChrome())('libraries in the browser', () => {
     await new Promise((r) => setTimeout(r, 100)); // let the download finish writing
     return readFileSync(file, 'utf8');
   };
-  const sample = readFileSync(join(ROOT, 'samples', 'osprey', 'madhu.ospreylib'), 'utf8');
+  /** The sample library (edited in Osprey since its import, so its counts aren't fixed). */
+  const sample = JSON.parse(readFileSync(join(ROOT, 'samples', 'osprey', 'madhu.ospreylib'), 'utf8')) as { library: Record<'components' | 'symbols' | 'footprints', unknown[]> };
+  const counts = (selected: 'Components' | 'Symbols' | 'Footprints') =>
+    (['components', 'symbols', 'footprints'] as const).map((k) => {
+      const label = k[0]!.toUpperCase() + k.slice(1);
+      return `${label === selected ? '*' : ''}${label}${sample.library[k].length}`;
+    });
 
   it('imports an Eagle library, saves it as an Osprey library, and exports it back to Eagle', async () => {
+    globalThis.DOMParser ??= new JSDOM().window.DOMParser;
+    const imported = writeLibrary(importLibraryFile('madhu.lbr', parseEagle(readFileSync(join(ROOT, 'samples', 'eagle', 'madhu.lbr'), 'utf8'))));
     await d.open('madhu.lbr');
     expect((await d.state()).view).toBe('library');
     expect(await d.evaluate('document.getElementById("doc-title").textContent')).toBe('madhu — Library');
     await d.downloads(dir);
     await d.button('#save-btn');
-    expect(await downloaded('madhu.ospreylib')).toBe(sample);
+    expect(await downloaded('madhu.ospreylib')).toBe(imported);
     await d.button('#export-btn');
     const lbr = await downloaded('madhu.lbr');
-    // The UI tests run in Node, which has no DOMParser; the Eagle parser needs one.
-    globalThis.DOMParser ??= new JSDOM().window.DOMParser;
-    expect(writeLibrary(importLibraryFile('madhu.lbr', parseEagle(lbr)))).toBe(sample);
+    // (The UI tests run in Node, which has no DOMParser: the Eagle parser uses jsdom's.)
+    expect(writeLibrary(importLibraryFile('madhu.lbr', parseEagle(lbr)))).toBe(imported);
     expect(d.problems).toEqual([]);
   });
 
@@ -250,18 +257,18 @@ describe.skipIf(!findChrome())('libraries in the browser', () => {
     await d.open('madhu.ospreylib');
     const tabs = () => d.evaluate<string[]>(`[...document.querySelectorAll('#library-tabs button')].map((b) => (b.getAttribute('aria-selected') === 'true' ? '*' : '') + b.textContent)`);
     const listed = () => d.evaluate<string[]>(`[...document.querySelectorAll('#library-list button')].map((b) => b.textContent)`);
-    expect(await tabs()).toEqual(['*Components135', 'Symbols111', 'Footprints123']);
+    expect(await tabs()).toEqual(counts('Components'));
     expect(await listed()).toContain('1N4001');
     expect(await listed()).not.toContain('DO-41');
     // A component links to its gates' symbols and its variant's footprint.
     await d.button('#library-list button[title="madhu/1N4001"]');
     await d.button('#inspector [data-link="footprint:madhu/DO-41"]');
-    expect(await tabs()).toEqual(['Components135', 'Symbols111', '*Footprints123']);
+    expect(await tabs()).toEqual(counts('Footprints'));
     expect(await d.evaluate('document.querySelector("#library-list .active").textContent')).toBe('DO-41');
     // The footprint links back to the components that use it.
     expect(await d.evaluate('document.querySelector("#inspector .links").textContent')).toBe('Used by: 1N4001, 1N4733');
     await d.button('#inspector [data-link="component:madhu/1N4733"]');
-    expect(await tabs()).toEqual(['*Components135', 'Symbols111', 'Footprints123']);
+    expect(await tabs()).toEqual(counts('Components'));
     await d.button('#inspector [data-link="symbol:madhu/DIODE-ZENER"]');
     expect(await d.evaluate('document.querySelector("#inspector input[data-field=item-name]").value')).toBe('DIODE-ZENER');
     // The filter matches descriptions too, and the counts follow it.

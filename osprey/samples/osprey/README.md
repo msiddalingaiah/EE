@@ -11,8 +11,9 @@ intended change to either, regenerate the sample and review the diff:
 npm run samples
 ```
 
-`madhu.ospreylib` is the import of the Eagle library `../eagle/madhu.lbr`, kept in step the
-same way.
+`madhu.ospreylib` started as the import of the Eagle library `../eagle/madhu.lbr` and is
+edited in Osprey since, so it isn't regenerated: the test only checks that it is a library
+file in the canonical layout whose components' symbols and footprints all exist.
 
 `wwvbfind.osprey` is the WWVB finder (ATtiny412, MPF102/2N3904 front end, 20 MHz Pierce
 oscillator): a schematic and board placement generated from a circuit description by a

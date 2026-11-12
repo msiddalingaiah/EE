@@ -129,6 +129,20 @@ describe('library drawing and items', () => {
     expect(writeLibrary(f)).toBe(TEXT);
   });
 
+  it('keeps items in name order when one is renamed (and puts it back on undo)', () => {
+    const ids = () => f.library.symbols.map((s) => s.id);
+    const at = ids().indexOf('madhu/DIODE');
+    ed.renameLibraryItem('symbol', diode, 'ZZ-DIODE');
+    // It moved: the symbol before it sorts before it, and the one after (if any) after it.
+    const i = ids().indexOf('madhu/ZZ-DIODE');
+    expect(i).toBeGreaterThan(at);
+    expect(ids()[i - 1]!.localeCompare('madhu/ZZ-DIODE')).toBeLessThan(0);
+    if (i + 1 < ids().length) expect(ids()[i + 1]!.localeCompare('madhu/ZZ-DIODE')).toBeGreaterThan(0);
+    ed.undo();
+    expect(ids().indexOf('madhu/DIODE')).toBe(at);
+    expect(writeLibrary(f)).toBe(TEXT);
+  });
+
   it('renames the library, and the ids that carry its name', () => {
     expect(ed.renameLibrary(f, 'parts')).toBeUndefined();
     expect(f.name).toBe('parts');
