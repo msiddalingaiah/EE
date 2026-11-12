@@ -16,6 +16,13 @@ native model (see [docs/format.md](docs/format.md)). Eagle files are imported in
   The Library panel lists components, symbols or footprints (tabs, with counts), filtered by
   name or description. A component links to its gates' symbols and its variants' footprints,
   and a symbol or footprint to the components that use it.
+- **Duplicating and copying** (library): **Duplicate** (in the inspector) copies the open item
+  as NAME-2; a duplicated component uses the same symbols and footprints. **Copy from…** (Library
+  panel) lists another library's items, or a project's library (projects imported from Eagle
+  often hold parts in no `.lbr`), to click and copy into the open library, renamed to its name
+  ("madhu/DIODE" → "mine/DIODE"). A component brings its symbols and footprints; an item already
+  here with the same content is reused, and a different one of the same name is copied as NAME-2
+  rather than overwritten.
 - **Editing symbols and footprints** (library): pins, pads, lines, shapes and text are objects
   of their own, selected, moved (symbols on a 0.1 inch grid, footprints on 0.635 mm; Alt for the
   fine grid), rotated, mirrored and deleted as on a sheet or board, with undo. The inspector

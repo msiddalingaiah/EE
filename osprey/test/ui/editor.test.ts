@@ -272,6 +272,29 @@ describe.skipIf(!findChrome())('libraries in the browser', () => {
     expect(d.problems).toEqual([]);
   });
 
+  it('copies items from another library and from a project, and duplicates one', async () => {
+    await d.open('madhu.ospreylib');
+    await d.button('#new-lib-btn');
+    await d.type('library-name', 'mine');
+    await d.choose('#copy-from', 'lib:madhu.ospreylib');
+    expect(await d.evaluate('document.getElementById("copy-banner").hidden')).toBe(false);
+    await d.button('#library-list button[title="Copy 1N4001 into mine"]');
+    expect((await d.state()).status).toBe('Copied 1N4001 as 1N4001 (with DIODE, DO-41, DO-41V)');
+    await d.button('#library-list button[title="Copy 1N914 into mine"]');
+    expect((await d.state()).status).toBe('Copied 1N914 as 1N914 (with DO-35, DO-35V; DIODE already here)');
+    expect(await d.evaluate('document.querySelector("#library-list button.copied")?.textContent')).toBe('1N4001');
+    // A project's library is a source too.
+    await d.choose('#copy-from', 'project:../samples/osprey/wwvbfind.osprey');
+    await d.button('#library-list button[title="Copy ATTINY412 into mine"]');
+    await d.button('Done');
+    expect(await lib('lib.components.map((c) => c.id)')).toEqual(['mine/1N4001', 'mine/1N914', 'mine/ATTINY412']);
+    expect(await d.evaluate('document.querySelector("#inspector input[data-field=item-name]").value')).toBe('1N4001');
+    await d.button('#inspector [data-action="duplicate"]');
+    expect(await d.evaluate('document.querySelector("#inspector input[data-field=item-name]").value')).toBe('1N4001-2');
+    expect((await d.state()).undo).toBe('Duplicate component 1N4001');
+    expect(d.problems).toEqual([]);
+  });
+
   it('opens an Osprey library, and places parts from one', async () => {
     await d.open('madhu.ospreylib');
     expect((await d.state()).view).toBe('library');

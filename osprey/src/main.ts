@@ -60,6 +60,9 @@ const libraryPanel = $<HTMLElement>('library-panel');
 const libraryFilter = $<HTMLInputElement>('library-filter');
 const libraryList = $<HTMLDivElement>('library-list');
 const libraryTabs = $<HTMLDivElement>('library-tabs');
+const copyFrom = $<HTMLSelectElement>('copy-from');
+const copyInput = $<HTMLInputElement>('copy-input');
+const copyBanner = $<HTMLDivElement>('copy-banner');
 const inspector = $<HTMLDivElement>('inspector');
 const errorBox = $<HTMLDivElement>('error');
 const dropOverlay = $<HTMLDivElement>('drop-overlay');
@@ -129,6 +132,8 @@ const layerMap = new Map<number, Layer>(layers.map((l) => [l.number, l]));
 let visibility = new Map<number, boolean>();
 let hover: string | undefined;
 let libraryItem: LibraryItemRef | undefined;
+/** Copying into the open library: where from, and which of its items were copied. */
+let copySource: { name: string; lib: O.Library; copied: Set<string> } | undefined;
 /** Which kind of item the library list shows. */
 let libraryTab: LibraryItemKind = 'component';
 /** The library item shown, as an object: its id changes when it (or the library) is renamed. */
@@ -351,7 +356,11 @@ function openSources(sources: SourceFile[], initialView?: ViewKind): void {
     libraryItem = undefined;
     hiddenAirwires.clear();
     hideError();
-    if (library) setupLibrary();
+    if (library) {
+      copySource = undefined;
+      renderCopySources();
+      setupLibrary();
+    }
     const vs = views();
     showView(initialView && vs.includes(initialView) ? initialView : vs[0]!, false);
     if (importReport.length) flash(`Imported with ${importReport.length} note(s); see the Project panel`);
@@ -1153,7 +1162,8 @@ function itemsOf(lib: O.Library, kind: LibraryItemKind): (O.Symbol | O.Footprint
  * are), filtered by name or description. The item shown is scrolled into view.
  */
 function renderLibraryList(): void {
-  const lib = library?.lib;
+  renderCopyBanner();
+  const lib = copySource?.lib ?? library?.lib;
   libraryList.replaceChildren();
   if (!lib) return;
   const q = libraryFilter.value.trim().toLowerCase();
@@ -1161,12 +1171,12 @@ function renderLibraryList(): void {
     !q || componentName(item.id).toLowerCase().includes(q) || (item.description ?? '').replace(/<[^>]*>/g, ' ').toLowerCase().includes(q);
   for (const tab of libraryTabs.querySelectorAll<HTMLButtonElement>('button')) {
     const kind = tab.dataset.kind as LibraryItemKind;
-    const all = itemsOf(lib, kind);
+    const all = itemsOf(lib, kind).filter((i) => !i.id.endsWith('#footprint'));
     const n = q ? all.filter(matches).length : all.length;
     tab.replaceChildren(document.createTextNode(tab.title || tab.textContent!.replace(/\s*\d+$/, '')), el('span', 'count', String(n)));
     tab.setAttribute('aria-selected', String(kind === libraryTab));
   }
-  const items = itemsOf(lib, libraryTab).filter(matches).map((i) => i.id).sort();
+  const items = itemsOf(lib, libraryTab).filter((i) => !i.id.endsWith('#footprint')).filter(matches).map((i) => i.id).sort();
   if (!items.length) {
     libraryList.append(el('p', 'empty', q ? 'Nothing matches.' : `No ${libraryTab}s yet.`));
     return;
@@ -1178,11 +1188,18 @@ function renderLibraryList(): void {
     btn.textContent = componentName(id);
     btn.title = id;
     btn.dataset.kind = libraryTab;
+    const kind = libraryTab;
+    if (copySource) {
+      if (copySource.copied.has(`${kind}:${id}`)) btn.className = 'copied';
+      btn.title = `Copy ${componentName(id)} into ${library?.file.name ?? 'this library'}`;
+      btn.addEventListener('click', () => copyItemFromSource(kind, id));
+      libraryList.append(btn);
+      continue;
+    }
     if (libraryItem?.kind === libraryTab && libraryItem.id === id) {
       btn.className = 'active';
       active = btn;
     }
-    const kind = libraryTab;
     btn.addEventListener('click', () => showLibraryItem(kind, id));
     libraryList.append(btn);
   }
@@ -1197,6 +1214,111 @@ for (const tab of libraryTabs.querySelectorAll<HTMLButtonElement>('button')) {
     renderLibraryList();
   });
 }
+
+// ---------------------------------------------------------------------------
+// Copying items from another library, or from a project's library
+
+const sampleProjects = Object.keys(samples).filter((p) => p.endsWith('.osprey')).sort();
+
+function renderCopySources(): void {
+  copyFrom.replaceChildren(new Option('Copy from…', ''));
+  const libs = new Set([...Object.keys(sampleLibraries).map((p) => p.split('/').pop()!), ...loadedLibraries.keys()]);
+  const group = (label: string, options: [string, string][]) => {
+    if (!options.length) return;
+    const g = document.createElement('optgroup');
+    g.label = label;
+    for (const [value, text] of options) g.append(new Option(text, value));
+    copyFrom.append(g);
+  };
+  group('Libraries', [...libs].sort().map((n) => [`lib:${n}`, n]));
+  group("Projects' libraries", sampleProjects.map((p) => [`project:${p}`, p.split('/').pop()!]));
+  copyFrom.append(new Option('Open a library or project…', 'open'));
+  copyFrom.value = '';
+}
+
+function renderCopyBanner(): void {
+  copyBanner.hidden = !copySource;
+  if (!copySource) return;
+  copyBanner.replaceChildren(
+    document.createTextNode('Copying from '), el('b', '', copySource.name),
+    document.createTextNode(': click an item to copy it into this library.'),
+    button('Done', () => endCopying(true)),
+  );
+}
+
+function startCopying(name: string, lib: O.Library): void {
+  copySource = { name, lib, copied: new Set() };
+  libraryFilter.value = '';
+  // Components first (copying one brings its symbols and footprints), if the source has any.
+  libraryTab = lib.components.some((c) => !c.id.endsWith('#footprint')) ? 'component' : lib.symbols.length ? 'symbol' : 'footprint';
+  renderLibraryList();
+  flash(`Copying from ${name}: click an item to copy it (a component brings its symbols and footprints) · Done when finished`);
+}
+
+function endCopying(render = false): void {
+  if (!copySource) return;
+  copySource = undefined;
+  copyFrom.value = '';
+  if (!render) return;
+  // A library that was empty shows what was copied into it.
+  if (!libraryItem) {
+    setupLibrary();
+    rebuildScene({ fit: true, keepSelection: false });
+  } else renderLibraryList();
+}
+
+function copyItemFromSource(kind: LibraryItemKind, id: string): void {
+  if (!copySource || !editor || !library) return;
+  const res = editor.copyFromLibrary(copySource.lib, kind, id);
+  if (!res) return;
+  copySource.copied.add(`${kind}:${id}`);
+  const name = componentName(res.item.id);
+  const already = res.reused.includes(res.item.id);
+  const extra = [
+    res.brought.length ? `with ${res.brought.map(componentName).join(', ')}` : '',
+    res.reused.filter((r) => r !== res.item.id).length ? `${res.reused.filter((r) => r !== res.item.id).map(componentName).join(', ')} already here` : '',
+  ].filter(Boolean).join('; ');
+  flash(already ? `${name} is already in this library, the same` : `Copied ${componentName(id)} as ${name}${extra ? ` (${extra})` : ''}`);
+  renderLibraryList();
+}
+
+copyFrom.addEventListener('change', async () => {
+  const v = copyFrom.value;
+  if (!v) return endCopying(true);
+  if (v === 'open') {
+    // The file chosen starts copying; until then, nothing changes.
+    copyFrom.value = '';
+    copyInput.click();
+    return;
+  }
+  try {
+    if (v.startsWith('lib:')) {
+      const name = v.slice(4);
+      const lib = await librarySource(name);
+      if (lib) startCopying(name, lib);
+    } else if (v.startsWith('project:')) {
+      const path = v.slice(8);
+      startCopying(path.split('/').pop()!, readProject((await samples[path]!()) as string).library);
+    }
+  } catch (e) {
+    showError(`Could not read ${v.replace(/^\w+:/, '')}: ${e instanceof Error ? e.message : String(e)}`);
+  }
+});
+
+copyInput.addEventListener('change', async () => {
+  const f = copyInput.files?.[0];
+  copyInput.value = '';
+  if (!f) return;
+  try {
+    const text = await f.text();
+    const lib = f.name.toLowerCase().endsWith('.osprey') ? readProject(text).library : libraryFrom(f.name, text);
+    if (!f.name.toLowerCase().endsWith('.osprey')) loadedLibraries.set(f.name, lib);
+    renderCopySources();
+    startCopying(f.name, lib);
+  } catch (e) {
+    showError(`Could not open ${f.name}: ${e instanceof Error ? e.message : String(e)}`);
+  }
+});
 
 /** A link to another item of the library: shows it (and its tab). */
 function itemLink(kind: LibraryItemKind, id: string): HTMLButtonElement {
@@ -1263,6 +1385,23 @@ function renderInspector(): void {
           `<b>F</b> to ${view === 'board' ? 'flip to the other side' : 'mirror'}, <b>Del</b> to delete.</p>`
         : '');
     if (view === 'library' && library) inspector.append(libraryNameFields(library.file));
+    if (view === 'library' && library && libraryItem && libraryObject && editor) {
+      const kind = libraryItem.kind;
+      const obj = libraryObject as O.Symbol | O.Footprint | O.Component;
+      const dup = button(`Duplicate ${kind}`, () => {
+        const copy = editor!.duplicateLibraryItem(kind, obj);
+        showLibraryItem(kind, copy.id);
+        flash(`Duplicated ${componentName(obj.id)} as ${componentName(copy.id)}${kind === 'component' ? ' (same symbols and footprints)' : ''}: rename it above`);
+      });
+      dup.dataset.action = 'duplicate';
+      dup.title = kind === 'component'
+        ? 'Make a copy of this component, using the same symbols and footprints'
+        : `Make a copy of this ${kind} to change`;
+      const row = document.createElement('div');
+      row.className = 'sel-actions';
+      row.append(dup);
+      inspector.append(row);
+    }
     if (view === 'library' && library && (libraryItem?.kind === 'symbol' || libraryItem?.kind === 'footprint')) {
       inspector.append(usedByLine(library.lib, libraryItem.kind, libraryItem.id));
     }
@@ -2463,6 +2602,7 @@ $('erc-run').addEventListener('click', runErc);
 /** Show a library item (and remember it as an object, to follow renames). */
 function showLibraryItem(kind: LibraryItemKind, id: string): void {
   stopDrafting();
+  endCopying();
   const lib = library?.lib;
   if (!lib) return;
   const list: { id: string }[] = kind === 'symbol' ? lib.symbols : kind === 'footprint' ? lib.footprints : lib.components;
@@ -2483,7 +2623,8 @@ function showLibraryItem(kind: LibraryItemKind, id: string): void {
 function followLibraryItem(): void {
   const lib = library?.lib;
   if (!lib || !libraryItem) {
-    if (lib && !libraryItem) setupLibrary();
+    // While copying, the list shows the source: choose an item to show once done.
+    if (lib && !libraryItem && !copySource) setupLibrary();
     renderDrawTools();
     return;
   }

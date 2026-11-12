@@ -5,7 +5,8 @@ import type * as O from '../model/types';
 import { insert, type Transaction } from './ops';
 
 /** Insert into an id-sorted library list at its sorted position (keeps the file canonical). */
-function insertSorted<T extends { id: string }>(list: T[], item: T, tx: Transaction): void {
+/** Insert an item where its id sorts, so library files stay in order. */
+export function insertSorted<T extends { id: string }>(list: T[], item: T, tx: Transaction): void {
   const i = list.findIndex((x) => x.id.localeCompare(item.id) > 0);
   tx.run(insert(list, item, i < 0 ? list.length : i));
 }

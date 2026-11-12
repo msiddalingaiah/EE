@@ -218,3 +218,43 @@ describe('components', () => {
     expect(ed.deleteVariant(only, only.variants[0]!)).toBe('A component needs at least one variant');
   });
 });
+
+describe('duplicating and copying items', () => {
+  it('duplicates a footprint as NAME-2, and a component sharing its symbols and footprints', () => {
+    const copy = ed.duplicateLibraryItem('footprint', do41) as O.Footprint;
+    expect(copy.id).toBe('madhu/DO-41-2');
+    expect({ ...copy, id: do41.id }).toEqual(do41);
+    expect(copy.pads[0]).not.toBe(do41.pads[0]); // a copy, not shared
+    expect(ed.duplicateLibraryItem('footprint', do41).id).toBe('madhu/DO-41-3');
+    // BERG-2 (a 2-pin header) becomes BERG-2-2, not BERG-3.
+    const berg = f.library.footprints.find((x) => x.id === 'madhu/BERG-2')!;
+    expect(ed.duplicateLibraryItem('footprint', berg).id).toBe('madhu/BERG-2-2');
+    const c = ed.duplicateLibraryItem('component', component('1N4001')) as O.Component;
+    expect(c.id).toBe('madhu/1N4001-2');
+    expect(c.gates[0]!.symbol).toBe('madhu/DIODE');
+    expect(f.library.components.indexOf(c)).toBe(f.library.components.indexOf(component('1N4001')) + 1); // sorted in
+  });
+
+  it('copies a component from another library, bringing its symbols and footprints, renamed to this library', () => {
+    const mine: O.LibraryFile = { osprey: 1, name: 'mine', library: { symbols: [], footprints: [], components: [] } };
+    const me = new Editor(libraryProject(mine), () => {});
+    const r = me.copyFromLibrary(f.library, 'component', 'madhu/1N4001')!;
+    expect(r.item.id).toBe('mine/1N4001');
+    expect(r.brought).toEqual(['mine/DIODE', 'mine/DO-41', 'mine/DO-41V']);
+    expect((r.item as O.Component).variants.map((v) => v.footprint)).toEqual(['mine/DO-41', 'mine/DO-41V']);
+    // The second diode reuses the symbol already copied; copying the first again changes nothing.
+    expect(me.copyFromLibrary(f.library, 'component', 'madhu/1N914')!.reused).toEqual(['mine/DIODE']);
+    const again = me.copyFromLibrary(f.library, 'component', 'madhu/1N4001')!;
+    expect(again.reused).toContain('mine/1N4001');
+    expect(mine.library.components.map((c) => c.id)).toEqual(['mine/1N4001', 'mine/1N914']);
+    // A different item of the same name is copied beside it, not over it.
+    const sym = mine.library.symbols.find((s) => s.id === 'mine/DIODE')!;
+    me.addPin(sym, [0, 10]);
+    expect(me.copyFromLibrary(f.library, 'symbol', 'madhu/DIODE')!.item.id).toBe('mine/DIODE-2');
+    // One undo step per copy.
+    me.undo();
+    me.undo();
+    me.undo();
+    expect(mine.library.components.map((c) => c.id)).toEqual(['mine/1N4001']);
+  });
+});

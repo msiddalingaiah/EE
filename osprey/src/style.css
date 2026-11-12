@@ -274,6 +274,11 @@ dialog.choose-net p { margin: 0 0 12px; }
 .lib-tabs button[aria-selected="true"] { color: var(--accent); border-bottom-color: var(--accent); }
 .lib-tabs .count { display: block; opacity: 0.7; font-size: 10px; }
 .library-list .empty { color: var(--text-dim); padding: 4px; }
+#copy-from { width: 100%; margin-bottom: 6px; }
+.copy-banner { background: var(--panel-2); border: 1px solid var(--border); border-radius: 4px; padding: 4px 6px; margin-bottom: 6px; color: var(--text-dim); }
+.copy-banner b { color: var(--text); font-weight: 600; }
+.copy-banner button { margin-left: 4px; font-size: 11px; padding: 1px 6px; }
+.library-list button.copied::after { content: ' ✓'; color: #50c878; }
 button.link {
   background: none; border: 0; padding: 0; color: var(--accent-2); cursor: pointer;
   font: inherit; text-decoration: underline; text-underline-offset: 2px;

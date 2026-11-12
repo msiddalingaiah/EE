@@ -7,6 +7,7 @@
 import { componentName } from '../model/derive';
 import type * as O from '../model/types';
 import { insert, remove, set, type Transaction } from './ops';
+import { insertSorted } from './place';
 
 /** Pin and pad names: any text without white space ("@" suffixes make pin names unique). */
 function nameProblem(name: string, what: 'pin' | 'pad'): string | undefined {
@@ -483,4 +484,87 @@ export function autoConnect(lib: O.Library, c: O.Component, v: O.Variant, tx: Tr
   for (const key of open) if (!out[key] && free.length) take(key, free[0]!);
   if (Object.keys(out).length) editPads(v, (pads) => Object.assign(pads, out), tx);
   return Object.keys(out).length;
+}
+
+// ---------------------------------------------------------------------------
+// Duplicating and copying items
+
+/** A free id in `list` for `name` in library `libName`: the name itself, else NAME-2, NAME-3… */
+function freeId(list: { id: string }[], libName: string, name: string): string {
+  if (!list.some((x) => x.id === `${libName}/${name}`)) return `${libName}/${name}`;
+  // Always a suffix on the whole name: BERG-2 (a 2-pin header) becomes BERG-2-2, not BERG-3.
+  for (let n = 2; ; n++) if (!list.some((x) => x.id === `${libName}/${name}-${n}`)) return `${libName}/${name}-${n}`;
+}
+
+/**
+ * Duplicate a symbol, footprint or component in its library, as NAME-2 (or the next free
+ * name). A duplicated component uses the same symbols and footprints as the original.
+ */
+export function duplicateItem(lib: O.Library, kind: ItemKind, item: Item, tx: Transaction): Item {
+  const list = listOf(lib, kind);
+  const copy = structuredClone(item);
+  copy.id = freeId(list, prefixOf(item.id), componentName(item.id));
+  insertSorted(list as Item[], copy, tx);
+  return copy;
+}
+
+/** Library items equal apart from their ids (a footprint already copied, say). */
+const sameContent = (a: Item, b: Item) => JSON.stringify({ ...a, id: '' }) === JSON.stringify({ ...b, id: '' });
+
+export interface CopyResult {
+  /** The copied item, as named in this library. */
+  item: Item;
+  /** Symbols and footprints copied with a component (ids in this library). */
+  brought: string[];
+  /** Items this library already had, used instead of a copy. */
+  reused: string[];
+}
+
+/**
+ * Copy an item from another library (or a project's) into `lib`, under this library's name
+ * ("madhu/DIODE" → "mine/DIODE"). A component brings the symbols and footprints it uses. An
+ * item this library already has with the same name and content is used as it is; one with the
+ * same name but different content is copied as NAME-2, so nothing is overwritten.
+ */
+export function copyItem(source: O.Library, kind: ItemKind, id: string, lib: O.Library, libName: string, tx: Transaction): CopyResult | undefined {
+  const src = listOf(source, kind).find((x) => x.id === id);
+  if (!src) return undefined;
+  const brought: string[] = [];
+  const reused: string[] = [];
+  const place = (k: ItemKind, item: Item): Item => {
+    const list = listOf(lib, k);
+    const name = componentName(item.id);
+    const same = list.find((x) => x.id === `${libName}/${name}` && sameContent(x, item));
+    if (same) return same;
+    const copy = structuredClone(item);
+    copy.id = freeId(list, libName, name);
+    insertSorted(list as Item[], copy, tx);
+    return copy;
+  };
+  if (kind !== 'component') {
+    const existing = listOf(lib, kind).find((x) => x.id === `${libName}/${componentName(id)}` && sameContent(x, src));
+    if (existing) return { item: existing, brought, reused: [existing.id] };
+    return { item: place(kind, src), brought, reused };
+  }
+  // A component: its symbols and footprints first, then the component pointing at the copies.
+  const c = structuredClone(src as O.Component);
+  const ids = new Map<string, string>();
+  const bring = (k: 'symbol' | 'footprint', from: string) => {
+    if (ids.has(from)) return ids.get(from)!;
+    const item = listOf(source, k).find((x) => x.id === from);
+    if (!item) return from;
+    const had = new Set(listOf(lib, k).map((x) => x.id));
+    const copied = place(k, item);
+    (had.has(copied.id) ? reused : brought).push(copied.id);
+    ids.set(from, copied.id);
+    return copied.id;
+  };
+  for (const g of c.gates) g.symbol = bring('symbol', g.symbol);
+  for (const v of c.variants) if (v.footprint) v.footprint = bring('footprint', v.footprint);
+  const list = lib.components;
+  const same = list.find((x) => x.id === `${libName}/${componentName(id)}` && sameContent(x, c));
+  if (same) return { item: same, brought, reused: [...reused, same.id] };
+  c.id = freeId(list, libName, componentName(id));
+  insertSorted(list, c, tx);
+  return { item: c, brought, reused };
 }

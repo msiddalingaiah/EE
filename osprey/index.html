@@ -83,6 +83,9 @@
             <button id="new-footprint-btn" type="button" title="Add a new, empty footprint">+ Footprint</button>
             <button id="new-component-btn" type="button" title="Add a new component: gates (symbols), variants (footprints) and how pins connect to pads">+ Component</button>
           </div>
+          <select id="copy-from" aria-label="Copy items from another library or a project" title="Copy symbols, footprints and components from another library, or from a project's library"></select>
+          <input id="copy-input" type="file" accept=".ospreylib,.lbr,.osprey" hidden />
+          <div id="copy-banner" class="copy-banner" hidden></div>
           <div id="library-tabs" class="lib-tabs" role="tablist" aria-label="Library items">
             <button type="button" role="tab" data-kind="component">Components</button>
             <button type="button" role="tab" data-kind="symbol">Symbols</button>

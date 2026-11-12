@@ -23,9 +23,10 @@ import { addRoute, anchors, bend45, copperLayers, traceWidth, viaDrill, type Anc
 import { addWire, cleanPath, sheetPins, snapPoints, touchAt, usualWireWidth, type WireResult } from '../edit/wire';
 import { renameNet, renamePart, setPartValue, smash, unsmash } from '../edit/properties';
 import {
-  addComponent, addGate, addItem, addVariant, autoConnect, connectPin, deleteVariant, nextPadName, nextPinName, renameGate,
-  renameItem, renameLibrary, renamePad, renamePin, renameVariant, setComponent, setGate, setGraphic, setPad, setPin,
-  setVariantFootprint, type ComponentPatch, type GatePatch, type GraphicPatch, type ItemKind, type PadPatch, type PinPatch,
+  addComponent, addGate, addItem, addVariant, autoConnect, connectPin, copyItem, deleteVariant, duplicateItem, nextPadName,
+  nextPinName, renameGate, renameItem, renameLibrary, renamePad, renamePin, renameVariant, setComponent, setGate, setGraphic,
+  setPad, setPin, setVariantFootprint, type ComponentPatch, type CopyResult, type GatePatch, type GraphicPatch, type ItemKind,
+  type PadPatch, type PinPatch,
 } from '../edit/library';
 import { isEditable, mirrorAbout, rotationAbout, transformTargets, translation } from '../edit/transform';
 import type { Target } from '../scene/types';
@@ -277,6 +278,25 @@ export class Editor {
     const item = addItem(this.project.library, this.project.project.name, kind, tx);
     this.push(tx);
     return item;
+  }
+
+  /** Duplicate a symbol, footprint or component of the library being edited (as NAME-2…). */
+  duplicateLibraryItem(kind: ItemKind, item: O.Symbol | O.Footprint | O.Component): O.Symbol | O.Footprint | O.Component {
+    const tx = new Transaction(`Duplicate ${kind} ${componentName(item.id)}`);
+    const copy = duplicateItem(this.project.library, kind, item, tx);
+    this.push(tx);
+    return copy;
+  }
+
+  /**
+   * Copy an item from another library into the one being edited, under its name; a component
+   * brings its symbols and footprints. Undefined if the source has no such item.
+   */
+  copyFromLibrary(source: O.Library, kind: ItemKind, id: string): CopyResult | undefined {
+    const tx = new Transaction(`Copy ${kind} ${componentName(id)}`);
+    const res = copyItem(source, kind, id, this.project.library, this.project.project.name, tx);
+    if (res && !tx.empty) this.push(tx);
+    return res;
   }
 
   /** Rename a library symbol, footprint or component; the library's references follow. */
