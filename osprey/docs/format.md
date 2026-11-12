@@ -280,6 +280,10 @@ What is **derived, not stored**:
   (free graphics, frames).
 - **Net labels** (in net segments): `{ "at", "rot", "size", "layer", "xref", "align" }`.
   The text is always the net name.
+- **`approved`:** electrical rule check problems accepted as they are (Eagle's approved ERC
+  errors), each as its kind and message, sorted: `"approved": ["unconnected: U1 pin PA2 is
+  unconnected"]`. A problem whose message changes (e.g. after renaming a part) is no longer
+  approved. Not exported to Eagle.
 
 ## Board
 

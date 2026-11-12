@@ -69,6 +69,36 @@ describe.skipIf(!findChrome())('editor in the browser', () => {
     expect(d.problems).toEqual([]);
   });
 
+  it('checks the electrical rules, selects what a problem involves, and keeps the list up to date', async () => {
+    await d.view('schematic');
+    await d.button('#erc-run');
+    expect((await d.state()).erc).toEqual(['unconnected: U1 pin PA2 is unconnected']);
+    await d.button('#erc-list button');
+    expect((await d.state()).selection).toEqual([{ kind: 'gate', label: 'U1' }]);
+    // Deleting U1 leaves nets it was on with a single pin.
+    await d.key('Delete');
+    expect((await d.state()).erc).toContain('single: AUDIO connects only R13 pin 1');
+    await d.key('Ctrl+z');
+    expect((await d.state()).erc).toEqual(['unconnected: U1 pin PA2 is unconnected']);
+    expect(d.problems).toEqual([]);
+  });
+
+  it('approves an ERC problem, and undoes the approval', async () => {
+    await d.view('schematic');
+    await d.button('#erc-run');
+    await d.button('#erc-list .erc-approve');
+    let s = await d.state();
+    expect(s.erc).toEqual([]);
+    expect(s.ercApproved).toEqual(['unconnected: U1 pin PA2 is unconnected']);
+    expect(s.undo).toBe('Approve ERC problem');
+    expect(await d.evaluate('document.getElementById("erc-summary").textContent')).toBe('✓ No problems (1 approved)');
+    await d.key('Ctrl+z');
+    s = await d.state();
+    expect(s.erc).toEqual(['unconnected: U1 pin PA2 is unconnected']);
+    expect(s.ercApproved).toBeUndefined();
+    expect(d.problems).toEqual([]);
+  });
+
   it('checks the design rules from the panel', async () => {
     await d.button('#drc-run');
     expect((await d.state()).drc).toEqual([]);

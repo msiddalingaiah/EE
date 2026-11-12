@@ -11,6 +11,7 @@ import type { Layer } from './eagle/types';
 import type { Point } from './geom/transform';
 import { componentName, ProjectIndex } from './model/derive';
 import { drc, type DrcResult, type Violation } from './model/drc';
+import { erc, ercKey, type ErcProblem, type ErcResult } from './model/erc';
 import { readProject } from './model/file';
 import { freezePours, pourIsolate } from './model/pour';
 import { designRules, parseDru } from './model/rules';
@@ -89,6 +90,9 @@ const drcLoad = $<HTMLSelectElement>('drc-load');
 const drcSummary = $<HTMLDivElement>('drc-summary');
 const drcList = $<HTMLDivElement>('drc-list');
 const druInput = $<HTMLInputElement>('dru-input');
+const ercPanel = $<HTMLElement>('erc-panel');
+const ercSummary = $<HTMLDivElement>('erc-summary');
+const ercList = $<HTMLDivElement>('erc-list');
 
 // ---------------------------------------------------------------------------
 // State
@@ -138,6 +142,9 @@ let chosen: { source: string; id: string } | undefined;
  */
 let drcResult: DrcResult | undefined;
 const drcShown = new Set<string>();
+/** The last electrical rule check of the schematic, kept up to date once run; problems marked on the sheet. */
+let ercResult: ErcResult | undefined;
+const ercShown = new Set<string>();
 
 /** Show poured copper, or only pour outlines. */
 let showPours = storeGet('osprey.showPours') !== 'no';
@@ -313,6 +320,8 @@ function openSources(sources: SourceFile[], initialView?: ViewKind): void {
     activeLayer = undefined;
     drcResult = undefined;
     drcShown.clear();
+    ercResult = undefined;
+    ercShown.clear();
     project = next.project;
     library = next.library;
     importReport = next.report;
@@ -470,6 +479,8 @@ function setupViewChrome(): void {
   wireBtn.hidden = !(project && (view === 'schematic' || view === 'board'));
   drcPanel.hidden = !(project?.board && view === 'board');
   if (!drcPanel.hidden) renderDrcPanel();
+  ercPanel.hidden = !(project?.schematic && view === 'schematic');
+  if (!ercPanel.hidden) renderErcPanel();
   wireBtn.textContent = view === 'board' ? 'Route' : 'Wire';
   pourBtn.hidden = !(project?.board && view === 'board');
   viaBtn.hidden = pourBtn.hidden;
@@ -558,6 +569,10 @@ function onEdited(): void {
   if (drcResult && project && !move && !placing) {
     drcResult = drc(project);
     if (view === 'board') renderDrcPanel();
+  }
+  if (ercResult && project && !move && !placing) {
+    ercResult = erc(project);
+    if (view === 'schematic') renderErcPanel();
   }
   rebuildScene({ fit: false, keepSelection: true });
   updateChrome();
@@ -1524,6 +1539,7 @@ function draw(): void {
     ...(routing ? { sketch: routeSketch(routing) } : {}),
     ...(vias ? { sketch: { paths: [], vias: [{ at: vias.at, radius: vias.diameter / 2 }], layer: layerNumber(activeLayer ?? 'copper.top'), cursor: vias.at, snapped: vias.snapped || !!vias.over } } : {}),
     ...(pouring ? { sketch: { paths: [{ points: pouring.path, width: 0, layer: layerNumber(pouring.layer) }], layer: layerNumber(pouring.layer), cursor: pouring.at, snapped: pouring.closing || !!pouring.over } } : {}),
+    ...(view === 'schematic' && ercShown.size ? { markers: ercMarkers() } : {}),
     ...(view === 'board' && (drcResult || routing?.conflicts.length)
       ? {
         markers: [
@@ -2085,6 +2101,110 @@ druInput.addEventListener('change', async () => {
   druInput.value = '';
   if (file) await loadRules(file.name, await file.text());
 });
+
+// ---------------------------------------------------------------------------
+// Electrical rule check (schematic)
+
+const ERC_KIND: Record<ErcProblem['kind'], string> = {
+  unconnected: 'Unconnected', single: 'One pin', conflict: 'Conflict', undriven: 'Undriven', nc: 'Not-connect',
+  supply: 'Supply', unwired: 'Unwired', touching: 'Touching', board: 'Board',
+};
+
+function renderErcPanel(): void {
+  ercList.replaceChildren();
+  if (!ercResult) {
+    ercSummary.className = 'drc-summary';
+    ercSummary.textContent = 'Not checked yet.';
+    return;
+  }
+  const open = ercResult.problems.filter((p) => !p.approved);
+  const approved = ercResult.problems.filter((p) => p.approved);
+  const errors = open.filter((p) => p.severity === 'error').length;
+  const warnings = open.length - errors;
+  const count = (n: number, what: string) => `${n} ${what}${n > 1 ? 's' : ''}`;
+  ercSummary.className = `drc-summary ${open.length ? 'bad' : 'ok'}`;
+  ercSummary.textContent = open.length
+    ? [errors ? count(errors, 'error') : '', warnings ? count(warnings, 'warning') : ''].filter(Boolean).join(', ')
+    : `✓ No problems${approved.length ? ` (${approved.length} approved)` : ` (${ercResult.pins} pins, ${ercResult.nets} nets checked)`}`;
+  const row = (p: ErcProblem) => {
+    const div = document.createElement('div');
+    div.className = 'erc-row';
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.append(el('span', `drc-kind ${p.severity}`, ERC_KIND[p.kind]), document.createTextNode(p.message));
+    b.title = `${p.severity === 'error' ? 'Error' : 'Warning'}${p.approved ? ' (approved)' : ''}: ${p.message}`;
+    if (ercShown.has(p.message)) b.className = 'active';
+    b.addEventListener('click', () => toggleErcProblem(p));
+    div.append(b);
+    if (editor) {
+      const a = document.createElement('button');
+      a.type = 'button';
+      a.className = 'erc-approve';
+      a.textContent = p.approved ? 'Unapprove' : 'Approve';
+      a.title = p.approved ? 'Report this problem again' : 'Accept this as it is: it is saved with the project and no longer reported';
+      a.addEventListener('click', () => {
+        editor?.approve([ercKey(p)], !p.approved);
+        flash(`${p.approved ? 'Unapproved' : 'Approved'}: ${p.message}`);
+      });
+      div.append(a);
+    }
+    return div;
+  };
+  for (const p of open.slice(0, 500)) ercList.append(row(p));
+  if (approved.length) {
+    const details = document.createElement('details');
+    details.className = 'erc-approved';
+    details.open = ercApprovedOpen;
+    details.addEventListener('toggle', () => (ercApprovedOpen = details.open));
+    const summary = document.createElement('summary');
+    summary.textContent = `Approved (${approved.length})`;
+    details.append(summary, ...approved.slice(0, 500).map(row));
+    ercList.append(details);
+  }
+}
+
+/** Whether the list of approved problems is open. */
+let ercApprovedOpen = false;
+
+function runErc(): void {
+  if (!project?.schematic) return;
+  if (move) commitMove();
+  ercResult = erc(project);
+  ercShown.clear();
+  renderErcPanel();
+  const n = ercResult.problems.filter((p) => !p.approved).length;
+  flash(n ? `ERC: ${n} problem${n > 1 ? 's' : ''} (choose one in the list to mark it on the sheet)` : 'ERC: no problems');
+  requestRender();
+}
+
+/** Mark a problem on its sheet (showing that sheet) and select what is involved, or unmark it. */
+function toggleErcProblem(p: ErcProblem): void {
+  if (ercShown.delete(p.message)) {
+    renderErcPanel();
+    requestRender();
+    return;
+  }
+  ercShown.add(p.message);
+  const sheet = project?.schematic?.sheets.findIndex((s) => s.id === p.sheet) ?? -1;
+  if (sheet >= 0 && String(sheet) !== (sheetSelect.value || '0')) {
+    sheetSelect.value = String(sheet);
+    rebuildScene({ fit: true, keepSelection: false });
+  }
+  reselect(p.objects);
+  renderErcPanel();
+  flash(p.message);
+  requestRender();
+}
+
+/** Markers for the problems chosen in the list that are on the sheet shown. */
+function ercMarkers(): { at: Point; active: boolean }[] {
+  const sheet = project?.schematic?.sheets[Number(sheetSelect.value || 0)]?.id;
+  return (ercResult?.problems ?? [])
+    .filter((p) => ercShown.has(p.message) && p.at && p.sheet === sheet)
+    .map((p) => ({ at: { x: p.at![0], y: p.at![1] }, active: true }));
+}
+
+$('erc-run').addEventListener('click', runErc);
 
 // ---------------------------------------------------------------------------
 // Pour corner handles
@@ -2765,6 +2885,7 @@ if (import.meta.env.DEV) {
       get project() { return project; },
       get editor() { return editor; },
       get drc() { return drcResult; },
+      get erc() { return ercResult; },
       /** A world point (mm) in page CSS pixels, for clicking it. */
       toPage(x: number, y: number): Point {
         const r = canvas.getBoundingClientRect();
@@ -2793,6 +2914,8 @@ if (import.meta.env.DEV) {
           redo: h?.redoLabel,
           dirty: h?.dirty ?? false,
           drc: drcResult ? drcResult.violations.map((v) => `${v.kind}: ${v.message}`) : undefined,
+          erc: ercResult ? ercResult.problems.filter((p) => !p.approved).map(ercKey) : undefined,
+          ercApproved: ercResult?.problems.some((p) => p.approved) ? ercResult.problems.filter((p) => p.approved).map(ercKey) : undefined,
           viewport: { cx: round(vp.cx), cy: round(vp.cy), zoom: round(vp.zoom) },
         };
       },

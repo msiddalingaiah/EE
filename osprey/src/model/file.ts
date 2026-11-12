@@ -28,7 +28,7 @@ const KEY_ORDER = [
   'display', 'xref', 'pour', 'isolate', 'spacing', 'rank', 'orphans', 'columns', 'rows',
   'component', 'variant', 'technology', 'value', 'constant', 'prefix', 'userValue', 'symbol',
   'footprint', 'addLevel', 'class', 'locked', 'smashed', 'step', 'fine', 'unit',
-  'description', 'imported', 'from', 'date', 'eagleVersion', 'attributes', 'grid',
+  'description', 'imported', 'from', 'date', 'eagleVersion', 'attributes', 'grid', 'approved',
   // collections
   'graphics', 'pins', 'pads', 'gates', 'variants', 'technologies', 'labels', 'segments', 'wires',
   'junctions', 'traces', 'vias', 'pours', 'classes', 'symbols', 'footprints', 'components',

@@ -233,6 +233,20 @@ export class Editor {
     return this.property(`Rename net ${oldName}`, (tx) => renameNet(this.project, oldName, newName, tx, this.index()));
   }
 
+  /** Approve electrical rule check problems (by key), or withdraw their approval. */
+  approve(keys: string[], on: boolean): void {
+    const schematic = this.project.schematic;
+    if (!schematic || !keys.length) return;
+    const next = new Set(schematic.approved ?? []);
+    for (const k of keys) {
+      if (on) next.add(k);
+      else next.delete(k);
+    }
+    const tx = new Transaction(`${on ? 'Approve' : 'Unapprove'} ${keys.length > 1 ? `${keys.length} ERC problems` : 'ERC problem'}`);
+    tx.run(set(schematic, { approved: next.size ? [...next].sort() : undefined }));
+    this.push(tx);
+  }
+
   /** Smash (detach name/value texts) or unsmash gates and footprints. Returns how many changed. */
   setSmashed(targets: Target[], on: boolean): number {
     const tx = new Transaction(on ? 'Smash' : 'Unsmash');

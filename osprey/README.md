@@ -56,6 +56,15 @@ native model (see [docs/format.md](docs/format.md)). Eagle files are imported in
   chosen are marked. The list updates as you edit. Rules come from the board
   (as imported from Eagle) and can be loaded from an Eagle `.dru` file; values the file doesn't
   set are kept. Poured copper is checked too.
+- **Electrical rule check** (schematic): the Electrical rules panel finds what the board's DRC
+  can't see. Errors: outputs driving each other or an open-collector output, an output driving
+  a supply, different supplies joined, a pin on two nets. Warnings: unconnected pins, nets with
+  a single pin (or wires and no pins), nets that only inputs listen to, wired not-connect pins,
+  power pins that nothing supplies, pins a net lists that no wire reaches, pins touching a wire
+  they aren't connected to, and parts missing from the board. Clicking a problem shows its
+  sheet, marks it and selects what's involved; the list updates as you edit. **Approve**
+  accepts a problem as it is (an unused pin, say): it is saved with the project, moves to the
+  Approved list (where Unapprove brings it back) and no longer counts.
 - **The copper layer** (board): the toolbar's **Layer** selector is the layer Route and Pour
   work on, remembered while the project is open; L switches it (with nothing active, while
   routing through a via, while drawing a pour). It follows the route when the route changes
@@ -132,9 +141,6 @@ After those, to take a board through manufacturing and assembly:
 
 - **BOM and pick-and-place files**, for assembly services (e.g. JLCPCB), from the parts,
   values and footprint placements already in the model.
-- **Electrical rule check (ERC)** on the schematic: unconnected pins, single-pin nets, outputs
-  driving each other — what the board DRC can't see. Best before library editing, since new
-  parts are where pin mistakes start.
 - **Design rules edited in place:** type a clearance, width or drill in the Design rules
   panel, without a `.dru` file.
 - **Pours drop copper narrower than their width** (slivers between close pads and at the

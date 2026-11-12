@@ -61,6 +61,11 @@
           <div id="drc-list" class="library-list drc-list"></div>
         </section>
         <input id="dru-input" type="file" accept=".dru" hidden />
+        <section id="erc-panel" hidden>
+          <h2>Electrical rules <span class="panel-actions"><button id="erc-run" type="button" title="Check the schematic: unconnected pins, single-pin nets, outputs driving each other, supplies joined, parts missing from the board">Check</button></span></h2>
+          <div id="erc-summary" class="drc-summary"></div>
+          <div id="erc-list" class="library-list drc-list"></div>
+        </section>
         <section id="library-panel" hidden>
           <h2>Library</h2>
           <input id="library-filter" type="search" placeholder="Filter…" />

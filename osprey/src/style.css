@@ -251,8 +251,19 @@ dialog.choose-net p { margin: 0 0 12px; }
 .drc-summary.bad { color: #ff6b6b; }
 .drc-list { max-height: 36vh; }
 .drc-list button { white-space: normal; line-height: 1.3; padding: 4px 6px; }
-.drc-list button .drc-kind { display: inline-block; min-width: 64px; color: #ff6b6b; font-weight: 600; }
+.drc-list button .drc-kind { display: inline-block; min-width: 64px; margin-right: 6px; color: #ff6b6b; font-weight: 600; }
 .drc-list button.active { background: #2b3343; }
+.drc-list button .drc-kind.warning { color: #e8b04b; }
+.erc-row { display: flex; align-items: flex-start; gap: 4px; }
+.erc-row > button:first-child { flex: 1; min-width: 0; }
+.drc-list .erc-row button.erc-approve {
+  width: auto; flex: none; white-space: nowrap; font-size: 11px; color: var(--text-dim);
+  border: 1px solid var(--border); margin-top: 2px; padding: 1px 6px;
+}
+.drc-list .erc-row button.erc-approve:hover { color: var(--text); }
+.erc-approved { margin-top: 6px; }
+.erc-approved summary { cursor: pointer; color: var(--text-dim); font-size: 11px; padding: 2px 4px; }
+.erc-approved .erc-row > button:first-child { opacity: 0.7; }
 
 /* Airwires by net (Layers panel) */
 .layer-list .airwire-nets { border-top: 1px solid var(--border); margin-top: 4px; padding-top: 4px; }

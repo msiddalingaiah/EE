@@ -292,6 +292,8 @@ export interface Grid {
 
 export interface Schematic extends Extensible {
   grid: Grid;
+  /** Electrical rule check problems accepted as they are, by key (see ercKey), sorted. */
+  approved?: string[];
   sheets: Sheet[];
 }
 

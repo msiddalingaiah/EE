@@ -20,6 +20,8 @@ export interface EditorState {
   redo?: string;
   dirty: boolean;
   drc?: string[];
+  erc?: string[];
+  ercApproved?: string[];
   viewport: { cx: number; cy: number; zoom: number };
 }
 
