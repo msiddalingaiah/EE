@@ -105,3 +105,52 @@ describe('library editing', () => {
     expect(p.shape).toBe('octagon');
   });
 });
+
+describe('library drawing and items', () => {
+  it('adds pins pointing toward the origin, and pads numbered after the others', () => {
+    const sym = ed.addLibraryItem('symbol') as O.Symbol;
+    expect(sym.id).toBe('madhu/NEW');
+    expect(ed.addPin(sym, [-5.08, 0])).toEqual({ name: 'P$1', at: [-5.08, 0] });
+    expect(ed.addPin(sym, [5.08, 0])).toEqual({ name: 'P$2', at: [5.08, 0], rot: 180 });
+    expect(ed.addPin(sym, [0, 5.08]).rot).toBe(270);
+    expect((ed.addLibraryItem('symbol') as O.Symbol).id).toBe('madhu/NEW-2');
+    expect(ed.addPad(do41, [0, 0], false)).toEqual({ name: '1', at: [0, 0], drill: 0.8 });
+    expect(ed.addPad(do41, [1, 0], true)).toEqual({ name: '2', smd: [1.27, 0.635], at: [1, 0] });
+    expect(ed.history.undoLabel).toBe('Add SMD pad 2');
+  });
+
+  it('renames a symbol or footprint, and the components using it follow', () => {
+    expect(ed.renameLibraryItem('symbol', diode, 'diode-x')).toBeUndefined();
+    expect(diode.id).toBe('madhu/DIODE-X');
+    expect(component('1N4001').gates[0]!.symbol).toBe('madhu/DIODE-X');
+    expect(ed.renameLibraryItem('footprint', do41, 'DO-35')).toBe('There is already a footprint named DO-35');
+    expect(ed.renameLibraryItem('footprint', do41, 'DO 41')).toMatch(/can't contain spaces/);
+    ed.undo();
+    expect(writeLibrary(f)).toBe(TEXT);
+  });
+
+  it('renames the library, and the ids that carry its name', () => {
+    expect(ed.renameLibrary(f, 'parts')).toBeUndefined();
+    expect(f.name).toBe('parts');
+    expect(diode.id).toBe('parts/DIODE');
+    expect(component('1N4001')).toBeUndefined();
+    expect(f.library.components.find((c) => c.id === 'parts/1N4001')!.variants[0]!.footprint).toBe('parts/DO-41');
+    // New items are named after the library.
+    expect(ed.addLibraryItem('footprint').id).toBe('parts/NEW');
+    ed.undo();
+    ed.undo();
+    expect(writeLibrary(f)).toBe(TEXT);
+  });
+
+  it('changes a graphic: layer, width, text', () => {
+    const line = diode.graphics.find((g): g is O.LineShape => 'line' in g)!;
+    expect(ed.setGraphic(line, { width: 0.5 }, 'Line width')).toBeUndefined();
+    expect(line.width).toBe(0.5);
+    expect(ed.setGraphic(line, { radius: 1 }, 'Radius')).toBe('Only a circle has a radius');
+    const text: O.TextShape = { text: '>NAME', at: [0, 0], size: 1.778, layer: 'names' };
+    ed.addGraphic(diode.graphics, text, 'Add text');
+    expect(ed.setGraphic(text, { text: '' }, 'Change text')).toBe("A text can't be empty");
+    expect(ed.setGraphic(text, { text: '>VALUE', layer: 'values' }, 'Change text')).toBeUndefined();
+    expect([text.text, text.layer]).toEqual(['>VALUE', 'values']);
+  });
+});

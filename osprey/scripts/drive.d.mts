@@ -10,7 +10,8 @@ export interface EditorState {
   loaded: boolean;
   sample?: string;
   view: 'schematic' | 'board' | 'library';
-  mode?: 'place' | 'wire' | 'route' | 'pour' | 'via' | 'move' | 'corner' | 'line-end';
+  /** place, wire, route, pour, via, move, corner, line-end, or draw:<tool> (pin, pad, smd, line, rect, circle, text). */
+  mode?: string;
   layer?: string;
   selection: { kind: string; label: string; net?: string }[];
   status?: string;

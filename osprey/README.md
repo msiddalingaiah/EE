@@ -20,6 +20,12 @@ native model (see [docs/format.md](docs/format.md)). Eagle files are imported in
   a pad's name, size and roundness (SMD) or drill, diameter and shape, position and rotation.
   Renaming or deleting a pin or pad updates the pin-to-pad maps of the library's components
   that use it, so the library stays consistent. Components are view-only so far.
+- **Drawing symbols and footprints** (library): **New library** starts an empty one; **+ Symbol**
+  and **+ Footprint** add items, named in the inspector (as is the library). The toolbar's tools
+  add pins (named P$1, P$2…, pointing in toward the origin), through-hole and SMD pads
+  (numbered 1, 2…), lines (click the corners; double-click, Enter or Esc ends), rectangles,
+  circles and text (`>NAME` and `>VALUE` show a part's). Each tool keeps placing until Esc.
+  The inspector sets a graphic's layer, width, radius, text and size, and where it is.
 - **Export Eagle…** writes the project back as an Eagle 9 `.sch` + `.brd`, with pad lists and
   airwires regenerated and the Eagle data Osprey doesn't model written back. Importing the
   exported files gives the same project again (checked on 152 real pairs).
@@ -142,8 +148,6 @@ Not yet: library editing, busses beyond wires, push-and-shove routing, pick-and-
 
 1. **Library editing,** in library files, as in Eagle: projects keep their copies until
    updated from the library.
-   - Symbols and footprints: tools to draw new pins, pads, lines, shapes and text; new items;
-     a new, empty library.
    - Components: gates, variants and the pin-to-pad map.
    - **Update from library** in a project: see which parts differ and how, and apply as one
      step that can be undone, with ERC run afterwards (a renamed or moved pin shows as a

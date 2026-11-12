@@ -27,6 +27,7 @@ import { isGroundNet } from './model/placement';
 import { indexScene, type SceneIndex } from './scene/index';
 import { buildLibraryScene, libraryItemProps, type LibraryItemKind, type LibraryItemRef } from './scene/library';
 import { libraryProject } from './edit/library';
+import { FORMAT_VERSION } from './model/types';
 import { buildSchematicScene } from './scene/schematic';
 import type { Bounds, Owner, Scene, Target } from './scene/types';
 import { pick, pickBox } from './view/hittest';
@@ -91,6 +92,7 @@ const drcLoad = $<HTMLSelectElement>('drc-load');
 const drcSummary = $<HTMLDivElement>('drc-summary');
 const drcList = $<HTMLDivElement>('drc-list');
 const druInput = $<HTMLInputElement>('dru-input');
+const drawTools = $<HTMLSpanElement>('draw-tools');
 const ercPanel = $<HTMLElement>('erc-panel');
 const ercSummary = $<HTMLDivElement>('erc-summary');
 const ercList = $<HTMLDivElement>('erc-list');
@@ -126,6 +128,8 @@ const layerMap = new Map<number, Layer>(layers.map((l) => [l.number, l]));
 let visibility = new Map<number, boolean>();
 let hover: string | undefined;
 let libraryItem: LibraryItemRef | undefined;
+/** The library item shown, as an object: its id changes when it (or the library) is renamed. */
+let libraryObject: { id: string } | undefined;
 let box: { start: Point; end: Point } | undefined;
 /** World position of the cursor (last known). */
 let cursor: Point = { x: 0, y: 0 };
@@ -502,6 +506,7 @@ function setupLibrary(): void {
   const items = kind === 'component' ? lib.components : kind === 'symbol' ? lib.symbols : lib.footprints;
   const first = [...items].sort((a, b) => a.id.localeCompare(b.id))[0];
   libraryItem = first ? { kind, id: first.id } : undefined;
+  libraryObject = first;
   libraryFilter.value = '';
   renderLibraryList();
 }
@@ -514,6 +519,7 @@ function setupViewChrome(): void {
     sheetSelect.replaceChildren(...sheets.map((_, i) => new Option(`${i + 1}`, String(i))));
   }
   libraryPanel.hidden = view !== 'library';
+  renderDrawTools();
   partsPanel.hidden = !(project && view === 'schematic');
   wireBtn.hidden = !(project && (view === 'schematic' || view === 'board'));
   drcPanel.hidden = !(project?.board && view === 'board');
@@ -602,6 +608,7 @@ let listedLayers = '';
 
 /** Called by the editor after every change to the design (edit, undo, redo). */
 function onEdited(): void {
+  if (library) followLibraryItem();
   wiring?.refresh();
   routing?.refresh();
   vias?.refresh();
@@ -639,6 +646,7 @@ function saveViewState(): void {
 
 /** Show a view, restoring what it remembered. */
 function showView(next: ViewKind, rememberCurrent: boolean): void {
+  stopDrafting();
   stopPlacing();
   stopWiring();
   stopRouting();
@@ -1152,11 +1160,7 @@ function renderLibraryList(): void {
       btn.title = id;
       btn.dataset.kind = kind;
       if (libraryItem?.kind === kind && libraryItem.id === id) btn.className = 'active';
-      btn.addEventListener('click', () => {
-        libraryItem = { kind, id };
-        renderLibraryList();
-        rebuildScene({ fit: true, keepSelection: false });
-      });
+      btn.addEventListener('click', () => showLibraryItem(kind, id));
       libraryList.append(btn);
     }
   }
@@ -1196,6 +1200,7 @@ function renderInspector(): void {
         ? '<p>Then act on the selection: drag it or press <b>M</b> to move, <b>R</b> to rotate, ' +
           `<b>F</b> to ${view === 'board' ? 'flip to the other side' : 'mirror'}, <b>Del</b> to delete.</p>`
         : '<p>Components can\'t be edited yet; their symbols and footprints can.</p>');
+    if (view === 'library' && library) inspector.append(libraryNameFields(library.file));
     if (view === 'library' && library && libraryItem) {
       const table = document.createElement('table');
       table.className = 'props';
@@ -1312,6 +1317,7 @@ function propertyFields(o: Owner): { table: HTMLTableElement; covers: Set<string
   if (!editable() || !editor) return undefined;
   if (o.target?.kind === 'pour') return pourFields(o.target.pour, o.target.net.name);
   if (o.target?.kind === 'pin') return pinFields(o.target.symbol, o.target.pin);
+  if (o.target?.kind === 'drawing' && view === 'library') return graphicFields(o.target);
   if (o.target?.kind === 'pad') return padFields(o.target.footprint, o.target.pad);
   if (o.target?.kind === 'drawing' && 'line' in o.target.graphic) return lineFields(o.target.graphic, o.target.container);
   const ed = editor;
@@ -1698,10 +1704,11 @@ function draw(): void {
     layers: layerMap,
     visible: isVisible,
     selection: selection.items,
-    hover: move || placing || wiring || routing || pouring || vias ? undefined : hover,
+    hover: move || placing || wiring || routing || pouring || vias || drafting ? undefined : hover,
     ...(editHandles().length ? { handles: editHandles() } : {}),
     ...(wiring ? { sketch: { paths: [{ points: wiring.path, width: wiring.width, layer: 91 }], layer: 91, cursor: wiring.at, snapped: wiring.snapped } } : {}),
     ...(routing ? { sketch: routeSketch(routing) } : {}),
+    ...(drafting ? { sketch: draftSketch(drafting) } : {}),
     ...(vias ? { sketch: { paths: [], vias: [{ at: vias.at, radius: vias.diameter / 2 }], layer: layerNumber(activeLayer ?? 'copper.top'), cursor: vias.at, snapped: vias.snapped || !!vias.over } } : {}),
     ...(pouring ? { sketch: { paths: [{ points: pouring.path, width: 0, layer: layerNumber(pouring.layer) }], layer: layerNumber(pouring.layer), cursor: pouring.at, snapped: pouring.closing || !!pouring.over } } : {}),
     ...(view === 'schematic' && ercShown.size ? { markers: ercMarkers() } : {}),
@@ -2379,6 +2386,255 @@ function ercMarkers(): { at: Point; active: boolean }[] {
 $('erc-run').addEventListener('click', runErc);
 
 // ---------------------------------------------------------------------------
+// Library items and drawing in them
+
+/** Show a library item (and remember it as an object, to follow renames). */
+function showLibraryItem(kind: LibraryItemKind, id: string): void {
+  stopDrafting();
+  const lib = library?.lib;
+  if (!lib) return;
+  const list: { id: string }[] = kind === 'symbol' ? lib.symbols : kind === 'footprint' ? lib.footprints : lib.components;
+  libraryObject = list.find((x) => x.id === id);
+  libraryItem = libraryObject ? { kind, id } : undefined;
+  renderLibraryList();
+  renderDrawTools();
+  rebuildScene({ fit: true, keepSelection: false });
+}
+
+/** After an edit: the item shown keeps showing under its new id, or (undone away) the first item does. */
+function followLibraryItem(): void {
+  const lib = library?.lib;
+  if (!lib || !libraryItem) {
+    if (lib && !libraryItem) setupLibrary();
+    renderDrawTools();
+    return;
+  }
+  const list: { id: string }[] = libraryItem.kind === 'symbol' ? lib.symbols : libraryItem.kind === 'footprint' ? lib.footprints : lib.components;
+  if (libraryObject && list.includes(libraryObject)) libraryItem = { kind: libraryItem.kind, id: libraryObject.id };
+  else {
+    stopDrafting();
+    setupLibrary();
+  }
+  renderLibraryList();
+  renderDrawTools();
+}
+
+/** The library's name, and the name of the item shown: editable when nothing is selected. */
+function libraryNameFields(file: O.LibraryFile): HTMLTableElement {
+  const ed = editor!;
+  const f = fieldTable();
+  f.text('Library', 'library-name', file.name, (v) => ed.renameLibrary(file, v));
+  const item = libraryItem && libraryObject ? { kind: libraryItem.kind, obj: libraryObject as O.Symbol | O.Footprint | O.Component } : undefined;
+  if (item) {
+    const label = item.kind[0]!.toUpperCase() + item.kind.slice(1);
+    f.text(label, 'item-name', componentName(item.obj.id), (v) => ed.renameLibraryItem(item.kind, item.obj, v));
+  }
+  return f.table;
+}
+
+type DraftTool = 'pin' | 'pad' | 'smd' | 'line' | 'rect' | 'circle' | 'text';
+
+/** Drawing in a library item: the tool, the points clicked so far, and the snapped cursor. */
+let drafting: { tool: DraftTool; points: Point[]; at: Point } | undefined;
+
+/** Line width, layers and text size for what is drawn in a symbol or footprint. */
+const DRAFT_STYLE = {
+  symbol: { layer: 'symbols', width: 0.254, textLayer: 'names', textSize: 1.778 },
+  footprint: { layer: 'silk.top', width: 0.127, textLayer: 'names.top', textSize: 1.27 },
+} as const;
+
+const TOOLS: Record<'symbol' | 'footprint', DraftTool[]> = {
+  symbol: ['pin', 'line', 'rect', 'circle', 'text'],
+  footprint: ['pad', 'smd', 'line', 'rect', 'circle', 'text'],
+};
+
+/** The symbol or footprint being edited, if one is shown. */
+function draftTarget(): { kind: 'symbol'; item: O.Symbol } | { kind: 'footprint'; item: O.Footprint } | undefined {
+  if (view !== 'library' || !library || !libraryItem || !editor) return undefined;
+  if (libraryItem.kind === 'symbol') {
+    const item = library.lib.symbols.find((s) => s.id === libraryItem!.id);
+    return item ? { kind: 'symbol', item } : undefined;
+  }
+  if (libraryItem.kind === 'footprint') {
+    const item = library.lib.footprints.find((s) => s.id === libraryItem!.id);
+    return item ? { kind: 'footprint', item } : undefined;
+  }
+  return undefined;
+}
+
+function renderDrawTools(): void {
+  const t = draftTarget();
+  drawTools.hidden = !t;
+  for (const b of drawTools.querySelectorAll<HTMLButtonElement>('button')) {
+    b.hidden = !t || !TOOLS[t.kind].includes(b.dataset.tool as DraftTool);
+    b.classList.toggle('active', drafting?.tool === b.dataset.tool);
+  }
+}
+
+const DRAFT_HINT: Record<DraftTool, string> = {
+  pin: 'Pins: click to place each · R/F on a selected pin turns it · Esc stops',
+  pad: 'Pads: click to place each · Esc stops',
+  smd: 'SMD pads: click to place each · Esc stops',
+  line: 'Lines: click the corners · double-click, Enter or Esc ends · Esc again stops',
+  rect: 'Rectangles: click one corner, then the other · Esc stops',
+  circle: 'Circles: click the centre, then a point on the circle · Esc stops',
+  text: 'Text: click to place, then type it in the inspector · Esc stops',
+};
+
+function startDrafting(tool: DraftTool): void {
+  const t = draftTarget();
+  if (!t || !TOOLS[t.kind].includes(tool)) return;
+  if (move) commitMove();
+  drafting = { tool, points: [], at: { x: snap(cursor.x), y: snap(cursor.y) } };
+  canvas.classList.add('wiring');
+  renderDrawTools();
+  canvas.focus({ preventScroll: true });
+  flash(DRAFT_HINT[tool]);
+  requestRender();
+}
+
+function stopDrafting(announce = false): void {
+  if (!drafting) return;
+  drafting = undefined;
+  canvas.classList.remove('wiring');
+  renderDrawTools();
+  if (announce) flash('Stopped drawing');
+  requestRender();
+}
+
+/** End the line being drawn (or drop the first corner of a rectangle or circle). */
+function endDraftShape(): void {
+  if (!drafting) return;
+  drafting.points = [];
+  requestRender();
+}
+
+const pt = (p: Point): O.Pt => [Math.round(p.x * 1e6) / 1e6, Math.round(p.y * 1e6) / 1e6];
+
+function draftClick(double: boolean): void {
+  const t = draftTarget();
+  if (!drafting || !t || !editor) return;
+  const ed = editor;
+  const at = drafting.at;
+  const style = DRAFT_STYLE[t.kind];
+  let added: object | undefined;
+  switch (drafting.tool) {
+    case 'pin':
+      if (t.kind === 'symbol') added = ed.addPin(t.item, pt(at));
+      break;
+    case 'pad':
+    case 'smd':
+      if (t.kind === 'footprint') added = ed.addPad(t.item, pt(at), drafting.tool === 'smd');
+      break;
+    case 'text': {
+      const g: O.TextShape = { text: t.kind === 'symbol' ? '>NAME' : '>NAME', at: pt(at), size: style.textSize, layer: style.textLayer };
+      ed.addGraphic(t.item.graphics, g, 'Add text');
+      added = g;
+      break;
+    }
+    case 'line': {
+      const last = drafting.points[drafting.points.length - 1];
+      if (double || (last && Math.hypot(last.x - at.x, last.y - at.y) < 1e-9)) {
+        // A double click (or a click on the last corner) ends the line.
+        drafting.points = [];
+        break;
+      }
+      if (last) {
+        const g: O.LineShape = { line: [pt(last), pt(at)], width: style.width, layer: style.layer };
+        ed.addGraphic(t.item.graphics, g, 'Add line');
+      }
+      drafting.points.push(at);
+      break;
+    }
+    case 'rect': {
+      const first = drafting.points[0];
+      if (!first) {
+        drafting.points = [at];
+        break;
+      }
+      drafting.points = [];
+      if (Math.abs(first.x - at.x) < 1e-9 || Math.abs(first.y - at.y) < 1e-9) return flash('A rectangle needs a width and a height');
+      const g: O.RectShape = { rect: [pt({ x: Math.min(first.x, at.x), y: Math.min(first.y, at.y) }), pt({ x: Math.max(first.x, at.x), y: Math.max(first.y, at.y) })], layer: style.layer };
+      ed.addGraphic(t.item.graphics, g, 'Add rectangle');
+      added = g;
+      break;
+    }
+    case 'circle': {
+      const c = drafting.points[0];
+      if (!c) {
+        drafting.points = [at];
+        break;
+      }
+      drafting.points = [];
+      const r = Math.hypot(at.x - c.x, at.y - c.y);
+      if (r < 1e-9) return flash('Click a point on the circle, away from its centre');
+      const g: O.CircleShape = { circle: pt(c), radius: Math.round(r * 1e6) / 1e6, width: style.width, layer: style.layer };
+      ed.addGraphic(t.item.graphics, g, 'Add circle');
+      added = g;
+      break;
+    }
+  }
+  // Show what was just added in the inspector (lines are many small pieces: not each one).
+  if (added) reselect([added]);
+  requestRender();
+}
+
+/** The shape being drawn, for the renderer. */
+function draftSketch(d: NonNullable<typeof drafting>) {
+  const t = draftTarget();
+  const style = t ? DRAFT_STYLE[t.kind] : DRAFT_STYLE.symbol;
+  const layer = layerNumber(d.tool === 'text' ? style.textLayer : style.layer);
+  const first = d.points[0];
+  const at = d.at;
+  let points: Point[] = [];
+  if (first && d.tool === 'line') points = [d.points[d.points.length - 1]!, at];
+  else if (first && d.tool === 'rect') points = [first, { x: at.x, y: first.y }, at, { x: first.x, y: at.y }, first];
+  else if (first && d.tool === 'circle') {
+    const r = Math.hypot(at.x - first.x, at.y - first.y);
+    points = Array.from({ length: 49 }, (_, i) => ({ x: first.x + r * Math.cos((i / 48) * 2 * Math.PI), y: first.y + r * Math.sin((i / 48) * 2 * Math.PI) }));
+  }
+  return { paths: points.length ? [{ points, width: style.width, layer }] : [], layer, cursor: at, snapped: true };
+}
+
+/** A library graphic's layer, line width, radius, text and size, and where it is. */
+function graphicFields(target: Extract<Target, { kind: 'drawing' }>): { table: HTMLTableElement; covers: Set<string> } | undefined {
+  const ed = editor!;
+  const g = target.graphic;
+  const t = draftTarget();
+  if (!t) return undefined;
+  const f = fieldTable();
+  const covers = new Set(['Layer']);
+  if ('text' in g) {
+    f.text('Text', 'text', g.text, (v) => ed.setGraphic(g, { text: v }, 'Change text'));
+    f.text('Size (mm)', 'size', String(g.size), (v) => ed.setGraphic(g, { size: mmValue(v) }, 'Text size'));
+  }
+  if ('layer' in g) {
+    const layers = t.kind === 'symbol'
+      ? ['symbols', 'names', 'values', 'pins', 'info', 'guide']
+      : ['silk.top', 'names.top', 'values.top', 'document', 'keepout.top', 'restrict.top', 'restrict.vias', 'mask.top', 'paste.top', 'copper.top', 'fab.top', 'milling', 'reference'];
+    const current = String(g.layer);
+    f.choice('Layer', 'layer', current, layers.includes(current) ? layers : [current, ...layers], (v) => ed.setGraphic(g, { layer: v }, 'Change layer'));
+  }
+  if ('width' in g && !('polygon' in g)) f.text('Width (mm)', 'width', String(g.width), (v) => ed.setGraphic(g, { width: mmValue(v) }, 'Line width'));
+  if ('circle' in g) f.text('Radius (mm)', 'radius', String(g.radius), (v) => ed.setGraphic(g, { radius: mmValue(v) }, 'Circle radius'));
+  // Where it is: a line's ends (meeting ends follow), a text's or circle's position.
+  if ('line' in g) {
+    ([0, 1] as const).forEach((end) => pointRow(f.table, end === 0 ? 'Start (mm)' : 'End (mm)', end === 0 ? 'start' : 'end', g.line[end], (p) => {
+      ed.setLineEnd(g, end, target.container, p);
+      return undefined;
+    }));
+  }
+  const at = 'text' in g ? g.at : 'circle' in g ? g.circle : undefined;
+  if (at) {
+    pointRow(f.table, 'circle' in g ? 'Centre (mm)' : 'Position (mm)', 'at', at, (p) => {
+      ed.moveTo([target], { x: at[0], y: at[1] }, { x: p[0], y: p[1] });
+      return undefined;
+    });
+  }
+  return { table: f.table, covers };
+}
+
+// ---------------------------------------------------------------------------
 // Pour corner handles
 
 /** The pour, when one pour alone is selected on the board (and nothing else is going on). */
@@ -2580,6 +2836,16 @@ canvas.addEventListener('pointerdown', (e) => {
   e.preventDefault();
   canvas.focus({ preventScroll: true });
 
+  // Drawing in a library: left click places or adds a point (double click ends a line), right click ends or stops.
+  if (drafting && e.button !== 1 && !spaceDown) {
+    if (e.button === 0) draftClick(double);
+    else if (e.button === 2) {
+      if (drafting.points.length) endDraftShape();
+      else stopDrafting(true);
+    }
+    return;
+  }
+
   // Adding parts: left click places the gate, right click stops.
   if (placing && e.button !== 1 && !spaceDown) {
     if (e.button === 0) placeClick();
@@ -2677,6 +2943,11 @@ canvas.addEventListener('pointermove', (e) => {
 
   if (move) {
     updateMove(w, e.altKey);
+    return;
+  }
+  if (drafting && !(pointer?.mode === 'pan')) {
+    drafting.at = { x: snap(w.x, e.altKey), y: snap(w.y, e.altKey) };
+    requestRender();
     return;
   }
   if (cornerDrag) {
@@ -2865,6 +3136,12 @@ window.addEventListener('keydown', (e) => {
   } else if (e.key === ' ') {
     spaceDown = true;
     e.preventDefault();
+  } else if (e.key === 'Escape' && drafting) {
+    if (drafting.points.length) endDraftShape();
+    else stopDrafting(true);
+  } else if (e.key === 'Enter' && drafting) {
+    e.preventDefault();
+    endDraftShape();
   } else if (e.key === 'Escape' && vias) {
     stopVias(true);
   } else if (e.key === 'Escape' && pouring) {
@@ -2973,6 +3250,28 @@ for (const b of viewToggle.querySelectorAll<HTMLButtonElement>('button')) {
   });
 }
 $('fit-btn').addEventListener('click', fitView);
+$('new-lib-btn').addEventListener('click', () => {
+  if (!confirmDiscard()) return;
+  const file: O.LibraryFile = { osprey: FORMAT_VERSION, name: 'untitled', library: { symbols: [], footprints: [], components: [] } };
+  openSources([{ name: 'untitled.ospreylib', text: writeLibrary(file) }]);
+  clearSampleLink();
+  flash('New library: add a symbol or footprint (Library panel), and name the library in the inspector');
+});
+for (const kind of ['symbol', 'footprint'] as const) {
+  $(`new-${kind}-btn`).addEventListener('click', () => {
+    if (!editor || !library) return;
+    const item = editor.addLibraryItem(kind);
+    showLibraryItem(kind, item.id);
+    flash(`New ${kind} ${componentName(item.id)}: name it in the inspector, then draw it with the tools above`);
+  });
+}
+for (const b of drawTools.querySelectorAll<HTMLButtonElement>('button')) {
+  b.addEventListener('click', () => {
+    const tool = b.dataset.tool as DraftTool;
+    if (drafting?.tool === tool) stopDrafting(true);
+    else startDrafting(tool);
+  });
+}
 pourBtn.addEventListener('click', () => (pouring ? stopPouring(true) : startPouring()));
 viaBtn.addEventListener('click', () => (vias ? stopVias(true) : startVias()));
 wireBtn.addEventListener('click', () => {
@@ -3050,7 +3349,7 @@ if (import.meta.env.PROD && 'serviceWorker' in navigator) {
 
 if (import.meta.env.DEV) {
   const mode = () =>
-    placing ? 'place' : wiring ? 'wire' : routing ? 'route' : pouring ? 'pour' : vias ? 'via'
+    drafting ? `draw:${drafting.tool}` : placing ? 'place' : wiring ? 'wire' : routing ? 'route' : pouring ? 'pour' : vias ? 'via'
       : move ? 'move' : cornerDrag ? 'corner' : lineDrag ? 'line-end' : undefined;
   Object.assign(window, {
     __osprey: {

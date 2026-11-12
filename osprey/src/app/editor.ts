@@ -3,7 +3,7 @@
 
 import type { Point, Transform } from '../geom/transform';
 import { compose } from '../geom/transform';
-import { ProjectIndex } from '../model/derive';
+import { componentName, ProjectIndex } from '../model/derive';
 import { writeProject } from '../model/file';
 import type * as O from '../model/types';
 import type { Grid, Project } from '../model/types';
@@ -22,7 +22,10 @@ import { findDetour, findPath, type Detour } from '../edit/walkaround';
 import { addRoute, anchors, bend45, copperLayers, traceWidth, viaDrill, type Anchor, type Leg } from '../edit/route';
 import { addWire, cleanPath, sheetPins, snapPoints, touchAt, usualWireWidth, type WireResult } from '../edit/wire';
 import { renameNet, renamePart, setPartValue, smash, unsmash } from '../edit/properties';
-import { renamePad, renamePin, setPad, setPin, type PadPatch, type PinPatch } from '../edit/library';
+import {
+  addItem, nextPadName, nextPinName, renameItem, renameLibrary, renamePad, renamePin, setGraphic, setPad, setPin,
+  type GraphicPatch, type ItemKind, type PadPatch, type PinPatch,
+} from '../edit/library';
 import { isEditable, mirrorAbout, rotationAbout, transformTargets, translation } from '../edit/transform';
 import type { Target } from '../scene/types';
 import { collect, coreDistance, type Item } from '../model/copper';
@@ -238,6 +241,65 @@ export class Editor {
   moveTo(targets: Target[], from: Point, to: Point): void {
     if (Math.abs(to.x - from.x) < 1e-9 && Math.abs(to.y - from.y) < 1e-9) return;
     this.commit('Move', targets, translation(to.x - from.x, to.y - from.y));
+  }
+
+  // Library: new pins, pads, graphics and items (each one undo step)
+
+  /**
+   * Add a pin to a symbol at a point, named P$n, pointing in toward the symbol's origin (a pin
+   * to the right of it points left, one above it points down), where the body usually is.
+   */
+  addPin(symbol: O.Symbol, at: O.Pt): O.Pin {
+    const [x, y] = at;
+    const rot = Math.abs(x) >= Math.abs(y) ? (x > 0 ? 180 : 0) : y > 0 ? 270 : 90;
+    const pin: O.Pin = { name: nextPinName(symbol), at, ...(rot ? { rot } : {}) };
+    this.add(`Add pin ${pin.name}`, symbol.pins, pin);
+    return pin;
+  }
+
+  /** Add a pad to a footprint at a point, numbered after the others: through-hole (0.8 mm drill) or SMD (1.27 × 0.635 mm). */
+  addPad(footprint: O.Footprint, at: O.Pt, smd: boolean): O.Pad {
+    const name = nextPadName(footprint);
+    const pad: O.Pad = smd ? { name, smd: [1.27, 0.635], at } : { name, at, drill: 0.8 };
+    this.add(`Add ${smd ? 'SMD ' : ''}pad ${name}`, footprint.pads, pad);
+    return pad;
+  }
+
+  /** Add a line, shape or text to a symbol's or footprint's graphics. */
+  addGraphic(container: O.Graphic[], g: O.Graphic, label: string): void {
+    this.add(label, container, g);
+  }
+
+  /** A new, empty symbol or footprint in the library being edited. */
+  addLibraryItem(kind: 'symbol' | 'footprint'): O.Symbol | O.Footprint {
+    const tx = new Transaction(`New ${kind}`);
+    const item = addItem(this.project.library, this.project.project.name, kind, tx);
+    this.push(tx);
+    return item;
+  }
+
+  /** Rename a library symbol, footprint or component; the library's references follow. */
+  renameLibraryItem(kind: ItemKind, item: O.Symbol | O.Footprint | O.Component, name: string): string | undefined {
+    return this.property(`Rename ${kind} ${componentName(item.id)}`, (tx) => renameItem(this.project.library, kind, item, name, tx));
+  }
+
+  /** Rename the library being edited (and the ids that carry its name). */
+  renameLibrary(file: O.LibraryFile, name: string): string | undefined {
+    return this.property(`Rename library ${file.name}`, (tx) => {
+      const err = renameLibrary(file, name, tx);
+      if (!err) tx.run(set(this.project.project, { name: file.name }));
+      return err;
+    });
+  }
+
+  setGraphic(g: O.Graphic, patch: GraphicPatch, label: string): string | undefined {
+    return this.property(label, (tx) => setGraphic(g, patch, tx));
+  }
+
+  private add<T>(label: string, list: T[], item: T): void {
+    const tx = new Transaction(label);
+    tx.run(insert(list, item));
+    this.push(tx);
   }
 
   /** Rename a pin of a library symbol (the components using it follow). */

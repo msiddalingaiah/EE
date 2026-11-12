@@ -5,7 +5,7 @@
 // changing anything when the edit isn't allowed.
 
 import type * as O from '../model/types';
-import { remove, set, type Transaction } from './ops';
+import { insert, remove, set, type Transaction } from './ops';
 
 /** Pin and pad names: any text without white space ("@" suffixes make pin names unique). */
 function nameProblem(name: string, what: 'pin' | 'pad'): string | undefined {
@@ -168,4 +168,137 @@ export function libraryProject(f: O.LibraryFile): O.Project {
     schematic: { grid: { step: 2.54, fine: 0.254, unit: 'inch' }, sheets: [] },
     board: { grid: { step: 0.635, fine: 0.127, unit: 'mm' }, layers: ['copper.top', 'copper.bottom'], footprints: [], drawing: [] },
   };
+}
+
+// ---------------------------------------------------------------------------
+// New pins, pads, graphics and items
+
+/** The next free pin name in a symbol: P$1, P$2… (Eagle's default names). */
+export function nextPinName(symbol: O.Symbol): string {
+  const used = new Set(symbol.pins.map((p) => p.name));
+  let n = 1;
+  while (used.has(`P$${n}`)) n++;
+  return `P$${n}`;
+}
+
+/** The next free pad name in a footprint: one more than the highest number used (1, 2…). */
+export function nextPadName(footprint: O.Footprint): string {
+  const used = new Set(footprint.pads.map((p) => p.name));
+  let n = Math.max(0, ...footprint.pads.map((p) => (/^\d+$/.test(p.name) ? Number(p.name) : 0))) + 1;
+  while (used.has(String(n))) n++;
+  return String(n);
+}
+
+/** Library item names: upper case (as Eagle stores them), no white space or "/". */
+function itemName(raw: string, what: string): { name?: string; problem?: string } {
+  const name = raw.trim().toUpperCase();
+  if (!name) return { problem: `A ${what} name can't be empty` };
+  if (/[\s/]/.test(name)) return { problem: `A ${what} name can't contain spaces or "/"` };
+  return { name };
+}
+
+export type ItemKind = 'symbol' | 'footprint' | 'component';
+type Item = O.Symbol | O.Footprint | O.Component;
+
+const listOf = (lib: O.Library, kind: ItemKind): Item[] =>
+  kind === 'symbol' ? lib.symbols : kind === 'footprint' ? lib.footprints : lib.components;
+
+/** The library part of an id: "madhu/DIODE" → "madhu". */
+const prefixOf = (id: string) => id.slice(0, id.indexOf('/'));
+
+/** A new, empty symbol or footprint named NEW (NEW-2… if taken), in library `libName`. */
+export function addItem(lib: O.Library, libName: string, kind: 'symbol' | 'footprint', tx: Transaction): O.Symbol | O.Footprint {
+  const list = listOf(lib, kind);
+  let name = 'NEW';
+  for (let n = 2; list.some((x) => x.id === `${libName}/${name}`); n++) name = `NEW-${n}`;
+  if (kind === 'symbol') {
+    const item: O.Symbol = { id: `${libName}/${name}`, graphics: [], pins: [] };
+    tx.run(insert(lib.symbols, item));
+    return item;
+  }
+  const item: O.Footprint = { id: `${libName}/${name}`, graphics: [], pads: [] };
+  tx.run(insert(lib.footprints, item));
+  return item;
+}
+
+/** Rename a symbol, footprint or component (its id), and the library's references to it. */
+export function renameItem(lib: O.Library, kind: ItemKind, item: Item, raw: string, tx: Transaction): string | undefined {
+  const { name, problem } = itemName(raw, kind);
+  if (problem) return problem;
+  const id = `${prefixOf(item.id)}/${name}`;
+  if (id === item.id) return undefined;
+  if (listOf(lib, kind).some((x) => x !== item && x.id === id)) return `There is already a ${kind} named ${name}`;
+  renameId(lib, kind, item, id, tx);
+  return undefined;
+}
+
+function renameId(lib: O.Library, kind: ItemKind, item: Item, id: string, tx: Transaction): void {
+  const old = item.id;
+  for (const c of lib.components) {
+    if (kind === 'symbol') for (const g of c.gates) if (g.symbol === old) tx.run(set(g, { symbol: id }));
+    if (kind === 'footprint') for (const v of c.variants) if (v.footprint === old) tx.run(set(v, { footprint: id }));
+  }
+  tx.run(set(item, { id }));
+}
+
+/**
+ * Rename a library file, and the ids of its items that carry its name ("old/X" → "new/X"),
+ * so new parts placed from it are named after it. Items from other libraries keep theirs.
+ */
+export function renameLibrary(file: O.LibraryFile, raw: string, tx: Transaction): string | undefined {
+  const name = raw.trim();
+  if (!name) return "A library name can't be empty";
+  if (/[\s/]/.test(name)) return 'A library name can\'t contain spaces or "/"';
+  if (name === file.name) return undefined;
+  const lib = file.library;
+  const kinds = ['symbol', 'footprint', 'component'] as const;
+  const renamed = (id: string) => `${name}/${id.slice(id.indexOf('/') + 1)}`;
+  for (const kind of kinds) {
+    for (const item of listOf(lib, kind)) {
+      if (prefixOf(item.id) === file.name && listOf(lib, kind).some((x) => x.id === renamed(item.id))) {
+        return `The library already has a ${kind} ${renamed(item.id)}`;
+      }
+    }
+  }
+  for (const kind of kinds) {
+    for (const item of [...listOf(lib, kind)]) if (prefixOf(item.id) === file.name) renameId(lib, kind, item, renamed(item.id), tx);
+  }
+  tx.run(set(file, { name }));
+  return undefined;
+}
+
+export interface GraphicPatch {
+  layer?: string;
+  width?: number;
+  radius?: number;
+  text?: string;
+  size?: number;
+}
+
+/** Change a graphic's layer, width, radius, text or text size. Returns an error message, or undefined. */
+export function setGraphic(g: O.Graphic, patch: GraphicPatch, tx: Transaction): string | undefined {
+  const out: Record<string, unknown> = {};
+  if (patch.layer !== undefined) out.layer = patch.layer;
+  if (patch.width !== undefined) {
+    if (!('width' in g)) return 'This has no line width';
+    if (!(patch.width >= 0)) return "A width can't be negative";
+    out.width = patch.width;
+  }
+  if (patch.radius !== undefined) {
+    if (!('circle' in g)) return 'Only a circle has a radius';
+    if (!(patch.radius > 0)) return 'A radius needs to be above 0';
+    out.radius = patch.radius;
+  }
+  if (patch.text !== undefined) {
+    if (!('text' in g)) return 'This is not a text';
+    if (!patch.text.trim()) return "A text can't be empty";
+    out.text = patch.text;
+  }
+  if (patch.size !== undefined) {
+    if (!('text' in g)) return 'Only a text has a size';
+    if (!(patch.size > 0)) return 'A text size needs to be above 0';
+    out.size = patch.size;
+  }
+  tx.run(set(g, out));
+  return undefined;
 }

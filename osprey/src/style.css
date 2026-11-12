@@ -254,6 +254,9 @@ dialog.choose-net p { margin: 0 0 12px; }
 .drc-list button .drc-kind { display: inline-block; min-width: 64px; margin-right: 6px; color: #ff6b6b; font-weight: 600; }
 .drc-list button.active { background: #2b3343; }
 .drc-list button .drc-kind.warning { color: #e8b04b; }
+.draw-tools { display: inline-flex; gap: 2px; }
+.draw-tools[hidden] { display: none; }
+.draw-tools button.active { background: #2b3343; color: var(--accent); }
 .erc-row { display: flex; align-items: flex-start; gap: 4px; }
 .erc-row > button:first-child { flex: 1; min-width: 0; }
 .drc-list .erc-row button.erc-approve {

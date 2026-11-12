@@ -8,7 +8,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { findChrome, launch, type Driver } from '../../scripts/drive.mjs';
 import { JSDOM } from 'jsdom';
 import { parseEagle } from '../../src/eagle/parse';
-import { writeLibrary } from '../../src/model/file';
+import { readLibrary, writeLibrary } from '../../src/model/file';
 import { importLibraryFile } from '../../src/model/import-eagle';
 
 const ROOT = join(__dirname, '..', '..');
@@ -174,6 +174,36 @@ describe.skipIf(!findChrome())('libraries in the browser', () => {
     await d.key('Delete');
     expect(await lib(`lib.footprints.find((f) => f.id === 'madhu/DO-41').pads.map((p) => p.name)`)).toEqual(['C']);
     expect((await d.state()).undo).toBe('Delete pad A');
+    expect(d.problems).toEqual([]);
+  });
+
+  it('starts a new library, draws a footprint with the tools, and saves it', async () => {
+    await d.open('madhu.ospreylib');
+    await d.button('#new-lib-btn');
+    await d.button('#new-footprint-btn');
+    await d.type('library-name', 'mine');
+    await d.type('item-name', 'pads-2');
+    await d.button('#draw-tools [data-tool="pad"]');
+    expect((await d.state()).mode).toBe('draw:pad');
+    await d.click(-1.27, 0);
+    await d.click(1.27, 0);
+    await d.key('Escape');
+    await d.button('#draw-tools [data-tool="line"]');
+    await d.click(-2.54, 1.27);
+    // A double click on the last corner adds it and ends the line.
+    await d.dblclick(2.54, 1.27);
+    await d.key('Escape');
+    expect((await d.state()).mode).toBeUndefined();
+    await d.downloads(dir);
+    await d.button('#save-btn');
+    const saved = readLibrary(await downloaded('untitled.ospreylib'));
+    expect(saved.name).toBe('mine');
+    expect(saved.library.footprints).toEqual([{
+      id: 'mine/PADS-2',
+      graphics: [{ line: [[-2.54, 1.27], [2.54, 1.27]], width: 0.127, layer: 'silk.top' }],
+      pads: [{ name: '1', at: [-1.27, 0], drill: 0.8 }, { name: '2', at: [1.27, 0], drill: 0.8 }],
+    }]);
+    expect((await d.state()).dirty).toBe(false);
     expect(d.problems).toEqual([]);
   });
 
