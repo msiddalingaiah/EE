@@ -59,6 +59,7 @@ const layerList = $<HTMLUListElement>('layer-list');
 const libraryPanel = $<HTMLElement>('library-panel');
 const libraryFilter = $<HTMLInputElement>('library-filter');
 const libraryList = $<HTMLDivElement>('library-list');
+const libraryTabs = $<HTMLDivElement>('library-tabs');
 const inspector = $<HTMLDivElement>('inspector');
 const errorBox = $<HTMLDivElement>('error');
 const dropOverlay = $<HTMLDivElement>('drop-overlay');
@@ -128,8 +129,12 @@ const layerMap = new Map<number, Layer>(layers.map((l) => [l.number, l]));
 let visibility = new Map<number, boolean>();
 let hover: string | undefined;
 let libraryItem: LibraryItemRef | undefined;
+/** Which kind of item the library list shows. */
+let libraryTab: LibraryItemKind = 'component';
 /** The library item shown, as an object: its id changes when it (or the library) is renamed. */
 let libraryObject: { id: string } | undefined;
+/** The component variant whose connections are shown and edited (an object: it may be renamed). */
+let libraryVariant: O.Variant | undefined;
 let box: { start: Point; end: Point } | undefined;
 /** World position of the cursor (last known). */
 let cursor: Point = { x: 0, y: 0 };
@@ -192,7 +197,7 @@ function views(): ViewKind[] {
 }
 
 /** Whether the view can be edited: a project, or a library's symbol or footprint (components not yet). */
-const editable = () => !!editor && (view !== 'library' || libraryItem?.kind === 'symbol' || libraryItem?.kind === 'footprint');
+const editable = () => !!editor && (view !== 'library' || !!libraryItem);
 
 // ---------------------------------------------------------------------------
 // Opening, importing and saving
@@ -507,6 +512,7 @@ function setupLibrary(): void {
   const first = [...items].sort((a, b) => a.id.localeCompare(b.id))[0];
   libraryItem = first ? { kind, id: first.id } : undefined;
   libraryObject = first;
+  libraryTab = kind;
   libraryFilter.value = '';
   renderLibraryList();
 }
@@ -571,7 +577,7 @@ function updateChrome(): void {
 }
 
 function buildScene(): Scene | undefined {
-  if (view === 'library') return library && libraryItem ? buildLibraryScene(library.lib, layers, libraryItem) : undefined;
+  if (view === 'library') return library && libraryItem ? buildLibraryScene(library.lib, layers, { ...libraryItem, ...(shownVariant() ? { variant: shownVariant()!.name } : {}) }) : undefined;
   if (!project) return undefined;
   const ix = new ProjectIndex(project);
   if (view === 'schematic') return buildSchematicScene(project, layers, Number(sheetSelect.value || 0), ix);
@@ -1137,33 +1143,88 @@ function pruneHiddenSelection(): void {
   if (keep.length !== selection.size) selection.select(keep, 'replace');
 }
 
+/** The library's items of one kind. */
+function itemsOf(lib: O.Library, kind: LibraryItemKind): (O.Symbol | O.Footprint | O.Component)[] {
+  return kind === 'component' ? lib.components : kind === 'symbol' ? lib.symbols : lib.footprints;
+}
+
+/**
+ * The library list: the items of the kind chosen in the tabs (each tab shows how many there
+ * are), filtered by name or description. The item shown is scrolled into view.
+ */
 function renderLibraryList(): void {
   const lib = library?.lib;
   libraryList.replaceChildren();
   if (!lib) return;
   const q = libraryFilter.value.trim().toLowerCase();
-  const groups: [string, LibraryItemKind, { id: string }[]][] = [
-    ['Components', 'component', lib.components],
-    ['Symbols', 'symbol', lib.symbols],
-    ['Footprints', 'footprint', lib.footprints],
-  ];
-  for (const [title, kind, items] of groups) {
-    const matches = items.map((i) => i.id).filter((id) => !q || componentName(id).toLowerCase().includes(q)).sort();
-    if (!matches.length) continue;
-    const h = document.createElement('h3');
-    h.textContent = `${title} (${matches.length})`;
-    libraryList.append(h);
-    for (const id of matches) {
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.textContent = componentName(id);
-      btn.title = id;
-      btn.dataset.kind = kind;
-      if (libraryItem?.kind === kind && libraryItem.id === id) btn.className = 'active';
-      btn.addEventListener('click', () => showLibraryItem(kind, id));
-      libraryList.append(btn);
-    }
+  const matches = (item: { id: string; description?: string }) =>
+    !q || componentName(item.id).toLowerCase().includes(q) || (item.description ?? '').replace(/<[^>]*>/g, ' ').toLowerCase().includes(q);
+  for (const tab of libraryTabs.querySelectorAll<HTMLButtonElement>('button')) {
+    const kind = tab.dataset.kind as LibraryItemKind;
+    const all = itemsOf(lib, kind);
+    const n = q ? all.filter(matches).length : all.length;
+    tab.replaceChildren(document.createTextNode(tab.title || tab.textContent!.replace(/\s*\d+$/, '')), el('span', 'count', String(n)));
+    tab.setAttribute('aria-selected', String(kind === libraryTab));
   }
+  const items = itemsOf(lib, libraryTab).filter(matches).map((i) => i.id).sort();
+  if (!items.length) {
+    libraryList.append(el('p', 'empty', q ? 'Nothing matches.' : `No ${libraryTab}s yet.`));
+    return;
+  }
+  let active: HTMLButtonElement | undefined;
+  for (const id of items) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.textContent = componentName(id);
+    btn.title = id;
+    btn.dataset.kind = libraryTab;
+    if (libraryItem?.kind === libraryTab && libraryItem.id === id) {
+      btn.className = 'active';
+      active = btn;
+    }
+    const kind = libraryTab;
+    btn.addEventListener('click', () => showLibraryItem(kind, id));
+    libraryList.append(btn);
+  }
+  active?.scrollIntoView({ block: 'nearest' });
+}
+
+for (const tab of libraryTabs.querySelectorAll<HTMLButtonElement>('button')) {
+  // The label without its count, kept for re-rendering.
+  tab.title = tab.textContent!.trim();
+  tab.addEventListener('click', () => {
+    libraryTab = tab.dataset.kind as LibraryItemKind;
+    renderLibraryList();
+  });
+}
+
+/** A link to another item of the library: shows it (and its tab). */
+function itemLink(kind: LibraryItemKind, id: string): HTMLButtonElement {
+  const b = button(componentName(id), () => showLibraryItem(kind, id));
+  b.className = 'link';
+  b.title = `Open ${kind} ${componentName(id)}`;
+  b.dataset.link = `${kind}:${id}`;
+  return b;
+}
+
+/** A line of links, at most `max` (then "+ n more"). */
+function linkLine(label: string, links: HTMLElement[], max = 40): HTMLElement {
+  const p = document.createElement('p');
+  p.className = 'links';
+  p.append(el('span', 'sep', `${label}: `));
+  links.slice(0, max).forEach((a, i) => p.append(...(i ? [el('span', 'sep', ', '), a] : [a])));
+  if (links.length > max) p.append(el('span', 'sep', ` and ${links.length - max} more`));
+  return p;
+}
+
+/** For a symbol or footprint: the components that use it, as links. */
+function usedByLine(lib: O.Library, kind: 'symbol' | 'footprint', id: string): HTMLElement {
+  const users = lib.components
+    .filter((c) => (kind === 'symbol' ? c.gates.some((g) => g.symbol === id) : c.variants.some((v) => v.footprint === id)))
+    .map((c) => c.id)
+    .sort();
+  if (!users.length) return el('p', 'links', 'Not used by any component yet.');
+  return linkLine('Used by', users.map((u) => itemLink('component', u)));
 }
 
 const KIND_LABEL: Record<Owner['kind'], string> = {
@@ -1180,6 +1241,7 @@ const KIND_LABEL: Record<Owner['kind'], string> = {
   label: 'Smashed text',
   pin: 'Pin',
   pad: 'Pad',
+  libgate: 'Gate',
   airwire: 'Airwire (computed)',
   'library-item': 'Library item',
 };
@@ -1199,8 +1261,17 @@ function renderInspector(): void {
       (editable()
         ? '<p>Then act on the selection: drag it or press <b>M</b> to move, <b>R</b> to rotate, ' +
           `<b>F</b> to ${view === 'board' ? 'flip to the other side' : 'mirror'}, <b>Del</b> to delete.</p>`
-        : '<p>Components can\'t be edited yet; their symbols and footprints can.</p>');
+        : '');
     if (view === 'library' && library) inspector.append(libraryNameFields(library.file));
+    if (view === 'library' && library && (libraryItem?.kind === 'symbol' || libraryItem?.kind === 'footprint')) {
+      inspector.append(usedByLine(library.lib, libraryItem.kind, libraryItem.id));
+    }
+    const c = shownComponent();
+    if (c) {
+      inspector.append(...componentFields(c));
+      inspector.append(hint);
+      return;
+    }
     if (view === 'library' && library && libraryItem) {
       const table = document.createElement('table');
       table.className = 'props';
@@ -1319,6 +1390,7 @@ function propertyFields(o: Owner): { table: HTMLTableElement; covers: Set<string
   if (o.target?.kind === 'pin') return pinFields(o.target.symbol, o.target.pin);
   if (o.target?.kind === 'drawing' && view === 'library') return graphicFields(o.target);
   if (o.target?.kind === 'pad') return padFields(o.target.footprint, o.target.pad);
+  if (o.target?.kind === 'libgate') return gateFields(o.target.component, o.target.gate);
   if (o.target?.kind === 'drawing' && 'line' in o.target.graphic) return lineFields(o.target.graphic, o.target.container);
   const ed = editor;
   const rows: [label: string, field: string, value: string, commit: (v: string) => string | undefined][] = [];
@@ -2396,6 +2468,12 @@ function showLibraryItem(kind: LibraryItemKind, id: string): void {
   const list: { id: string }[] = kind === 'symbol' ? lib.symbols : kind === 'footprint' ? lib.footprints : lib.components;
   libraryObject = list.find((x) => x.id === id);
   libraryItem = libraryObject ? { kind, id } : undefined;
+  libraryVariant = undefined;
+  if (libraryItem && libraryTab !== kind) {
+    libraryTab = kind;
+    // A filter for the other kind would likely hide the item.
+    libraryFilter.value = '';
+  }
   renderLibraryList();
   renderDrawTools();
   rebuildScene({ fit: true, keepSelection: false });
@@ -2417,6 +2495,156 @@ function followLibraryItem(): void {
   }
   renderLibraryList();
   renderDrawTools();
+}
+
+/** The component shown in the library view, if a component is shown. */
+function shownComponent(): O.Component | undefined {
+  if (view !== 'library' || libraryItem?.kind !== 'component') return undefined;
+  return library?.lib.components.find((c) => c.id === libraryItem!.id);
+}
+
+/** The variant shown: the one chosen, while it still exists, else the first. */
+function shownVariant(): O.Variant | undefined {
+  const c = shownComponent();
+  if (!c) return undefined;
+  return libraryVariant && c.variants.includes(libraryVariant) ? libraryVariant : c.variants[0];
+}
+
+/** A row of a select and a button, for adding things. */
+function addRow(options: [string, string][], label: string, title: string, run: (value: string) => void): HTMLElement {
+  const row = document.createElement('div');
+  row.className = 'insp-row';
+  const sel = document.createElement('select');
+  sel.setAttribute('aria-label', title);
+  for (const [value, text] of options) sel.append(new Option(text, value));
+  const b = button(label, () => run(sel.value));
+  b.title = title;
+  b.disabled = !options.length;
+  row.append(sel, b);
+  return row;
+}
+
+/** A component's settings, gates, variants and the pin-to-pad map of the variant shown. */
+function componentFields(c: O.Component): HTMLElement[] {
+  const ed = editor!;
+  const lib = library!.lib;
+  const out: HTMLElement[] = [];
+  const f = fieldTable();
+  f.text('Prefix', 'prefix', c.prefix ?? '', (v) => ed.setComponent(c, { prefix: v }, 'Prefix'));
+  f.choice('Value', 'user-value', c.userValue ? 'typed' : 'name', ['typed', 'name'],
+    (v) => ed.setComponent(c, { userValue: v === 'typed' }, 'Value'));
+  f.text('Description', 'description', c.description ?? '', (v) => ed.setComponent(c, { description: v }, 'Description'));
+  out.push(f.table);
+
+  // Gates: the symbols a part of this component is drawn with.
+  out.push(el('p', 'insp-h', `Gates (${c.gates.length})`));
+  if (c.gates.length) {
+    const p = document.createElement('p');
+    p.className = 'links';
+    c.gates.forEach((g, i) => p.append(...(i ? [el('span', 'sep', ' · ')] : []), el('span', 'sep', `${g.name}: `), itemLink('symbol', g.symbol)));
+    out.push(p);
+  }
+  const symbols = [...lib.symbols].sort((a, b) => a.id.localeCompare(b.id)).map((s): [string, string] => [s.id, componentName(s.id)]);
+  out.push(addRow(symbols, 'Add gate', 'Add a gate showing this symbol', (id) => {
+    const sym = lib.symbols.find((s) => s.id === id);
+    if (!sym) return;
+    const gate = ed.addGate(c, sym);
+    flash(`Added gate ${gate.name} (${componentName(sym.id)}): drag it into place; click it to rename`);
+    fitView();
+  }));
+  if (!symbols.length) out.push(el('p', 'pin-map-note', 'Add a symbol to the library first (+ Symbol).'));
+
+  // Variants: package options, each with a footprint and its pin-to-pad map.
+  const v = shownVariant();
+  out.push(el('p', 'insp-h', `Variant${c.variants.length > 1 ? ` (${c.variants.length})` : ''}`));
+  const pick = document.createElement('div');
+  pick.className = 'insp-row';
+  const sel = document.createElement('select');
+  sel.dataset.field = 'variant';
+  sel.setAttribute('aria-label', 'Variant shown');
+  c.variants.forEach((x, i) => sel.append(new Option(`${x.name || "'' (no name)"}${x.footprint ? ` · ${componentName(x.footprint)}` : ''}`, String(i))));
+  sel.value = String(v ? c.variants.indexOf(v) : 0);
+  sel.addEventListener('change', () => {
+    libraryVariant = c.variants[Number(sel.value)];
+    rebuildScene({ fit: false, keepSelection: true });
+  });
+  const addV = button('+ Variant', () => {
+    let name = 'V2';
+    for (let n = 2; c.variants.some((x) => x.name === name); n++) name = `V${n + 1}`;
+    const err = ed.addVariant(c, name, v?.footprint);
+    if (err) return flash(err);
+    libraryVariant = c.variants.find((x) => x.name === name);
+    rebuildScene({ fit: false, keepSelection: true });
+    flash(`Added variant ${name}: rename it and choose its footprint`);
+  });
+  addV.title = 'Add a variant (another package for this component)';
+  const delV = button('Delete', () => {
+    if (!v) return;
+    const err = ed.deleteVariant(c, v);
+    flash(err ?? `Deleted variant ${v.name || "''"}`);
+  });
+  delV.title = 'Delete the variant shown';
+  delV.disabled = c.variants.length <= 1;
+  pick.append(sel, addV, delV);
+  out.push(pick);
+  if (!v) return out;
+
+  const vf = fieldTable();
+  vf.text('Name', 'variant-name', v.name, (x) => ed.renameVariant(c, v, x));
+  const footprints = [...lib.footprints].sort((a, b) => a.id.localeCompare(b.id)).map((x) => x.id);
+  vf.choice('Footprint', 'footprint', v.footprint ?? '', ['', ...footprints],
+    (x) => ed.setVariantFootprint(v, x || undefined));
+  // The dropdown shows names, not ids.
+  for (const o of vf.table.querySelectorAll<HTMLOptionElement>('select[data-field="footprint"] option')) o.text = o.value ? componentName(o.value) : '(none: symbol only)';
+  out.push(vf.table);
+  if (v.footprint && lib.footprints.some((x) => x.id === v.footprint)) out.push(linkLine('Open footprint', [itemLink('footprint', v.footprint)]));
+
+  // The pin-to-pad map: each gate's pins, and the pads they connect to.
+  const fp = v.footprint ? lib.footprints.find((x) => x.id === v.footprint) : undefined;
+  if (!fp) {
+    out.push(el('p', 'pin-map-note', 'Without a footprint, parts of this variant are on the schematic only (e.g. a supply symbol).'));
+    return out;
+  }
+  const keys = c.gates.flatMap((g) => (lib.symbols.find((s) => s.id === g.symbol)?.pins ?? []).map((p) => `${g.name}.${p.name}`));
+  const used = new Set(Object.values(v.pads).flat());
+  const connected = keys.filter((k) => v.pads[k]?.length).length;
+  const free = fp.pads.filter((p) => !used.has(p.name)).map((p) => p.name);
+  out.push(el('p', 'insp-h', 'Pins → pads'));
+  out.push(el('p', 'pin-map-note', `${connected} of ${keys.length} pins connected${free.length ? ` · free pads: ${free.join(', ')}` : ' · every pad used'}`));
+  const auto = button('Connect the rest', () => {
+    const n = ed.autoConnect(c, v);
+    flash(n ? `Connected ${n} pin${n > 1 ? 's' : ''} (same names first, then in order)` : 'No unconnected pin has a free pad');
+  });
+  auto.title = 'Connect each unconnected pin to a free pad: the pad of the same name, else the next one in order';
+  auto.disabled = connected === keys.length || !free.length;
+  out.push(auto);
+  const map = fieldTable();
+  map.table.classList.add('pin-map');
+  for (const key of keys) {
+    map.text(key, `pads:${key}`, (v.pads[key] ?? []).join(', '), (x) => ed.connectPin(v, key, x.split(/[\s,]+/)));
+  }
+  out.push(map.table);
+  return out;
+}
+
+/** A component's gate: name, add level, swap level, position. */
+function gateFields(c: O.Component, gate: O.Gate): { table: HTMLTableElement; covers: Set<string> } {
+  const ed = editor!;
+  const f = fieldTable();
+  f.text('Name', 'name', gate.name, (v) => ed.renameGate(c, gate, v));
+  f.choice('Add level', 'add-level', gate.addLevel ?? 'next', ['next', 'must', 'can', 'always', 'request'],
+    (v) => ed.setGate(gate, { addLevel: v as O.Gate['addLevel'] | 'next' }, 'Add level'));
+  f.text('Swap level', 'swap', String(gate.swap ?? 0), (v) => ed.setGate(gate, { swap: Number(v) }, 'Swap level'));
+  pointRow(f.table, 'Position (mm)', 'at', gate.at, (p) => {
+    ed.moveTo([{ kind: 'libgate', component: c, gate }], { x: gate.at[0], y: gate.at[1] }, { x: p[0], y: p[1] });
+    return undefined;
+  });
+  const tr = document.createElement('tr');
+  const td = document.createElement('td');
+  td.append(itemLink('symbol', gate.symbol));
+  tr.append(el('th', '', 'Symbol'), td);
+  f.table.append(tr);
+  return { table: f.table, covers: new Set(['Gate', 'Symbol', 'Add level', 'Swap level', 'Position']) };
 }
 
 /** The library's name, and the name of the item shown: editable when nothing is selected. */
@@ -3256,6 +3484,12 @@ $('new-lib-btn').addEventListener('click', () => {
   openSources([{ name: 'untitled.ospreylib', text: writeLibrary(file) }]);
   clearSampleLink();
   flash('New library: add a symbol or footprint (Library panel), and name the library in the inspector');
+});
+$('new-component-btn').addEventListener('click', () => {
+  if (!editor || !library) return;
+  const c = editor.addComponent();
+  showLibraryItem('component', c.id);
+  flash(`New component ${componentName(c.id)}: add its gates (symbols) and a footprint in the inspector`);
 });
 for (const kind of ['symbol', 'footprint'] as const) {
   $(`new-${kind}-btn`).addEventListener('click', () => {

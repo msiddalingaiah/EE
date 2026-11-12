@@ -209,7 +209,8 @@ button:disabled:hover { border-color: var(--border); }
 .issue-list li { margin-bottom: 3px; }
 
 /* Editable property fields in the inspector */
-.props.fields { margin-bottom: 10px; }
+.props.fields { margin-bottom: 10px; table-layout: fixed; }
+.props.fields select { max-width: 100%; }
 .props.fields td { padding: 2px 0; }
 .props.fields input { width: 100%; font-family: var(--mono); font-size: 12px; padding: 2px 6px; }
 .props.fields input.invalid { border-color: var(--danger); }
@@ -257,6 +258,29 @@ dialog.choose-net p { margin: 0 0 12px; }
 .draw-tools { display: inline-flex; gap: 2px; }
 .draw-tools[hidden] { display: none; }
 .draw-tools button.active { background: #2b3343; color: var(--accent); }
+.insp-h { font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-dim); margin: 12px 0 4px; font-weight: 600; }
+.insp-row { display: flex; gap: 4px; margin: 4px 0; }
+.insp-row select { flex: 1; min-width: 0; }
+.pin-map th { font-family: var(--mono); font-weight: normal; }
+.pin-map-note { color: var(--text-dim); margin: 4px 0; }
+.lib-actions { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 6px; }
+.lib-actions button { flex: 1; font-size: 11px; padding: 2px 4px; white-space: nowrap; }
+.lib-tabs { display: flex; border-bottom: 1px solid var(--border); margin-bottom: 6px; }
+.lib-tabs button {
+  flex: 1; background: none; border: 0; border-bottom: 2px solid transparent; border-radius: 0;
+  padding: 4px 2px; font-size: 11px; color: var(--text-dim); white-space: nowrap;
+}
+.lib-tabs button:hover { color: var(--text); }
+.lib-tabs button[aria-selected="true"] { color: var(--accent); border-bottom-color: var(--accent); }
+.lib-tabs .count { display: block; opacity: 0.7; font-size: 10px; }
+.library-list .empty { color: var(--text-dim); padding: 4px; }
+button.link {
+  background: none; border: 0; padding: 0; color: var(--accent-2); cursor: pointer;
+  font: inherit; text-decoration: underline; text-underline-offset: 2px;
+}
+button.link:hover { color: var(--text); }
+.links { margin: 4px 0; line-height: 1.6; }
+.links .sep { color: var(--text-dim); }
 .erc-row { display: flex; align-items: flex-start; gap: 4px; }
 .erc-row > button:first-child { flex: 1; min-width: 0; }
 .drc-list .erc-row button.erc-approve {

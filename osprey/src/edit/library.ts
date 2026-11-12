@@ -4,6 +4,7 @@
 // and the library stays consistent. Validation runs first and returns a message instead of
 // changing anything when the edit isn't allowed.
 
+import { componentName } from '../model/derive';
 import type * as O from '../model/types';
 import { insert, remove, set, type Transaction } from './ops';
 
@@ -301,4 +302,185 @@ export function setGraphic(g: O.Graphic, patch: GraphicPatch, tx: Transaction): 
   }
   tx.run(set(g, out));
   return undefined;
+}
+
+// ---------------------------------------------------------------------------
+// Components: gates, variants and the pin-to-pad map
+
+/** A new component named NEW (NEW-2… if taken), with one variant ('') and no gates yet. */
+export function addComponent(lib: O.Library, libName: string, tx: Transaction): O.Component {
+  let name = 'NEW';
+  for (let n = 2; lib.components.some((x) => x.id === `${libName}/${name}`); n++) name = `NEW-${n}`;
+  const c: O.Component = { id: `${libName}/${name}`, gates: [], variants: [{ name: '', pads: {} }] };
+  tx.run(insert(lib.components, c));
+  return c;
+}
+
+export interface ComponentPatch {
+  prefix?: string;
+  /** The value is typed for each part (a resistor's 10k), rather than the component's name. */
+  userValue?: boolean;
+  description?: string;
+}
+
+export function setComponent(c: O.Component, patch: ComponentPatch, tx: Transaction): string | undefined {
+  const out: Record<string, unknown> = {};
+  if (patch.prefix !== undefined) {
+    const prefix = patch.prefix.trim().toUpperCase();
+    if (/[\s/.]/.test(prefix)) return 'A prefix is letters such as R or U, without spaces';
+    out.prefix = prefix || undefined;
+  }
+  if (patch.userValue !== undefined) out.userValue = patch.userValue || undefined;
+  if (patch.description !== undefined) out.description = patch.description.trim() || undefined;
+  tx.run(set(c, out));
+  return undefined;
+}
+
+/** Add a gate showing `symbol` at a point, named G$1, G$2… */
+export function addGate(c: O.Component, symbol: O.Symbol, at: O.Pt, tx: Transaction): O.Gate {
+  let n = 1;
+  while (c.gates.some((g) => g.name === `G$${n}`)) n++;
+  const gate: O.Gate = { name: `G$${n}`, symbol: symbol.id, at };
+  tx.run(insert(c.gates, gate));
+  return gate;
+}
+
+/** Delete a gate, and its pins' connections in every variant. */
+export function deleteGate(c: O.Component, gate: O.Gate, tx: Transaction): void {
+  if (!c.gates.includes(gate)) return;
+  tx.run(remove(c.gates, gate));
+  for (const v of c.variants) {
+    editPads(v, (pads) => {
+      for (const key of Object.keys(pads)) if (key.startsWith(`${gate.name}.`)) delete pads[key];
+    }, tx);
+  }
+}
+
+/** Rename a gate, in the component and in its variants' pin-to-pad maps. */
+export function renameGate(c: O.Component, gate: O.Gate, raw: string, tx: Transaction): string | undefined {
+  const name = raw.trim().toUpperCase();
+  if (!name) return "A gate name can't be empty";
+  if (/[\s.]/.test(name)) return 'A gate name can\'t contain spaces or "."';
+  if (name === gate.name) return undefined;
+  if (c.gates.some((g) => g !== gate && g.name === name)) return `This component already has a gate named ${name}`;
+  for (const v of c.variants) {
+    editPads(v, (pads) => {
+      for (const key of Object.keys(pads)) {
+        if (!key.startsWith(`${gate.name}.`)) continue;
+        pads[`${name}.${key.slice(gate.name.length + 1)}`] = pads[key]!;
+        delete pads[key];
+      }
+    }, tx);
+  }
+  tx.run(set(gate, { name }));
+  return undefined;
+}
+
+export interface GatePatch {
+  addLevel?: O.Gate['addLevel'] | 'next';
+  swap?: number;
+}
+
+export function setGate(gate: O.Gate, patch: GatePatch, tx: Transaction): string | undefined {
+  const out: Record<string, unknown> = {};
+  if (patch.addLevel !== undefined) out.addLevel = patch.addLevel === 'next' ? undefined : patch.addLevel;
+  if (patch.swap !== undefined) {
+    if (!(Number.isInteger(patch.swap) && patch.swap >= 0 && patch.swap <= 255)) return 'The swap level is a whole number from 0 to 255';
+    out.swap = patch.swap || undefined;
+  }
+  tx.run(set(gate, out));
+  return undefined;
+}
+
+/** Add a variant (a package option) using a footprint, or none (a symbol only, e.g. a supply). */
+export function addVariant(c: O.Component, raw: string, footprint: string | undefined, tx: Transaction): string | undefined {
+  const name = raw.trim().toUpperCase();
+  if (/\s/.test(name)) return "A variant name can't contain spaces";
+  if (c.variants.some((v) => v.name === name)) return name ? `There is already a variant ${name}` : "There is already a variant named '' (no name)";
+  tx.run(insert(c.variants, { name, ...(footprint ? { footprint } : {}), pads: {} }));
+  return undefined;
+}
+
+export function renameVariant(c: O.Component, v: O.Variant, raw: string, tx: Transaction): string | undefined {
+  const name = raw.trim().toUpperCase();
+  if (/\s/.test(name)) return "A variant name can't contain spaces";
+  if (name === v.name) return undefined;
+  if (c.variants.some((x) => x !== v && x.name === name)) return `There is already a variant ${name || "''"}`;
+  tx.run(set(v, { name }));
+  return undefined;
+}
+
+export function deleteVariant(c: O.Component, v: O.Variant, tx: Transaction): string | undefined {
+  if (c.variants.length <= 1) return 'A component needs at least one variant';
+  tx.run(remove(c.variants, v));
+  return undefined;
+}
+
+/** Change a variant's footprint; connections to pads the new footprint doesn't have are dropped. */
+export function setVariantFootprint(lib: O.Library, v: O.Variant, footprintId: string | undefined, tx: Transaction): string | undefined {
+  const fp = footprintId ? lib.footprints.find((f) => f.id === footprintId) : undefined;
+  if (footprintId && !fp) return `No footprint ${footprintId} in this library`;
+  const names = new Set(fp?.pads.map((p) => p.name) ?? []);
+  editPads(v, (pads) => {
+    for (const [key, list] of Object.entries(pads)) {
+      const rest = list.filter((p) => names.has(p));
+      if (rest.length) pads[key] = rest;
+      else delete pads[key];
+    }
+  }, tx);
+  tx.run(set(v, { footprint: footprintId }));
+  return undefined;
+}
+
+/**
+ * Connect a gate's pin to pads of the variant's footprint (none: unconnected). A pad belongs
+ * to one pin at most; a pin may have several pads (e.g. GND on two pads).
+ */
+export function connectPin(lib: O.Library, v: O.Variant, key: string, padNames: string[], tx: Transaction): string | undefined {
+  const fp = v.footprint ? lib.footprints.find((f) => f.id === v.footprint) : undefined;
+  if (!fp) return 'Choose a footprint for this variant first';
+  const names = [...new Set(padNames.map((p) => p.trim()).filter(Boolean))];
+  for (const p of names) {
+    if (!fp.pads.some((x) => x.name === p)) return `${componentName(fp.id)} has no pad ${p}`;
+    const other = Object.entries(v.pads).find(([k, list]) => k !== key && list.includes(p));
+    if (other) return `Pad ${p} is already connected to ${other[0]}`;
+  }
+  editPads(v, (pads) => {
+    if (names.length) pads[key] = names;
+    else delete pads[key];
+  }, tx);
+  return undefined;
+}
+
+/**
+ * Connect the pins left unconnected to the pads left free: first a pin to the pad of the same
+ * name (A to A, GND to GND), then the rest in order (gates, then pins, in order; pads by
+ * number). Returns how many pins were connected.
+ */
+export function autoConnect(lib: O.Library, c: O.Component, v: O.Variant, tx: Transaction): number {
+  const fp = v.footprint ? lib.footprints.find((f) => f.id === v.footprint) : undefined;
+  if (!fp) return 0;
+  const used = new Set(Object.values(v.pads).flat());
+  const free = fp.pads.map((p) => p.name).filter((p) => !used.has(p));
+  const open: string[] = [];
+  for (const g of c.gates) {
+    for (const pin of lib.symbols.find((s) => s.id === g.symbol)?.pins ?? []) {
+      const key = `${g.name}.${pin.name}`;
+      if (!v.pads[key]?.length) open.push(key);
+    }
+  }
+  const out: Record<string, string[]> = {};
+  const take = (key: string, pad: string) => {
+    out[key] = [pad];
+    free.splice(free.indexOf(pad), 1);
+  };
+  for (const key of open) {
+    const pin = key.slice(key.indexOf('.') + 1).replace(/@.*$/, '');
+    if (free.includes(pin)) take(key, pin);
+  }
+  const byNumber = (a: string, b: string) => a.localeCompare(b, undefined, { numeric: true });
+  free.sort(byNumber);
+  for (const key of open) if (!out[key] && free.length) take(key, free[0]!);
+  if (Object.keys(out).length) editPads(v, (pads) => Object.assign(pads, out), tx);
+  return Object.keys(out).length;
 }

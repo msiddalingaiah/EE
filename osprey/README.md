@@ -13,19 +13,30 @@ native model (see [docs/format.md](docs/format.md)). Eagle files are imported in
   In Chromium browsers a project opened with Open… is saved in place.
 - **Libraries:** open an Osprey library (`.ospreylib`), or import an Eagle library (`.lbr`);
   Save writes an `.ospreylib` (the same canonical JSON) and Export Eagle writes an `.lbr`.
+  The Library panel lists components, symbols or footprints (tabs, with counts), filtered by
+  name or description. A component links to its gates' symbols and its variants' footprints,
+  and a symbol or footprint to the components that use it.
 - **Editing symbols and footprints** (library): pins, pads, lines, shapes and text are objects
   of their own, selected, moved (symbols on a 0.1 inch grid, footprints on 0.635 mm; Alt for the
   fine grid), rotated, mirrored and deleted as on a sheet or board, with undo. The inspector
   changes a pin's name, direction, length, function, visibility, swap level and position, and
   a pad's name, size and roundness (SMD) or drill, diameter and shape, position and rotation.
   Renaming or deleting a pin or pad updates the pin-to-pad maps of the library's components
-  that use it, so the library stays consistent. Components are view-only so far.
+  that use it, so the library stays consistent.
 - **Drawing symbols and footprints** (library): **New library** starts an empty one; **+ Symbol**
   and **+ Footprint** add items, named in the inspector (as is the library). The toolbar's tools
   add pins (named P$1, P$2…, pointing in toward the origin), through-hole and SMD pads
   (numbered 1, 2…), lines (click the corners; double-click, Enter or Esc ends), rectangles,
   circles and text (`>NAME` and `>VALUE` show a part's). Each tool keeps placing until Esc.
   The inspector sets a graphic's layer, width, radius, text and size, and where it is.
+- **Editing components** (library): **+ Component** adds one. Its gates (the symbols a part is
+  drawn with) are objects on the canvas, added from the inspector, dragged into place, renamed,
+  given an add level and swap level, and deleted. The inspector sets the prefix (R, U), whether
+  the value is typed per part, and the description; and per variant (package option) its name,
+  footprint (or none, for a supply symbol), and the pin-to-pad map: type each pin's pads ("1",
+  or "4, 8" for a pin on two pads). A pad belongs to one pin. **Connect the rest** connects
+  pins left open to free pads: the pad of the same name, else the next in order. Renaming a gate
+  or changing a footprint keeps the map consistent.
 - **Export Eagle…** writes the project back as an Eagle 9 `.sch` + `.brd`, with pad lists and
   airwires regenerated and the Eagle data Osprey doesn't model written back. Importing the
   exported files gives the same project again (checked on 152 real pairs).
@@ -148,7 +159,6 @@ Not yet: library editing, busses beyond wires, push-and-shove routing, pick-and-
 
 1. **Library editing,** in library files, as in Eagle: projects keep their copies until
    updated from the library.
-   - Components: gates, variants and the pin-to-pad map.
    - **Update from library** in a project: see which parts differ and how, and apply as one
      step that can be undone, with ERC run afterwards (a renamed or moved pin shows as a
      problem rather than a silently broken connection).

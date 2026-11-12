@@ -23,8 +23,9 @@ import { addRoute, anchors, bend45, copperLayers, traceWidth, viaDrill, type Anc
 import { addWire, cleanPath, sheetPins, snapPoints, touchAt, usualWireWidth, type WireResult } from '../edit/wire';
 import { renameNet, renamePart, setPartValue, smash, unsmash } from '../edit/properties';
 import {
-  addItem, nextPadName, nextPinName, renameItem, renameLibrary, renamePad, renamePin, setGraphic, setPad, setPin,
-  type GraphicPatch, type ItemKind, type PadPatch, type PinPatch,
+  addComponent, addGate, addItem, addVariant, autoConnect, connectPin, deleteVariant, nextPadName, nextPinName, renameGate,
+  renameItem, renameLibrary, renamePad, renamePin, renameVariant, setComponent, setGate, setGraphic, setPad, setPin,
+  setVariantFootprint, type ComponentPatch, type GatePatch, type GraphicPatch, type ItemKind, type PadPatch, type PinPatch,
 } from '../edit/library';
 import { isEditable, mirrorAbout, rotationAbout, transformTargets, translation } from '../edit/transform';
 import type { Target } from '../scene/types';
@@ -290,6 +291,65 @@ export class Editor {
       if (!err) tx.run(set(this.project.project, { name: file.name }));
       return err;
     });
+  }
+
+  /** A new component (one variant, no gates yet) in the library being edited. */
+  addComponent(): O.Component {
+    const tx = new Transaction('New component');
+    const c = addComponent(this.project.library, this.project.project.name, tx);
+    this.push(tx);
+    return c;
+  }
+
+  setComponent(c: O.Component, patch: ComponentPatch, label: string): string | undefined {
+    return this.property(label, (tx) => setComponent(c, patch, tx));
+  }
+
+  /** Add a gate showing a symbol, beside the component's other gates. */
+  addGate(c: O.Component, symbol: O.Symbol): O.Gate {
+    const tx = new Transaction(`Add gate (${componentName(symbol.id)})`);
+    const right = c.gates.length ? Math.max(...c.gates.map((g) => g.at[0])) + 25.4 : 0;
+    const gate = addGate(c, symbol, [right, 0], tx);
+    this.push(tx);
+    return gate;
+  }
+
+  renameGate(c: O.Component, gate: O.Gate, name: string): string | undefined {
+    return this.property(`Rename gate ${gate.name}`, (tx) => renameGate(c, gate, name, tx));
+  }
+
+  setGate(gate: O.Gate, patch: GatePatch, label: string): string | undefined {
+    return this.property(`${label} of gate ${gate.name}`, (tx) => setGate(gate, patch, tx));
+  }
+
+  addVariant(c: O.Component, name: string, footprint: string | undefined): string | undefined {
+    if (footprint && !this.project.library.footprints.some((f) => f.id === footprint)) return `No footprint ${footprint} in this library`;
+    return this.property(`Add variant ${name.trim().toUpperCase() || "''"}`, (tx) => addVariant(c, name, footprint, tx));
+  }
+
+  renameVariant(c: O.Component, v: O.Variant, name: string): string | undefined {
+    return this.property(`Rename variant ${v.name || "''"}`, (tx) => renameVariant(c, v, name, tx));
+  }
+
+  deleteVariant(c: O.Component, v: O.Variant): string | undefined {
+    return this.property(`Delete variant ${v.name || "''"}`, (tx) => deleteVariant(c, v, tx));
+  }
+
+  setVariantFootprint(v: O.Variant, footprint: string | undefined): string | undefined {
+    return this.property(`Footprint of variant ${v.name || "''"}`, (tx) => setVariantFootprint(this.project.library, v, footprint, tx));
+  }
+
+  /** Connect a pin ("gate.pin") to pads of the variant's footprint (none: unconnected). */
+  connectPin(v: O.Variant, key: string, pads: string[]): string | undefined {
+    return this.property(`Connect ${key}`, (tx) => connectPin(this.project.library, v, key, pads, tx));
+  }
+
+  /** Connect unconnected pins to free pads (same name first, then in order); returns how many. */
+  autoConnect(c: O.Component, v: O.Variant): number {
+    const tx = new Transaction(`Connect pins of variant ${v.name || "''"}`);
+    const n = autoConnect(this.project.library, c, v, tx);
+    if (n) this.push(tx);
+    return n;
   }
 
   setGraphic(g: O.Graphic, patch: GraphicPatch, label: string): string | undefined {
@@ -1433,6 +1493,7 @@ function describe(ts: Target[]): string {
       case 'label': return `${t.placement.part} ${t.label.attr.toLowerCase()}`;
       case 'pin': return `pin ${t.pin.name}`;
       case 'pad': return `pad ${t.pad.name}`;
+      case 'libgate': return `gate ${t.gate.name}`;
     }
   }
   return `${ts.length} objects`;
@@ -1453,5 +1514,6 @@ export function subject(t: Target): object {
     case 'label': return t.label;
     case 'pin': return t.pin;
     case 'pad': return t.pad;
+    case 'libgate': return t.gate;
   }
 }

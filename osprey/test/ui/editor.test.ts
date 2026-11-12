@@ -148,7 +148,8 @@ describe.skipIf(!findChrome())('libraries in the browser', () => {
 
   it('edits a symbol: drags a pin on the grid, renames it, and undoes both', async () => {
     await d.open('madhu.ospreylib');
-    await d.button('#library-list button[data-kind="symbol"][title="madhu/DIODE"]');
+    await d.button('#library-tabs [data-kind="symbol"]');
+    await d.button('#library-list button[title="madhu/DIODE"]');
     await d.click(-2.3, 0);
     expect((await d.state()).selection).toEqual([{ kind: 'pin', label: 'Pin A' }]);
     await d.drag(-2.3, 0, -4.8, 0.1);
@@ -166,7 +167,8 @@ describe.skipIf(!findChrome())('libraries in the browser', () => {
 
   it('edits a footprint: changes a pad drill from the inspector, and deletes the pad', async () => {
     await d.open('madhu.ospreylib');
-    await d.button('#library-list button[data-kind="footprint"][title="madhu/DO-41"]');
+    await d.button('#library-tabs [data-kind="footprint"]');
+    await d.button('#library-list button[title="madhu/DO-41"]');
     await d.click(4.4, 0.5);
     expect((await d.state()).selection).toEqual([{ kind: 'pad', label: 'Pad A' }]);
     await d.type('drill', '1.2');
@@ -204,6 +206,69 @@ describe.skipIf(!findChrome())('libraries in the browser', () => {
       pads: [{ name: '1', at: [-1.27, 0], drill: 0.8 }, { name: '2', at: [1.27, 0], drill: 0.8 }],
     }]);
     expect((await d.state()).dirty).toBe(false);
+    expect(d.problems).toEqual([]);
+  });
+
+  it('builds a component: a gate, a footprint, pins connected to pads, and edits the gate', async () => {
+    await d.open('madhu.ospreylib');
+    await d.button('#new-lib-btn');
+    await d.button('#new-symbol-btn');
+    await d.type('item-name', 'RES');
+    await d.button('#draw-tools [data-tool="pin"]');
+    await d.click(-5.08, 0);
+    await d.click(5.08, 0);
+    await d.key('Escape');
+    await d.button('#new-footprint-btn');
+    await d.type('item-name', 'R0805');
+    await d.button('#draw-tools [data-tool="smd"]');
+    await d.click(-1.27, 0);
+    await d.click(1.27, 0);
+    await d.key('Escape');
+    await d.button('#new-component-btn');
+    await d.type('item-name', 'R');
+    await d.type('prefix', 'R');
+    await d.button('Add gate');
+    await d.choose('#inspector select[data-field="footprint"]', 'untitled/R0805');
+    await d.button('Connect the rest');
+    expect(await lib('lib.components')).toEqual([{
+      id: 'untitled/R', prefix: 'R', gates: [{ name: 'G$1', symbol: 'untitled/RES', at: [0, 0] }],
+      variants: [{ name: '', footprint: 'untitled/R0805', pads: { 'G$1.P$1': ['1'], 'G$1.P$2': ['2'] } }],
+    }]);
+    // The gate is an object: rename it (the connections follow), then drag it.
+    await d.click(-3, 0);
+    expect((await d.state()).selection).toEqual([{ kind: 'libgate', label: 'Gate G$1' }]);
+    await d.type('name', 'A');
+    expect(await lib(`Object.keys(lib.components[0].variants[0].pads)`)).toEqual(['A.P$1', 'A.P$2']);
+    // A pin typed to a pad another pin has is refused.
+    await d.key('Escape');
+    await d.type('pads:A.P$1', '2');
+    expect((await d.state()).status).toBe('Pad 2 is already connected to A.P$2');
+    expect(d.problems).toEqual([]);
+  });
+
+  it('lists one kind of item at a time, and links components to their symbols and footprints', async () => {
+    await d.open('madhu.ospreylib');
+    const tabs = () => d.evaluate<string[]>(`[...document.querySelectorAll('#library-tabs button')].map((b) => (b.getAttribute('aria-selected') === 'true' ? '*' : '') + b.textContent)`);
+    const listed = () => d.evaluate<string[]>(`[...document.querySelectorAll('#library-list button')].map((b) => b.textContent)`);
+    expect(await tabs()).toEqual(['*Components135', 'Symbols111', 'Footprints123']);
+    expect(await listed()).toContain('1N4001');
+    expect(await listed()).not.toContain('DO-41');
+    // A component links to its gates' symbols and its variant's footprint.
+    await d.button('#library-list button[title="madhu/1N4001"]');
+    await d.button('#inspector [data-link="footprint:madhu/DO-41"]');
+    expect(await tabs()).toEqual(['Components135', 'Symbols111', '*Footprints123']);
+    expect(await d.evaluate('document.querySelector("#library-list .active").textContent')).toBe('DO-41');
+    // The footprint links back to the components that use it.
+    expect(await d.evaluate('document.querySelector("#inspector .links").textContent')).toBe('Used by: 1N4001, 1N4733');
+    await d.button('#inspector [data-link="component:madhu/1N4733"]');
+    expect(await tabs()).toEqual(['*Components135', 'Symbols111', 'Footprints123']);
+    await d.button('#inspector [data-link="symbol:madhu/DIODE-ZENER"]');
+    expect(await d.evaluate('document.querySelector("#inspector input[data-field=item-name]").value')).toBe('DIODE-ZENER');
+    // The filter matches descriptions too, and the counts follow it.
+    await d.button('#library-tabs [data-kind="component"]');
+    await d.evaluate(`(() => { const f = document.getElementById('library-filter'); f.value = 'schottky'; f.dispatchEvent(new Event('input')); })()`);
+    expect(await listed()).toEqual(['20TQ035PBF', '20TQ040PBF', '20TQ045PBF', 'BAS70-05', 'DSS6-015AS']);
+    expect((await tabs())[0]).toBe('*Components5');
     expect(d.problems).toEqual([]);
   });
 

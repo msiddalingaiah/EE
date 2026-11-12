@@ -19,11 +19,12 @@ export interface LibraryItemRef {
   kind: LibraryItemKind;
   /** Item id ("library/name"). */
   id: string;
+  /** For a component: the variant whose pad numbers the pins show (default the first). */
+  variant?: string;
 }
 
 export function buildLibraryScene(lib: O.Library, layers: Layer[], item: LibraryItemRef): Scene {
   const b = new SceneBuilder('library', layers);
-  const owner = `library-item:${item.kind}:${item.id}`;
   const name = componentName(item.id);
 
   switch (item.kind) {
@@ -76,20 +77,16 @@ export function buildLibraryScene(lib: O.Library, layers: Layer[], item: Library
     case 'component': {
       const c = lib.components.find((x) => x.id === item.id);
       if (!c) break;
-      const variant = c.variants[0];
-      b.addOwner({
-        id: owner, kind: 'library-item', label: `Component ${name}`,
-        props: [
-          ['Component', name],
-          ['Prefix', c.prefix ?? ''],
-          ['Gates', c.gates.map((g) => g.name).join(', ')],
-          ['Variants', c.variants.map((v) => `${v.name || "''"}${v.footprint ? ` (${componentName(v.footprint)})` : ''}`).join(', ')],
-          ['Description', plain(c.description)],
-        ],
-      });
+      const variant = c.variants.find((v) => v.name === item.variant) ?? c.variants[0];
+      // Each gate is an object of its own, to move or delete.
       for (const gate of c.gates) {
         const sym = lib.symbols.find((s) => s.id === gate.symbol);
         if (!sym) continue;
+        const gateOwner = b.addOwner({
+          id: `libgate:${objId(gate)}`, kind: 'libgate', label: `Gate ${gate.name}`, origin: { x: gate.at[0], y: gate.at[1] },
+          props: [['Gate', gate.name], ['Symbol', componentName(gate.symbol)], ['Add level', gate.addLevel ?? 'next'], ['Swap level', String(gate.swap ?? 0)], ['Position', fmtXY(gate.at[0], gate.at[1])]],
+          target: { kind: 'libgate', component: c, gate },
+        });
         const pads = new Map<string, string>();
         for (const [key, list] of Object.entries(variant?.pads ?? {})) {
           const [g, pin] = splitPinKey(key);
@@ -97,7 +94,7 @@ export function buildLibraryScene(lib: O.Library, layers: Layer[], item: Library
         }
         const prefix = c.prefix ?? '';
         const shown = c.gates.length > 1 ? `${prefix}1${gate.name}` : `${prefix}1`;
-        buildSymbolInto(b, sym, placement(gate.at[0], gate.at[1], { angle: 0, mirror: false, spin: false }), owner, pads, (t) => {
+        buildSymbolInto(b, sym, placement(gate.at[0], gate.at[1], { angle: 0, mirror: false, spin: false }), gateOwner, pads, (t) => {
           const k = t.toUpperCase();
           if (k === '>NAME') return shown;
           if (k === '>VALUE') return name;
@@ -124,14 +121,17 @@ const fmtNum = (n: number) => String(Math.round(n * 10000) / 10000);
 
 /** What a library item is, for the inspector when nothing in it is selected. */
 export function libraryItemProps(lib: O.Library, item: LibraryItemRef): [string, string][] {
-  const name = componentName(item.id);
+  if (item.kind === 'component') {
+    const c = lib.components.find((x) => x.id === item.id);
+    return c ? [['Gates', c.gates.map((g) => g.name).join(', ')], ['Description', plain(c.description)]] : [];
+  }
   if (item.kind === 'symbol') {
     const sym = lib.symbols.find((s) => s.id === item.id);
-    return sym ? [['Symbol', name], ['Pins', String(sym.pins.length)], ['Description', plain(sym.description)]] : [];
+    return sym ? [['Pins', String(sym.pins.length)], ['Description', plain(sym.description)]] : [];
   }
   if (item.kind === 'footprint') {
     const fp = lib.footprints.find((f) => f.id === item.id);
-    return fp ? [['Footprint', name], ['Pads', String(fp.pads.length)], ['Description', plain(fp.description)]] : [];
+    return fp ? [['Pads', String(fp.pads.length)], ['Description', plain(fp.description)]] : [];
   }
   return [];
 }

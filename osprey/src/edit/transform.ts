@@ -44,7 +44,7 @@ export function docOf(t: Target): 'schematic' | 'board' {
     case 'footprint': case 'trace': case 'via': case 'pour': return 'board';
     case 'drawing': case 'label': return t.doc;
     // In a library: symbols are schematic-like, footprints board-like (layers mirror).
-    case 'pin': return 'schematic';
+    case 'pin': case 'libgate': return 'schematic';
     case 'pad': return 'board';
   }
 }
@@ -129,6 +129,8 @@ export function transformTargets(project: O.Project, targets: Target[], E: Trans
         break;
       case 'pin': c.tx.run(set(t.pin, { at: at(E, t.pin.at), rot: turnedDirection(E, t.pin.rot, 90) })); break;
       case 'pad': c.tx.run(set(t.pad, { at: at(E, t.pad.at), rot: turnedDirection(E, t.pad.rot, 0) })); break;
+      // A gate has a place in its component but no rotation (Eagle's gates don't turn).
+      case 'libgate': c.tx.run(set(t.gate, { at: at(E, t.gate.at) })); break;
     }
   }
 

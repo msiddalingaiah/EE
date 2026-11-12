@@ -23,6 +23,8 @@ export type Target =
   // Library: a symbol's pins, a footprint's pads (their graphics are drawings)
   | { kind: 'pin'; symbol: O.Symbol; pin: O.Pin }
   | { kind: 'pad'; footprint: O.Footprint; pad: O.Pad }
+  // Library: a component's gate (where its symbol sits in the component)
+  | { kind: 'libgate'; component: O.Component; gate: O.Gate }
   // Either
   | { kind: 'drawing'; doc: 'schematic' | 'board'; graphic: O.Graphic; container: O.Graphic[] }
   | { kind: 'label'; doc: 'schematic' | 'board'; placement: O.GatePlacement | O.FootprintPlacement; label: O.Label };

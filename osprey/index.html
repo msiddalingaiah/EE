@@ -77,8 +77,18 @@
           <div id="erc-list" class="library-list drc-list"></div>
         </section>
         <section id="library-panel" hidden>
-          <h2>Library <span class="panel-actions"><button id="new-symbol-btn" type="button" title="Add a new, empty symbol">+ Symbol</button><button id="new-footprint-btn" type="button" title="Add a new, empty footprint">+ Footprint</button></span></h2>
-          <input id="library-filter" type="search" placeholder="Filter…" />
+          <h2>Library</h2>
+          <div class="lib-actions">
+            <button id="new-symbol-btn" type="button" title="Add a new, empty symbol">+ Symbol</button>
+            <button id="new-footprint-btn" type="button" title="Add a new, empty footprint">+ Footprint</button>
+            <button id="new-component-btn" type="button" title="Add a new component: gates (symbols), variants (footprints) and how pins connect to pads">+ Component</button>
+          </div>
+          <div id="library-tabs" class="lib-tabs" role="tablist" aria-label="Library items">
+            <button type="button" role="tab" data-kind="component">Components</button>
+            <button type="button" role="tab" data-kind="symbol">Symbols</button>
+            <button type="button" role="tab" data-kind="footprint">Footprints</button>
+          </div>
+          <input id="library-filter" type="search" placeholder="Filter by name or description…" />
           <div id="library-list" class="library-list"></div>
         </section>
         <section id="layers-panel">

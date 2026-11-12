@@ -154,3 +154,67 @@ describe('library drawing and items', () => {
     expect([text.text, text.layer]).toEqual(['>VALUE', 'values']);
   });
 });
+
+describe('components', () => {
+  const c = () => component('1N4001');
+  const v = () => c().variants.find((x) => x.name === 'H')!; // on DO-41
+
+  it('adds a component with one variant, and gates named G$n beside each other', () => {
+    const n = ed.addComponent();
+    expect(n).toEqual({ id: 'madhu/NEW', gates: [], variants: [{ name: '', pads: {} }] });
+    expect(ed.addGate(n, diode)).toEqual({ name: 'G$1', symbol: 'madhu/DIODE', at: [0, 0] });
+    expect(ed.addGate(n, diode).at).toEqual([25.4, 0]);
+    expect(ed.setComponent(n, { prefix: 'd', userValue: true }, 'Prefix')).toBeUndefined();
+    expect([n.prefix, n.userValue]).toEqual(['D', true]);
+  });
+
+  it('renames and deletes a gate, and its pins\' connections follow', () => {
+    const gate = c().gates[0]!;
+    expect(ed.renameGate(c(), gate, 'g')).toBeUndefined();
+    expect(Object.keys(v().pads).sort()).toEqual(['G.A', 'G.C']);
+    ed.delete([{ kind: 'libgate', component: c(), gate }]);
+    expect(c().gates).toEqual([]);
+    expect(v().pads).toEqual({});
+    ed.undo();
+    ed.undo();
+    expect(writeLibrary(f)).toBe(TEXT);
+  });
+
+  it('connects pins to pads: one pin to several pads, but not a pad to two pins', () => {
+    expect(ed.connectPin(v(), 'A.A', ['A', 'C'])).toBe('Pad C is already connected to A.C');
+    expect(ed.connectPin(v(), 'A.A', ['X'])).toBe('DO-41 has no pad X');
+    expect(ed.connectPin(v(), 'A.C', [])).toBeUndefined();
+    expect(v().pads['A.C']).toBeUndefined();
+    expect(ed.connectPin(v(), 'A.A', ['A', 'C'])).toBeUndefined();
+    expect(v().pads['A.A']).toEqual(['A', 'C']);
+  });
+
+  it('connects the rest: same names first, then in order', () => {
+    ed.connectPin(v(), 'A.A', []);
+    ed.connectPin(v(), 'A.C', []);
+    expect(ed.autoConnect(c(), v())).toBe(2);
+    expect(v().pads).toEqual({ 'A.A': ['A'], 'A.C': ['C'] });
+    expect(ed.autoConnect(c(), v())).toBe(0);
+    // A footprint with numbered pads: in order.
+    ed.connectPin(v(), 'A.A', []);
+    ed.connectPin(v(), 'A.C', []);
+    expect(ed.setVariantFootprint(v(), 'madhu/TO-92')).toBeUndefined();
+    expect(ed.autoConnect(c(), v())).toBe(2);
+    expect(v().pads).toEqual({ 'A.A': ['1'], 'A.C': ['2'] });
+  });
+
+  it('changes a variant\'s footprint, dropping connections to pads it lacks; adds, renames and deletes variants', () => {
+    expect(ed.setVariantFootprint(v(), 'madhu/TO-92')).toBeUndefined();
+    const changed = c().variants.find((x) => x.footprint === 'madhu/TO-92')!;
+    expect(changed.pads).toEqual({});
+    ed.undo();
+    expect(ed.addVariant(c(), 'smd', 'madhu/SOD-123')).toBe('No footprint madhu/SOD-123 in this library');
+    expect(ed.addVariant(c(), 'smd', 'madhu/DO-35')).toBeUndefined();
+    const smd = c().variants.find((x) => x.name === 'SMD')!;
+    expect(smd).toEqual({ name: 'SMD', footprint: 'madhu/DO-35', pads: {} });
+    expect(ed.renameVariant(c(), smd, 'v')).toBe('There is already a variant V');
+    expect(ed.deleteVariant(c(), smd)).toBeUndefined();
+    const only = ed.addComponent();
+    expect(ed.deleteVariant(only, only.variants[0]!)).toBe('A component needs at least one variant');
+  });
+});

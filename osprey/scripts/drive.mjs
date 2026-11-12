@@ -423,7 +423,8 @@ async function main(argv) {
         case 'key': await d.key(arg); break;
         case 'type': { const eq = arg.indexOf('='); await d.type(arg.slice(0, eq), arg.slice(eq + 1)); break; }
         case 'button': await d.button(arg); break;
-        case 'choose': { const eq = arg.indexOf('='); await d.choose(arg.slice(0, eq), arg.slice(eq + 1)); break; }
+        // The selector may hold an "=" (an attribute selector): the value follows the last one.
+        case 'choose': { const eq = arg.lastIndexOf('='); await d.choose(arg.slice(0, eq), arg.slice(eq + 1)); break; }
         case 'wait': await sleep(Number(arg)); break;
         case 'shot': await d.shot(arg); console.log(`Saved ${arg}`); break;
         case 'state': console.log(JSON.stringify(await d.state(), null, 2)); break;
