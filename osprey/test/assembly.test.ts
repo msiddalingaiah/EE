@@ -60,13 +60,13 @@ describe('assembly files', () => {
 
   it('leaves out parts marked do-not-place', () => {
     expect(ed.setDoNotPlace('R14', true)).toBeUndefined();
-    expect(p.parts.find((x) => x.name === 'R14')!.attributes).toEqual({ DNP: 'yes' });
+    expect(p.parts.find((x) => x.name === 'R14')!.attributes).toMatchObject({ DNP: 'yes' });
     const { bom, cpl, warnings } = files();
     expect(designators(bom)).not.toContain('R14');
     expect(cpl.some((r) => r[0] === 'R14')).toBe(false);
     expect(warnings[0]).toMatch(/ and 1 marked do-not-place \(R14\); solder these yourself$/);
     ed.setDoNotPlace('R14', false);
-    expect(p.parts.find((x) => x.name === 'R14')!.attributes).toBeUndefined();
+    expect(p.parts.find((x) => x.name === 'R14')!.attributes).toEqual({ BLOCK: 'MCU/LED' });
   });
 
   it('groups identical parts into one row', () => {
@@ -95,7 +95,7 @@ describe('assembly files', () => {
     expect(lcscWarning()).toMatch(new RegExp(`^${smd} of ${smd} parts have no LCSC part number`));
     expect(ed.setLcsc('R1', 'x123')).toBe('An LCSC part number is C followed by digits, e.g. C25804');
     expect(ed.setLcsc('R1', ' c17414 ')).toBeUndefined();
-    expect(p.parts.find((x) => x.name === 'R1')!.attributes).toEqual({ LCSC: 'C17414' });
+    expect(p.parts.find((x) => x.name === 'R1')!.attributes).toMatchObject({ LCSC: 'C17414' });
     expect(files().bom).toContainEqual(['3.3M', 'R1', '0805', 'C17414', '1', '', '', 'SMD']);
     expect(lcscWarning()).toMatch(new RegExp(`^${smd - 1} of ${smd}`));
     // The parts still without one are named (R1 no longer, in name order).
@@ -105,7 +105,7 @@ describe('assembly files', () => {
     const back = importEagle([...exportEagle(p).files].map(([name, text]) => ({ name, file: parseEagle(text) })), 'D').project;
     expect(back.parts.find((x) => x.name === 'R1')!.attributes?.LCSC).toBe('C17414');
     expect(ed.setLcsc('R1', '')).toBeUndefined();
-    expect(p.parts.find((x) => x.name === 'R1')!.attributes).toBeUndefined();
+    expect(p.parts.find((x) => x.name === 'R1')!.attributes).toEqual({ BLOCK: 'Preamp' });
   });
 
   it('takes a component\'s default LCSC part number from the library, unless the part has its own', () => {

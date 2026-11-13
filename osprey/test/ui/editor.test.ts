@@ -152,7 +152,7 @@ describe.skipIf(!findChrome())('editor in the browser', () => {
       const { at } = await footprint('R1');
       await d.click(at[0], at[1]);
       await d.type('lcsc', 'c17414');
-      expect(await d.evaluate('__osprey.project.parts.find((p) => p.name === "R1").attributes')).toEqual({ LCSC: 'C17414' });
+      expect(await d.evaluate('__osprey.project.parts.find((p) => p.name === "R1").attributes')).toMatchObject({ LCSC: 'C17414' });
       await d.downloads(dir);
       await d.choose('#cam-select', 'assembly');
       const file = join(dir, 'wwvbfind_assembly.zip');
@@ -167,7 +167,7 @@ describe.skipIf(!findChrome())('editor in the browser', () => {
       expect((await d.state()).error).toMatch(/Not placed: \d+ through-hole parts \(.*IN.*\); solder these yourself; \d+ of \d+ parts have no LCSC part number/);
       // Do not place: a checkbox on the part.
       await d.button('#inspector input[data-field="dnp"]');
-      expect(await d.evaluate('__osprey.project.parts.find((p) => p.name === "R1").attributes')).toEqual({ LCSC: 'C17414', DNP: 'yes' });
+      expect(await d.evaluate('__osprey.project.parts.find((p) => p.name === "R1").attributes')).toMatchObject({ LCSC: 'C17414', DNP: 'yes' });
       expect(d.problems).toEqual([]);
     } finally {
       rmSync(dir, { recursive: true, force: true });
@@ -192,29 +192,33 @@ describe.skipIf(!findChrome())('editor in the browser', () => {
     await d.button('Select block frontend');
     expect((await d.state()).selection.map((s: { label: string }) => s.label).sort()).toEqual(['R1', 'R2']);
     await d.key('Ctrl+z');
-    expect(await block('R1')).toBeUndefined();
+    expect(await block('R1')).toBe('Preamp');
     expect(d.problems).toEqual([]);
   });
 
-  it('suggests blocks from the Blocks panel, lists the tree, and selects a block from it', async () => {
-    expect(await d.evaluate('document.getElementById("blocks-list").textContent')).toMatch(/No blocks yet/);
+  it('lists the sample\'s blocks, suggests one for a part without, selects and renames a block', async () => {
+    const rows = await d.evaluate<string[]>('[...document.querySelectorAll("#blocks-list .block-name")].map((e) => e.textContent)');
+    expect(rows).toEqual(['MCU', 'ADC-bias', 'Filter', 'LED', 'Oscillator', 'Power', 'Preamp']);
+    const block = (part: string) => d.evaluate(`__osprey.project.parts.find((p) => p.name === ${JSON.stringify(part)}).attributes?.BLOCK`);
+    // Take R7 out of its block; Suggest puts it back with the parts it is wired to.
+    const r7 = await footprint('R7');
+    await d.click(r7.at[0], r7.at[1]);
+    await d.type('block', '');
+    expect(await block('R7')).toBeUndefined();
     await d.button('Suggest');
     expect((await d.state()).undo).toBe('Suggest blocks');
-    const rows = await d.evaluate<string[]>('[...document.querySelectorAll("#blocks-list .block-name")].map((e) => e.textContent)');
-    expect(rows).toEqual(['power', 'Q1-Q2', 'U1', 'ADC', 'AUDIO', 'TICK', 'U2']);
-    await d.button('#blocks-list .block-row:nth-child(4)'); // ADC
+    expect(await block('R7')).toBe('MCU/ADC-bias');
+    await d.button('#blocks-list .block-row:nth-child(2)'); // ADC-bias
     expect((await d.state()).selection.map((s: { label: string }) => s.label).sort()).toEqual(['C5', 'C6', 'R7', 'R8', 'R9']);
-    // The whole of U1 selected (ADC, AUDIO and TICK inside it): the field renames the block.
-    await d.button('#blocks-list .block-row:nth-child(3)'); // U1
-    expect(await d.evaluate(`document.querySelector('#inspector input[data-field="block"]').value`)).toBe('U1');
+    // The whole of MCU selected (the blocks inside it too): the field renames the block.
+    await d.button('#blocks-list .block-row:nth-child(1)'); // MCU
+    expect(await d.evaluate(`document.querySelector('#inspector input[data-field="block"]').value`)).toBe('MCU');
     await d.type('block', 'mcu');
-    expect((await d.state()).undo).toBe('Rename block U1 to mcu');
-    const block = (part: string) => d.evaluate(`__osprey.project.parts.find((p) => p.name === ${JSON.stringify(part)}).attributes.BLOCK`);
+    expect((await d.state()).undo).toBe('Rename block MCU to mcu');
     expect(await block('U1')).toBe('mcu');
-    expect(await block('R7')).toBe('mcu/ADC');
-    await d.key('Ctrl+z');
-    await d.key('Ctrl+z');
-    expect(await d.evaluate('__osprey.project.parts.some((p) => p.attributes?.BLOCK)')).toBe(false);
+    expect(await block('R7')).toBe('mcu/ADC-bias');
+    for (let i = 0; i < 3; i++) await d.key('Ctrl+z');
+    expect(await block('R7')).toBe('MCU/ADC-bias');
     expect(d.problems).toEqual([]);
   });
 

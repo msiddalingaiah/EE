@@ -21,7 +21,7 @@ script, as a first test of building designs with Claude, and placed with the pla
 (`src/edit/arrange.ts`): connectors on the edges, blocks beside the pins they connect to,
 rotations chosen by airwire length and crossings, then improved by small moves and swaps
 (`src/edit/improve.ts`), then laid out again by hand on a smaller board (44.46 x 27.46 mm).
-The 2-pin headers (VCC power, IN antenna, VOUT audio) have ground on pin 1; the UPDI header is UPDI, GND, VCC from pin 1. Unrouted.
+The 2-pin headers (VCC power, IN antenna, VOUT audio) have ground on pin 1; the UPDI header is UPDI, GND, VCC from pin 1. Its parts are grouped in blocks: Power, Preamp, MCU (with ADC-bias, Filter and LED inside) and Oscillator.
 
 The JFET source follower drives the 2N3904's base directly: its source voltage biases the
 transistor, so there is no coupling capacitor or base divider. The emitter's bypassed

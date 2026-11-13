@@ -89,8 +89,19 @@ describe('block outlines', () => {
   });
 });
 
+/** The wwvbfind sample with its blocks taken out, to suggest them afresh. */
+function unblocked(): O.Project {
+  const p = readProject(readFileSync(join(__dirname, '..', 'samples', 'osprey', 'wwvbfind.osprey'), 'utf8'));
+  for (const part of p.parts) {
+    if (!part.attributes) continue;
+    delete part.attributes.BLOCK;
+    if (!Object.keys(part.attributes).length) delete part.attributes;
+  }
+  return p;
+}
+
 describe('suggesting blocks (wwvbfind)', () => {
-  const sample = () => readProject(readFileSync(join(__dirname, '..', 'samples', 'osprey', 'wwvbfind.osprey'), 'utf8'));
+  const sample = unblocked;
   const grouped = (m: Map<string, string>) => {
     const out: Record<string, string[]> = {};
     for (const [part, b] of m) (out[b] ??= []).push(part);
@@ -129,7 +140,7 @@ describe('suggesting blocks (wwvbfind)', () => {
 
 describe('renaming a block', () => {
   it('renames a block with the blocks inside it, moves it, dissolves it, one undo step each', () => {
-    const p = readProject(readFileSync(join(__dirname, '..', 'samples', 'osprey', 'wwvbfind.osprey'), 'utf8'));
+    const p = unblocked();
     const editor = new Editor(p, () => {});
     editor.suggestBlocks();
     const block = (n: string) => p.parts.find((x) => x.name === n)!.attributes?.BLOCK;
