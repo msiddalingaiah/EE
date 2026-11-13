@@ -4,6 +4,7 @@
 import type { Point, Transform } from '../geom/transform';
 import { compose } from '../geom/transform';
 import { BLOCK_ATTRIBUTE, blockOf, normalizeBlockPath } from '../model/blocks';
+import { suggestBlocks } from '../model/suggest-blocks';
 import { componentName, ProjectIndex } from '../model/derive';
 import { writeProject } from '../model/file';
 import type * as O from '../model/types';
@@ -257,18 +258,34 @@ export class Editor {
    */
   setBlock(partNames: string[], raw: string): number {
     const path = normalizeBlockPath(raw);
-    const parts = this.project.parts.filter((p) => partNames.includes(p.name) && (blockOf(p) ?? '') !== path);
-    if (!parts.length) return 0;
-    const what = parts.length === 1 ? parts[0]!.name : `${parts.length} parts`;
-    const tx = new Transaction(path ? `Put ${what} in block ${path}` : `Take ${what} out of blocks`);
-    for (const part of parts) {
+    const changing = this.project.parts.filter((p) => partNames.includes(p.name) && (blockOf(p) ?? '') !== path);
+    const what = changing.length === 1 ? changing[0]!.name : `${changing.length} parts`;
+    return this.applyBlocks(new Map(partNames.map((name) => [name, path])), path ? `Put ${what} in block ${path}` : `Take ${what} out of blocks`);
+  }
+
+  /**
+   * Suggest blocks for the parts that have none, from how they are wired (suggestBlocks), as one
+   * undo step. Returns how many parts were given a block.
+   */
+  suggestBlocks(): number {
+    return this.applyBlocks(suggestBlocks(this.project), 'Suggest blocks');
+  }
+
+  /** Set parts' blocks (an empty path: none) as one undo step; returns how many changed. */
+  private applyBlocks(blocks: Map<string, string>, label: string): number {
+    const tx = new Transaction(label);
+    let n = 0;
+    for (const part of this.project.parts) {
+      const path = blocks.get(part.name);
+      if (path === undefined || (blockOf(part) ?? '') === path) continue;
       const attributes = { ...part.attributes };
       if (path) attributes[BLOCK_ATTRIBUTE] = path;
       else delete attributes[BLOCK_ATTRIBUTE];
       tx.run(set(part, { attributes: Object.keys(attributes).length ? attributes : undefined }));
+      n++;
     }
-    this.push(tx);
-    return parts.length;
+    if (n) this.push(tx);
+    return n;
   }
 
   /** Set (or with an empty value, remove) one of a part's attributes. */

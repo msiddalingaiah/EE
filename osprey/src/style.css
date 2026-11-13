@@ -255,6 +255,10 @@ dialog.choose-net p { margin: 0 0 12px; }
 .drc-rules span { color: var(--text); }
 #drc-load { width: 100%; margin-bottom: 6px; }
 .drc-summary { margin: 4px 0; }
+.blocks-list .block-row { display: flex; align-items: center; gap: 6px; width: 100%; }
+.block-swatch { width: 10px; height: 10px; border: 2px solid; border-radius: 1px; flex: none; }
+.block-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.block-count { color: var(--text-dim); font-size: 11px; }
 .drc-summary.ok { color: #50c878; }
 .drc-summary.bad { color: #ff6b6b; }
 .drc-list { max-height: 36vh; }

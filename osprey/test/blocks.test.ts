@@ -2,7 +2,11 @@
 
 import { describe, expect, it } from 'vitest';
 import type { BlockItem } from '../src/model/blocks';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { blockAncestry, blockOutlines, blockPaths, comparePaths, normalizeBlockPath } from '../src/model/blocks';
+import { readProject } from '../src/model/file';
+import { suggestBlocks } from '../src/model/suggest-blocks';
 import type * as O from '../src/model/types';
 
 const OPTS = { cell: 0.5, margin: 1, nest: 1, close: 2, keepOut: 0.5 };
@@ -81,5 +85,43 @@ describe('block outlines', () => {
   it('draws apart blocks as separate rings', () => {
     const [o] = blockOutlines([box('a', 0, 0), box('a', 20, 0)], OPTS);
     expect(o!.rings).toHaveLength(2);
+  });
+});
+
+describe('suggesting blocks (wwvbfind)', () => {
+  const sample = () => readProject(readFileSync(join(__dirname, '..', 'samples', 'osprey', 'wwvbfind.osprey'), 'utf8'));
+  const grouped = (m: Map<string, string>) => {
+    const out: Record<string, string[]> = {};
+    for (const [part, b] of m) (out[b] ??= []).push(part);
+    for (const list of Object.values(out)) list.sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+    return out;
+  };
+
+  it('anchors blocks on ICs and transistors, with blocks inside for clusters on named nets', () => {
+    expect(grouped(suggestBlocks(sample()))).toEqual({
+      // The power connector and its bulk cap.
+      power: ['C1', 'VCC'],
+      // The JFET and the transistor it drives share a block, with the input and the tank.
+      'Q1-Q2': ['C3', 'C4', 'C7', 'IN', 'L1', 'Q1', 'Q2', 'R1', 'R2', 'R5', 'R6', 'R10'],
+      // The MCU, its decoupling cap and programming header; what hangs off ADC, AUDIO and TICK.
+      U1: ['C8', 'U1', 'UPDI'],
+      'U1/ADC': ['C5', 'C6', 'R7', 'R8', 'R9'],
+      'U1/AUDIO': ['C12', 'C13', 'R13', 'VOUT'],
+      'U1/TICK': ['D1', 'R14'],
+      // The oscillator, its crystal network and decoupling cap.
+      U2: ['C9', 'C10', 'C11', 'R11', 'R12', 'U2', 'X1'],
+    });
+  });
+
+  it('leaves parts in a block alone, and fills in a block named for an anchor', () => {
+    const p = sample();
+    const part = (n: string) => p.parts.find((x) => x.name === n)!;
+    part('U1').attributes = { BLOCK: 'mcu' };
+    part('X1').attributes = { BLOCK: 'clock' };
+    const m = grouped(suggestBlocks(p));
+    expect(m.mcu).toEqual(['C5', 'C6', 'C8', 'C12', 'C13', 'D1', 'R7', 'R8', 'R9', 'R13', 'R14', 'UPDI', 'VOUT']);
+    expect([...suggestBlocks(p).keys()]).not.toContain('U1');
+    // X1's block pulls in its own neighbours ahead of U2's, through the nets they share.
+    expect(m.clock).toEqual(expect.arrayContaining(['C10']));
   });
 });

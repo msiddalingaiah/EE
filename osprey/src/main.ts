@@ -30,7 +30,7 @@ import { buildLibraryScene, libraryItemProps, type LibraryItemKind, type Library
 import { libraryProject } from './edit/library';
 import { FORMAT_VERSION } from './model/types';
 import { buildSchematicScene } from './scene/schematic';
-import { blockShapes, type BlockShape } from './scene/blocks';
+import { blockColors, blockShapes, type BlockShape } from './scene/blocks';
 import { blockOf, blockPaths, inBlock } from './model/blocks';
 import type { Bounds, Owner, Scene, Target } from './scene/types';
 import { pick, pickBox } from './view/hittest';
@@ -102,6 +102,8 @@ const drcList = $<HTMLDivElement>('drc-list');
 const druInput = $<HTMLInputElement>('dru-input');
 const drawTools = $<HTMLSpanElement>('draw-tools');
 const ercPanel = $<HTMLElement>('erc-panel');
+const blocksPanel = $<HTMLElement>('blocks-panel');
+const blocksList = $<HTMLElement>('blocks-list');
 const ercSummary = $<HTMLDivElement>('erc-summary');
 const ercList = $<HTMLDivElement>('erc-list');
 
@@ -568,6 +570,7 @@ function setupViewChrome(): void {
   if (!drcPanel.hidden) renderDrcPanel();
   ercPanel.hidden = !(project?.schematic && view === 'schematic');
   if (!ercPanel.hidden) renderErcPanel();
+  renderBlocksPanel();
   wireBtn.textContent = view === 'board' ? 'Route' : 'Wire';
   pourBtn.hidden = !(project?.board && view === 'board');
   viaBtn.hidden = pourBtn.hidden;
@@ -626,6 +629,7 @@ function rebuildScene(opts: { fit: boolean; keepSelection: boolean }): void {
     const scene = buildScene();
     index = scene ? indexScene(scene) : undefined;
     blocks = project && index ? blockShapes(project, index) : [];
+    renderBlocksPanel();
   } catch (e) {
     index = undefined;
     showError(`Could not display the ${view}: ${e instanceof Error ? e.message : String(e)}`);
@@ -1640,6 +1644,47 @@ function blockField(): HTMLElement | undefined {
     wrap.append(actions);
   }
   return wrap;
+}
+
+/**
+ * The Blocks panel: the block tree, each block in its outline's colour with its part count
+ * (click selects it), and Suggest, which gives the parts without a block one.
+ */
+function renderBlocksPanel(): void {
+  blocksPanel.hidden = !(project && (view === 'schematic' || view === 'board'));
+  if (blocksPanel.hidden || !project) return;
+  (document.getElementById('blocks-suggest') as HTMLButtonElement).disabled = !editable();
+  blocksList.replaceChildren();
+  const paths = blockPaths(project);
+  if (!paths.length) {
+    blocksList.append(el('div', 'empty', 'No blocks yet. Suggest makes a first cut from the wiring; B puts the selected parts in a block.'));
+    return;
+  }
+  const colors = blockColors(project);
+  const ix = new ProjectIndex(project);
+  const placed = project.parts.filter((p) => ix.variantOf(p)?.footprint);
+  for (const path of paths) {
+    const depth = path.split('/').length - 1;
+    const own = placed.filter((p) => blockOf(p) === path).length;
+    const all = placed.filter((p) => inBlock(blockOf(p), path)).length;
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'block-row';
+    b.style.paddingLeft = `${4 + depth * 14}px`;
+    const sw = document.createElement('span');
+    sw.className = 'block-swatch';
+    sw.style.borderColor = colors.get(path) ?? '';
+    b.append(sw, el('span', 'block-name', path.slice(path.lastIndexOf('/') + 1)), el('span', 'block-count', all === own ? `${all}` : `${own} · ${all}`));
+    b.title = all === own ? `${path}: ${all} part(s). Click to select them.` : `${path}: ${own} part(s) of its own, ${all} with the blocks inside it. Click to select them all.`;
+    b.addEventListener('click', () => selectBlock(path));
+    blocksList.append(b);
+  }
+}
+
+function suggestBlocksCmd(): void {
+  if (!editor || !editable()) return;
+  const n = editor.suggestBlocks();
+  flash(n ? `Suggested blocks for ${n} part(s): adjust with B, undo with Ctrl+Z` : 'Every part has a block already');
 }
 
 /** Select every part of a block (blocks inside it included) in the current view. */
@@ -2797,6 +2842,7 @@ function ercMarkers(): { at: Point; active: boolean }[] {
 }
 
 $('erc-run').addEventListener('click', runErc);
+$('blocks-suggest').addEventListener('click', suggestBlocksCmd);
 
 // ---------------------------------------------------------------------------
 // Library items and drawing in them

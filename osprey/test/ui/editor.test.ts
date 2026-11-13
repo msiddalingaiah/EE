@@ -196,6 +196,19 @@ describe.skipIf(!findChrome())('editor in the browser', () => {
     expect(d.problems).toEqual([]);
   });
 
+  it('suggests blocks from the Blocks panel, lists the tree, and selects a block from it', async () => {
+    expect(await d.evaluate('document.getElementById("blocks-list").textContent')).toMatch(/No blocks yet/);
+    await d.button('Suggest');
+    expect((await d.state()).undo).toBe('Suggest blocks');
+    const rows = await d.evaluate<string[]>('[...document.querySelectorAll("#blocks-list .block-name")].map((e) => e.textContent)');
+    expect(rows).toEqual(['power', 'Q1-Q2', 'U1', 'ADC', 'AUDIO', 'TICK', 'U2']);
+    await d.button('#blocks-list .block-row:nth-child(4)'); // ADC
+    expect((await d.state()).selection.map((s: { label: string }) => s.label).sort()).toEqual(['C5', 'C6', 'R7', 'R8', 'R9']);
+    await d.key('Ctrl+z');
+    expect(await d.evaluate('__osprey.project.parts.some((p) => p.attributes?.BLOCK)')).toBe(false);
+    expect(d.problems).toEqual([]);
+  });
+
   it('checks the design rules from the panel', async () => {
     await d.button('#drc-run');
     expect((await d.state()).drc).toEqual([]);

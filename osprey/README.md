@@ -158,6 +158,14 @@ native model (see [docs/format.md](docs/format.md)). Eagle files are imported in
   takes them out. Each block is outlined with right-angled corners and tinted in its own colour,
   the same in both views (Shift+B or the blocks checkbox shows or hides the outlines); supply
   symbols belong to none. **Select block** selects a block's parts, blocks inside it included.
+  The **Blocks** panel lists the tree, each block in its outline's colour with its part count
+  (click one to select it). **Suggest** gives every part without a block one, from the wiring:
+  ICs and transistors anchor blocks (transistors wired to each other share one), other parts
+  join the anchor they reach through the fewest, smallest signal nets (ties: the one drawn
+  nearest), decoupling caps the nearest IC on their supply, and a connector bringing power in
+  starts a `power` block; in a large block, a cluster hanging off a named net (ADC) becomes a
+  block inside it. Parts already in a block keep it and pull their neighbours in, so naming one
+  IC's block and suggesting again fills it in. One undo step.
   A part's block is its BLOCK attribute, so it is kept through Eagle export. Placement is to work
   block by block.
 - **CAM output** (board): the **CAM…** menu makes the manufacturing files as one zip: Gerber
