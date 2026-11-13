@@ -5531,6 +5531,15 @@
           { "name": "V", "footprint": "madhu/DO-35V", "pads": { "A.A": ["A"], "A.C": ["C"] } }
         ]
       },
+      { "id": "madhu/1N914W", "prefix": "D", "description": "High speed silicon diode 100V, 300mA",
+        "gates": [
+          { "name": "A", "at": [0, 0], "symbol": "madhu/DIODE" }
+        ],
+        "variants": [
+          { "name": "H", "footprint": "madhu/SOD-123FL", "pads": { "A.A": ["A"], "A.C": ["K"] }, "technologies": { "": { "LCSC": "C81598" } } },
+          { "name": "V", "footprint": "madhu/DO-35V", "pads": { "A.A": ["A"], "A.C": ["C"] } }
+        ]
+      },
       { "id": "madhu/20TQ035PBF", "prefix": "D", "description": "20 Amp, 35 Volt Schottky diode",
         "gates": [
           { "name": "A", "at": [0, 0], "symbol": "madhu/DIODE-SCHOTTKY" }
@@ -5674,7 +5683,8 @@
         "variants": [
           { "name": "Z", "footprint": "madhu/TO-92", "pads": { "A.GND": ["2"], "A.VI": ["3"], "A.VO": ["1"] } },
           { "name": "AP", "footprint": "madhu/TO-92AP", "pads": { "A.GND": ["2"], "A.VI": ["3"], "A.VO": ["1"] } },
-          { "name": "F", "footprint": "madhu/SOT89", "pads": { "A.GND": ["2"], "A.VI": ["3"], "A.VO": ["1"] } }
+          { "name": "F", "footprint": "madhu/SOT89", "pads": { "A.GND": ["2"], "A.VI": ["3"], "A.VO": ["1"] } },
+          { "name": "G-AB3-R", "footprint": "madhu/SOT89", "pads": { "A.VI": ["3"], "A.GND": ["2"], "A.VO": ["1"] }, "technologies": { "": { "LCSC": "C71136" } } }
         ]
       },
       { "id": "madhu/AMG8833", "prefix": "U", "userValue": true, "description": "<p><b>AMG8833</b> 8x8 IR Grid Sensor</p>\n<p>\n<ul>\n<li>Viewing Angle: ~60°</li>\n<li>Temp Accuracy: +/-2-3°C (high/low gain)</li>\n<li></li>\n</ul>\n</p>",
@@ -5692,6 +5702,15 @@
         "variants": [
           { "name": "-3.3", "footprint": "madhu/SOT223", "pads": { "A.GND": ["1"], "A.VI": ["3"], "A.VO": ["2", "4"] } },
           { "name": "-2.5", "footprint": "madhu/SOT223", "pads": { "A.GND": ["1"], "A.VI": ["3"], "A.VO": ["2", "4"] } }
+        ]
+      },
+      { "id": "madhu/AO3401A", "prefix": "Q", "description": "30V P-Channel MOSFET",
+        "gates": [
+          { "name": "A", "at": [0, 0], "symbol": "madhu/MOSFET-PCHANNEL" }
+        ],
+        "variants": [
+          { "name": "SMD", "footprint": "madhu/SOT23-3", "pads": { "A.D": ["3"], "A.G": ["1"], "A.S": ["2"] }, "technologies": { "": { "LCSC": "C15127" } } },
+          { "name": "TO252", "footprint": "madhu/TO252", "pads": { "A.D": ["2"], "A.G": ["1"], "A.S": ["3"] } }
         ]
       },
       { "id": "madhu/AOD403", "prefix": "Q", "description": "<b>30V, 70A, 6.2mOhm P-Channel MOSFET</b>",
@@ -6154,7 +6173,7 @@
           { "name": "A", "at": [0, 2.54], "symbol": "madhu/LED" }
         ],
         "variants": [
-          { "name": "", "footprint": "madhu/0603-LED", "pads": { "A.A": ["A"], "A.C": ["K"] } }
+          { "name": "", "footprint": "madhu/0603-LED", "pads": { "A.A": ["A"], "A.C": ["K"] }, "technologies": { "": { "LCSC": "C2286" } } }
         ]
       },
       { "id": "madhu/LED", "prefix": "D", "description": "LED",
@@ -6162,8 +6181,8 @@
           { "name": "A", "at": [0, 0], "symbol": "madhu/LED" }
         ],
         "variants": [
-          { "name": "3MM", "footprint": "madhu/LED3MM", "pads": { "A.A": ["A"], "A.C": ["K"] } },
-          { "name": "0805", "footprint": "madhu/0805", "pads": { "A.A": ["2"], "A.C": ["1"] } },
+          { "name": "3MM", "footprint": "madhu/LED3MM", "pads": { "A.A": ["A"], "A.C": ["K"] }, "technologies": { "": { "LCSC": "C84256" } } },
+          { "name": "0805", "footprint": "madhu/0805", "pads": { "A.A": ["2"], "A.C": ["1"] }, "technologies": { "": { "LCSC": "C84256" } } },
           { "name": "5MM", "footprint": "madhu/LED5MM", "pads": { "A.A": ["A"], "A.C": ["K"] } },
           { "name": "AV11", "footprint": "madhu/AVO2-11", "pads": { "A.A": ["A"], "A.C": ["K"] } }
         ]
@@ -6275,7 +6294,7 @@
           { "name": "A", "at": [0, 0], "symbol": "madhu/NPN" }
         ],
         "variants": [
-          { "name": "L", "footprint": "madhu/SOT23-3", "pads": { "A.B": ["1"], "A.C": ["3"], "A.E": ["2"] } }
+          { "name": "L", "footprint": "madhu/SOT23-3", "pads": { "A.B": ["1"], "A.C": ["3"], "A.E": ["2"] }, "technologies": { "": { "LCSC": "C20526" } } }
         ]
       },
       { "id": "madhu/MMBT3906", "prefix": "Q", "description": "PNP general purpose silicon transistor",
@@ -6512,7 +6531,7 @@
           { "name": "A", "at": [0, 0], "symbol": "madhu/DIODE" }
         ],
         "variants": [
-          { "name": "", "footprint": "madhu/SOD-123FL", "pads": { "A.A": ["A"], "A.C": ["K"] } }
+          { "name": "", "footprint": "madhu/SOD-123FL", "pads": { "A.A": ["A"], "A.C": ["K"] }, "technologies": { "": { "LCSC": "C64898" } } }
         ]
       },
       { "id": "madhu/SOLDERJUMPER", "prefix": "J", "userValue": true, "description": "<p><b>SMD Solder JUMPER</b></p>\n<p>Solder the two pads together to create a connection, or remove the solder to break it.</p>\n<b>REFLOW</b> - Use this footprint for solder paste and reflow ovens.<br/>\n<b>WAVE</b> - Use this footprint for hand-soldering (larger pads).\n<p><b>CLOSED</b> - Has a trace between the two pads to ensure it is closed by default.  The trace needs to be cut to disable the jumper, and can be closed again by creating a solder bridge between the two pads.</p>",
