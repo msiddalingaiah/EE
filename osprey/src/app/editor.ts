@@ -3,7 +3,7 @@
 
 import type { Point, Transform } from '../geom/transform';
 import { compose } from '../geom/transform';
-import { BLOCK_ATTRIBUTE, blockOf, normalizeBlockPath } from '../model/blocks';
+import { BLOCK_ATTRIBUTE, blockOf, inBlock, normalizeBlockPath } from '../model/blocks';
 import { suggestBlocks } from '../model/suggest-blocks';
 import { componentName, ProjectIndex } from '../model/derive';
 import { writeProject } from '../model/file';
@@ -261,6 +261,23 @@ export class Editor {
     const changing = this.project.parts.filter((p) => partNames.includes(p.name) && (blockOf(p) ?? '') !== path);
     const what = changing.length === 1 ? changing[0]!.name : `${changing.length} parts`;
     return this.applyBlocks(new Map(partNames.map((name) => [name, path])), path ? `Put ${what} in block ${path}` : `Take ${what} out of blocks`);
+  }
+
+  /**
+   * Rename a block, the blocks inside it following ("U1" → "mcu": "U1/ADC" → "mcu/ADC"); a path
+   * moves it ("rx/U1"). Empty dissolves it: its own parts leave, the blocks inside move up a
+   * level. One undo step; returns how many parts changed.
+   */
+  renameBlock(from: string, raw: string): number {
+    const to = normalizeBlockPath(raw);
+    const blocks = new Map<string, string>();
+    for (const p of this.project.parts) {
+      const b = blockOf(p);
+      if (!inBlock(b, from)) continue;
+      const rest = b!.slice(from.length + 1);
+      blocks.set(p.name, [to, rest].filter(Boolean).join('/'));
+    }
+    return this.applyBlocks(blocks, to ? `Rename block ${from} to ${to}` : `Dissolve block ${from}`);
   }
 
   /**

@@ -204,6 +204,15 @@ describe.skipIf(!findChrome())('editor in the browser', () => {
     expect(rows).toEqual(['power', 'Q1-Q2', 'U1', 'ADC', 'AUDIO', 'TICK', 'U2']);
     await d.button('#blocks-list .block-row:nth-child(4)'); // ADC
     expect((await d.state()).selection.map((s: { label: string }) => s.label).sort()).toEqual(['C5', 'C6', 'R7', 'R8', 'R9']);
+    // The whole of U1 selected (ADC, AUDIO and TICK inside it): the field renames the block.
+    await d.button('#blocks-list .block-row:nth-child(3)'); // U1
+    expect(await d.evaluate(`document.querySelector('#inspector input[data-field="block"]').value`)).toBe('U1');
+    await d.type('block', 'mcu');
+    expect((await d.state()).undo).toBe('Rename block U1 to mcu');
+    const block = (part: string) => d.evaluate(`__osprey.project.parts.find((p) => p.name === ${JSON.stringify(part)}).attributes.BLOCK`);
+    expect(await block('U1')).toBe('mcu');
+    expect(await block('R7')).toBe('mcu/ADC');
+    await d.key('Ctrl+z');
     await d.key('Ctrl+z');
     expect(await d.evaluate('__osprey.project.parts.some((p) => p.attributes?.BLOCK)')).toBe(false);
     expect(d.problems).toEqual([]);

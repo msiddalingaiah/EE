@@ -7,6 +7,7 @@ import { join } from 'node:path';
 import { blockAncestry, blockOutlines, blockPaths, comparePaths, normalizeBlockPath } from '../src/model/blocks';
 import { readProject } from '../src/model/file';
 import { suggestBlocks } from '../src/model/suggest-blocks';
+import { Editor } from '../src/app/editor';
 import type * as O from '../src/model/types';
 
 const OPTS = { cell: 0.5, margin: 1, nest: 1, close: 2, keepOut: 0.5 };
@@ -123,5 +124,25 @@ describe('suggesting blocks (wwvbfind)', () => {
     expect([...suggestBlocks(p).keys()]).not.toContain('U1');
     // X1's block pulls in its own neighbours ahead of U2's, through the nets they share.
     expect(m.clock).toEqual(expect.arrayContaining(['C10']));
+  });
+});
+
+describe('renaming a block', () => {
+  it('renames a block with the blocks inside it, moves it, dissolves it, one undo step each', () => {
+    const p = readProject(readFileSync(join(__dirname, '..', 'samples', 'osprey', 'wwvbfind.osprey'), 'utf8'));
+    const editor = new Editor(p, () => {});
+    editor.suggestBlocks();
+    const block = (n: string) => p.parts.find((x) => x.name === n)!.attributes?.BLOCK;
+    expect(editor.renameBlock('U1', ' mcu ')).toBe(14);
+    expect([block('U1'), block('R7'), block('D1')]).toEqual(['mcu', 'mcu/ADC', 'mcu/TICK']);
+    editor.renameBlock('mcu', 'digital/mcu');
+    expect([block('U1'), block('R7')]).toEqual(['digital/mcu', 'digital/mcu/ADC']);
+    // Dissolving: its own parts leave, the blocks inside move up.
+    editor.renameBlock('digital/mcu', '');
+    expect([block('U1'), block('R7')]).toEqual([undefined, 'ADC']);
+    editor.undo();
+    editor.undo();
+    editor.undo();
+    expect([block('U1'), block('R7')]).toEqual(['U1', 'U1/ADC']);
   });
 });

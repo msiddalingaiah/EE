@@ -31,7 +31,7 @@ import { libraryProject } from './edit/library';
 import { FORMAT_VERSION } from './model/types';
 import { buildSchematicScene } from './scene/schematic';
 import { blockColors, blockShapes, type BlockShape } from './scene/blocks';
-import { blockOf, blockPaths, inBlock } from './model/blocks';
+import { blockOf, blockPaths, inBlock, normalizeBlockPath } from './model/blocks';
 import type { Bounds, Owner, Scene, Target } from './scene/types';
 import { pick, pickBox } from './view/hittest';
 import { displayLayers, layerColor, layerName } from './view/palette';
@@ -1591,7 +1591,9 @@ function blockField(): HTMLElement | undefined {
   if (!names.length) return undefined;
   const parts = names.map((n) => project!.parts.find((p) => p.name === n)).filter((p): p is O.Part => !!p);
   const paths = new Set(parts.map((p) => blockOf(p) ?? ''));
-  const common = paths.size === 1 ? [...paths][0]! : undefined;
+  // The whole of one block selected (its parts and the blocks inside it): the field renames it.
+  const whole = wholeBlock(names);
+  const common = whole ?? (paths.size === 1 ? [...paths][0]! : undefined);
   const wrap = document.createElement('div');
   wrap.className = 'block-field';
   const table = document.createElement('table');
@@ -1603,7 +1605,9 @@ function blockField(): HTMLElement | undefined {
   input.dataset.field = 'block';
   input.spellcheck = false;
   input.setAttribute('aria-label', 'Block');
-  input.title = 'The block these parts belong to: a name, or a path such as rx/frontend for a block inside another. Empty takes them out.';
+  input.title = whole
+    ? `Rename block ${whole}: the blocks inside it follow. A path (rx/${whole}) moves it inside another; empty dissolves it.`
+    : 'The block these parts belong to: a name, or a path such as rx/frontend for a block inside another. Empty takes them out.';
   const list = document.createElement('datalist');
   list.id = 'block-paths';
   for (const p of blockPaths(project)) list.append(new Option(p));
@@ -1613,6 +1617,12 @@ function blockField(): HTMLElement | undefined {
     if (e.key === 'Enter') {
       e.preventDefault();
       if (input.value === (common ?? '')) return done();
+      if (whole) {
+        const n = editor!.renameBlock(whole, input.value);
+        const to = normalizeBlockPath(input.value);
+        flash(!n ? 'No change' : to ? `Block ${whole} renamed to ${to}` : `Block ${whole} dissolved`);
+        return done();
+      }
       const n = editor!.setBlock(names, input.value);
       const path = blockOf(parts[0]!);
       flash(!n ? 'No change' : path ? `${n} part(s) put in block ${path}` : `${n} part(s) taken out of their blocks`);
@@ -1632,18 +1642,45 @@ function blockField(): HTMLElement | undefined {
   if (common) {
     const actions = document.createElement('div');
     actions.className = 'sel-actions';
-    const sel = button(`Select block ${common.slice(common.lastIndexOf('/') + 1)}`, () => selectBlock(common));
-    sel.title = `Select every part in ${common}, blocks inside it included`;
-    actions.append(sel);
+    if (!whole) {
+      const sel = button(`Select block ${common.slice(common.lastIndexOf('/') + 1)}`, () => selectBlock(common));
+      sel.title = `Select every part in ${common}, blocks inside it included`;
+      actions.append(sel);
+    }
     const parent = common.includes('/') ? common.slice(0, common.lastIndexOf('/')) : undefined;
     if (parent) {
       const up = button(`Select ${parent.slice(parent.lastIndexOf('/') + 1)}`, () => selectBlock(parent));
       up.title = `Select every part in ${parent}, the block this one is in`;
       actions.append(up);
     }
-    wrap.append(actions);
+    if (actions.children.length) wrap.append(actions);
   }
   return wrap;
+}
+
+/**
+ * The block these parts make up, if they are exactly one block and the blocks inside it: the
+ * deepest block holding all of them, when it holds no others.
+ */
+function wholeBlock(names: string[]): string | undefined {
+  if (!project) return undefined;
+  const chosen = new Set(names);
+  const paths = names.map((n) => blockOf(project!.parts.find((p) => p.name === n)!));
+  if (paths.some((p) => !p)) return undefined;
+  // The longest path every part's block is in.
+  let prefix = paths[0]!.split('/');
+  for (const p of paths) {
+    const s = p!.split('/');
+    let i = 0;
+    while (i < prefix.length && i < s.length && prefix[i] === s[i]) i++;
+    prefix = prefix.slice(0, i);
+  }
+  if (!prefix.length) return undefined;
+  const block = prefix.join('/');
+  const members = project.parts.filter((p) => inBlock(blockOf(p), block));
+  // Only when the block has blocks inside: a plain block's parts already show its name.
+  if (!members.some((p) => blockOf(p) !== block)) return undefined;
+  return members.every((p) => chosen.has(p.name)) ? block : undefined;
 }
 
 /**

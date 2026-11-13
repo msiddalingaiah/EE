@@ -158,6 +158,9 @@ native model (see [docs/format.md](docs/format.md)). Eagle files are imported in
   takes them out. Each block is outlined with right-angled corners and tinted in its own colour,
   the same in both views (Shift+B or the blocks checkbox shows or hides the outlines); supply
   symbols belong to none. **Select block** selects a block's parts, blocks inside it included.
+  With a whole block selected (click it in the Blocks panel), the Block field renames it, the
+  blocks inside following (`U1` → `mcu`: `U1/ADC` → `mcu/ADC`); a path moves it inside another,
+  and empty dissolves it (the blocks inside move up a level).
   The **Blocks** panel lists the tree, each block in its outline's colour with its part count
   (click one to select it). **Suggest** gives every part without a block one, from the wiring:
   ICs and transistors anchor blocks (transistors wired to each other share one), other parts
