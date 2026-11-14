@@ -36,6 +36,14 @@ it('samples/osprey/wwvbfind-placed.osprey is wwvbfind placed block by block', as
   await expect(writeProject(project)).toMatchFileSnapshot('../samples/osprey/wwvbfind-placed.osprey');
 });
 
+// wwvbfind2-placed.osprey is wwvbfind2 (wwvbfind with a JFET buffer and a trimpot ADC bias) placed
+// the same way: how autoplace copes with a design change.
+it('samples/osprey/wwvbfind2-placed.osprey is wwvbfind2 placed block by block', async () => {
+  const project = readProject(readFileSync(join(__dirname, '..', 'samples', 'osprey', 'wwvbfind2.osprey'), 'utf8'));
+  new Editor(project, () => {}).autoplace();
+  await expect(writeProject(project)).toMatchFileSnapshot('../samples/osprey/wwvbfind2-placed.osprey');
+});
+
 // madhu.ospreylib started as the import of madhu.lbr and is edited in Osprey since: it isn't
 // regenerated, only checked to be a library file in the canonical layout.
 it('samples/osprey/madhu.ospreylib is an Osprey library in the canonical layout', () => {

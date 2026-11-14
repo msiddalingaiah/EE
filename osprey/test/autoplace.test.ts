@@ -2,6 +2,8 @@
 // taken out: every part placed with its clearances, the outline fitted around them, a score
 // better than the hand layout's, and one undo step.
 
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { Editor } from '../src/app/editor';
 import { readProject, writeProject } from '../src/model/file';
@@ -31,6 +33,13 @@ describe('autoplace', () => {
     const { p } = placed();
     const hand = placementScore(readProject(SAMPLE)).total;
     expect(placementScore(p).total).toBeLessThan(hand);
+  });
+
+  it('places wwvbfind2, a changed design, with its clearances', () => {
+    const p = readProject(readFileSync(join(__dirname, '..', 'samples', 'osprey', 'wwvbfind2.osprey'), 'utf8'));
+    const res = new Editor(p, () => {}).autoplace();
+    expect(res.parts).toBe(p.board!.footprints.length);
+    expect(placementIssues(p)).toEqual([]);
   });
 
   it('is one undo step, and gives the same placement every time', () => {
