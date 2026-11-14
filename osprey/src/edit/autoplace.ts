@@ -5,21 +5,24 @@
 // the middle; every other part, in order of how much it connects to what is placed, goes on the
 // side of the pad it connects to, its own pad lined up with that pad, turned so it faces it, as
 // close as it fits. Parts on one side of an IC so form a row; parts wired to those go further
-// out, forming columns. Decoupling caps go to their IC's power pin.
+// out, forming columns. Decoupling caps go to their IC's power pin. This is done with the main
+// part in each of its four rotations, and the layout with the shortest wiring and least area
+// wins (a big part turned can leave room beside it for the rest).
 //
 // A block with blocks inside: its own parts (laid out as above) and each block inside it are
 // rectangles, added one at a time (the most connected first) beside what is placed, edges lined
 // up, in the rotation and spot that keep the wiring between them short and the whole compact.
 // The board is the same at the top, its blocks and the parts in none.
 //
-// Last, the board outline is fitted around the parts, grown where a corner's mounting hole would
+// Then parts are nudged (2 mm at most) onto a neighbour's row or column where that fits and
+// helps the placement score. Last, the board outline is fitted around the parts, grown where a corner's mounting hole would
 // touch one, and everything is moved so the outline starts at 0, 0. Supply nets don't pull parts
 // together (pours connect them), except decoupling caps to their pins.
 
 import type { Point } from '../geom/transform';
 import { blockOf, comparePaths } from '../model/blocks';
 import type { Rect } from '../model/placement';
-import { footprintInfo, partClearance, rectCenter, rectGap, supplyNets, TOLERANCE } from '../model/placement';
+import { footprintInfo, misalignment, partClearance, rectCenter, rectGap, SCORE_WEIGHTS, supplyNets, TOLERANCE } from '../model/placement';
 import type * as O from '../model/types';
 import type { Arrange } from './arrange';
 import { insert, remove } from './ops';
@@ -105,7 +108,36 @@ export function autoplace(arr: Arrange): AutoplaceResult {
   for (const p of project.parts) if (onBoard.has(p.name)) blockOfPart.set(p.name, blockOf(p) ?? '');
 
   // ---- a block's own parts --------------------------------------------------------
+  /** A block's own parts, the main part tried in each rotation: the layout with the best blockScore. */
   const layoutParts = (parts: string[]): Layout => {
+    let best: { layout: Layout; score: number } | undefined;
+    for (const rot of ROTS) {
+      const layout = layoutPartsAt(parts, rot);
+      const score = blockScore(layout);
+      if (!best || score < best.score - 1e-9) best = { layout, score };
+    }
+    return best?.layout ?? new Map();
+  };
+
+  /** How good a block's layout is: its signal wiring (half the perimeter of each net's pads) plus its area. */
+  const blockScore = (u: Layout, b: Rect = unitBox(u)): number => {
+    const nets = new Map<string, Rect>();
+    for (const q of signalPads(u)) {
+      const r = nets.get(q.net!);
+      if (!r) nets.set(q.net!, { minX: q.x, minY: q.y, maxX: q.x, maxY: q.y });
+      else {
+        r.minX = Math.min(r.minX, q.x);
+        r.minY = Math.min(r.minY, q.y);
+        r.maxX = Math.max(r.maxX, q.x);
+        r.maxY = Math.max(r.maxY, q.y);
+      }
+    }
+    let wire = 0;
+    for (const r of nets.values()) wire += r.maxX - r.minX + (r.maxY - r.minY);
+    return wire + BLOCK_AREA_WEIGHT * (b.maxX - b.minX) * (b.maxY - b.minY);
+  };
+
+  const layoutPartsAt = (parts: string[], mainRot: number): Layout => {
     const layout: Layout = new Map();
     if (!parts.length) return layout;
     const nets = (p: string) => new Set(shapeOf(p, 0).pads.map((q) => q.net).filter(signal));
@@ -115,7 +147,7 @@ export function autoplace(arr: Arrange): AutoplaceResult {
       return (b.maxX - b.minX) * (b.maxY - b.minY);
     };
     const main = [...parts].sort((a, b) => shapeOf(b, 0).pads.length - shapeOf(a, 0).pads.length || degree(b) - degree(a) || area(b) - area(a) || a.localeCompare(b))[0]!;
-    layout.set(main, { x: 0, y: 0, rot: 0 });
+    layout.set(main, { x: 0, y: 0, rot: mainRot });
 
     /** How X connects to what is placed: the best pad pair, signal nets first, then power pins. */
     const target = (x: string): { own: string; to: Pad; on: string; rank: number } | undefined => {
@@ -202,7 +234,7 @@ export function autoplace(arr: Arrange): AutoplaceResult {
       for (const p of own) units.push(new Map([[p, { x: 0, y: 0, rot: 0 }]]));
     } else if (own.length) units.push(layoutParts(own));
     for (const c of [...children].sort(comparePaths)) units.push(layoutBlock(c));
-    return arrangeUnits(units.filter((u) => u.size));
+    return arrangeUnits(units.filter((u) => u.size), path === '');
   };
 
   const unitBox = (u: Layout): Rect => {
@@ -228,15 +260,33 @@ export function autoplace(arr: Arrange): AutoplaceResult {
   };
   const signalPads = (u: Layout) => [...u].flatMap(([p, pose]) => padsAt(p, pose).filter((q) => signal(q.net)));
 
-  const arrangeUnits = (units: Layout[]): Layout => {
+  const unitArea = (u: Layout) => {
+    const b = unitBox(u);
+    return (b.maxX - b.minX) * (b.maxY - b.minY);
+  };
+
+  /**
+   * Units (blocks, or parts) beside each other, starting from the biggest. At the top, each unit
+   * gets a turn at being the first, and the arrangement whose board (corner holes and all) and
+   * wiring are best wins.
+   */
+  const arrangeUnits = (units: Layout[], top: boolean): Layout => {
     if (!units.length) return new Map();
+    const sorted = [...units].sort((a, b) => unitArea(b) - unitArea(a));
+    if (!top) return arrangeFrom(sorted);
+    let best: { layout: Layout; score: number } | undefined;
+    for (let i = 0; i < sorted.length; i++) {
+      const layout = arrangeFrom([sorted[i]!, ...sorted.filter((_, j) => j !== i)]);
+      const score = blockScore(layout, outlineOf(layout));
+      if (!best || score < best.score - 1e-9) best = { layout, score };
+    }
+    return best!.layout;
+  };
+
+  /** Units beside each other: the first, then the most connected to what is placed, one at a time. */
+  const arrangeFrom = (units: Layout[]): Layout => {
     const placed: Layout = new Map();
-    const unitArea = (u: Layout) => {
-      const b = unitBox(u);
-      return (b.maxX - b.minX) * (b.maxY - b.minY);
-    };
-    // The first: the biggest.
-    const rest = [...units].sort((a, b) => unitArea(b) - unitArea(a));
+    const rest = [...units];
     for (const [p, pose] of rest.shift()!) placed.set(p, pose);
     while (rest.length) {
       const placedNets = new Set(signalPads(placed).map((q) => q.net));
@@ -298,34 +348,77 @@ export function autoplace(arr: Arrange): AutoplaceResult {
       }
     }
     for (const d of byNet.values()) wire += d;
-    const all = unitBox(new Map([...placed, ...u]));
+    const both = new Map([...placed, ...u]);
+    const all = unitBox(both);
     return wire + AREA_WEIGHT * (all.maxX - all.minX) * (all.maxY - all.minY);
   };
 
-  const layout = layoutBlock('');
+  // ---- rows and columns ----------------------------------------------------------------
+  /**
+   * Nudge parts onto a neighbour's row or column: each part, in turn, moved (up to ALIGN_MOVE) so
+   * its centre lines up with a nearby part's, where it fits and the whole gets better (wiring,
+   * area and misalignment, weighted as in the placement score). A few passes, until none helps.
+   */
+  const alignRows = (u: Layout): void => {
+    const parts = [...u.keys()].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+    const centre = (p: string) => rectCenter(boxAt(p, u.get(p)!));
+    const score = () => blockScore(u) + SCORE_WEIGHTS.misalignment * misalignment(parts.map(centre));
+    let current = score();
+    for (let pass = 0; pass < 4; pass++) {
+      let moved = false;
+      for (const p of parts) {
+        const pose = u.get(p)!;
+        const c = centre(p);
+        const shifts: Point[] = [];
+        for (const q of parts) {
+          if (q === p) continue;
+          const d = centre(q);
+          if (Math.hypot(d.x - c.x, d.y - c.y) > ALIGN_REACH) continue;
+          if (Math.abs(d.x - c.x) > 1e-6 && Math.abs(d.x - c.x) <= ALIGN_MOVE) shifts.push({ x: d.x - c.x, y: 0 });
+          if (Math.abs(d.y - c.y) > 1e-6 && Math.abs(d.y - c.y) <= ALIGN_MOVE) shifts.push({ x: 0, y: d.y - c.y });
+        }
+        let best: { pose: Pose; score: number } | undefined;
+        for (const s of shifts) {
+          const next = { x: r2(pose.x + s.x), y: r2(pose.y + s.y), rot: pose.rot };
+          if (!fits(p, next, u)) continue;
+          u.set(p, next);
+          const v = score();
+          u.set(p, pose);
+          if (v < (best?.score ?? current) - 1e-6) best = { pose: next, score: v };
+        }
+        if (best) {
+          u.set(p, best.pose);
+          current = best.score;
+          moved = true;
+        }
+      }
+      if (!moved) break;
+    }
+  };
 
   // ---- the board outline -------------------------------------------------------------
   const holes = board.drawing.filter((g): g is O.HoleShape => 'hole' in g);
   const drill = holes.length ? Math.max(...holes.map((h) => h.drill)) : 0;
-  const box = unitBox(layout);
   // A hair over the edge clearance, so rounding the final shift to 0.01 mm can't eat into it.
   const edge = rules.edge + 0.01;
-  const o = { minX: box.minX - edge, minY: box.minY - edge, maxX: box.maxX + edge, maxY: box.maxY + edge };
-  if (holes.length) {
-    // Grow the outline where a corner hole would come too close to a part.
-    const reach = HOLE_INSET + drill / 2 + edge;
+  /** The outline around a layout: its box plus the edge clearance, grown where a corner hole would touch a part. */
+  const outlineOf = (u: Layout): Rect => {
+    const box = unitBox(u);
+    const o = { minX: box.minX - edge, minY: box.minY - edge, maxX: box.maxX + edge, maxY: box.maxY + edge };
+    if (!holes.length) return o;
+    const boxes = [...u].map(([p, pose]) => boxAt(p, pose));
+    const reach = drill / 2 + edge;
     for (let k = 0; k < 400; k++) {
       let grown = false;
       for (const [cx, cy] of [[0, 0], [1, 0], [0, 1], [1, 1]] as const) {
         const hx = cx ? o.maxX - HOLE_INSET : o.minX + HOLE_INSET;
         const hy = cy ? o.maxY - HOLE_INSET : o.minY + HOLE_INSET;
-        const zone = { minX: hx - (reach - HOLE_INSET), minY: hy - (reach - HOLE_INSET), maxX: hx + (reach - HOLE_INSET), maxY: hy + (reach - HOLE_INSET) };
-        const hit = [...layout].some(([p, pose]) => rectGap(boxAt(p, pose), zone) < -TOLERANCE);
-        if (!hit) continue;
+        const zone = { minX: hx - reach, minY: hy - reach, maxX: hx + reach, maxY: hy + reach };
+        const hit = boxes.filter((b) => rectGap(b, zone) < -TOLERANCE);
+        if (!hit.length) continue;
         // Grow the side that needs the smaller move.
-        const parts = [...layout].map(([p, pose]) => boxAt(p, pose)).filter((b) => rectGap(b, zone) < -TOLERANCE);
-        const needX = Math.max(...parts.map((b) => (cx ? zone.maxX - b.minX : b.maxX - zone.minX)));
-        const needY = Math.max(...parts.map((b) => (cy ? zone.maxY - b.minY : b.maxY - zone.minY)));
+        const needX = Math.max(...hit.map((b) => (cx ? zone.maxX - b.minX : b.maxX - zone.minX)));
+        const needY = Math.max(...hit.map((b) => (cy ? zone.maxY - b.minY : b.maxY - zone.minY)));
         if (needX <= needY) {
           if (cx) o.maxX += needX;
           else o.minX -= needX;
@@ -335,7 +428,12 @@ export function autoplace(arr: Arrange): AutoplaceResult {
       }
       if (!grown) break;
     }
-  }
+    return o;
+  };
+
+  const layout = layoutBlock('');
+  alignRows(layout);
+  const o = outlineOf(layout);
   // Round the size up to the grid (1.27 mm / 50 mil), and put the outline's corner at 0, 0.
   const G = 0.127;
   const width = Math.ceil((o.maxX - o.minX) / G - 1e-6) * G;
@@ -360,6 +458,11 @@ export function autoplace(arr: Arrange): AutoplaceResult {
 
 /** How much a mm² of the cluster's box counts against a mm of wiring when arranging blocks. */
 const AREA_WEIGHT = 0.1;
+/** The same, when choosing a block's own layout. */
+const BLOCK_AREA_WEIGHT = SCORE_WEIGHTS.area;
+/** Lining parts up: the furthest a part moves, and how near the part it lines up with must be (mm). */
+const ALIGN_MOVE = 2;
+const ALIGN_REACH = 8;
 
 type Side = 'left' | 'right' | 'above' | 'below';
 const OUT: Record<Side, Point> = { right: { x: 1, y: 0 }, left: { x: -1, y: 0 }, above: { x: 0, y: 1 }, below: { x: 0, y: -1 } };

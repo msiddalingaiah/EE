@@ -1,6 +1,6 @@
 // Placing a board block by block (edit/autoplace.ts), on the wwvbfind sample with its routing
 // taken out: every part placed with its clearances, the outline fitted around them, a score
-// near the hand layout's, and one undo step.
+// better than the hand layout's, and one undo step.
 
 import { describe, expect, it } from 'vitest';
 import { Editor } from '../src/app/editor';
@@ -27,10 +27,10 @@ describe('autoplace', () => {
     expect(area.holes).toHaveLength(4);
   });
 
-  it('scores within 15% of the hand layout', () => {
+  it('scores better than the hand layout', () => {
     const { p } = placed();
     const hand = placementScore(readProject(SAMPLE)).total;
-    expect(placementScore(p).total).toBeLessThan(1.15 * hand);
+    expect(placementScore(p).total).toBeLessThan(hand);
   });
 
   it('is one undo step, and gives the same placement every time', () => {
