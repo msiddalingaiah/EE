@@ -6152,7 +6152,7 @@
           { "name": "-T1028", "footprint": "madhu/71K2", "pads": { "A.A": ["2"], "A.E": ["4"] } }
         ]
       },
-      { "id": "madhu/INDUCTOR-VAR2", "prefix": "L", "description": "7K and MC-122 combined inductor.\nExternally connect pins 1 and 2",
+      { "id": "madhu/INDUCTOR-VAR2", "prefix": "L", "userValue": true, "description": "7K and MC-122 combined inductor.\nExternally connect pins 1 and 2",
         "gates": [
           { "name": "A", "at": [0, -2.54], "symbol": "madhu/SMF51-1X" }
         ],
