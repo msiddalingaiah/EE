@@ -64,6 +64,9 @@ describe('assigning LCSC numbers', () => {
 
   it('gives chip resistors and capacitors theirs, says why the rest have none, in one undo step', () => {
     const p = readProject(TEXT);
+    // A value only 0603 has in the table.
+    p.parts.find((x) => x.name === 'C9')!.value = '27p';
+    const start = writeProject(p);
     const editor = new Editor(p, () => {});
     const before = lcscStatus(p);
     const matches = before.filter((s) => 'match' in s).map((s) => s.part);
@@ -79,7 +82,7 @@ describe('assigning LCSC numbers', () => {
     expect(why.get('U1')).toMatch(/not a resistor or capacitor/);
     expect(editor.history.undoLabel).toBe('Assign LCSC part numbers');
     editor.undo();
-    expect(writeProject(p)).toBe(TEXT);
+    expect(writeProject(p)).toBe(start);
   });
 
   it('leaves through-hole parts aside unless asked, as the assembly files do', () => {
