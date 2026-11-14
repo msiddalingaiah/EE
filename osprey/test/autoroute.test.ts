@@ -79,6 +79,18 @@ describe('autoroute', () => {
     expect(r.routed).toBeGreaterThan(0);
   });
 
+  it('keeps what is routed: a second run adds nothing', () => {
+    const p = readProject(unroutedSample('wwvbfind'));
+    const editor = new Editor(p, () => {});
+    editor.autoroute();
+    const once = writeProject(p);
+    const again = editor.autoroute();
+    expect(again).toEqual({ routed: 0, left: [], groundVias: 0, pours: [] });
+    expect(writeProject(p)).toBe(once);
+    // Nothing changed, so nothing to undo: the last step is still the first run.
+    expect(editor.history.undoLabel).toBe('Autoroute');
+  });
+
   it('keeps to the top layer when bottom hops are off', () => {
     const p = readProject(unroutedSample('wwvbfind2-hand'));
     new Editor(p, () => {}).autoroute({ maxBottomRun: 0 });

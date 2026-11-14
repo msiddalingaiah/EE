@@ -102,7 +102,15 @@ export function autoroute(project: O.Project, tx: Transaction, opts: AutorouteOp
     for (const net of ground) {
       const drill = viaDrill(project, net);
       const width = traceWidth(project, net);
-      const pads = anchorList.filter((a) => a.net === net && a.kind === 'pad' && a.layers.length === 1 && a.layers[0] === TOP);
+      // Pads with a trace of the net already leaving them (routed by hand, or by an earlier run)
+      // are left as they are.
+      const ends = (project.nets.find((n) => n.name === net)?.traces ?? []).filter((t) => t.layer === TOP).flatMap((t) => t.line);
+      const padBoxes = new Map(footprintInfos(project).flatMap((f) => f.pads.map((q) => [`${f.part}\u0000${q.name}`, q.box] as const)));
+      const reached = (a: Anchor) => {
+        const b = a.pad && padBoxes.get(`${a.pad.part}\u0000${a.pad.pad}`);
+        return !!b && ends.some((e) => e[0] >= b.minX - 1e-6 && e[0] <= b.maxX + 1e-6 && e[1] >= b.minY - 1e-6 && e[1] <= b.maxY + 1e-6);
+      };
+      const pads = anchorList.filter((a) => a.net === net && a.kind === 'pad' && a.layers.length === 1 && a.layers[0] === TOP && !reached(a));
       const viaR = checker.rules.viaDiameter(drill, 0) / 2;
       for (const pad of pads) {
         // Every pad's copper (any net) and the centre of this pad's part, for the via's spacing

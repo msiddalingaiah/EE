@@ -92,7 +92,9 @@ native model (see [docs/format.md](docs/format.md)). Eagle files are imported in
   Ground vias are dogbones: set 0.3 mm clear of every pad, on the part's outer side, so an
   untented via neither wicks solder from the joint nor sinks the iron's heat into the plane.
   Routes go around obstacles and are checked against the design rules before they are added;
-  nothing is ripped up, so what doesn't route stays an airwire to finish by hand. DRC runs
+  nothing is ripped up, so what doesn't route stays an airwire to finish by hand. What is
+  already routed stays as it is (route the tricky parts by hand first; running it again only
+  adds what is missing). DRC runs
   after.
 - **Routing traces** (board): start on a pad, via or trace end and the route takes its net.
   Legs bend at 45°; changing layer adds a via. Corners snap to the grid, except that a grid line
