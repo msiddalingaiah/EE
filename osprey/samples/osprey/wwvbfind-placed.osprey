@@ -1950,85 +1950,85 @@
   },
   "board": { "layers": ["copper.top", "copper.bottom"], "grid": { "step": 1.27, "fine": 0.127, "unit": "mil" },
     "footprints": [
-      { "part": "VCC", "at": [5.21, 8.71], "rot": 270, "smashed": true,
+      { "part": "VCC", "at": [32.51, 19.66], "rot": 270, "smashed": true,
         "labels": [
-          { "attr": "NAME", "at": [3.94, 4.9], "size": 0.8128, "layer": "names.top", "ratio": 10 }
+          { "attr": "NAME", "at": [31.24, 15.85], "size": 0.8128, "layer": "names.top", "ratio": 10 }
         ]
       },
-      { "part": "C1", "at": [2.59, 8.92], "rot": 90 },
-      { "part": "IN", "at": [24.79, 8.95], "rot": 90, "smashed": true,
+      { "part": "C1", "at": [30.41, 19.87], "rot": 90 },
+      { "part": "IN", "at": [3.17, 6.04], "smashed": true,
         "labels": [
-          { "attr": "NAME", "at": [25.353, 12.746], "rot": 180, "size": 0.8128, "layer": "names.top", "ratio": 10 }
+          { "attr": "NAME", "at": [6.966, 5.477], "rot": 90, "size": 0.8128, "layer": "names.top", "ratio": 10 }
         ]
       },
-      { "part": "R1", "at": [24.79, 13.12], "rot": 270 },
-      { "part": "Q1", "at": [20.28, 8.5], "smashed": true,
+      { "part": "R1", "at": [7.34, 6.04], "rot": 180 },
+      { "part": "Q1", "at": [2.72, 10.55], "rot": 270, "smashed": true,
         "labels": [
-          { "attr": "NAME", "at": [21.55, 11.04], "size": 0.8128, "layer": "names.top", "ratio": 10 },
-          { "attr": "VALUE", "at": [21.55, 12.31], "size": 0.8128, "layer": "names.top", "ratio": 10 }
+          { "attr": "NAME", "at": [5.26, 9.28], "rot": 270, "size": 0.8128, "layer": "names.top", "ratio": 10 },
+          { "attr": "VALUE", "at": [6.53, 9.28], "rot": 270, "size": 0.8128, "layer": "names.top", "ratio": 10 }
         ]
       },
-      { "part": "R2", "at": [20.28, 13.12], "rot": 270 },
-      { "part": "Q2", "at": [5.16, 13.77], "rot": 270 },
-      { "part": "R5", "at": [2.26, 13.77] },
-      { "part": "R6", "at": [1.36, 17.44], "rot": 270 },
-      { "part": "C3", "at": [2.26, 15.12] },
-      { "part": "C4", "at": [15.11, 12.68], "rot": 90 },
-      { "part": "L1", "at": [10.61, 12.47], "rot": 90, "smashed": true },
-      { "part": "C5", "at": [9.83, 19.53], "rot": 180 },
-      { "part": "R7", "at": [7.08, 19.53] },
-      { "part": "R8", "at": [6.18, 23.16], "rot": 270 },
-      { "part": "C6", "at": [5.28, 20.88], "rot": 180 },
-      { "part": "R9", "at": [7.93, 23.59], "rot": 90 },
-      { "part": "R10", "at": [15.11, 9.16], "rot": 90 },
-      { "part": "C7", "at": [16.61, 12.68], "rot": 90 },
-      { "part": "U1", "at": [16.13, 20.19], "rot": 270, "smashed": true,
+      { "part": "R2", "at": [7.34, 10.55], "rot": 180 },
+      { "part": "Q2", "at": [7.99, 25.67], "rot": 180 },
+      { "part": "R5", "at": [7.99, 28.57], "rot": 270 },
+      { "part": "R6", "at": [11.66, 29.47], "rot": 180 },
+      { "part": "C3", "at": [9.34, 28.57], "rot": 270 },
+      { "part": "C4", "at": [6.9, 15.72] },
+      { "part": "L1", "at": [6.69, 20.22], "smashed": true },
+      { "part": "C5", "at": [13.75, 21], "rot": 90 },
+      { "part": "R7", "at": [13.75, 23.75], "rot": 270 },
+      { "part": "R8", "at": [17.38, 24.65], "rot": 180 },
+      { "part": "C6", "at": [15.1, 25.55], "rot": 90 },
+      { "part": "R9", "at": [17.81, 22.9] },
+      { "part": "R10", "at": [3.38, 15.72] },
+      { "part": "C7", "at": [6.9, 14.22] },
+      { "part": "U1", "at": [14.41, 14.7], "rot": 180, "smashed": true,
         "labels": [
-          { "attr": "NAME", "at": [15.876, 22.222], "rot": 270, "size": 0.8128, "layer": "names.top" },
-          { "attr": "VALUE", "at": [11.37, 23.1], "rot": 270, "size": 0.8128, "layer": "names.top" }
+          { "attr": "NAME", "at": [16.442, 14.954], "rot": 180, "size": 0.8128, "layer": "names.top" },
+          { "attr": "VALUE", "at": [17.32, 19.46], "rot": 180, "size": 0.8128, "layer": "names.top" }
         ]
       },
-      { "part": "C8", "at": [12.43, 23.38], "rot": 180 },
-      { "part": "UPDI", "at": [21.35, 22.1], "rot": 90, "smashed": true,
+      { "part": "C8", "at": [17.6, 18.4], "rot": 90 },
+      { "part": "UPDI", "at": [16.32, 9.48], "smashed": true,
         "labels": [
-          { "attr": "NAME", "at": [23.128, 19.052], "size": 0.8128, "layer": "names.top", "ratio": 10 }
+          { "attr": "NAME", "at": [13.272, 7.702], "rot": 270, "size": 0.8128, "layer": "names.top", "ratio": 10 }
         ]
       },
-      { "part": "U2", "at": [20.42, 29.81], "rot": 180, "smashed": true },
-      { "part": "R11", "at": [21.93, 32.16], "rot": 180 },
-      { "part": "X1", "at": [20.42, 37.1], "rot": 180, "smashed": true,
+      { "part": "U2", "at": [24.03, 10.41], "rot": 90, "smashed": true },
+      { "part": "R11", "at": [26.38, 8.9], "rot": 90 },
+      { "part": "X1", "at": [31.32, 10.41], "rot": 90, "smashed": true,
         "labels": [
-          { "attr": "VALUE", "at": [12.8, 39.64], "rot": 270, "size": 1.27, "layer": "values.top", "ratio": 10 }
+          { "attr": "VALUE", "at": [33.86, 18.03], "rot": 180, "size": 1.27, "layer": "values.top", "ratio": 10 }
         ]
       },
-      { "part": "R12", "at": [19.03, 32.16] },
-      { "part": "C9", "at": [21.14, 33.66], "rot": 180 },
-      { "part": "C10", "at": [17.23, 33.66], "rot": 180 },
-      { "part": "C11", "at": [21.14, 27.46], "rot": 180 },
-      { "part": "R13", "at": [15.92, 25.56], "rot": 180 },
-      { "part": "C12", "at": [12.72, 26.46], "rot": 90 },
-      { "part": "C13", "at": [11.37, 26.46], "rot": 90 },
-      { "part": "VOUT", "at": [12.64, 29.26], "rot": 180, "smashed": true,
+      { "part": "R12", "at": [26.38, 11.8], "rot": 270 },
+      { "part": "C9", "at": [27.88, 9.69], "rot": 90 },
+      { "part": "C10", "at": [27.88, 13.6], "rot": 90 },
+      { "part": "C11", "at": [21.68, 9.69], "rot": 90 },
+      { "part": "R13", "at": [19.78, 14.91], "rot": 90 },
+      { "part": "C12", "at": [20.68, 18.11] },
+      { "part": "C13", "at": [20.68, 19.46] },
+      { "part": "VOUT", "at": [23.48, 18.19], "rot": 90, "smashed": true,
         "labels": [
-          { "attr": "NAME", "at": [8.83, 30.53], "rot": 270, "size": 0.8128, "layer": "names.top", "ratio": 10 }
+          { "attr": "NAME", "at": [24.75, 22], "rot": 180, "size": 0.8128, "layer": "names.top", "ratio": 10 }
         ]
       },
-      { "part": "R14", "at": [8.46, 17.65], "rot": 180 },
-      { "part": "D1", "at": [5.71, 17.65], "smashed": true,
+      { "part": "R14", "at": [11.87, 22.37], "rot": 90 },
+      { "part": "D1", "at": [11.87, 25.12], "rot": 270, "smashed": true,
         "labels": [
-          { "attr": "NAME", "at": [7.6785, 16.761], "rot": 90, "size": 0.6096, "layer": "names.top" }
+          { "attr": "NAME", "at": [10.981, 23.1515], "size": 0.6096, "layer": "names.top" }
         ]
       }
     ],
     "drawing": [
-      { "line": [[0, 0], [26.67, 0]], "width": 0, "layer": "outline" },
-      { "line": [[26.67, 0], [26.67, 45.339]], "width": 0, "layer": "outline" },
-      { "line": [[26.67, 45.339], [0, 45.339]], "width": 0, "layer": "outline" },
-      { "line": [[0, 45.339], [0, 0]], "width": 0, "layer": "outline" },
+      { "line": [[0, 0], [34.417, 0]], "width": 0, "layer": "outline" },
+      { "line": [[34.417, 0], [34.417, 30.861]], "width": 0, "layer": "outline" },
+      { "line": [[34.417, 30.861], [0, 30.861]], "width": 0, "layer": "outline" },
+      { "line": [[0, 30.861], [0, 0]], "width": 0, "layer": "outline" },
       { "hole": [2.54, 2.54], "drill": 3.175 },
-      { "hole": [24.13, 2.54], "drill": 3.175 },
-      { "hole": [2.54, 42.799], "drill": 3.175 },
-      { "hole": [24.13, 42.799], "drill": 3.175 },
+      { "hole": [31.877, 2.54], "drill": 3.175 },
+      { "hole": [2.54, 28.321], "drill": 3.175 },
+      { "hole": [31.877, 28.321], "drill": 3.175 },
       { "text": "WWVB Find", "at": [7.62, 22.86], "size": 1.27, "layer": "silk.top", "ratio": 15 },
       { "text": "20261111", "at": [6.35, 1.27], "size": 1, "layer": "silk.top", "ratio": 15 }
     ]

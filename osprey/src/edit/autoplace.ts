@@ -420,8 +420,8 @@ export function autoplace(arr: Arrange): AutoplaceResult {
       if (!hit.length) continue;
       needs.push({
         cx, cy,
-        x: Math.max(...hit.map((b) => (cx ? zone.maxX - b.minX : b.maxX - zone.minX))),
-        y: Math.max(...hit.map((b) => (cy ? zone.maxY - b.minY : b.maxY - zone.minY))),
+        x: Math.max(...hit.map((b) => (cx ? b.maxX - zone.minX : zone.maxX - b.minX))),
+        y: Math.max(...hit.map((b) => (cy ? b.maxY - zone.minY : zone.maxY - b.minY))),
       });
     }
     let best: Rect = o;
