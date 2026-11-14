@@ -159,8 +159,13 @@ export class Editor {
    * as one undo step. Returns the ids updated or added.
    */
   updateFromLibrary(name: string, source: O.Library): string[] {
-    const tx = new Transaction(`Update from library ${name}`);
-    const changed = updateFromLibrary(this.project, source, tx);
+    return this.updateFromLibraries([{ name, library: source }]);
+  }
+
+  /** The same from several libraries at once (one undo step). */
+  updateFromLibraries(sources: { name: string; library: O.Library }[]): string[] {
+    const tx = new Transaction(`Update from ${sources.length === 1 ? `library ${sources[0]!.name}` : `libraries ${sources.map((s) => s.name).join(', ')}`}`);
+    const changed = sources.flatMap((s) => updateFromLibrary(this.project, s.library, tx));
     if (!tx.empty) this.push(tx);
     return changed;
   }

@@ -372,6 +372,7 @@ function openSources(sources: SourceFile[], initialView?: ViewKind): void {
     }
     const vs = views();
     showView(initialView && vs.includes(initialView) ? initialView : vs[0]!, false);
+    if (project) void updateOnOpen(editor!);
     if (importReport.length) flash(`Imported with ${importReport.length} note(s); see the Project panel`);
     else if (library && sources[0] && ext(sources[0]) === '.lbr') flash(`Imported ${sources[0].name}; Save writes it as ${saveName}`);
   } catch (e) {
@@ -2437,6 +2438,27 @@ partsSource.addEventListener('change', () => {
   void renderPartsPanel();
 });
 $('parts-update').addEventListener('click', () => void updateFromLibraryCmd());
+
+/**
+ * A project just opened takes what changed in the Osprey libraries (.ospreylib: the samples and
+ * any opened this session; Eagle .lbr files aren't, an older import of a library shares its
+ * ids), as one undo step that marks it changed. ERC and DRC show what no longer fits.
+ */
+async function updateOnOpen(ed: Editor): Promise<void> {
+  const keys = new Set([
+    ...Object.keys(sampleLibraries).map((p) => p.split('/').pop()!),
+    ...loadedLibraries.keys(),
+  ].filter((k) => k.toLowerCase().endsWith('.ospreylib')));
+  const sources: { name: string; library: O.Library }[] = [];
+  for (const key of [...keys].sort()) {
+    const library = await librarySource(key);
+    if (library) sources.push({ name: key.replace(/\.ospreylib$/i, ''), library });
+  }
+  // Another file may have been opened meanwhile.
+  if (editor !== ed || !sources.length) return;
+  const changed = ed.updateFromLibraries(sources);
+  if (changed.length) flash(`Updated from ${sources.map((s) => s.name).join(', ')}: ${changed.map(componentName).join(', ')}. Ctrl+Z undoes; check ERC and DRC`);
+}
 
 /** Update the project from the library chosen in the Add part panel. */
 async function updateFromLibraryCmd(): Promise<void> {

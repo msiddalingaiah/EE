@@ -36,8 +36,13 @@ function stillDraws(): void {
 
 describe('updating a project from a library', () => {
   it('brings in what changed in the library (LCSC numbers, a description), as one undo step', () => {
+    // What differs between the project's copies and the library (the library moves on).
+    const differs = (['components', 'symbols', 'footprints'] as const).flatMap((k) => (p.library[k] as { id: string }[])
+      .filter((x) => { const s = (lib[k] as { id: string }[]).find((y) => y.id === x.id); return s && JSON.stringify(s) !== JSON.stringify(x); })
+      .map((x) => x.id));
+    expect(differs).toEqual(expect.arrayContaining(['madhu/LED', 'madhu/MMBT3904', 'madhu/NL27WZ14']));
     const changed = editor.updateFromLibrary('madhu', lib);
-    expect(changed.sort()).toEqual(['madhu/LED', 'madhu/MMBT3904', 'madhu/NL27WZ14']);
+    expect(changed.sort()).toEqual(differs.sort());
     const led = p.library.components.find((c) => c.id === 'madhu/LED')!;
     expect(led.variants.find((v) => v.name === '0805')!.technologies?.['']?.LCSC).toBe('C84256');
     expect(editor.history.undoLabel).toBe('Update from library madhu');

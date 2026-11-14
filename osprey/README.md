@@ -61,8 +61,10 @@ native model (see [docs/format.md](docs/format.md)). Eagle files are imported in
 - **Adding parts** (schematic): pick a component from the project's library, a sample library,
   an Osprey `.ospreylib` or any Eagle `.lbr`, then click to place each gate. The component, its symbols and
   footprints are copied into the project; the footprint is parked beside the board outline.
-- **Updating from a library**: after editing a library, choose it in the Add part panel and
-  press Update. Every component, symbol and footprint the project has from it is replaced by
+- **Updating from a library**: opening a project updates it from the Osprey libraries
+  (`.ospreylib`: the samples, and any opened this session) as one undo step, so library edits
+  reach every project that uses them (Eagle `.lbr` files aren't used: an older import shares
+  the ids). For a library opened later, choose it in the Add part panel and press Update. Every component, symbol and footprint the project has from it is replaced by
   the library's version, and the schematic and board follow (new pad shapes and positions, pin
   to pad changes, LCSC numbers), in one undo step. Anything that no longer fits shows up in
   ERC (a wired pin or a part's variant that is gone) and DRC (pads moved off their traces).
