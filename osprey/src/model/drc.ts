@@ -142,19 +142,21 @@ export function drc(project: O.Project): DrcResult {
     }
   }
 
+  /** A position in mm and inches. */
+  const xy = (p: O.Pt) => `(${p[0].toFixed(2)}, ${p[1].toFixed(2)}) mm · (${(p[0] / 25.4).toFixed(3)}, ${(p[1] / 25.4).toFixed(3)}) in`;
+
   // Open ends of the board outline.
   for (const gap of outlineGaps(board)) {
     out.push({
       kind: 'dimension',
       message: gap.b
-        ? `Board outline is open: ends ${fmt(gap.d)} apart at (${gap.a[0]}, ${gap.a[1]}) and (${gap.b[0]}, ${gap.b[1]})`
-        : `Board outline is open at (${gap.a[0]}, ${gap.a[1]})`,
+        ? `Board outline is open: ends ${fmt(gap.d)} apart at ${xy(gap.a)} and ${xy(gap.b)}`
+        : `Board outline is open at ${xy(gap.a)}`,
       at: gap.b ? [(gap.a[0] + gap.b[0]) / 2, (gap.a[1] + gap.b[1]) / 2] : gap.a, objects: gap.objects, nets: [], actual: gap.d,
     });
   }
 
   // Connections not made yet.
-  const xy = (p: O.Pt) => `(${p[0].toFixed(2)}, ${p[1].toFixed(2)})`;
   for (const a of ratsnest(project)) {
     out.push({
       kind: 'unrouted', message: `Unrouted: ${a.net} from ${xy(a.from)} to ${xy(a.to)}`,

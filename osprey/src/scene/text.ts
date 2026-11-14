@@ -31,8 +31,14 @@ export function fmtNum(n: number): string {
   return String(Math.round(n * 10000) / 10000);
 }
 
+/** A length in mm as inches, to the thousandth (a mil). */
+export function fmtIn(mm: number): string {
+  return (mm / 25.4).toFixed(3);
+}
+
+/** A position in mm and in inches: "(10.16, 5.08) mm · (0.400, 0.200) in". */
 export function fmtXY(x: number, y: number): string {
-  return `(${fmtNum(x)}, ${fmtNum(y)}) mm`;
+  return `(${fmtNum(x)}, ${fmtNum(y)}) mm · (${fmtIn(x)}, ${fmtIn(y)}) in`;
 }
 
 export function fmtRot(rot: number | undefined, mirror?: boolean, spin?: boolean): string {
@@ -58,4 +64,22 @@ export function labelOwner(
     target: { kind: 'label', doc, placement, label: l },
     origin: { x: l.at[0], y: l.at[1] },
   };
+}
+
+/**
+ * A point as typed in the inspector: "x, y" in mm (a space works too), or in inches or mils
+ * with a unit ("0.4in, 0.2in", "400mil 200mil"; a unit after the second number covers both).
+ */
+export function parsePt(v: string): [number, number] | undefined {
+  const unit = '(mm|in|"|mil)?';
+  const m = new RegExp(`^\\s*(-?\\d*\\.?\\d+)\\s*${unit}\\s*[,\\s]\\s*(-?\\d*\\.?\\d+)\\s*${unit}\\s*$`, 'i').exec(v);
+  if (!m) return undefined;
+  const scale = (u: string | undefined) => {
+    const k = u?.toLowerCase();
+    return k === 'in' || k === '"' ? 25.4 : k === 'mil' ? 0.0254 : 1;
+  };
+  const uy = m[4];
+  const ux = m[2] ?? uy;
+  const mm = (n: string, u: string | undefined) => Math.round(Number(n) * scale(u) * 1e6) / 1e6;
+  return [mm(m[1]!, ux), mm(m[3]!, uy)];
 }

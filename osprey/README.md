@@ -54,7 +54,9 @@ native model (see [docs/format.md](docs/format.md)). Eagle files are imported in
   zoom, layers and selection. Selected parts and nets carry across (cross-probing).
 - **Selection** (the noun): click, Shift-click to add, Ctrl-click to toggle, box-select
   (left-to-right = fully inside; right-to-left = touching; a part counts as inside when its
-  origin is). An inspector shows the selection's properties.
+  origin is). An inspector shows the selection's properties. Positions are shown in mm and in
+  inches (to 0.001 in), in the inspector, the status bar and DRC; position fields take mm, or
+  inches or mils with a unit (`0.4in, 0.2in`, `400mil 200mil`).
 - **Commands** (the verbs): move (drag, or M then click), rotate (R), flip to the other board
   side / mirror in the schematic (F), delete (Del), rename part or net (N), value (V),
   smash/unsmash. Moves snap to the grid (Alt = fine grid). Undo/redo for everything.

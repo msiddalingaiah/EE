@@ -30,6 +30,7 @@ import { buildLibraryScene, libraryItemProps, type LibraryItemKind, type Library
 import { libraryProject } from './edit/library';
 import { FORMAT_VERSION } from './model/types';
 import { buildSchematicScene } from './scene/schematic';
+import { fmtIn, fmtXY, parsePt } from './scene/text';
 import { blockColors, blockShapes, type BlockShape } from './scene/blocks';
 import { blockOf, blockPaths, inBlock, normalizeBlockPath } from './model/blocks';
 import type { Bounds, Owner, Scene, Target } from './scene/types';
@@ -996,7 +997,7 @@ function commitMove(): void {
     const renamed = [...m.paste.renamed].map(([a, b]) => `${a} → ${b}`);
     flash(`Pasted${renamed.length ? `: ${renamed.slice(0, 6).join(', ')}${renamed.length > 6 ? ', …' : ''}` : ''}`);
   } else {
-    flash(x || y ? `Moved by (${round(x)}, ${round(y)}) mm` : '');
+    flash(x || y ? `Moved by ${fmtXY(round(x), round(y))}` : '');
   }
 }
 
@@ -2073,11 +2074,6 @@ function padFields(footprint: O.Footprint, pad: O.Pad): { table: HTMLTableElemen
   return { table: f.table, covers: new Set(['Name', 'Type', 'Size', 'Roundness', 'Drill', 'Diameter', 'Shape', 'Position', 'Rotation']) };
 }
 
-/** A point as typed in the inspector: "x, y" in mm (a space works too). */
-function parsePt(v: string): O.Pt | undefined {
-  const m = /^\s*(-?\d*\.?\d+)\s*(?:mm)?\s*[,\s]\s*(-?\d*\.?\d+)\s*(?:mm)?\s*$/.exec(v);
-  return m ? [Number(m[1]), Number(m[2])] : undefined;
-}
 const fmtPt = (p: O.Pt) => `${Math.round(p[0] * 1e4) / 1e4}, ${Math.round(p[1] * 1e4) / 1e4}`;
 
 /** A point field: Enter applies (one undo step), Esc restores; an error marks the field. */
@@ -2087,7 +2083,7 @@ function pointRow(table: HTMLTableElement, label: string, field: string, value: 
   input.value = fmtPt(value);
   input.dataset.field = field;
   input.spellcheck = false;
-  input.title = 'x, y in mm';
+  input.title = 'x, y in mm, or with a unit: 0.4in, 0.2in or 400mil, 200mil';
   input.setAttribute('aria-label', label);
   input.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') {
@@ -2099,7 +2095,7 @@ function pointRow(table: HTMLTableElement, label: string, field: string, value: 
         input.classList.add('invalid');
         flash(err);
       } else {
-        flash(`${label} moved to ${fmtPt(p!)}`);
+        flash(`${label.replace(/ \(mm\)$/, '')} moved to ${fmtXY(p![0], p![1])}`);
         canvas.focus({ preventScroll: true });
       }
     } else if (e.key === 'Escape') {
@@ -2112,7 +2108,8 @@ function pointRow(table: HTMLTableElement, label: string, field: string, value: 
   input.addEventListener('input', () => input.classList.remove('invalid'));
   const tr = document.createElement('tr');
   const td = document.createElement('td');
-  td.append(input);
+  // The same point in inches, under the field.
+  td.append(input, el('div', 'field-hint', `${fmtIn(value[0])}, ${fmtIn(value[1])} in`));
   tr.append(el('th', '', label), td);
   table.append(tr);
 }
@@ -3754,7 +3751,7 @@ canvas.addEventListener('pointermove', (e) => {
   const p = localPoint(e);
   const w = vp.toWorld(p.x, p.y);
   cursor = w;
-  statusPos.textContent = `x ${w.x.toFixed(3)}  y ${w.y.toFixed(3)} mm   (${(w.x / 0.0254).toFixed(0)}, ${(w.y / 0.0254).toFixed(0)} mil)`;
+  statusPos.textContent = `x ${w.x.toFixed(3)}  y ${w.y.toFixed(3)} mm   (${fmtIn(w.x)}, ${fmtIn(w.y)} in)`;
 
   if (move) {
     updateMove(w, e.altKey);
