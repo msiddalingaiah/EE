@@ -112,7 +112,7 @@ export function assemblyFiles(project: O.Project, options: AssemblyOptions = {},
     const x = (Math.min(...xs) + Math.max(...xs)) / 2;
     const y = (Math.min(...ys) + Math.max(...ys)) / 2;
     const rot = (((f.rot ?? 0) % 360) + 360) % 360;
-    cpl.push(row([part.name, mm(x), mm(y), f.side === 'bottom' ? 'Bottom' : 'Top', String(Math.round(rot * 1e4) / 1e4)]));
+    cpl.push(row([part.name, mm(x), mm(y), f.side === 'bottom' ? 'B' : 'T', String(Math.round(rot * 1e4) / 1e4)]));
   }
 
   const missing = placed.filter(({ part }) => !attribute(index, part, LCSC_ATTRIBUTE)).map(({ part }) => part.name);

@@ -84,7 +84,7 @@ describe('assembly files', () => {
       const r = cpl.find((row) => row[0] === f.part)!;
       expect(parseFloat(r[1]!)).toBeCloseTo(x, 3);
       expect(parseFloat(r[2]!)).toBeCloseTo(y, 3);
-      expect(r[3]).toBe(f.side === 'bottom' ? 'Bottom' : 'Top');
+      expect(r[3]).toBe(f.side === 'bottom' ? 'B' : 'T');
       expect(Number(r[4])).toBe(f.rot ?? 0);
     }
   });
