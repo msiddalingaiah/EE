@@ -83,6 +83,7 @@
         </section>
         <section id="lcsc-panel" data-collapsible hidden>
           <h2>JLCPCB parts <span class="panel-actions"><button id="lcsc-assign" type="button" title="Give each chip resistor and capacitor (0603, 0805) without an LCSC part number the JLCPCB Basic part for its value and package (else a preferred Extended one; capacitors: C0G/X7R first, then the lowest voltage from 25 V). One undo step.">Assign</button></span></h2>
+          <label class="check-row" title="Through-hole parts (headers, connectors, TO-92…) are usually soldered by hand, so they're left out here as in the assembly files"><input id="lcsc-tht" type="checkbox" /> Include through-hole parts</label>
           <div id="lcsc-summary" class="drc-summary"></div>
           <div id="lcsc-list" class="library-list drc-list"></div>
         </section>

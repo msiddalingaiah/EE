@@ -1747,7 +1747,11 @@ function renderLcscPanel(): void {
   const panel = $('lcsc-panel');
   panel.hidden = !(project && (view === 'schematic' || view === 'board'));
   if (panel.hidden || !project) return;
-  const status = lcscStatus(project);
+  const tht = $<HTMLInputElement>('lcsc-tht');
+  tht.checked = lcscThroughHole();
+  const all = lcscStatus(project, undefined, { throughHole: tht.checked });
+  const aside = all.filter((s) => 'throughHole' in s).length;
+  const status = all.filter((s) => !('throughHole' in s));
   const has = status.filter((s) => 'lcsc' in s).length;
   const can = status.filter((s): s is Extract<LcscStatus, { match: unknown }> => 'match' in s);
   const missing = status.filter((s): s is Extract<LcscStatus, { missing: string }> => 'missing' in s);
@@ -1755,7 +1759,7 @@ function renderLcscPanel(): void {
   assign.disabled = !can.length || !editable();
   const summary = $('lcsc-summary');
   summary.className = `drc-summary ${missing.length || can.length ? 'bad' : 'ok'}`;
-  summary.textContent = `${has} of ${status.length} parts have LCSC numbers${can.length ? `; Assign gives ${can.length} more` : ''}${missing.length ? `; ${missing.length} need one by hand` : ''}.`;
+  summary.textContent = `${has} of ${status.length} parts have LCSC numbers${can.length ? `; Assign gives ${can.length} more` : ''}${missing.length ? `; ${missing.length} need one by hand` : ''}.${aside ? ` ${aside} through-hole part${aside > 1 ? 's' : ''} left out.` : ''}`;
   const list = $('lcsc-list');
   list.replaceChildren();
   const row = (part: string, kind: string, cls: string, text: string) => {
@@ -1768,6 +1772,23 @@ function renderLcscPanel(): void {
   for (const s of can) row(s.part, 'Assign', 'warning', describePassive(s.match));
   for (const s of missing) row(s.part, 'Missing', '', s.missing);
 }
+
+/** Whether the JLCPCB parts panel lists through-hole parts (remembered in this browser; off by default). */
+function lcscThroughHole(): boolean {
+  try {
+    return localStorage.getItem('osprey.lcsc.throughHole') === '1';
+  } catch {
+    return false;
+  }
+}
+$<HTMLInputElement>('lcsc-tht').addEventListener('change', (e) => {
+  try {
+    localStorage.setItem('osprey.lcsc.throughHole', (e.target as HTMLInputElement).checked ? '1' : '0');
+  } catch {
+    /* not remembered */
+  }
+  renderLcscPanel();
+});
 
 function assignLcscCmd(): void {
   if (!editor || !editable()) return;

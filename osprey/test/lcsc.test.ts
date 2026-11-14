@@ -71,7 +71,7 @@ describe('assigning LCSC numbers', () => {
     const done = editor.assignLcsc();
     expect(done.map((d) => d.part)).toEqual(matches);
     expect(p.parts.find((x) => x.name === 'R15')!.attributes?.LCSC).toBe('C17520');
-    const after = lcscStatus(p);
+    const after = lcscStatus(p, undefined, { throughHole: true });
     expect(after.filter((s) => 'match' in s)).toEqual([]);
     const why = new Map(after.flatMap((s) => ('missing' in s ? [[s.part, s.missing]] : [])));
     expect(why.get('C9')).toMatch(/27p capacitor in 0805 \(there is one in 0603\)/);
@@ -80,6 +80,16 @@ describe('assigning LCSC numbers', () => {
     expect(editor.history.undoLabel).toBe('Assign LCSC part numbers');
     editor.undo();
     expect(writeProject(p)).toBe(TEXT);
+  });
+
+  it('leaves through-hole parts aside unless asked, as the assembly files do', () => {
+    const p = readProject(TEXT);
+    const aside = lcscStatus(p).filter((s) => 'throughHole' in s).map((s) => s.part);
+    // Headers, the TO-92 JFETs, the coil, the crystal and the trimpot; not the SOT-23 or SMD parts.
+    expect(aside).toEqual(expect.arrayContaining(['IN', 'UPDI', 'Q1', 'Q3', 'L1', 'X1', 'R16']));
+    expect(aside).not.toContain('Q2');
+    expect(aside).not.toContain('R15');
+    expect(lcscStatus(p, undefined, { throughHole: true }).some((s) => 'throughHole' in s)).toBe(false);
   });
 
   it("keeps a number a part or its library component already has", () => {

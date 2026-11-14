@@ -168,6 +168,8 @@ native model (see [docs/format.md](docs/format.md)). Eagle files are imported in
   one; capacitors C0G or X7R first, then X5R, then the lowest voltage from 25 V; a voltage or
   dielectric in the value, "10u 16V X5R", is kept to), in one undo step. The rest are listed
   with the reason (another package has the value, not a chip part…); click one to select it.
+  Through-hole parts are left out, as in the assembly files, unless **Include through-hole
+  parts** is checked.
   The table (`src/model/lcsc-passives.json`) comes from a JLCPCB parts export by
   `node scripts/build-lcsc.mjs <export.csv>`. Parts without a footprint (supply symbols)
   are left out. A board house's zero rotation for some packages (SOT-23, diodes) differs from

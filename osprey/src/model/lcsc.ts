@@ -6,7 +6,7 @@
 // then the lowest voltage at least MIN_VOLTS, Basic before Extended, then stock. A dielectric or a
 // voltage in the part's value ("10u 50V", "100n X5R") narrows the choice.
 
-import { attribute } from '../cam/assembly';
+import { attribute, mounting } from '../cam/assembly';
 import { componentName, ProjectIndex } from './derive';
 import TABLE from './lcsc-passives.json';
 import type * as O from './types';
@@ -105,19 +105,27 @@ export type LcscStatus =
   /** The table has one for it. */
   | { part: string; match: LcscPart }
   /** No number, and why none was found. */
-  | { part: string; missing: string };
+  | { part: string; missing: string }
+  /** Left aside: a through-hole part (soldered by hand, like the assembly files leave it). */
+  | { part: string; throughHole: true };
 
 /**
  * Every part with a footprint (and not marked DNP): its LCSC number, or the one the table has
- * for it, or why there is none.
+ * for it, or why there is none. Through-hole parts are left aside unless `throughHole`, as the
+ * assembly files leave them out (a part with SMD pads and through-hole pegs counts as SMD).
  */
-export function lcscStatus(project: O.Project, index = new ProjectIndex(project)): LcscStatus[] {
+export function lcscStatus(project: O.Project, index = new ProjectIndex(project), opts: { throughHole?: boolean } = {}): LcscStatus[] {
   const out: LcscStatus[] = [];
   const parts = [...project.parts].sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
   for (const part of parts) {
     const variant = index.variantOf(part);
     if (!variant?.footprint) continue;
     if (/^(yes|true|1)$/i.test(part.attributes?.DNP ?? '')) continue;
+    const fp = index.footprints.get(variant.footprint);
+    if (!opts.throughHole && fp && mounting(fp) === 'THT') {
+      out.push({ part: part.name, throughHole: true });
+      continue;
+    }
     const own = part.attributes?.LCSC;
     if (own) {
       out.push({ part: part.name, lcsc: own, from: 'part' });

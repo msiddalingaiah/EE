@@ -38,7 +38,7 @@ export function attribute(index: ProjectIndex, part: O.Part, name: string): stri
 }
 
 /** How a footprint is mounted: by its pads. */
-function mounting(fp: O.Footprint): 'SMD' | 'THT' | 'SMD+THT' {
+export function mounting(fp: O.Footprint): 'SMD' | 'THT' | 'SMD+THT' {
   const smd = fp.pads.some((p) => p.smd);
   const tht = fp.pads.some((p) => !p.smd);
   return smd && tht ? 'SMD+THT' : tht ? 'THT' : 'SMD';
