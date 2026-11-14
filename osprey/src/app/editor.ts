@@ -12,7 +12,7 @@ import type { Grid, Project } from '../model/types';
 import { deleteTargets } from '../edit/delete';
 import { History, insert, remove, set, Transaction } from '../edit/ops';
 import { copyTargets, pasteClip, type Clip, type Pasted } from '../edit/clipboard';
-import { addToLibrary, createPart, gatesToPlace } from '../edit/place';
+import { addToLibrary, createPart, gatesToPlace, updateFromLibrary } from '../edit/place';
 import { addPour, defaultPourNet, setOutline, setPourNet, setPourProps, withCornerAdded, withCornerMoved, withCornerRemoved, type PourPatch } from '../edit/pours';
 import { applyDru } from '../edit/rules';
 import { legalize, type LegalizeResult } from '../edit/legalize';
@@ -152,6 +152,17 @@ export class Editor {
    */
   autoplace(rules?: PlacementRules): AutoplaceResult {
     return this.arrange('Place by blocks', (a) => autoplace(a), rules);
+  }
+
+  /**
+   * Update the project's components, symbols and footprints from a library (updateFromLibrary),
+   * as one undo step. Returns the ids updated or added.
+   */
+  updateFromLibrary(name: string, source: O.Library): string[] {
+    const tx = new Transaction(`Update from library ${name}`);
+    const changed = updateFromLibrary(this.project, source, tx);
+    if (!tx.empty) this.push(tx);
+    return changed;
   }
 
   /** Replace the board's design rules with a .dru file's (one undo step). */

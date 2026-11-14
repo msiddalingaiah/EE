@@ -8,7 +8,7 @@ import { componentName, ProjectIndex } from './derive';
 import { pinPosition } from './geometry';
 import type * as O from './types';
 
-export type ErcKind = 'unconnected' | 'single' | 'conflict' | 'undriven' | 'nc' | 'supply' | 'unwired' | 'touching' | 'board';
+export type ErcKind = 'unconnected' | 'single' | 'conflict' | 'undriven' | 'nc' | 'supply' | 'unwired' | 'touching' | 'board' | 'library';
 
 export interface ErcProblem {
   kind: ErcKind;
@@ -250,6 +250,37 @@ export function erc(project: O.Project, index = new ProjectIndex(project)): ErcR
         kind: 'board', severity: 'warning', message: `${part.name} (${componentName(part.component)}) isn't on the board`,
         sheet: placed.sheet, at: placed.g.at, objects: [placed.g], nets: [], parts: [part.name],
       });
+    }
+  }
+
+  // What the library no longer has (after a library update): a part's component or variant, a
+  // placed gate, a pin a wire connects to.
+  const lib = (message: string, sheet: string | undefined, at: O.Pt | undefined, objects: object[], parts: string[], nets: string[] = []) =>
+    problems.push({ kind: 'library', severity: 'error', message, ...(sheet ? { sheet } : {}), ...(at ? { at } : {}), objects, nets, parts });
+  for (const part of project.parts) {
+    const component = index.components.get(part.component);
+    const placed = [...placements.values()].find((x) => x.g.part === part.name);
+    if (!component) {
+      lib(`${part.name}'s component ${componentName(part.component)} isn't in the library`, placed?.sheet, placed?.g.at, placed ? [placed.g] : [], [part.name]);
+      continue;
+    }
+    if (!component.variants.some((v) => v.name === part.variant)) {
+      lib(`${part.name}'s variant ${part.variant || "''"} isn't in ${componentName(part.component)} any more`, placed?.sheet, placed?.g.at, placed ? [placed.g] : [], [part.name]);
+    }
+  }
+  for (const { sheet, g } of placements.values()) {
+    const component = index.components.get(index.parts.get(g.part)?.component ?? '');
+    if (component && !component.gates.some((x) => x.name === g.gate)) {
+      lib(`${g.part} gate ${g.gate} isn't in ${componentName(component.id)} any more`, sheet, g.at, [g], [g.part]);
+    }
+  }
+  for (const net of project.nets) {
+    for (const seg of net.segments ?? []) {
+      for (const pr of seg.pins) {
+        if (pins.has(pinKey(pr.part, pr.gate, pr.pin)) || !index.components.has(index.parts.get(pr.part)?.component ?? '')) continue;
+        const placed = placements.get(`${pr.part}\u0000${pr.gate}`);
+        lib(`${describe(pr)} is wired to ${net.name}, but its symbol has no such pin any more`, placed?.sheet ?? seg.sheet, placed?.g.at, placed ? [placed.g] : [], [pr.part], [net.name]);
+      }
     }
   }
 

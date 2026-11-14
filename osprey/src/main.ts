@@ -2315,6 +2315,11 @@ let partsRender = 0;
 async function renderPartsPanel(): Promise<void> {
   if (partsSource.options.length === 0) renderPartsSources();
   const key = partsSource.value;
+  const update = document.getElementById('parts-update') as HTMLButtonElement;
+  update.disabled = key === PROJECT_SOURCE || !editor || !editable();
+  update.title = key === PROJECT_SOURCE
+    ? 'Choose a library to update this project from'
+    : `Update this project's components, symbols and footprints from ${key}: the schematic and board follow (one undo step; ERC and DRC show what no longer fits)`;
   const token = ++partsRender;
   const lib = await librarySource(key);
   if (token !== partsRender) return;
@@ -2431,6 +2436,20 @@ partsSource.addEventListener('change', () => {
   chosen = undefined;
   void renderPartsPanel();
 });
+$('parts-update').addEventListener('click', () => void updateFromLibraryCmd());
+
+/** Update the project from the library chosen in the Add part panel. */
+async function updateFromLibraryCmd(): Promise<void> {
+  const key = partsSource.value;
+  if (!editor || !editable() || key === PROJECT_SOURCE) return;
+  const lib = await librarySource(key);
+  if (!lib) return;
+  const name = key.replace(/\.(ospreylib|lbr)$/i, '');
+  const changed = editor.updateFromLibrary(name, lib);
+  flash(changed.length
+    ? `Updated ${changed.length} item(s) from ${name}: ${changed.map(componentName).join(', ')}. Check ERC and DRC; Ctrl+Z undoes`
+    : `This project already matches ${name}`);
+}
 partsFilter.addEventListener('input', () => void renderPartsPanel());
 partsFilter.addEventListener('keydown', (e) => {
   if (e.key === 'Enter') {
@@ -2792,7 +2811,7 @@ druInput.addEventListener('change', async () => {
 
 const ERC_KIND: Record<ErcProblem['kind'], string> = {
   unconnected: 'Unconnected', single: 'One pin', conflict: 'Conflict', undriven: 'Undriven', nc: 'Not-connect',
-  supply: 'Supply', unwired: 'Unwired', touching: 'Touching', board: 'Board',
+  supply: 'Supply', unwired: 'Unwired', touching: 'Touching', board: 'Board', library: 'Library',
 };
 
 function renderErcPanel(): void {

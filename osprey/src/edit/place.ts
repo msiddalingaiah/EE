@@ -2,7 +2,7 @@
 // name the new part after its prefix, put its footprint beside the board, and place its gates.
 
 import type * as O from '../model/types';
-import { insert, type Transaction } from './ops';
+import { insert, remove, type Transaction } from './ops';
 
 /** Insert into an id-sorted library list at its sorted position (keeps the file canonical). */
 /** Insert an item where its id sorts, so library files stay in order. */
@@ -34,6 +34,46 @@ export function addToLibrary(project: O.Project, source: O.Library, componentId:
   for (const g of component.gates) copy(project.library.symbols, source.symbols, g.symbol);
   for (const v of component.variants) if (v.footprint) copy(project.library.footprints, source.footprints, v.footprint);
   return differs;
+}
+
+/**
+ * Bring the project's library up to date with `source`: every component, symbol and footprint
+ * the project has that `source` also has (by id) is replaced by the source's version where they
+ * differ, and symbols and footprints an updated component now uses are copied in. The schematic
+ * and board are drawn from these, so they follow; what no longer fits (a pin or pad gone, a pad
+ * moved off its traces) is left for ERC and DRC to show. Returns the ids updated or added.
+ */
+export function updateFromLibrary(project: O.Project, source: O.Library, tx: Transaction): string[] {
+  const changed: string[] = [];
+  const update = <T extends { id: string }>(list: T[], from: T[]) => {
+    for (const have of [...list]) {
+      const src = from.find((x) => x.id === have.id);
+      if (!src || JSON.stringify(src) === JSON.stringify(have)) continue;
+      const i = list.indexOf(have);
+      tx.run(remove(list, have));
+      tx.run(insert(list, structuredClone(src), i));
+      changed.push(have.id);
+    }
+  };
+  update(project.library.components, source.components);
+  update(project.library.symbols, source.symbols);
+  update(project.library.footprints, source.footprints);
+  // What updated components now use and the project lacks.
+  const lib = project.library;
+  for (const id of changed) {
+    const c = lib.components.find((x) => x.id === id);
+    if (!c) continue;
+    const need = <T extends { id: string }>(list: T[], from: T[], ref: string) => {
+      if (list.some((x) => x.id === ref)) return;
+      const src = from.find((x) => x.id === ref);
+      if (!src) return;
+      insertSorted(list, structuredClone(src), tx);
+      changed.push(ref);
+    };
+    for (const g of c.gates) need(lib.symbols, source.symbols, g.symbol);
+    for (const v of c.variants) if (v.footprint) need(lib.footprints, source.footprints, v.footprint);
+  }
+  return changed;
 }
 
 /** The next free part name for a prefix, e.g. "C17" after C1…C16 ("U$1" without a prefix). */
