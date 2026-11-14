@@ -187,8 +187,11 @@ native model (see [docs/format.md](docs/format.md)). Eagle files are imported in
   (MIT license; JLCPCB's Basic and preferred parts in stock, rebuilt daily); see "Updating the JLCPCB parts table" below. To refresh it:
   `node scripts/build-lcsc.mjs https://cdfer.github.io/jlcpcb-parts-database/jlcpcb-components-basic-preferred.csv`
   (or a downloaded copy of that file). Parts without a footprint (supply symbols)
-  are left out. A board house's zero rotation for some packages (SOT-23, diodes) differs from
-  the library's: their preview shows it, and parts on the bottom are flagged to check.
+  are left out. JLCPCB's zero rotation for some packages (SOT-23, diodes) differs from the
+  library's, which their assembly preview shows: set the footprint's **JLCPCB rotation** (in the
+  library, degrees counter-clockwise, e.g. -90 for madhu/SOT23-3) and the pick-and-place file
+  corrects every part using it (the other way for parts on the bottom, which are flagged to
+  check).
 - **Folding panels**: the Blocks and JLCPCB parts panels fold to their heading with a click on
   it (its buttons still work); each stays folded or open, in both views, from one visit to the next.
 - **Blocks** (schematic and board): parts that belong together (a filter, an oscillator) form a

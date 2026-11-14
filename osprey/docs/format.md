@@ -145,6 +145,11 @@ Pin fields: `length` (`point` | `short` | `middle` | `long`, default `long`), `d
 }
 ```
 
+`jlcpcbRotation` (optional, degrees counter-clockwise): how much JLCPCB's zero orientation
+for the package differs from the footprint's. The pick-and-place file adds it to the rotation
+of every part with this footprint (subtracts it for parts on the bottom), e.g. `-90` for a
+SOT-23 whose parts JLCPCB's preview shows turned a quarter turn the wrong way.
+
 Pads are either SMD or through-hole:
 
 | SMD | Through-hole |

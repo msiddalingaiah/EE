@@ -4,8 +4,9 @@
 //
 // The position is the centre of the part's pads, not its footprint's origin: a footprint's
 // origin can be anywhere (pin 1 of a connector, say), and the machine needs the part's middle.
-// Rotations are the footprint's as placed; a board house's zero orientation for a package can
-// differ from the library's (SOT-23 and diodes, often), which their preview shows and fixes.
+// Rotations are the footprint's as placed, plus the footprint's JLCPCB rotation: JLCPCB's zero
+// orientation for a package can differ from the library's (SOT-23 and diodes, often), which
+// their preview shows; set once on the footprint, it corrects every part using it.
 
 import { apply } from '../geom/transform';
 import { componentName, ProjectIndex } from '../model/derive';
@@ -111,7 +112,11 @@ export function assemblyFiles(project: O.Project, options: AssemblyOptions = {},
     const ys = pts.map((p) => p.y);
     const x = (Math.min(...xs) + Math.max(...xs)) / 2;
     const y = (Math.min(...ys) + Math.max(...ys)) / 2;
-    const rot = (((f.rot ?? 0) % 360) + 360) % 360;
+    // JLCPCB's zero orientation for the package, where it differs from the footprint's (seen
+    // from the top: for a part on the bottom the correction turns the other way).
+    const offset = fp.jlcpcbRotation ?? 0;
+    const turned = (f.rot ?? 0) + (f.side === 'bottom' ? -offset : offset);
+    const rot = ((turned % 360) + 360) % 360;
     cpl.push(row([part.name, mm(x), mm(y), f.side === 'bottom' ? 'B' : 'T', String(Math.round(rot * 1e4) / 1e4)]));
   }
 

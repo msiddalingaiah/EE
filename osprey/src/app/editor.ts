@@ -474,6 +474,23 @@ export class Editor {
     return this.property(label, (tx) => setComponent(c, patch, tx));
   }
 
+  /**
+   * A footprint's JLCPCB rotation: degrees counter-clockwise ("-90" is a quarter turn
+   * clockwise), kept between -180 and 180; empty or 0 removes it. One undo step.
+   */
+  setJlcpcbRotation(fp: O.Footprint, raw: string): string | undefined {
+    const t = raw.trim().replace(/°$/, '');
+    const n = t === '' ? 0 : Number(t);
+    if (!Number.isFinite(n)) return 'Enter the rotation in degrees counter-clockwise, e.g. -90 for a quarter turn clockwise';
+    let v = ((n % 360) + 360) % 360;
+    if (v > 180) v -= 360;
+    if ((fp.jlcpcbRotation ?? 0) === Math.round(v * 1e4) / 1e4) return undefined;
+    return this.property(`JLCPCB rotation of ${componentName(fp.id)}`, (tx) => {
+      tx.run(set(fp, { jlcpcbRotation: v === 0 ? undefined : Math.round(v * 1e4) / 1e4 }));
+      return undefined;
+    });
+  }
+
   /** Add a gate showing a symbol, beside the component's other gates. */
   addGate(c: O.Component, symbol: O.Symbol): O.Gate {
     const tx = new Transaction(`Add gate (${componentName(symbol.id)})`);

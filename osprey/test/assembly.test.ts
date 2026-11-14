@@ -89,6 +89,29 @@ describe('assembly files', () => {
     }
   });
 
+  it("adds a footprint's JLCPCB rotation to its parts' rotations (the other way on the bottom)", () => {
+    // Q2 is an MMBT3904 in SOT-23, whose zero JLCPCB's preview shows a quarter turn off.
+    const index = new ProjectIndex(p);
+    const q2 = p.board!.footprints.find((f) => f.part === 'Q2')!;
+    const fp = index.footprints.get(index.variantOf(index.parts.get('Q2')!)!.footprint!)!;
+    expect(fp.id).toBe('madhu/SOT23-3');
+    const rotOf = () => Number(files().cpl.find((r) => r[0] === 'Q2')![4]);
+    const base = q2.rot ?? 0;
+    expect(rotOf()).toBe(base);
+    const lib = libraryProject(readLibrary(readFileSync(join(__dirname, '..', 'samples', 'osprey', 'madhu.ospreylib'), 'utf8')));
+    expect(lib.library.footprints.find((f) => f.id === 'madhu/SOT23-3')!.jlcpcbRotation).toBe(-90);
+    expect(ed.setJlcpcbRotation(fp, '270')).toBeUndefined();
+    expect(fp.jlcpcbRotation).toBe(-90);
+    expect(rotOf()).toBe((base + 270) % 360);
+    // On the bottom, seen from the top, the correction turns the other way.
+    q2.side = 'bottom';
+    expect(rotOf()).toBe((base + 90) % 360);
+    q2.side = undefined;
+    expect(ed.setJlcpcbRotation(fp, 'quarter')).toMatch(/degrees/);
+    expect(ed.setJlcpcbRotation(fp, '0')).toBeUndefined();
+    expect('jlcpcbRotation' in fp).toBe(false);
+  });
+
   it('takes LCSC part numbers from the parts, and checks them', () => {
     const smd = designators(files().bom).length;
     const lcscWarning = () => files().warnings.find((w) => w.includes('LCSC'));

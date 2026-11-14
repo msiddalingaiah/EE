@@ -149,6 +149,12 @@ export interface Pad extends Extensible {
 export interface Footprint extends Extensible {
   id: string;
   description?: string;
+  /**
+   * How much JLCPCB's zero orientation for this package differs from the footprint's, in
+   * degrees counter-clockwise (e.g. -90 for SOT-23 here): added to the rotation of every part
+   * with this footprint in the pick-and-place file, as their assembly preview shows it.
+   */
+  jlcpcbRotation?: number;
   graphics: Graphic[];
   pads: Pad[];
 }

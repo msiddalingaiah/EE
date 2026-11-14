@@ -3255,6 +3255,11 @@ function libraryNameFields(file: O.LibraryFile): HTMLTableElement {
   if (item) {
     const label = item.kind[0]!.toUpperCase() + item.kind.slice(1);
     f.text(label, 'item-name', componentName(item.obj.id), (v) => ed.renameLibraryItem(item.kind, item.obj, v));
+    if (item.kind === 'footprint') {
+      // JLCPCB's zero orientation for the package, where it differs (their assembly preview shows it).
+      const fp = item.obj as O.Footprint;
+      f.text('JLCPCB rotation (°)', 'jlcpcb-rotation', String(fp.jlcpcbRotation ?? 0), (v) => ed.setJlcpcbRotation(fp, v));
+    }
   }
   return f.table;
 }

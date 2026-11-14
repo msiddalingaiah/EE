@@ -4700,7 +4700,7 @@
           { "name": "4", "smd": [3.6, 2.2], "at": [0, 3.099] }
         ]
       },
-      { "id": "madhu/SOT23-3",
+      { "id": "madhu/SOT23-3", "jlcpcbRotation": -90,
         "graphics": [
           { "line": [[1.4224, 0.6604], [1.4224, -0.6604]], "width": 0.1524, "layer": "fab.top" },
           { "line": [[1.4224, -0.6604], [-1.4224, -0.6604]], "width": 0.1524, "layer": "fab.top" },
