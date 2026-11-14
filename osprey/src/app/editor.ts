@@ -5,6 +5,7 @@ import type { Point, Transform } from '../geom/transform';
 import { compose } from '../geom/transform';
 import { BLOCK_ATTRIBUTE, blockOf, inBlock, normalizeBlockPath } from '../model/blocks';
 import { suggestBlocks } from '../model/suggest-blocks';
+import { lcscStatus } from '../model/lcsc';
 import { componentName, ProjectIndex } from '../model/derive';
 import { writeProject } from '../model/file';
 import type * as O from '../model/types';
@@ -331,6 +332,24 @@ export class Editor {
   }
 
   /** Set (or with an empty value, remove) one of a part's attributes. */
+  /**
+   * Give every chip resistor and capacitor without an LCSC part number the one JLCPCB's Basic or
+   * preferred parts have for its value and package (lcscStatus), as one undo step. Returns the
+   * parts given one.
+   */
+  assignLcsc(): { part: string; lcsc: string }[] {
+    const tx = new Transaction('Assign LCSC part numbers');
+    const done: { part: string; lcsc: string }[] = [];
+    for (const s of lcscStatus(this.project, this.index())) {
+      if (!('match' in s)) continue;
+      const part = this.project.parts.find((p) => p.name === s.part)!;
+      tx.run(set(part, { attributes: { ...part.attributes, LCSC: s.match.lcsc } }));
+      done.push({ part: s.part, lcsc: s.match.lcsc });
+    }
+    if (!tx.empty) this.push(tx);
+    return done;
+  }
+
   private setPartAttribute(partName: string, name: string, value: string, label: string): string | undefined {
     const part = this.project.parts.find((p) => p.name === partName);
     if (!part) return `No part named ${partName}`;

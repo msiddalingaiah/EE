@@ -81,6 +81,11 @@
           <h2>Blocks <span class="panel-actions"><button id="blocks-suggest" type="button" title="Suggest blocks for the parts that have none, from how they are wired: ICs and transistors anchor blocks, other parts join the one they connect to most closely. One undo step; adjust with B.">Suggest</button><button id="blocks-place" type="button" title="Place the board's unlocked parts block by block: each block around its main part, the blocks beside each other, the outline and corner holes fitted around them. One undo step.">Place</button></span></h2>
           <div id="blocks-list" class="library-list blocks-list"></div>
         </section>
+        <section id="lcsc-panel" hidden>
+          <h2>JLCPCB parts <span class="panel-actions"><button id="lcsc-assign" type="button" title="Give each chip resistor and capacitor (0603, 0805) without an LCSC part number the JLCPCB Basic part for its value and package (else a preferred Extended one; capacitors: C0G/X7R first, then the lowest voltage from 25 V). One undo step.">Assign</button></span></h2>
+          <div id="lcsc-summary" class="drc-summary"></div>
+          <div id="lcsc-list" class="library-list drc-list"></div>
+        </section>
         <section id="library-panel" hidden>
           <h2>Library</h2>
           <div class="lib-actions">

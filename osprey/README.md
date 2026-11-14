@@ -162,7 +162,14 @@ native model (see [docs/format.md](docs/format.md)). Eagle files are imported in
   middle of its pads, not its footprint's origin), side and rotation. A part's **LCSC part** is
   set in the inspector (C25804…; checked, kept through Eagle export), or comes from its
   component in the library (see below); parts without one are
-  pointed out, as JLCPCB then matches them by hand. Parts without a footprint (supply symbols)
+  pointed out, as JLCPCB then matches them by hand. The **JLCPCB parts** panel counts the parts
+  with LCSC numbers, and its **Assign** button gives each chip resistor and capacitor (0603,
+  0805) without one the JLCPCB Basic part for its value and package (else a preferred Extended
+  one; capacitors C0G or X7R first, then X5R, then the lowest voltage from 25 V; a voltage or
+  dielectric in the value, "10u 16V X5R", is kept to), in one undo step. The rest are listed
+  with the reason (another package has the value, not a chip part…); click one to select it.
+  The table (`src/model/lcsc-passives.json`) comes from a JLCPCB parts export by
+  `node scripts/build-lcsc.mjs <export.csv>`. Parts without a footprint (supply symbols)
   are left out. A board house's zero rotation for some packages (SOT-23, diodes) differs from
   the library's: their preview shows it, and parts on the bottom are flagged to check.
 - **Blocks** (schematic and board): parts that belong together (a filter, an oscillator) form a

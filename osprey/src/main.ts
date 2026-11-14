@@ -31,6 +31,7 @@ import { libraryProject } from './edit/library';
 import { FORMAT_VERSION } from './model/types';
 import { buildSchematicScene } from './scene/schematic';
 import { fmtIn, fmtXY, parsePt } from './scene/text';
+import { describePassive, lcscStatus, type LcscStatus } from './model/lcsc';
 import { blockColors, blockShapes, type BlockShape } from './scene/blocks';
 import { blockOf, blockPaths, inBlock, normalizeBlockPath } from './model/blocks';
 import type { Bounds, Owner, Scene, Target } from './scene/types';
@@ -573,6 +574,7 @@ function setupViewChrome(): void {
   ercPanel.hidden = !(project?.schematic && view === 'schematic');
   if (!ercPanel.hidden) renderErcPanel();
   renderBlocksPanel();
+  renderLcscPanel();
   wireBtn.textContent = view === 'board' ? 'Route' : 'Wire';
   pourBtn.hidden = !(project?.board && view === 'board');
   viaBtn.hidden = pourBtn.hidden;
@@ -632,6 +634,7 @@ function rebuildScene(opts: { fit: boolean; keepSelection: boolean }): void {
     index = scene ? indexScene(scene) : undefined;
     blocks = project && index ? blockShapes(project, index) : [];
     renderBlocksPanel();
+    renderLcscPanel();
   } catch (e) {
     index = undefined;
     showError(`Could not display the ${view}: ${e instanceof Error ? e.message : String(e)}`);
@@ -1733,6 +1736,43 @@ function placeBlocksCmd(): void {
   if (!editor || !editable() || view !== 'board') return;
   const res = editor.autoplace();
   flash(res.parts ? `Placed ${res.parts} part(s) on a ${res.width} × ${res.height} mm board: undo with Ctrl+Z` : 'No unlocked parts to place');
+}
+
+/**
+ * The JLCPCB parts panel: how many parts have LCSC part numbers, the ones Assign would give
+ * (chip resistors and capacitors, from the Basic parts table), and the parts still without one
+ * and why. Clicking a row selects the part.
+ */
+function renderLcscPanel(): void {
+  const panel = $('lcsc-panel');
+  panel.hidden = !(project && (view === 'schematic' || view === 'board'));
+  if (panel.hidden || !project) return;
+  const status = lcscStatus(project);
+  const has = status.filter((s) => 'lcsc' in s).length;
+  const can = status.filter((s): s is Extract<LcscStatus, { match: unknown }> => 'match' in s);
+  const missing = status.filter((s): s is Extract<LcscStatus, { missing: string }> => 'missing' in s);
+  const assign = $<HTMLButtonElement>('lcsc-assign');
+  assign.disabled = !can.length || !editable();
+  const summary = $('lcsc-summary');
+  summary.className = `drc-summary ${missing.length || can.length ? 'bad' : 'ok'}`;
+  summary.textContent = `${has} of ${status.length} parts have LCSC numbers${can.length ? `; Assign gives ${can.length} more` : ''}${missing.length ? `; ${missing.length} need one by hand` : ''}.`;
+  const list = $('lcsc-list');
+  list.replaceChildren();
+  const row = (part: string, kind: string, cls: string, text: string) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.append(el('span', cls ? `drc-kind ${cls}` : 'drc-kind', kind), document.createTextNode(`${part}: ${text}`));
+    b.addEventListener('click', () => selection.select(ownersFor({ parts: new Set([part]), nets: new Set() }), 'replace'));
+    list.append(b);
+  };
+  for (const s of can) row(s.part, 'Assign', 'warning', describePassive(s.match));
+  for (const s of missing) row(s.part, 'Missing', '', s.missing);
+}
+
+function assignLcscCmd(): void {
+  if (!editor || !editable()) return;
+  const done = editor.assignLcsc();
+  flash(done.length ? `Assigned LCSC part numbers to ${done.length} part(s): undo with Ctrl+Z` : 'Nothing to assign');
 }
 
 /** Select every part of a block (blocks inside it included) in the current view. */
@@ -2854,7 +2894,7 @@ function renderErcPanel(): void {
     div.className = 'erc-row';
     const b = document.createElement('button');
     b.type = 'button';
-    b.append(el('span', `drc-kind ${p.severity}`, ERC_KIND[p.kind]), document.createTextNode(p.message));
+    b.append(el('span', p.severity === 'warning' ? 'drc-kind warning' : 'drc-kind', ERC_KIND[p.kind]), document.createTextNode(p.message));
     b.title = `${p.severity === 'error' ? 'Error' : 'Warning'}${p.approved ? ' (approved)' : ''}: ${p.message}`;
     if (ercShown.has(p.message)) b.className = 'active';
     b.addEventListener('click', () => toggleErcProblem(p));
@@ -2930,6 +2970,7 @@ function ercMarkers(): { at: Point; active: boolean }[] {
 $('erc-run').addEventListener('click', runErc);
 $('blocks-suggest').addEventListener('click', suggestBlocksCmd);
 $('blocks-place').addEventListener('click', placeBlocksCmd);
+$('lcsc-assign').addEventListener('click', assignLcscCmd);
 
 // ---------------------------------------------------------------------------
 // Library items and drawing in them

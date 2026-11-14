@@ -29,7 +29,7 @@ const mm = (n: number) => `${(Math.round(n * 1e4) / 1e4).toFixed(4)}mm`;
 const natural = (a: string, b: string) => a.localeCompare(b, undefined, { numeric: true });
 
 /** A part attribute: the part's own, else its component technology's (Eagle's MF, MPN…). */
-function attribute(index: ProjectIndex, part: O.Part, name: string): string {
+export function attribute(index: ProjectIndex, part: O.Part, name: string): string {
   const own = part.attributes?.[name];
   if (own) return own;
   const tech = index.variantOf(part)?.technologies?.[part.technology ?? ''];
