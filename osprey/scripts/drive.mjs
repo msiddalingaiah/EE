@@ -6,7 +6,7 @@
 //   node scripts/drive.mjs open:wwvbfind.osprey/board click:10,20 key:w shot:out.png state
 //
 // Steps (run in order; coordinates are world mm, y up):
-//   open:<sample>[/board]     open a sample (as in the Samples menu, e.g. TA7358A.osprey)
+//   open:<sample>[/board]     open a sample by its link (#TA7358A.osprey), e.g. TA7358A.osprey
 //   view:board|schematic      switch view
 //   click:x,y[,shift|ctrl|alt|right|double]...   click (double: a double click)
 //   move:x,y                  move the pointer

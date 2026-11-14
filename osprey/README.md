@@ -333,9 +333,8 @@ starts. The icons are drawn by `npm run icons` (`scripts/build-icons.mjs`, into 
 Opening `dist/index.html` straight from disk doesn't work: browsers don't run module scripts
 from `file://`.
 
-The app opens the `TA7358A` Osprey project by default; the Sample menu also offers the
-original Eagle pair (imported on the fly), an Osprey library and the Eagle library it was
-imported from. A sample can be opened by URL,
+The app opens the sample last opened, or the `TA7358A` Osprey project, by default; open your
+own files with Open… (or drop them on the canvas). Any file in `samples/` can be opened by URL,
 e.g. `http://localhost:5173/#TA7358A.osprey`, or `#TA7358A.osprey/board` for the board view.
 
 To also check import, airwires and export against a folder of your own Eagle designs (every
