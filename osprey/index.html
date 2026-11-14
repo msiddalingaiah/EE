@@ -42,6 +42,7 @@
         <button type="button" data-tool="circle" title="Draw circles: click the centre, then a point on the circle">Circle</button>
         <button type="button" data-tool="text" title="Add text: click to place (edit it in the inspector; >NAME and >VALUE show the part's)">Text</button>
       </span>
+      <button id="autoroute-btn" type="button" hidden title="Route the easy part of the board: a via for each SMD ground pad, then signal connections shortest first on the top layer (short bottom hops through vias where the top is blocked), then pours: VCC on top, GND on the bottom. What doesn&#39;t route stays an airwire. One undo step; DRC runs after.">Autoroute</button>
       <button id="wire-btn" type="button" hidden title="Draw wires (W): click to start, click to add corners; a wire ends on a pin or wire, or with a double click or Esc">Wire</button>
       <span class="toolbar-sep"></span>
       <button id="undo-btn" type="button" disabled>Undo</button>

@@ -19,6 +19,7 @@ import { applyDru } from '../edit/rules';
 import { legalize, type LegalizeResult } from '../edit/legalize';
 import { Arrange } from '../edit/arrange';
 import { autoplace, type AutoplaceResult } from '../edit/autoplace';
+import { autoroute, type AutorouteOptions, type AutorouteResult } from '../edit/autoroute';
 import type { PlacementRules } from '../model/placement';
 import type { DruFile } from '../model/rules';
 import { ClearanceChecker, type Conflict, type ObstacleGrid } from '../model/drc';
@@ -169,6 +170,14 @@ export class Editor {
     const changed = sources.flatMap((s) => updateFromLibrary(this.project, s.library, tx));
     if (!tx.empty) this.push(tx);
     return changed;
+  }
+
+  /** Route the easy part of the board (autoroute), as one undo step. */
+  autoroute(opts?: AutorouteOptions): AutorouteResult {
+    const tx = new Transaction('Autoroute');
+    const res = autoroute(this.project, tx, opts);
+    if (!tx.empty) this.push(tx);
+    return res;
   }
 
   /** Replace the board's design rules with a .dru file's (one undo step). */

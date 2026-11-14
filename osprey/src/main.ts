@@ -577,6 +577,7 @@ function setupViewChrome(): void {
   renderLcscPanel();
   wireBtn.textContent = view === 'board' ? 'Route' : 'Wire';
   pourBtn.hidden = !(project?.board && view === 'board');
+  $('autoroute-btn').hidden = pourBtn.hidden;
   viaBtn.hidden = pourBtn.hidden;
   textBtn.hidden = !(project && (view === 'board' ? project.board : view === 'schematic' ? project.schematic : undefined));
   layerField.hidden = pourBtn.hidden;
@@ -2874,6 +2875,17 @@ async function loadRules(name: string, text: string): Promise<void> {
 }
 
 $('drc-run').addEventListener('click', runDrc);
+
+/** Route the easy part of the board, then check it. */
+function autorouteCmd(): void {
+  if (!editor || !editable() || view !== 'board' || !project?.board) return;
+  if (move) commitMove();
+  const r = editor.autoroute();
+  runDrc();
+  const left = r.left.length;
+  flash(`Autorouted ${r.routed} connection${r.routed === 1 ? '' : 's'}${r.groundVias ? `, ${r.groundVias} ground via${r.groundVias === 1 ? '' : 's'}` : ''}${r.pours.length ? `, pours: ${r.pours.join(', ')}` : ''}; ${left ? `${left} left to route by hand` : 'nothing left'}. Ctrl+Z undoes`);
+}
+$('autoroute-btn').addEventListener('click', autorouteCmd);
 drcLoad.addEventListener('change', async () => {
   const v = drcLoad.value;
   drcLoad.value = '';

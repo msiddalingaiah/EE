@@ -84,6 +84,14 @@ native model (see [docs/format.md](docs/format.md)). Eagle files are imported in
   suffix (IN → IN_2), while supply nets (GND, VCC) join the existing net. A name that is free
   is kept, so cut and paste keeps names. The clipboard holds the components the parts use,
   so a selection can be pasted into another project.
+- **Autoroute** (board): routes the easy part of a board in one undo step. Each SMD pad on
+  ground gets a short trace to its own via; then the signal connections, shortest first, go on
+  the top layer at the net's width (10 mil by default), with a short run (up to 8 mm) on the
+  bottom through two vias where the top is blocked; then pours cover the board, the main supply
+  (VCC) on top and ground on the bottom, and supply pads a pour can't reach are routed too.
+  Routes go around obstacles and are checked against the design rules before they are added;
+  nothing is ripped up, so what doesn't route stays an airwire to finish by hand. DRC runs
+  after.
 - **Routing traces** (board): start on a pad, via or trace end and the route takes its net.
   Legs bend at 45°; changing layer adds a via. Corners snap to the grid, except that a grid line
   within half a step of a pad of the net moves onto the pad's row or column, so a pad off the
