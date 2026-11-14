@@ -172,6 +172,8 @@ native model (see [docs/format.md](docs/format.md)). Eagle files are imported in
   `node scripts/build-lcsc.mjs <export.csv>`. Parts without a footprint (supply symbols)
   are left out. A board house's zero rotation for some packages (SOT-23, diodes) differs from
   the library's: their preview shows it, and parts on the bottom are flagged to check.
+- **Folding panels**: the Blocks and JLCPCB parts panels fold to their heading with a click on
+  it (its buttons still work); each stays folded or open, in both views, from one visit to the next.
 - **Blocks** (schematic and board): parts that belong together (a filter, an oscillator) form a
   block, and blocks can sit inside blocks. Select parts and type a block in the inspector's
   **Block** field (or B): a name, or a path such as `rx/frontend` for a block inside `rx`; empty

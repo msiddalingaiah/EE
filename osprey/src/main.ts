@@ -2968,6 +2968,41 @@ function ercMarkers(): { at: Point; active: boolean }[] {
 }
 
 $('erc-run').addEventListener('click', runErc);
+/**
+ * Panels marked data-collapsible fold to their heading: a click on the heading (not on its
+ * buttons, which stay usable) toggles it, and the choice is remembered in this browser.
+ */
+for (const section of document.querySelectorAll<HTMLElement>('section[data-collapsible]')) {
+  const h2 = section.querySelector('h2');
+  if (!h2) continue;
+  const key = `osprey.collapsed.${section.id}`;
+  const caret = el('span', 'collapse-caret', '');
+  h2.prepend(caret);
+  h2.classList.add('collapsible');
+  const set = (collapsed: boolean) => {
+    section.classList.toggle('collapsed', collapsed);
+    caret.textContent = collapsed ? '▸' : '▾';
+    h2.title = collapsed ? 'Show this panel' : 'Fold this panel to its heading';
+  };
+  let stored: string | null = null;
+  try {
+    stored = localStorage.getItem(key);
+  } catch {
+    /* storage unavailable: start open */
+  }
+  set(stored === '1');
+  h2.addEventListener('click', (e) => {
+    if ((e.target as HTMLElement).closest('.panel-actions')) return;
+    const collapsed = !section.classList.contains('collapsed');
+    set(collapsed);
+    try {
+      localStorage.setItem(key, collapsed ? '1' : '0');
+    } catch {
+      /* not remembered */
+    }
+  });
+}
+
 $('blocks-suggest').addEventListener('click', suggestBlocksCmd);
 $('blocks-place').addEventListener('click', placeBlocksCmd);
 $('lcsc-assign').addEventListener('click', assignLcscCmd);
