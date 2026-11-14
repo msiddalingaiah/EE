@@ -2,6 +2,11 @@
 // (CSV, one row per part, its parametric attributes as JSON) into src/model/lcsc-passives.json,
 // the table Osprey assigns LCSC part numbers from by value and package.
 //
+// The export is jlcpcb-components-basic-preferred.csv from CDFER/jlcpcb-parts-database
+// (https://github.com/CDFER/jlcpcb-parts-database, MIT license): JLCPCB's Basic and preferred
+// parts in stock, rebuilt daily and published at the URL below. Give the URL or a downloaded copy:
+//
+//   node scripts/build-lcsc.mjs https://cdfer.github.io/jlcpcb-parts-database/jlcpcb-components-basic-preferred.csv
 //   node scripts/build-lcsc.mjs data/jlcpcb-components-basic-preferred.csv
 //
 // Kept: Basic parts ("base") and JLCPCB's preferred Extended parts, in stock.
@@ -13,7 +18,7 @@ import { fileURLToPath } from 'node:url';
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const src = process.argv[2];
 if (!src) {
-  console.error('Usage: node scripts/build-lcsc.mjs <jlcpcb parts .csv>');
+  console.error('Usage: node scripts/build-lcsc.mjs <jlcpcb-components-basic-preferred.csv: a file, or its URL>');
   process.exit(1);
 }
 
@@ -50,7 +55,8 @@ function quantity(s) {
   return Number(m[1]) * (m[2] ? PREFIX[m[2]] : 1);
 }
 
-const rows = parseCsv(readFileSync(src, 'utf8'));
+const text = /^https?:\/\//.test(src) ? await (await fetch(src)).text() : readFileSync(src, 'utf8');
+const rows = parseCsv(text);
 const out = [];
 for (const r of rows) {
   if (r.package !== '0603' && r.package !== '0805') continue;

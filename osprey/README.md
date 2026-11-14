@@ -170,8 +170,11 @@ native model (see [docs/format.md](docs/format.md)). Eagle files are imported in
   with the reason (another package has the value, not a chip part…); click one to select it.
   Through-hole parts are left out, as in the assembly files, unless **Include through-hole
   parts** is checked.
-  The table (`src/model/lcsc-passives.json`) comes from a JLCPCB parts export by
-  `node scripts/build-lcsc.mjs <export.csv>`. Parts without a footprint (supply symbols)
+  The table (`src/model/lcsc-passives.json`, 295 parts) is cut down from
+  `jlcpcb-components-basic-preferred.csv` of [CDFER/jlcpcb-parts-database](https://github.com/CDFER/jlcpcb-parts-database)
+  (MIT license; JLCPCB's Basic and preferred parts in stock, rebuilt daily). To refresh it:
+  `node scripts/build-lcsc.mjs https://cdfer.github.io/jlcpcb-parts-database/jlcpcb-components-basic-preferred.csv`
+  (or a downloaded copy of that file). Parts without a footprint (supply symbols)
   are left out. A board house's zero rotation for some packages (SOT-23, diodes) differs from
   the library's: their preview shows it, and parts on the bottom are flagged to check.
 - **Folding panels**: the Blocks and JLCPCB parts panels fold to their heading with a click on

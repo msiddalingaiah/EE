@@ -1,5 +1,6 @@
 // LCSC part numbers for chip resistors and ceramic capacitors, from JLCPCB's Basic and preferred
-// Extended parts (lcsc-passives.json, made by scripts/build-lcsc.mjs), by value and package.
+// Extended parts (lcsc-passives.json, cut down by scripts/build-lcsc.mjs from the CSV of
+// https://github.com/CDFER/jlcpcb-parts-database), by value and package.
 //
 // A resistor matches on its resistance; Basic parts come first, then the tightest tolerance,
 // then the most in stock. A capacitor matches on its capacitance: C0G/NP0 or X7R first, then X5R,
