@@ -20,6 +20,7 @@ import { legalize, type LegalizeResult } from '../edit/legalize';
 import { Arrange } from '../edit/arrange';
 import { autoplace, type AutoplaceResult } from '../edit/autoplace';
 import { autoroute, type AutorouteOptions, type AutorouteResult } from '../edit/autoroute';
+import { arrangeLabels, type ArrangeLabelsResult } from '../edit/labels';
 import type { PlacementRules } from '../model/placement';
 import type { DruFile } from '../model/rules';
 import { ClearanceChecker, type Conflict, type ObstacleGrid } from '../model/drc';
@@ -150,10 +151,15 @@ export class Editor {
 
   /**
    * Place every unlocked board part block by block and fit the outline around them (autoplace),
-   * as one undo step.
+   * then arrange their labels, as one undo step.
    */
   autoplace(rules?: PlacementRules): AutoplaceResult {
-    return this.arrange('Place by blocks', (a) => autoplace(a), rules);
+    return this.arrange('Place by blocks', (a) => {
+      const r = autoplace(a);
+      // The parts moved: move their names and values clear again.
+      arrangeLabels(this.project, a.tx, a.index);
+      return r;
+    }, rules);
   }
 
   /**
@@ -176,6 +182,14 @@ export class Editor {
   autoroute(opts?: AutorouteOptions): AutorouteResult {
     const tx = new Transaction('Autoroute');
     const res = autoroute(this.project, tx, opts);
+    if (!tx.empty) this.push(tx);
+    return res;
+  }
+
+  /** Move part names and values off pads, vias, outlines and each other (arrangeLabels), as one undo step. */
+  arrangeLabels(): ArrangeLabelsResult {
+    const tx = new Transaction('Arrange labels');
+    const res = arrangeLabels(this.project, tx, this.index());
     if (!tx.empty) this.push(tx);
     return res;
   }

@@ -205,7 +205,7 @@ export interface PlacementRules {
   edge: number;
 }
 
-export const DEFAULT_PLACEMENT_RULES: PlacementRules = { clearance: 0.25, smdClearance: 0.15, edge: 0.5 };
+export const DEFAULT_PLACEMENT_RULES: PlacementRules = { clearance: 0.25, smdClearance: 0.16, edge: 0.5 };
 
 /** The space to keep between two parts. */
 export const partClearance = (rules: PlacementRules, a: { smd: boolean }, b: { smd: boolean }) =>

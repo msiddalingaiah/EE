@@ -96,6 +96,11 @@ native model (see [docs/format.md](docs/format.md)). Eagle files are imported in
   already routed stays as it is (route the tricky parts by hand first; running it again only
   adds what is missing). DRC runs
   after.
+- **Labels** (board): moves part names and values that sit on pads, vias, holes, silkscreen
+  outlines, board text, the board edge or each other to a clear spot next to their part, in
+  one undo step. Labels already clear stay where they are, so hand placement is kept. A moved
+  label is centred on its spot, reading left to right or bottom to top, nearer its own part
+  than any other. Place (by blocks) arranges labels after placing the parts.
 - **Routing traces** (board): start on a pad, via or trace end and the route takes its net.
   Legs bend at 45°; changing layer adds a via. Corners snap to the grid, except that a grid line
   within half a step of a pad of the net moves onto the pad's row or column, so a pad off the

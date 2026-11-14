@@ -98,6 +98,16 @@ export function supplyReason(project: O.Project, net: O.Net, index: ProjectIndex
  */
 export function smash(project: O.Project, placement: O.GatePlacement | O.FootprintPlacement, tx: Transaction, index = new ProjectIndex(project)): boolean {
   if (placement.smashed || placement.labels?.length) return false;
+  const labels = smashLabels(placement, index);
+  if (!labels.length) return false;
+  if (!placement.labels) tx.run(set(placement, { labels: [] }));
+  for (const l of labels) tx.run(insert(placement.labels!, l));
+  tx.run(set(placement, { smashed: true }));
+  return true;
+}
+
+/** The labels smashing would give a placement: its placeholders where they are drawn now. */
+export function smashLabels(placement: O.GatePlacement | O.FootprintPlacement, index: ProjectIndex): O.Label[] {
   const isGate = 'gate' in placement;
   let texts: O.TextShape[] = [];
   if (isGate) {
@@ -110,7 +120,6 @@ export function smash(project: O.Project, placement: O.GatePlacement | O.Footpri
     texts = (fpId ? index.footprints.get(fpId)?.graphics ?? [] : []).filter((g): g is O.TextShape => 'text' in g);
   }
   texts = texts.filter((t) => t.text.startsWith('>'));
-  if (!texts.length) return false;
 
   const T = isGate ? gateTransform(placement as O.GatePlacement) : footprintTransform(placement as O.FootprintPlacement);
   const bottom = !isGate && (placement as O.FootprintPlacement).side === 'bottom';
@@ -136,10 +145,7 @@ export function smash(project: O.Project, placement: O.GatePlacement | O.Footpri
     if (t.font) l.font = t.font;
     labels.push(l);
   }
-  if (!placement.labels) tx.run(set(placement, { labels: [] }));
-  for (const l of labels) tx.run(insert(placement.labels!, l));
-  tx.run(set(placement, { smashed: true }));
-  return true;
+  return labels;
 }
 
 /** Unsmash: drop the placed name/value labels so the part's own placeholders show again. */

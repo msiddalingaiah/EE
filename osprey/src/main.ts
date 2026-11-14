@@ -578,6 +578,7 @@ function setupViewChrome(): void {
   wireBtn.textContent = view === 'board' ? 'Route' : 'Wire';
   pourBtn.hidden = !(project?.board && view === 'board');
   $('autoroute-btn').hidden = pourBtn.hidden;
+  $('labels-btn').hidden = pourBtn.hidden;
   viaBtn.hidden = pourBtn.hidden;
   textBtn.hidden = !(project && (view === 'board' ? project.board : view === 'schematic' ? project.schematic : undefined));
   layerField.hidden = pourBtn.hidden;
@@ -2886,6 +2887,16 @@ function autorouteCmd(): void {
   flash(`Autorouted ${r.routed} connection${r.routed === 1 ? '' : 's'}${r.groundVias ? `, ${r.groundVias} ground via${r.groundVias === 1 ? '' : 's'}` : ''}${r.pours.length ? `, pours: ${r.pours.join(', ')}` : ''}; ${left ? `${left} left to route by hand` : 'nothing left'}. Ctrl+Z undoes`);
 }
 $('autoroute-btn').addEventListener('click', autorouteCmd);
+
+/** Move part names and values that sit on something to a clear spot. */
+function arrangeLabelsCmd(): void {
+  if (!editor || !editable() || view !== 'board' || !project?.board) return;
+  if (move) commitMove();
+  const r = editor.arrangeLabels();
+  const crowded = r.crowded.length ? `; no clear spot for ${r.crowded.join(', ')}` : '';
+  flash(r.moved.length ? `Moved ${r.moved.length} label${r.moved.length === 1 ? '' : 's'}${crowded}. Ctrl+Z undoes` : `Labels are all clear${crowded}`);
+}
+$('labels-btn').addEventListener('click', arrangeLabelsCmd);
 drcLoad.addEventListener('change', async () => {
   const v = drcLoad.value;
   drcLoad.value = '';

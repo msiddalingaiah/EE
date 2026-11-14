@@ -71,8 +71,8 @@ describe('the placement score', () => {
 describe('placement clearances', () => {
   it('lets SMD parts sit closer than through-hole parts', () => {
     const r = DEFAULT_PLACEMENT_RULES;
-    expect(partClearance(r, { smd: true }, { smd: true })).toBe(0.15);
-    expect(partClearance(r, { smd: true }, { smd: false })).toBe(0.15);
+    expect(partClearance(r, { smd: true }, { smd: true })).toBe(0.16);
+    expect(partClearance(r, { smd: true }, { smd: false })).toBe(0.16);
     expect(partClearance(r, { smd: false }, { smd: false })).toBe(0.25);
   });
 
