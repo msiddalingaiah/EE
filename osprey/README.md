@@ -172,7 +172,7 @@ native model (see [docs/format.md](docs/format.md)). Eagle files are imported in
   parts** is checked.
   The table (`src/model/lcsc-passives.json`, 295 parts) is cut down from
   `jlcpcb-components-basic-preferred.csv` of [CDFER/jlcpcb-parts-database](https://github.com/CDFER/jlcpcb-parts-database)
-  (MIT license; JLCPCB's Basic and preferred parts in stock, rebuilt daily). To refresh it:
+  (MIT license; JLCPCB's Basic and preferred parts in stock, rebuilt daily); see "Updating the JLCPCB parts table" below. To refresh it:
   `node scripts/build-lcsc.mjs https://cdfer.github.io/jlcpcb-parts-database/jlcpcb-components-basic-preferred.csv`
   (or a downloaded copy of that file). Parts without a footprint (supply symbols)
   are left out. A board house's zero rotation for some packages (SOT-23, diodes) differs from
@@ -324,6 +324,30 @@ To also check import, airwires and export against a folder of your own Eagle des
 ```sh
 OSPREY_CORPUS=~/designs npx vitest run -t corpus
 ```
+
+### Updating the JLCPCB parts table
+
+The JLCPCB parts panel assigns LCSC numbers from `src/model/lcsc-passives.json`, a cut-down
+table of the 0603 and 0805 chip resistors and MLCCs that are JLCPCB Basic or preferred parts in
+stock. It comes from `jlcpcb-components-basic-preferred.csv` of
+[CDFER/jlcpcb-parts-database](https://github.com/CDFER/jlcpcb-parts-database) (MIT license),
+which is rebuilt daily from JLCPCB's stock. The CSV itself isn't kept in the repo: the table is
+all the app needs. To bring the table up to date:
+
+1. Rebuild it from the published CSV:
+   ```sh
+   node scripts/build-lcsc.mjs https://cdfer.github.io/jlcpcb-parts-database/jlcpcb-components-basic-preferred.csv
+   ```
+   or from a downloaded copy (keep downloads in `data/`, which git ignores):
+   `node scripts/build-lcsc.mjs data/jlcpcb-components-basic-preferred.csv`.
+   It prints how many resistors and capacitors it kept.
+2. Run `npm test` (the LCSC tests check choices such as the Basic 10k 0805, C17414) and look
+   over `git diff src/model/lcsc-passives.json`: stock counts change every day, part numbers
+   rarely.
+3. Commit the table.
+
+To cover more (other packages, inductors, ferrite beads), change the filters in
+`scripts/build-lcsc.mjs` and the matching in `src/model/lcsc.ts`.
 
 ### Controls
 
