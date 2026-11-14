@@ -89,6 +89,8 @@ native model (see [docs/format.md](docs/format.md)). Eagle files are imported in
   the top layer at the net's width (10 mil by default), with a short run (up to 8 mm) on the
   bottom through two vias where the top is blocked; then pours cover the board, the main supply
   (VCC) on top and ground on the bottom, and supply pads a pour can't reach are routed too.
+  Ground vias are dogbones: set 0.3 mm clear of every pad, on the part's outer side, so an
+  untented via neither wicks solder from the joint nor sinks the iron's heat into the plane.
   Routes go around obstacles and are checked against the design rules before they are added;
   nothing is ripped up, so what doesn't route stays an airwire to finish by hand. DRC runs
   after.

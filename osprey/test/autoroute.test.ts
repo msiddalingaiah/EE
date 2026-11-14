@@ -36,7 +36,15 @@ describe('autoroute', () => {
     const smdGround = anchors(p).filter((a) => a.net === 'GND' && a.kind === 'pad' && a.layers.length === 1).length;
     const r = new Editor(p, () => {}).autoroute();
     expect(r.groundVias).toBe(smdGround);
-    expect(p.nets.find((n) => n.name === 'GND')!.vias).toHaveLength(smdGround);
+    const vias = p.nets.find((n) => n.name === 'GND')!.vias!;
+    expect(vias).toHaveLength(smdGround);
+    // Dogbones: each via's copper (0.604 mm across for a 0.35 mm drill) keeps 0.3 mm from every
+    // pad, room for a solder mask dam, so solder doesn't wick away and the iron's heat stays put.
+    const pads = footprintInfos(p).flatMap((f) => f.pads.map((q) => q.box));
+    for (const v of vias) {
+      const gap = Math.min(...pads.map((b) => Math.hypot(Math.max(b.minX - v.at[0], 0, v.at[0] - b.maxX), Math.max(b.minY - v.at[1], 0, v.at[1] - b.maxY))));
+      expect(gap - 0.302).toBeGreaterThanOrEqual(0.3 - 1e-6);
+    }
     // This board needs no bottom hops: signal traces all on top.
     for (const n of p.nets) for (const t of n.traces ?? []) expect(t.layer).toBe('copper.top');
   });
