@@ -254,15 +254,31 @@ text on copper.
 
 ### Next
 
-1. **Library editing,** in library files, as in Eagle: projects keep their copies until
-   updated from the library.
-   - **Update from library** in a project: see which parts differ and how, and apply as one
-     step that can be undone, with ERC run afterwards (a renamed or moved pin shows as a
-     problem rather than a silently broken connection).
+The goal is concept to orderable CAM and assembly files in under an hour: a block-by-block
+description, checked, turned into a schematic, placed, routed and given JLCPCB parts.
+
+1. **Schematic generation** from a hierarchical block description, with BLOCK attributes set
+   and each block drawn as its own area. Generated sheets follow two drafting rules: at least
+   one wire segment between component pins (never pin touching pin), and only T junctions
+   (no four-way junctions: one branch is offset so it becomes two T's). ERC can check the same
+   rules, as warnings, on sheets drawn by hand.
+2. **Subcircuits,** like standard cells: proven oscillators, buffers, preamps, power supplies
+   and conditioning, each with its schematic, its tuned placement and routing, ports (the nets
+   it connects by) and parameters (values that change per use). Captured from a block of a
+   working design, kept in a library, reused by generation; autoplace keeps an instance's
+   layout as one rigid block and autoroute connects only its ports.
+3. **Toolbar and UI cleanup:** group the board tools apart from file actions, move rarely
+   used commands into a menu.
+4. **A ready-to-order check:** ERC, DRC, unrouted connections, LCSC parts and silkscreen in
+   one step.
 
 ### Roadmap
 
 Then, to take a board through manufacturing and assembly:
+
+- **LCSC parts beyond 0603/0805 passives:** common transistors, regulators and op-amps.
+- **Board text in placement:** Place moves board text (titles, dates) clear of the parts.
+- **Label sizes:** an option to bring names up to a printable minimum (1 mm, say).
 
 - **Design rules edited in place:** type a clearance, width or drill in the Design rules
   panel, without a `.dru` file.
