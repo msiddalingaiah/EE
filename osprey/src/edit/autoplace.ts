@@ -408,27 +408,41 @@ export function autoplace(arr: Arrange): AutoplaceResult {
     if (!holes.length) return o;
     const boxes = [...u].map(([p, pose]) => boxAt(p, pose));
     const reach = drill / 2 + edge;
-    for (let k = 0; k < 400; k++) {
-      let grown = false;
-      for (const [cx, cy] of [[0, 0], [1, 0], [0, 1], [1, 1]] as const) {
-        const hx = cx ? o.maxX - HOLE_INSET : o.minX + HOLE_INSET;
-        const hy = cy ? o.maxY - HOLE_INSET : o.minY + HOLE_INSET;
-        const zone = { minX: hx - reach, minY: hy - reach, maxX: hx + reach, maxY: hy + reach };
-        const hit = boxes.filter((b) => rectGap(b, zone) < -TOLERANCE);
-        if (!hit.length) continue;
-        // Grow the side that needs the smaller move.
-        const needX = Math.max(...hit.map((b) => (cx ? zone.maxX - b.minX : b.maxX - zone.minX)));
-        const needY = Math.max(...hit.map((b) => (cy ? zone.maxY - b.minY : b.maxY - zone.minY)));
-        if (needX <= needY) {
-          if (cx) o.maxX += needX;
-          else o.minX -= needX;
-        } else if (cy) o.maxY += needY;
-        else o.minY -= needY;
-        grown = true;
-      }
-      if (!grown) break;
+    // Each corner whose hole would touch parts is cleared by growing the board sideways or
+    // up/down by enough to move the hole past all of them. Growing only moves holes away from
+    // parts, so the corners don't interfere: try every choice, keep the smallest board.
+    const needs: { cx: 0 | 1; cy: 0 | 1; x: number; y: number }[] = [];
+    for (const [cx, cy] of [[0, 0], [1, 0], [0, 1], [1, 1]] as const) {
+      const hx = cx ? o.maxX - HOLE_INSET : o.minX + HOLE_INSET;
+      const hy = cy ? o.maxY - HOLE_INSET : o.minY + HOLE_INSET;
+      const zone = { minX: hx - reach, minY: hy - reach, maxX: hx + reach, maxY: hy + reach };
+      const hit = boxes.filter((b) => rectGap(b, zone) < -TOLERANCE);
+      if (!hit.length) continue;
+      needs.push({
+        cx, cy,
+        x: Math.max(...hit.map((b) => (cx ? zone.maxX - b.minX : b.maxX - zone.minX))),
+        y: Math.max(...hit.map((b) => (cy ? zone.maxY - b.minY : b.maxY - zone.minY))),
+      });
     }
-    return o;
+    let best: Rect = o;
+    let bestArea = Infinity;
+    for (let mask = 0; mask < 1 << needs.length; mask++) {
+      const g = { minX: 0, minY: 0, maxX: 0, maxY: 0 };
+      needs.forEach((n, i) => {
+        if (mask & (1 << i)) {
+          if (n.cx) g.maxX = Math.max(g.maxX, n.x);
+          else g.minX = Math.max(g.minX, n.x);
+        } else if (n.cy) g.maxY = Math.max(g.maxY, n.y);
+        else g.minY = Math.max(g.minY, n.y);
+      });
+      const r = { minX: o.minX - g.minX, minY: o.minY - g.minY, maxX: o.maxX + g.maxX, maxY: o.maxY + g.maxY };
+      const area = (r.maxX - r.minX) * (r.maxY - r.minY);
+      if (area < bestArea - 1e-9) {
+        best = r;
+        bestArea = area;
+      }
+    }
+    return best;
   };
 
   const layout = layoutBlock('');
