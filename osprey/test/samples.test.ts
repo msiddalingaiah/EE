@@ -9,6 +9,8 @@ import { expect, it } from 'vitest';
 import { parseEagle } from '../src/eagle/parse';
 import { readLibrary, readProject, writeLibrary, writeProject } from '../src/model/file';
 import { importEagle } from '../src/model/import-eagle';
+import { Editor } from '../src/app/editor';
+import { unroutedSample } from './unrouted';
 
 const eagle = (name: string) => readFileSync(join(__dirname, '..', 'samples', 'eagle', name), 'utf8');
 
@@ -24,6 +26,14 @@ it('samples/osprey/TA7358A.osprey is the import of the Eagle TA7358A pair', asyn
   const text = writeProject(project);
   expect(writeProject(readProject(text))).toBe(text);
   await expect(text).toMatchFileSnapshot('../samples/osprey/TA7358A.osprey');
+});
+
+// wwvbfind-placed.osprey is wwvbfind, its routing taken out, placed by autoplace: a file to open
+// and compare with the hand layout. (wwvbfind.osprey itself is laid out by hand: never written.)
+it('samples/osprey/wwvbfind-placed.osprey is wwvbfind placed block by block', async () => {
+  const project = readProject(unroutedSample('wwvbfind'));
+  new Editor(project, () => {}).autoplace();
+  await expect(writeProject(project)).toMatchFileSnapshot('../samples/osprey/wwvbfind-placed.osprey');
 });
 
 // madhu.ospreylib started as the import of madhu.lbr and is edited in Osprey since: it isn't

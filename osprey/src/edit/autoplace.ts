@@ -61,6 +61,8 @@ const BLOCK_GAP = 0.5;
 const HOLE_INSET = 2.54;
 const ROTS = [0, 90, 180, 270];
 const r3 = (v: number) => Math.round(v * 1000) / 1000;
+/** Positions stay on the 0.01 mm grid Arrange.moveTo rounds to, so clearances checked here still hold once moved. */
+const r2 = (v: number) => Math.round(v * 100) / 100;
 
 export function autoplace(arr: Arrange): AutoplaceResult {
   const project = arr.project;
@@ -171,7 +173,7 @@ export function autoplace(arr: Arrange): AutoplaceResult {
       if (side === 'above') py = anchor.maxY + gap - sh.box.minY;
       if (side === 'below') py = anchor.minY - gap - sh.box.maxY;
       for (const [o, a] of SEARCH) {
-        const pose = { x: r3(px + out.x * o + along.x * a), y: r3(py + out.y * o + along.y * a), rot };
+        const pose = { x: r2(px + out.x * o + along.x * a), y: r2(py + out.y * o + along.y * a), rot };
         if (!fits(x, pose, layout)) continue;
         const p = { x: ref.x + pose.x, y: ref.y + pose.y };
         const score = Math.hypot(p.x - at.x, p.y - at.y) + 0.5 * (o + Math.abs(a));
@@ -179,7 +181,7 @@ export function autoplace(arr: Arrange): AutoplaceResult {
         break;
       }
     }
-    return best?.pose ?? { x: at.x, y: at.y, rot: 0 };
+    return best?.pose ?? { x: r2(at.x), y: r2(at.y), rot: 0 };
   };
 
   // ---- blocks of blocks ------------------------------------------------------------
@@ -220,7 +222,7 @@ export function autoplace(arr: Arrange): AutoplaceResult {
     for (const [p, pose] of u) {
       let { x, y } = pose;
       for (let k = 0; k < quarter; k++) [x, y] = [-y, x];
-      out.set(p, { x: r3(x + dx), y: r3(y + dy), rot: (pose.rot + 90 * quarter) % 360 });
+      out.set(p, { x: r2(x + dx), y: r2(y + dy), rot: (pose.rot + 90 * quarter) % 360 });
     }
     return out;
   };
@@ -262,7 +264,7 @@ export function autoplace(arr: Arrange): AutoplaceResult {
           const dir = { x: s.x > cluster.maxX - 1e-9 ? -1 : s.x + w < cluster.minX + 1e-9 ? 1 : 0, y: s.y > cluster.maxY - 1e-9 ? -1 : s.y + h < cluster.minY + 1e-9 ? 1 : 0 };
           let at = s;
           const fitsAt = (q: Point) => {
-            const cand = place(u, quarter, q.x - ub.minX, q.y - ub.minY);
+            const cand = place(u, quarter, r2(q.x - ub.minX), r2(q.y - ub.minY));
             for (const [p, pose] of cand) if (!fits(p, pose, placed, BLOCK_GAP)) return undefined;
             return cand;
           };
@@ -306,7 +308,8 @@ export function autoplace(arr: Arrange): AutoplaceResult {
   const holes = board.drawing.filter((g): g is O.HoleShape => 'hole' in g);
   const drill = holes.length ? Math.max(...holes.map((h) => h.drill)) : 0;
   const box = unitBox(layout);
-  const edge = rules.edge;
+  // A hair over the edge clearance, so rounding the final shift to 0.01 mm can't eat into it.
+  const edge = rules.edge + 0.01;
   const o = { minX: box.minX - edge, minY: box.minY - edge, maxX: box.maxX + edge, maxY: box.maxY + edge };
   if (holes.length) {
     // Grow the outline where a corner hole would come too close to a part.
@@ -337,10 +340,10 @@ export function autoplace(arr: Arrange): AutoplaceResult {
   const G = 0.127;
   const width = Math.ceil((o.maxX - o.minX) / G - 1e-6) * G;
   const height = Math.ceil((o.maxY - o.minY) / G - 1e-6) * G;
-  const dx = -o.minX + (width - (o.maxX - o.minX)) / 2;
-  const dy = -o.minY + (height - (o.maxY - o.minY)) / 2;
+  const dx = r2(-o.minX + (width - (o.maxX - o.minX)) / 2);
+  const dy = r2(-o.minY + (height - (o.maxY - o.minY)) / 2);
 
-  for (const [p, pose] of [...layout].sort(([a], [b]) => a.localeCompare(b))) arr.moveTo(p, [r3(pose.x + dx), r3(pose.y + dy)], pose.rot);
+  for (const [p, pose] of [...layout].sort(([a], [b]) => a.localeCompare(b))) arr.moveTo(p, [r2(pose.x + dx), r2(pose.y + dy)], pose.rot);
 
   const W = r3(width);
   const H = r3(height);

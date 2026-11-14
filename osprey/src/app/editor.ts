@@ -17,6 +17,7 @@ import { addPour, defaultPourNet, setOutline, setPourNet, setPourProps, withCorn
 import { applyDru } from '../edit/rules';
 import { legalize, type LegalizeResult } from '../edit/legalize';
 import { Arrange } from '../edit/arrange';
+import { autoplace, type AutoplaceResult } from '../edit/autoplace';
 import type { PlacementRules } from '../model/placement';
 import type { DruFile } from '../model/rules';
 import { ClearanceChecker, type Conflict, type ObstacleGrid } from '../model/drc';
@@ -143,6 +144,14 @@ export class Editor {
       tx.revert();
       throw e;
     }
+  }
+
+  /**
+   * Place every unlocked board part block by block and fit the outline around them (autoplace),
+   * as one undo step.
+   */
+  autoplace(rules?: PlacementRules): AutoplaceResult {
+    return this.arrange('Place by blocks', (a) => autoplace(a), rules);
   }
 
   /** Replace the board's design rules with a .dru file's (one undo step). */

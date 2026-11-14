@@ -23,6 +23,10 @@ rotations chosen by airwire length and crossings, then improved by small moves a
 (`src/edit/improve.ts`), then laid out again by hand on a smaller board (44.46 x 27.46 mm).
 The 2-pin headers (VCC power, IN antenna, VOUT audio) have ground on pin 1; the UPDI header is UPDI, GND, VCC from pin 1. Its parts are grouped in blocks: Power, Preamp, MCU (with ADC-bias, Filter and LED inside) and Oscillator.
 
+`wwvbfind-placed.osprey` is `wwvbfind.osprey` with its routing taken out, placed block by block
+by autoplace (`src/edit/autoplace.ts`, the Blocks panel's Place button), unrouted: a file to
+open beside the hand layout. A test regenerates it (`npm run samples`); review the diff.
+
 The JFET source follower drives the 2N3904's base directly: its source voltage biases the
 transistor, so there is no coupling capacitor or base divider. The emitter's bypassed
 resistor (R6, 1k) keeps the collector current near 1 mA for a typical MPF102; a JFET with a

@@ -1691,6 +1691,9 @@ function renderBlocksPanel(): void {
   blocksPanel.hidden = !(project && (view === 'schematic' || view === 'board'));
   if (blocksPanel.hidden || !project) return;
   (document.getElementById('blocks-suggest') as HTMLButtonElement).disabled = !editable();
+  const placeBtn = document.getElementById('blocks-place') as HTMLButtonElement;
+  placeBtn.hidden = !(view === 'board' && project.board);
+  placeBtn.disabled = !editable();
   blocksList.replaceChildren();
   const paths = blockPaths(project);
   if (!paths.length) {
@@ -1722,6 +1725,12 @@ function suggestBlocksCmd(): void {
   if (!editor || !editable()) return;
   const n = editor.suggestBlocks();
   flash(n ? `Suggested blocks for ${n} part(s): adjust with B, undo with Ctrl+Z` : 'Every part has a block already');
+}
+
+function placeBlocksCmd(): void {
+  if (!editor || !editable() || view !== 'board') return;
+  const res = editor.autoplace();
+  flash(res.parts ? `Placed ${res.parts} part(s) on a ${res.width} × ${res.height} mm board: undo with Ctrl+Z` : 'No unlocked parts to place');
 }
 
 /** Select every part of a block (blocks inside it included) in the current view. */
@@ -2880,6 +2889,7 @@ function ercMarkers(): { at: Point; active: boolean }[] {
 
 $('erc-run').addEventListener('click', runErc);
 $('blocks-suggest').addEventListener('click', suggestBlocksCmd);
+$('blocks-place').addEventListener('click', placeBlocksCmd);
 
 // ---------------------------------------------------------------------------
 // Library items and drawing in them
