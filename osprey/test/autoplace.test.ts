@@ -33,6 +33,8 @@ describe('autoplace', () => {
     const { p } = placed();
     const hand = placementScore(readProject(SAMPLE)).total;
     expect(placementScore(p).total).toBeLessThan(hand);
+    // Parts turned so no signal airwires cross, as in the hand layout.
+    expect(placementScore(p).signalCrossings).toBe(0);
   });
 
   it('places wwvbfind2, a changed design, with its clearances', () => {

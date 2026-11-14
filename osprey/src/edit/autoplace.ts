@@ -15,9 +15,11 @@
 // The board is the same at the top, its blocks and the parts in none.
 //
 // Then parts are nudged (2 mm at most) onto a neighbour's row or column where that fits and
-// helps the placement score. Last, the board outline is fitted around the parts, grown where a corner's mounting hole would
-// touch one, and everything is moved so the outline starts at 0, 0. Supply nets don't pull parts
-// together (pours connect them), except decoupling caps to their pins.
+// helps the placement score. Then the board outline is fitted around the parts, grown where a
+// corner's mounting hole would touch one, and everything is moved so the outline starts at 0, 0.
+// Last, parts are turned, and like parts in a block swapped, where that shortens and uncrosses
+// the airwires (edit/improve.ts, without moves). Supply nets don't pull parts together (pours
+// connect them), except decoupling caps to their pins.
 
 import type { Point } from '../geom/transform';
 import { blockOf, comparePaths } from '../model/blocks';
@@ -25,6 +27,7 @@ import type { Rect } from '../model/placement';
 import { footprintInfo, misalignment, partClearance, rectCenter, rectGap, SCORE_WEIGHTS, supplyNets, TOLERANCE } from '../model/placement';
 import type * as O from '../model/types';
 import type { Arrange } from './arrange';
+import { improve } from './improve';
 import { insert, remove } from './ops';
 
 export interface AutoplaceResult {
@@ -467,6 +470,9 @@ export function autoplace(arr: Arrange): AutoplaceResult {
     const at: O.Pt[] = [[HOLE_INSET, HOLE_INSET], [r3(W - HOLE_INSET), HOLE_INSET], [HOLE_INSET, r3(H - HOLE_INSET)], [r3(W - HOLE_INSET), r3(H - HOLE_INSET)]];
     at.forEach((h, i) => arr.tx.run(insert(board.drawing, { hole: h, drill } as O.Graphic, 4 + i)));
   }
+  // Last, turn parts and swap like parts within a block where that shortens the airwires and
+  // uncrosses them (improve: no moves, so the rows and columns stay).
+  improve(arr, { move: false, sameBlock: true });
   return { parts: layout.size, width: W, height: H };
 }
 

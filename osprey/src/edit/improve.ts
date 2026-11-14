@@ -11,6 +11,7 @@
 import type { Point } from '../geom/transform';
 import type { Rect } from '../model/placement';
 import { boardArea, footprintInfo, footprintInfos, isGroundNet, onBoard, partClearance, rectCenter, rectGap, supplyNets, TOLERANCE } from '../model/placement';
+import { blockOf } from '../model/blocks';
 import type { Arrange } from './arrange';
 
 export interface ImproveOptions {
@@ -25,6 +26,8 @@ export interface ImproveOptions {
   move?: boolean;
   rotate?: boolean;
   swap?: boolean;
+  /** Swap only parts in the same block (default false). */
+  sameBlock?: boolean;
   /** Longest single move (mm, default 3). */
   maxStep?: number;
   /** Passes over all parts at most (default 30). */
@@ -63,6 +66,8 @@ interface PartState {
   footprint: string;
   smd: boolean;
   bottom: boolean;
+  /** Its block path ('' for none). */
+  block: string;
 }
 
 interface Edge {
@@ -91,6 +96,7 @@ export function improve(arr: Arrange, opts: ImproveOptions = {}): ImproveResult 
       part: info.part, at: { x: f.at[0], y: f.at[1] }, rot: f.rot ?? 0,
       movable: !f.locked && !fixed.has(info.part) && (!allowed || allowed.has(info.part)),
       shapes: new Map(), footprint: arr.index.variantOf(part)?.footprint ?? '', smd: info.smd, bottom: f.side === 'bottom',
+      block: blockOf(part) ?? '',
     });
   }
   const shape = (s: PartState, rot: number): Shape => {
@@ -335,6 +341,7 @@ export function improve(arr: Arrange, opts: ImproveOptions = {}): ImproveResult 
           const a = movable[i]!;
           const b = movable[j]!;
           if (a.footprint !== b.footprint || a.bottom !== b.bottom) continue;
+          if (opts.sameBlock && a.block !== b.block) continue;
           const sa = { at: { ...a.at }, rot: a.rot };
           const sb = { at: { ...b.at }, rot: b.rot };
           const ok = attempt([a, b], () => {
