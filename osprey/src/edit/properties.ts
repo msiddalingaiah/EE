@@ -9,6 +9,7 @@ import { footprintTransform, gateTransform, mirrorLayer, rotation } from '../mod
 import type * as O from '../model/types';
 import { apply } from '../geom/transform';
 import { dropIfEmpty, insert, remove, set, type Transaction } from './ops';
+import { joinNet } from './wire';
 
 /** Eagle stores part and net names in upper case and doesn't allow white space in them. */
 export function normalizeName(raw: string): string {
@@ -55,19 +56,26 @@ export function setPartValue(project: O.Project, partName: string, value: string
 }
 
 /**
- * Rename a net. Refused when the new name is taken (that would join nets, a connectivity
- * change) or when the net's name comes from a supply symbol or implicit power pins.
+ * Rename a net. A name another net has joins the two (connected by name: one undo step).
+ * Refused when the net's name comes from a supply symbol or implicit power pins.
  */
 export function renameNet(project: O.Project, oldName: string, raw: string, tx: Transaction, index = new ProjectIndex(project)): string | undefined {
   const name = normalizeName(raw);
   const problem = nameProblem(name, 'net');
   if (problem) return problem;
   if (name === oldName) return undefined;
-  if (project.nets.some((n) => n.name === name)) return `Net ${name} already exists; joining nets isn't supported yet`;
   const net = project.nets.find((n) => n.name === oldName);
   if (!net) return `No net named ${oldName}`;
   const supply = supplyReason(project, net, index);
   if (supply) return supply;
+  // A name another net has already: the two become one net (connected by name), everything of
+  // this one (wires, labels, traces, vias, pours) joining the other.
+  const into = project.nets.find((n) => n.name === name);
+  if (into) {
+    tx.label = `Join net ${oldName} into ${name}`;
+    joinNet(project, net, into, tx);
+    return undefined;
+  }
   tx.run(set(net, { name }));
   return undefined;
 }

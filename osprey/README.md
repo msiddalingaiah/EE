@@ -65,6 +65,10 @@ native model (see [docs/format.md](docs/format.md)). Eagle files are imported in
   A wire that connects different nets joins them, and the joined net keeps the strongest name
   (a supply name, then a name you gave it, then the lowest automatic N$n). If two nets you
   named meet, you choose which name stays. Board airwires follow straight away.
+- **Connecting by name**: renaming a net (N on a wire) to a name another net has joins the two,
+  wherever their pieces are drawn: wires, labels, traces, vias and pours become one net, in one
+  undo step. Joining into a supply net (GND, say) works the same; a supply net itself keeps its
+  name.
 - **Copy and paste** (schematic): copy a selection of parts, wiring and drawing, and paste it
   as many times as needed; each copy floats until you click to place it. Names stay unique:
   C4 becomes the next free C, RF becomes RF1, automatic nets get new numbers, named nets a

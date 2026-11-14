@@ -1797,7 +1797,9 @@ function propertyFields(o: Owner): { table: HTMLTableElement; covers: Set<string
           input.classList.add('invalid');
           flash(err);
         } else {
-          flash(`${label} changed`);
+          // A net renamed to a name in use joins that net: say so (the undo step names it).
+          const undo = editor?.history.undoLabel;
+          flash(field === 'net' && undo?.startsWith('Join net') ? `${undo.replace(/^Join/, 'Joined')}: connected by name` : `${label} changed`);
           done();
         }
       } else if (e.key === 'Escape') {

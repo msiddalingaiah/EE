@@ -8,6 +8,7 @@ import { Editor } from '../src/app/editor';
 import { parseEagle } from '../src/eagle/parse';
 import { deleteTargets } from '../src/edit/delete';
 import { Transaction } from '../src/edit/ops';
+import { supplyReason } from '../src/edit/properties';
 import { mirrorAbout, rotationAbout, transformTargets, translation } from '../src/edit/transform';
 import { netPads, ProjectIndex } from '../src/model/derive';
 import { writeProject } from '../src/model/file';
@@ -255,15 +256,43 @@ describe('properties', () => {
     expect(editor.setValue('IC1', 'X')).toMatch(/fixed by its component/);
   });
 
-  it('renames nets; refuses supply nets and existing names', () => {
+  it('renames nets; refuses supply nets', () => {
     const n = p.nets.find((x) => x.name.startsWith('N$'))!;
     expect(editor.renameNet(n.name, 'rf_in2')).toBeUndefined();
     expect(n.name).toBe('RF_IN2');
     editor.undo();
     unchanged();
     expect(editor.renameNet('GND', 'GROUND')).toMatch(/supply/);
-    const [a, b] = p.nets.filter((x) => x.name.startsWith('N$'));
-    expect(editor.renameNet(a!.name, b!.name)).toMatch(/already exists/);
+  });
+
+  it('joins a net renamed to a name in use, in one undo step', () => {
+    const [a, b] = p.nets.filter((x) => x.name.startsWith('N$') && x.segments?.length);
+    const padsBefore = netPads(p);
+    const padCount = padsBefore.get(a!.name)!.size + padsBefore.get(b!.name)!.size;
+    const pins = (n: O.Net) => (n.segments ?? []).flatMap((s) => s.pins.map((q) => `${q.part}.${q.pin}`));
+    const both = [...pins(a!), ...pins(b!)].sort();
+    const count = p.nets.length;
+    expect(editor.renameNet(a!.name, b!.name.toLowerCase())).toBeUndefined();
+    expect(p.nets).toHaveLength(count - 1);
+    expect(p.nets).not.toContain(a);
+    expect(pins(b!).sort()).toEqual(both);
+    // The board connects them too: the joined net has both nets' pads.
+    const before = netPads(p);
+    expect(before.has(a!.name)).toBe(false);
+    expect(before.get(b!.name)!.size).toBe(padCount);
+    expect(editor.history.undoLabel).toBe(`Join net ${a!.name} into ${b!.name}`);
+    editor.undo();
+    unchanged();
+  });
+
+  it('joins a signal net into a supply net, but not a supply net into another', () => {
+    const n = p.nets.find((x) => x.name.startsWith('N$') && x.segments?.length)!;
+    expect(editor.renameNet(n.name, 'GND')).toBeUndefined();
+    expect(p.nets).not.toContain(n);
+    editor.undo();
+    unchanged();
+    const other = p.nets.find((x) => x.name !== 'GND' && supplyReason(p, x, new ProjectIndex(p)));
+    if (other) expect(editor.renameNet('GND', other.name)).toMatch(/supply/);
   });
 
   it('unsmash then smash puts the labels back where they were', () => {
