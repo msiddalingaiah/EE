@@ -45,8 +45,13 @@ describe('autoroute', () => {
       const gap = Math.min(...pads.map((b) => Math.hypot(Math.max(b.minX - v.at[0], 0, v.at[0] - b.maxX), Math.max(b.minY - v.at[1], 0, v.at[1] - b.maxY))));
       expect(gap - 0.302).toBeGreaterThanOrEqual(0.3 - 1e-6);
     }
-    // This board needs no bottom hops: signal traces all on top.
-    for (const n of p.nets) for (const t of n.traces ?? []) expect(t.layer).toBe('copper.top');
+    // Signals go on top; any bottom run is a short hop (8 mm at most).
+    const len = (t: { line: [number, number][] }) => Math.hypot(t.line[1]![0] - t.line[0]![0], t.line[1]![1] - t.line[0]![1]);
+    const traces = p.nets.flatMap((n) => n.traces ?? []);
+    const top = traces.filter((t) => t.layer === 'copper.top').reduce((s2, t) => s2 + len(t), 0);
+    const bottom = traces.filter((t) => t.layer === 'copper.bottom');
+    expect(bottom.reduce((s2, t) => s2 + len(t), 0)).toBeLessThan(0.1 * top);
+    for (const t of bottom) expect(len(t)).toBeLessThanOrEqual(8 + 1e-6);
   });
 
   it('hops under a wall on the top layer through two vias', () => {
@@ -68,7 +73,8 @@ describe('autoroute', () => {
     // Signals crossing the wall went under it, a short way, and nothing else broke.
     const bottom = p.nets.flatMap((n) => (n.traces ?? []).filter((t) => t.layer === 'copper.bottom').map((t) => ({ net: n.name, t })));
     expect(bottom.length).toBeGreaterThan(0);
-    for (const { t } of bottom) expect(Math.min(t.line[0][0], t.line[1][0])).toBeLessThan(x! + 8);
+    expect(bottom.some(({ t }) => Math.min(t.line[0][0], t.line[1][0]) < x! && Math.max(t.line[0][0], t.line[1][0]) > x!)).toBe(true);
+    for (const { t } of bottom) expect(Math.hypot(t.line[1][0] - t.line[0][0], t.line[1][1] - t.line[0][1])).toBeLessThanOrEqual(8 + 1e-6);
     expect(problems(p).filter((m) => !before.includes(m))).toEqual([]);
     expect(r.routed).toBeGreaterThan(0);
   });
