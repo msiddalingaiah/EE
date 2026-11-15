@@ -102,4 +102,25 @@ describe('assigning LCSC numbers', () => {
     expect(p.parts.find((x) => x.name === 'R15')!.attributes?.LCSC).toBe('C99');
     expect(lcscStatus(p).find((s) => s.part === 'R15')).toEqual({ part: 'R15', lcsc: 'C99', from: 'part' });
   });
+
+  it('finds a number for another value (left from before a value change), and Assign replaces it', () => {
+    const p = readProject(TEXT);
+    const r15 = p.parts.find((x) => x.name === 'R15')!;
+    // C17513 is the table's 1k 0805 resistor; R15 is 2.2k.
+    r15.attributes = { ...r15.attributes, LCSC: 'C17513' };
+    const start = writeProject(p);
+    const s = lcscStatus(p).find((x) => x.part === 'R15')!;
+    expect(s).toMatchObject({ wrong: 'C17513', is: { value: 1000, package: '0805' }, replacement: { lcsc: 'C17520' } });
+    const editor = new Editor(p, () => {});
+    expect(editor.assignLcsc()).toContainEqual({ part: 'R15', lcsc: 'C17520', was: 'C17513' });
+    expect(r15.attributes?.LCSC).toBe('C17520');
+    expect(lcscStatus(p).find((x) => x.part === 'R15')).toEqual({ part: 'R15', lcsc: 'C17520', from: 'part' });
+    editor.undo();
+    expect(writeProject(p)).toBe(start);
+    // A value the table has nothing for: Assign removes the wrong number.
+    r15.value = '1.234k';
+    expect(lcscStatus(p).find((x) => x.part === 'R15')).toMatchObject({ wrong: 'C17513', why: expect.stringMatching(/no Basic or preferred 1.234k resistor/) });
+    expect(new Editor(p, () => {}).assignLcsc()).toContainEqual({ part: 'R15', lcsc: '', was: 'C17513' });
+    expect(r15.attributes?.LCSC).toBeUndefined();
+  });
 });

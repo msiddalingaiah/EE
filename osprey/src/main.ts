@@ -1844,12 +1844,13 @@ function renderLcscPanel(): void {
   const status = all.filter((s) => !('throughHole' in s));
   const has = status.filter((s) => 'lcsc' in s).length;
   const can = status.filter((s): s is Extract<LcscStatus, { match: unknown }> => 'match' in s);
+  const wrong = status.filter((s): s is Extract<LcscStatus, { wrong: string }> => 'wrong' in s);
   const missing = status.filter((s): s is Extract<LcscStatus, { missing: string }> => 'missing' in s);
   const assign = $<HTMLButtonElement>('lcsc-assign');
-  assign.disabled = !can.length || !editable();
+  assign.disabled = !(can.length || wrong.length) || !editable();
   const summary = $('lcsc-summary');
-  summary.className = `drc-summary ${missing.length || can.length ? 'bad' : 'ok'}`;
-  summary.textContent = `${has} of ${status.length} parts have LCSC numbers${can.length ? `; Assign gives ${can.length} more` : ''}${missing.length ? `; ${missing.length} need one by hand` : ''}.${aside ? ` ${aside} through-hole part${aside > 1 ? 's' : ''} left out.` : ''}`;
+  summary.className = `drc-summary ${missing.length || can.length || wrong.length ? 'bad' : 'ok'}`;
+  summary.textContent = `${has} of ${status.length} parts have LCSC numbers${can.length ? `; Assign gives ${can.length} more` : ''}${wrong.length ? `; ${wrong.length} ${wrong.length > 1 ? 'have numbers' : 'has a number'} for another value or package (Assign fixes)` : ''}${missing.length ? `; ${missing.length} need one by hand` : ''}.${aside ? ` ${aside} through-hole part${aside > 1 ? 's' : ''} left out.` : ''}`;
   const list = $('lcsc-list');
   list.replaceChildren();
   const row = (part: string, kind: string, cls: string, text: string) => {
@@ -1859,6 +1860,9 @@ function renderLcscPanel(): void {
     b.addEventListener('click', () => selection.select(ownersFor({ parts: new Set([part]), nets: new Set() }), 'replace'));
     list.append(b);
   };
+  for (const s of wrong) {
+    row(s.part, 'Wrong', 'warning', `${s.wrong} is ${describePassive(s.is).replace(/^C\d+ · /, '').replace(/ · (Basic|Preferred)$/, '')}${s.replacement ? ` → ${describePassive(s.replacement)}` : `; Assign removes it (${s.why})`}`);
+  }
   for (const s of can) row(s.part, 'Assign', 'warning', describePassive(s.match));
   for (const s of missing) row(s.part, 'Missing', '', s.missing);
 }
@@ -1883,7 +1887,15 @@ $<HTMLInputElement>('lcsc-tht').addEventListener('change', (e) => {
 function assignLcscCmd(): void {
   if (!editor || !editable()) return;
   const done = editor.assignLcsc();
-  flash(done.length ? `Assigned LCSC part numbers to ${done.length} part(s): undo with Ctrl+Z` : 'Nothing to assign');
+  const fixed = done.filter((d) => d.was !== undefined);
+  const removed = fixed.filter((d) => !d.lcsc).length;
+  const given = done.length - fixed.length;
+  const parts = [
+    given ? `assigned ${given}` : '',
+    fixed.length - removed ? `replaced ${fixed.length - removed} wrong` : '',
+    removed ? `removed ${removed} wrong (no table part for the value)` : '',
+  ].filter(Boolean);
+  flash(done.length ? `LCSC part numbers: ${parts.join(', ')}; undo with Ctrl+Z` : 'Nothing to assign');
 }
 
 /** Select every part of a block (blocks inside it included) in the current view. */

@@ -399,17 +399,21 @@ export class Editor {
   /** Set (or with an empty value, remove) one of a part's attributes. */
   /**
    * Give every chip resistor and capacitor without an LCSC part number the one JLCPCB's Basic or
-   * preferred parts have for its value and package (lcscStatus), as one undo step. Returns the
-   * parts given one.
+   * preferred parts have for its value and package (lcscStatus), and replace numbers that are
+   * table parts of another value or package (removing them when the table has none for the
+   * part), as one undo step. Returns the parts changed: the number given, or '' when removed.
    */
-  assignLcsc(): { part: string; lcsc: string }[] {
+  assignLcsc(): { part: string; lcsc: string; was?: string }[] {
     const tx = new Transaction('Assign LCSC part numbers');
-    const done: { part: string; lcsc: string }[] = [];
+    const done: { part: string; lcsc: string; was?: string }[] = [];
     for (const s of lcscStatus(this.project, this.index())) {
-      if (!('match' in s)) continue;
+      const lcsc = 'match' in s ? s.match.lcsc : 'wrong' in s ? s.replacement?.lcsc ?? '' : undefined;
+      if (lcsc === undefined) continue;
       const part = this.project.parts.find((p) => p.name === s.part)!;
-      tx.run(set(part, { attributes: { ...part.attributes, LCSC: s.match.lcsc } }));
-      done.push({ part: s.part, lcsc: s.match.lcsc });
+      const { LCSC: _, ...rest } = part.attributes ?? {};
+      const attributes = lcsc ? { ...rest, LCSC: lcsc } : rest;
+      tx.run(set(part, { attributes: Object.keys(attributes).length ? attributes : undefined }));
+      done.push({ part: s.part, lcsc, ...('wrong' in s ? { was: s.wrong } : {}) });
     }
     if (!tx.empty) this.push(tx);
     return done;

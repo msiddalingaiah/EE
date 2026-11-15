@@ -29,6 +29,7 @@ export interface LcscPart {
 }
 
 const PASSIVES = TABLE as LcscPart[];
+const BY_LCSC = new Map(PASSIVES.map((p) => [p.lcsc, p]));
 
 /** The lowest capacitor voltage chosen when the value doesn't say. */
 export const MIN_VOLTS = 25;
@@ -105,6 +106,11 @@ export type LcscStatus =
   | { part: string; lcsc: string; from: 'part' | 'library' }
   /** The table has one for it. */
   | { part: string; match: LcscPart }
+  /**
+   * Its own number is a table part of another value or package (left from before the value
+   * changed, say): the right one (`replacement`), or why there is none (`why`).
+   */
+  | { part: string; wrong: string; is: LcscPart; replacement?: LcscPart; why?: string }
   /** No number, and why none was found. */
   | { part: string; missing: string }
   /** Left aside: a through-hole part (soldered by hand, like the assembly files leave it). */
@@ -129,7 +135,15 @@ export function lcscStatus(project: O.Project, index = new ProjectIndex(project)
     }
     const own = part.attributes?.LCSC;
     if (own) {
-      out.push({ part: part.name, lcsc: own, from: 'part' });
+      // A number the table knows can be checked against the part's value and package.
+      const is = BY_LCSC.get(own);
+      const want = is && wanted(part, variant, index);
+      if (is && want && 'spec' in want && (is.kind !== want.kind || is.package !== want.pkg || !same(is.value, want.spec.value))) {
+        const found = tableLookup(part, variant, index);
+        out.push({ part: part.name, wrong: own, is, ...('match' in found ? { replacement: found.match } : { why: found.missing }) });
+      } else {
+        out.push({ part: part.name, lcsc: own, from: 'part' });
+      }
       continue;
     }
     const lib = attribute(index, part, 'LCSC');
@@ -137,41 +151,38 @@ export function lcscStatus(project: O.Project, index = new ProjectIndex(project)
       out.push({ part: part.name, lcsc: lib, from: 'library' });
       continue;
     }
-    const component = index.components.get(part.component);
-    const kind = component?.prefix === 'R' ? 'R' : component?.prefix === 'C' ? 'C' : undefined;
-    const pkg = chipPackage(componentName(variant.footprint), variant.name);
-    const what = componentName(part.component);
-    if (!kind) {
-      out.push({ part: part.name, missing: `${what}: not a resistor or capacitor; set its LCSC number` });
-      continue;
-    }
-    if (!pkg) {
-      out.push({ part: part.name, missing: `footprint ${componentName(variant.footprint)} isn't a chip package (0603, 0805); set its LCSC number` });
-      continue;
-    }
-    if (!PACKAGES.has(pkg)) {
-      out.push({ part: part.name, missing: `${pkg}: the parts table has only ${[...PACKAGES].sort().join(' and ')}` });
-      continue;
-    }
-    const value = index.valueOf(part);
-    const spec = parseValue(value, kind);
-    if (!spec) {
-      out.push({ part: part.name, missing: `can't read the value "${value}"` });
-      continue;
-    }
-    const match = findPassive(kind, pkg, spec);
-    if (match) {
-      out.push({ part: part.name, match });
-      continue;
-    }
-    // Another package may have it: a variant change away.
-    const other = [...PACKAGES].filter((p) => p !== pkg && findPassive(kind, p, spec));
-    out.push({
-      part: part.name,
-      missing: `no Basic or preferred ${value} ${kind === 'R' ? 'resistor' : 'capacitor'} in ${pkg}${spec.volts ? ` at ${spec.volts} V or more` : ''}${spec.dielectric ? ` in ${spec.dielectric}` : ''}${other.length ? ` (there is one in ${other.join(', ')})` : ''}`,
-    });
+    out.push({ part: part.name, ...tableLookup(part, variant, index) });
   }
   return out;
+}
+
+/** What the table should have for a part: its kind, package and value, or why it can't say. */
+function wanted(part: O.Part, variant: O.Variant, index: ProjectIndex): { kind: 'R' | 'C'; pkg: string; spec: ValueSpec } | { missing: string } {
+  const component = index.components.get(part.component);
+  const kind = component?.prefix === 'R' ? 'R' : component?.prefix === 'C' ? 'C' : undefined;
+  const pkg = chipPackage(componentName(variant.footprint ?? ''), variant.name);
+  if (!kind) return { missing: `${componentName(part.component)}: not a resistor or capacitor; set its LCSC number` };
+  if (!pkg) return { missing: `footprint ${componentName(variant.footprint ?? '')} isn't a chip package (0603, 0805); set its LCSC number` };
+  if (!PACKAGES.has(pkg)) return { missing: `${pkg}: the parts table has only ${[...PACKAGES].sort().join(' and ')}` };
+  const value = index.valueOf(part);
+  const spec = parseValue(value, kind);
+  if (!spec) return { missing: `can't read the value "${value}"` };
+  return { kind, pkg, spec };
+}
+
+/** The table's part for a part, or why there is none. */
+function tableLookup(part: O.Part, variant: O.Variant, index: ProjectIndex): { match: LcscPart } | { missing: string } {
+  const want = wanted(part, variant, index);
+  if ('missing' in want) return want;
+  const { kind, pkg, spec } = want;
+  const match = findPassive(kind, pkg, spec);
+  if (match) return { match };
+  // Another package may have it: a variant change away.
+  const other = [...PACKAGES].filter((p) => p !== pkg && findPassive(kind, p, spec));
+  const value = index.valueOf(part);
+  return {
+    missing: `no Basic or preferred ${value} ${kind === 'R' ? 'resistor' : 'capacitor'} in ${pkg}${spec.volts ? ` at ${spec.volts} V or more` : ''}${spec.dielectric ? ` in ${spec.dielectric}` : ''}${other.length ? ` (there is one in ${other.join(', ')})` : ''}`,
+  };
 }
 
 /** A table part in words: "C25804 · 10kΩ ±1% 125mW 0805 · Basic". */
