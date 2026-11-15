@@ -495,7 +495,14 @@ let outputFolder: FolderHandle | undefined;
 
 /** Save manufacturing files into the output folder (or download each); undefined if cancelled. */
 async function saveOutputs(files: Map<string, string | Uint8Array>): Promise<string | undefined> {
-  const result = await saveToFolder(files, outputFolder);
+  let result;
+  try {
+    result = await saveToFolder(files, outputFolder);
+  } catch (e) {
+    // The folder may be gone or in use: ask for one again next time.
+    outputFolder = undefined;
+    throw e;
+  }
   if (!result) return undefined;
   if (result.folder) outputFolder = result.folder;
   const names = [...files.keys()].join(' and ');

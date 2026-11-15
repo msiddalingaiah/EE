@@ -236,6 +236,40 @@ describe.skipIf(!findChrome())('editor in the browser', () => {
     expect(d.problems).toEqual([]);
   });
 
+  it('retries a write the folder refuses once; when it keeps refusing, says which file and asks for a folder again', async () => {
+    // A folder that refuses writes, as Chromium does when the file changed on disk (a sync
+    // client, a CSV open in Excel): the first \`refusals\` attempts fail.
+    await d.evaluate(`(() => {
+      window.__picks = 0;
+      window.__refusals = 1;
+      window.__written = [];
+      const folder = {
+        name: 'jlcpcb',
+        queryPermission: async () => 'granted',
+        getFileHandle: async (name) => ({
+          name,
+          createWritable: async () => {
+            if (window.__refusals-- > 0) throw new DOMException('An operation that depends on state cached in an interface object was made but the state had changed since it was read from disk.', 'InvalidStateError');
+            return { write: async () => { window.__written.push(name); }, close: async () => {} };
+          },
+        }),
+      };
+      window.showDirectoryPicker = async () => { window.__picks++; return folder; };
+    })()`);
+    await d.choose('#cam-select', 'assembly');
+    await new Promise((r) => setTimeout(r, 500));
+    expect(await d.evaluate('window.__written')).toEqual(['wwvbfind_BOM.csv', 'wwvbfind_CPL.csv']);
+    // Refusing every time: the error names the file, and the next run asks for the folder again.
+    await d.evaluate('window.__refusals = 100');
+    await d.choose('#cam-select', 'assembly');
+    await new Promise((r) => setTimeout(r, 500));
+    expect((await d.state()).error).toMatch(/Could not write wwvbfind_BOM\.csv in jlcpcb: .*open in another program/);
+    await d.evaluate('window.__refusals = 0');
+    await d.choose('#cam-select', 'assembly');
+    await new Promise((r) => setTimeout(r, 500));
+    expect(await d.evaluate('window.__picks')).toBe(2);
+  });
+
   it('sets a part\'s LCSC number, and makes the assembly files', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'osprey-assembly-'));
     try {

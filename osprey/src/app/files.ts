@@ -86,6 +86,36 @@ export async function saveFile(
   return { method: 'downloaded' };
 }
 
+/** A file that couldn't be written into a folder: which, where, and the browser's reason. */
+export class FolderWriteError extends Error {
+  constructor(readonly file: string, readonly folder: string, readonly cause: unknown) {
+    super(
+      `Could not write ${file} in ${folder}: ${cause instanceof Error ? cause.message : String(cause)} ` +
+      '(Is it open in another program, such as Excel, or is the folder syncing (OneDrive, Dropbox) or moved? Close it and try again; the next run asks for the folder again.)',
+    );
+  }
+}
+
+/**
+ * Write one file into a folder. Chromium refuses ("InvalidStateError") when the file or folder
+ * changed on disk behind its back (a sync client, another program); one retry with a fresh
+ * handle gets past a passing change.
+ */
+async function writeInFolder(folder: FolderHandle, name: string, data: string | Uint8Array): Promise<void> {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      const out = await (await folder.getFileHandle(name, { create: true })).createWritable();
+      await out.write(data);
+      await out.close();
+      return;
+    } catch (e) {
+      const passing = e instanceof DOMException && (e.name === 'InvalidStateError' || e.name === 'NoModificationAllowedError');
+      if (!passing || attempt >= 1) throw new FolderWriteError(name, folder.name, e);
+      await new Promise((r) => setTimeout(r, 300));
+    }
+  }
+}
+
 /** A folder chosen to save into (Chromium's File System Access). */
 export interface FolderHandle {
   name: string;
@@ -113,11 +143,7 @@ export async function saveToFolder(
       folder = await w.showDirectoryPicker({ id: 'osprey-output', mode: 'readwrite' });
     }
     if (folder) {
-      for (const [name, data] of files) {
-        const out = await (await folder.getFileHandle(name, { create: true })).createWritable();
-        await out.write(data);
-        await out.close();
-      }
+      for (const [name, data] of files) await writeInFolder(folder, name, data);
       return { folder, method: 'written' };
     }
   } catch (e) {
