@@ -3,7 +3,7 @@
 import { Editor, subject, type CornerDrag, type LineEndDrag, type MoveSession, type PlaceSession, type PourSession, type RouteSession, type ViaSession, type WireSession } from './app/editor';
 import { edgeMiddle } from './edit/pours';
 import { layerNumber } from './model/layers';
-import { canPickFiles, pickFiles, saveFile, type FileHandle } from './app/files';
+import { canPickFiles, pickFiles, saveFile, saveToFolder, type FileHandle, type FolderHandle } from './app/files';
 import { Selection, type SelectMode } from './app/selection';
 import { parseEagle } from './eagle/parse';
 import { parseClip, type Clip, type Pasted } from './edit/clipboard';
@@ -351,6 +351,7 @@ function openSources(sources: SourceFile[], initialView?: ViewKind): void {
     importReport = next.report;
     saveName = next.name;
     saveHandle = next.handle;
+    outputFolder = undefined;
     syncProjectName();
     editor = project ? new Editor(project, onEdited) : library ? new Editor(libraryProject(library.file), onEdited) : undefined;
     viewStates.clear();
@@ -483,20 +484,34 @@ const sampleCamJobs = import.meta.glob('../samples/eagle/*.cam', { query: '?raw'
 camSelect.append(new Option('CAM…', ''), new Option(`${DEFAULT_JOB.name} (.zip)`, 'default'));
 for (const path of Object.keys(sampleCamJobs).sort()) camSelect.append(new Option(`Job ${path.split('/').pop()!}`, path));
 camSelect.append(new Option('From a .cam job file…', 'open'));
-camSelect.append(new Option('Assembly: SMD parts (BOM + pick-and-place .zip)', 'assembly'));
+camSelect.append(new Option('Assembly: SMD parts (BOM + pick-and-place .csv)', 'assembly'));
 camSelect.append(new Option('Assembly: SMD and through-hole parts', 'assembly-tht'));
 
-/** Save the bill of materials and pick-and-place list (JLCPCB's format) as one zip. */
+/**
+ * The folder CAM and assembly files go into (chosen on the first run; kept while the project
+ * is open), so everything to upload to the board house is in one place.
+ */
+let outputFolder: FolderHandle | undefined;
+
+/** Save manufacturing files into the output folder (or download each); undefined if cancelled. */
+async function saveOutputs(files: Map<string, string | Uint8Array>): Promise<string | undefined> {
+  const result = await saveToFolder(files, outputFolder);
+  if (!result) return undefined;
+  if (result.folder) outputFolder = result.folder;
+  const names = [...files.keys()].join(' and ');
+  return result.folder ? `Saved ${names} in ${result.folder.name}` : `Downloaded ${names}`;
+}
+
+/** Save the bill of materials and pick-and-place list (JLCPCB's format), as two files beside the CAM zip. */
 async function makeAssembly(throughHole: boolean): Promise<void> {
   if (!project?.board) return;
   if (move) commitMove();
   try {
     const { files, warnings } = assemblyFiles(project, { throughHole });
-    const name = `${project.project.name}_assembly.zip`;
-    const result = await saveFile(zip(files), name, undefined, 'zip');
-    if (!result) return;
+    const done = await saveOutputs(files);
+    if (!done) return;
     hideError();
-    flash(`${result.method === 'written' ? 'Saved' : 'Downloaded'} ${result.handle?.name ?? name} (bill of materials and pick-and-place)`);
+    flash(`${done} (bill of materials and pick-and-place)`);
     if (warnings.length) showError(`Assembly: ${warnings.join('; ')}.`, 'notice');
   } catch (e) {
     showError(`Could not make assembly files: ${e instanceof Error ? e.message : String(e)}`);
@@ -510,10 +525,10 @@ async function makeCam(job: CamJob): Promise<void> {
   try {
     const { files, warnings } = runCam(project, job);
     const name = `${project.project.name}_CAM.zip`;
-    const result = await saveFile(zip(files), name, undefined, 'zip');
-    if (!result) return;
+    const done = await saveOutputs(new Map([[name, zip(files)]]));
+    if (!done) return;
     hideError();
-    flash(`${result.method === 'written' ? 'Saved' : 'Downloaded'} ${result.handle?.name ?? name} (${files.size} files)`);
+    flash(`${done} (${files.size} files)`);
     if (warnings.length) showError(`CAM: ${warnings.join('; ')}.`, 'notice');
   } catch (e) {
     showError(`Could not make CAM files: ${e instanceof Error ? e.message : String(e)}`);

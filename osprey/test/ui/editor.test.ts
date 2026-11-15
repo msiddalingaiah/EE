@@ -207,10 +207,33 @@ describe.skipIf(!findChrome())('editor in the browser', () => {
       await d.choose('#cam-select', 'default');
       const file = join(dir, 'wwvbfind2-hand_CAM.zip');
       for (let i = 0; i < 100 && !existsSync(file); i++) await new Promise((r) => setTimeout(r, 50));
-      expect(existsSync(file)).toBe(true);
+      await new Promise((r) => setTimeout(r, 100));
+      expect([...unzip(readFileSync(file)).keys()].some((n) => n.endsWith('.GTL'))).toBe(true);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
+  });
+
+  it('saves CAM and assembly files into one folder, asking for it once', async () => {
+    // A stand-in for Chromium's folder picker: records how often it is asked and what is written.
+    await d.evaluate(`(() => {
+      window.__picks = 0;
+      window.__written = {};
+      const folder = {
+        name: 'jlcpcb',
+        queryPermission: async () => 'granted',
+        getFileHandle: async (name) => ({
+          name,
+          createWritable: async () => ({ write: async (data) => { window.__written[name] = typeof data === 'string' ? data.length : data.byteLength; }, close: async () => {} }),
+        }),
+      };
+      window.showDirectoryPicker = async () => { window.__picks++; return folder; };
+    })()`);
+    await d.choose('#cam-select', 'default');
+    await d.choose('#cam-select', 'assembly');
+    expect(await d.evaluate('window.__picks')).toBe(1);
+    expect(Object.keys(await d.evaluate<Record<string, number>>('window.__written')).sort()).toEqual(['wwvbfind_BOM.csv', 'wwvbfind_CAM.zip', 'wwvbfind_CPL.csv']);
+    expect(d.problems).toEqual([]);
   });
 
   it('sets a part\'s LCSC number, and makes the assembly files', async () => {
@@ -222,11 +245,11 @@ describe.skipIf(!findChrome())('editor in the browser', () => {
       expect(await d.evaluate('__osprey.project.parts.find((p) => p.name === "R1").attributes')).toMatchObject({ LCSC: 'C17414' });
       await d.downloads(dir);
       await d.choose('#cam-select', 'assembly');
-      const file = join(dir, 'wwvbfind_assembly.zip');
-      for (let i = 0; i < 100 && !existsSync(file); i++) await new Promise((r) => setTimeout(r, 50));
+      // Two files, ready to upload (no zip).
+      const names = ['wwvbfind_BOM.csv', 'wwvbfind_CPL.csv'];
+      for (let i = 0; i < 100 && !names.every((n) => existsSync(join(dir, n))); i++) await new Promise((r) => setTimeout(r, 50));
       await new Promise((r) => setTimeout(r, 100));
-      const files = unzip(readFileSync(file));
-      expect([...files.keys()].sort()).toEqual(['wwvbfind_BOM.csv', 'wwvbfind_CPL.csv']);
+      const files = new Map(names.map((n) => [n, readFileSync(join(dir, n), 'utf8')]));
       expect(files.get('wwvbfind_BOM.csv')).toContain('3.3M,R1,0805,C17414,1,,,SMD');
       expect(files.get('wwvbfind_CPL.csv')!.split('\r\n')[0]).toBe('Designator,Mid X,Mid Y,Layer,Rotation');
       // SMD parts only, by default: the through-hole ones, and parts still without LCSC numbers, are pointed out.

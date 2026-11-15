@@ -85,3 +85,52 @@ export async function saveFile(
   setTimeout(() => URL.revokeObjectURL(url), 1000);
   return { method: 'downloaded' };
 }
+
+/** A folder chosen to save into (Chromium's File System Access). */
+export interface FolderHandle {
+  name: string;
+  getFileHandle(name: string, opts: { create: boolean }): Promise<FileHandle>;
+  queryPermission?(opts: { mode: 'readwrite' }): Promise<PermissionState>;
+  requestPermission?(opts: { mode: 'readwrite' }): Promise<PermissionState>;
+}
+
+const MIME_BY_EXT: Record<string, string> = { csv: 'text/csv', zip: 'application/zip' };
+
+/**
+ * Save several files into one folder: `folder` when given (and still writable), else a folder
+ * the user picks (Chromium); elsewhere each file downloads. Returns the folder written to, if
+ * any, and how; undefined if cancelled.
+ */
+export async function saveToFolder(
+  files: Map<string, string | Uint8Array>, folder: FolderHandle | undefined,
+): Promise<{ folder?: FolderHandle; method: 'written' | 'downloaded' } | undefined> {
+  const w = window as FsWindow & { showDirectoryPicker?(opts: object): Promise<FolderHandle> };
+  try {
+    if (folder && folder.queryPermission && (await folder.queryPermission({ mode: 'readwrite' })) !== 'granted') {
+      if ((await folder.requestPermission?.({ mode: 'readwrite' })) !== 'granted') folder = undefined;
+    }
+    if (!folder && typeof w.showDirectoryPicker === 'function') {
+      folder = await w.showDirectoryPicker({ id: 'osprey-output', mode: 'readwrite' });
+    }
+    if (folder) {
+      for (const [name, data] of files) {
+        const out = await (await folder.getFileHandle(name, { create: true })).createWritable();
+        await out.write(data);
+        await out.close();
+      }
+      return { folder, method: 'written' };
+    }
+  } catch (e) {
+    if (e instanceof DOMException && e.name === 'AbortError') return undefined;
+    throw e;
+  }
+  for (const [name, data] of files) {
+    const url = URL.createObjectURL(new Blob([data as BlobPart], { type: MIME_BY_EXT[name.split('.').pop()!.toLowerCase()] ?? 'application/octet-stream' }));
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = name;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+  return { method: 'downloaded' };
+}

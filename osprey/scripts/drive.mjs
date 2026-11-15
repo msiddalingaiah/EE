@@ -353,7 +353,7 @@ export async function launch({ url, width = 1400, height = 900, chrome = findChr
      */
     async downloads(dir) {
       await cdp.send('Browser.setDownloadBehavior', { behavior: 'allow', downloadPath: dir });
-      await evaluate('window.showSaveFilePicker = undefined');
+      await evaluate('window.showSaveFilePicker = undefined; window.showDirectoryPicker = undefined');
     },
 
     /** The editor's state (see the hook in src/main.ts). */

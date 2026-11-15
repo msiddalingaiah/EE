@@ -182,8 +182,9 @@ native model (see [docs/format.md](docs/format.md)). Eagle files are imported in
   them when it ends). The **pour fill** checkbox in the Layers panel (or P) shows them filled or
   as outlines only (a pour's dashed outline shows only when it has no copper to show); that's just the view, so airwires and the DRC count the copper either way.
   Not yet: hatched fill (drawn solid), and removing copper narrower than the pour's width.
-- **Assembly files** (board): **CAM… → Assembly** saves a zip with a bill of materials and a
-  pick-and-place list in JLCPCB's format: SMD parts, or SMD and through-hole parts (a choice in
+- **Assembly files** (board): **CAM… → Assembly** saves a bill of materials (`x_BOM.csv`) and a
+  pick-and-place list (`x_CPL.csv`) in JLCPCB's format, as separate files ready to upload, in
+  the same folder as the CAM zip: SMD parts, or SMD and through-hole parts (a choice in
   the menu; a board house's standard assembly is SMD, through-hole parts are usually soldered by
   hand). Parts marked **Do not place** (a checkbox in the inspector, the part's DNP attribute)
   are left out too, and what was left out is listed. The BOM has one row per group of identical parts
@@ -231,7 +232,9 @@ native model (see [docs/format.md](docs/format.md)). Eagle files are imported in
   IC's block and suggesting again fills it in. One undo step.
   A part's block is its BLOCK attribute, so it is kept through Eagle export. Placement is to work
   block by block.
-- **CAM output** (board): the **CAM…** menu makes the manufacturing files as one zip: Gerber
+- **CAM output** (board): the **CAM…** menu makes the manufacturing files as one zip (`x_CAM.zip`;
+  in Chrome and Edge it asks for a folder once, and CAM and assembly files go there while the
+  project is open; other browsers download them): Gerber
   (RS-274X with X2 file functions) for copper, solder mask, paste, silkscreen and the board
   outline, and an Excellon drill file (plated and unplated holes merged). The built-in job writes
   the common two-layer set (`.GTL`, `.GBL`, `.GTS`, … `.GKO`, `.XLN`, the files and layers of
