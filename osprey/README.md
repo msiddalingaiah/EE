@@ -306,6 +306,10 @@ Smaller:
   column, and line up only with pads the route isn't connected to yet.
 - **Open `.osprey` files from Explorer:** the installed app registers for them (file
   handlers), so double-clicking a project opens it in Osprey.
+- **Net names keep their case:** `Sense` stays `Sense` instead of becoming `SENSE` (Eagle's
+  convention). Names still match without regard to case, so connecting by name can't make
+  two nets that differ only in case; the first spelling stays. Part names stay upper case.
+  Check what Eagle does with lower-case names on export.
 
 ## Running
 
