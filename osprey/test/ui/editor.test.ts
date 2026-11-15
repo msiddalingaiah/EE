@@ -196,6 +196,23 @@ describe.skipIf(!findChrome())('editor in the browser', () => {
     expect(d.problems).toEqual([]);
   });
 
+  it('names the project, and its CAM zip, after the file it was opened from', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'osprey-cam-'));
+    try {
+      // wwvbfind2-hand.osprey was copied from wwvbfind.osprey and still says "wwvbfind" inside.
+      await d.open('wwvbfind2-hand.osprey', 'board');
+      expect(await d.evaluate('__osprey.project.project.name')).toBe('wwvbfind2-hand');
+      expect(await d.evaluate('document.title')).toContain('wwvbfind2-hand');
+      await d.downloads(dir);
+      await d.choose('#cam-select', 'default');
+      const file = join(dir, 'wwvbfind2-hand_CAM.zip');
+      for (let i = 0; i < 100 && !existsSync(file); i++) await new Promise((r) => setTimeout(r, 50));
+      expect(existsSync(file)).toBe(true);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   it('sets a part\'s LCSC number, and makes the assembly files', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'osprey-assembly-'));
     try {

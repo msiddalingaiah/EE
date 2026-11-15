@@ -10,7 +10,9 @@ native model (see [docs/format.md](docs/format.md)). Eagle files are imported in
 - **Open** an `.osprey` project, or **import** an Eagle `.sch` + `.brd` pair (select both, or
   drop both on the canvas).
 - **Save** (Ctrl+S) writes one `.osprey` file: JSON in a canonical, diff-friendly layout.
-  In Chromium browsers a project opened with Open… is saved in place.
+  In Chromium browsers a project opened with Open… is saved in place. The project is named
+  after its file: opening `x.osprey`, or saving under a new name, makes the title, CAM and
+  assembly zips (`x_CAM.zip`, `x_assembly.zip`) and Eagle export follow it.
 - **Libraries:** open an Osprey library (`.ospreylib`), or import an Eagle library (`.lbr`);
   Save writes an `.ospreylib` (the same canonical JSON) and Export Eagle writes an `.lbr`.
   The Library panel lists components, symbols or footprints (tabs, with counts), filtered by

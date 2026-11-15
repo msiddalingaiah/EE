@@ -351,6 +351,7 @@ function openSources(sources: SourceFile[], initialView?: ViewKind): void {
     importReport = next.report;
     saveName = next.name;
     saveHandle = next.handle;
+    syncProjectName();
     editor = project ? new Editor(project, onEdited) : library ? new Editor(libraryProject(library.file), onEdited) : undefined;
     viewStates.clear();
     libraryItem = undefined;
@@ -394,6 +395,19 @@ async function openDropped(files: File[]): Promise<void> {
   clearSampleLink();
 }
 
+/**
+ * Make the project's name its file's name (without .osprey), so the title, CAM and assembly
+ * zips and Eagle export follow the file: on opening, and on saving under a new name. Returns
+ * whether the name changed.
+ */
+function syncProjectName(): boolean {
+  if (!project || !saveName.toLowerCase().endsWith('.osprey')) return false;
+  const stem = saveName.slice(0, -'.osprey'.length);
+  if (!stem || project.project.name === stem) return false;
+  project.project.name = stem;
+  return true;
+}
+
 /** Save the project as one `.osprey` file, or the library as an `.ospreylib` file. */
 async function save(): Promise<void> {
   if (library) return saveLibrary(library.file);
@@ -405,6 +419,8 @@ async function save(): Promise<void> {
     if (result.handle) {
       saveHandle = result.handle;
       saveName = result.handle.name;
+      // Saved under a new name: the project takes it, and the file is written again with it.
+      if (syncProjectName()) await saveFile(editor.serialize(), saveName, saveHandle);
     }
     editor.history.markSaved();
     flash(`${result.method === 'written' ? 'Saved' : 'Downloaded'} ${saveName}`);
