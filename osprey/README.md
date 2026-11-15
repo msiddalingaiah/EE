@@ -296,6 +296,9 @@ description, checked, turned into a schematic, placed, routed and given JLCPCB p
 Then, to take a board through manufacturing and assembly:
 
 - **LCSC parts beyond 0603/0805 passives:** common transistors, regulators and op-amps.
+- **Extended part notice:** the JLCPCB parts panel counts and names the Extended parts a board
+  uses (each distinct one adds a setup fee; Basic parts don't), so one can be swapped for a
+  Basic part before ordering, and shows how many distinct parts the BOM has.
 - **Board text in placement:** Place moves board text (titles, dates) clear of the parts.
 - **Label sizes:** an option to bring names up to a printable minimum (1 mm, say).
 
