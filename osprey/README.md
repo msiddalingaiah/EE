@@ -192,7 +192,8 @@ native model (see [docs/format.md](docs/format.md)). Eagle files are imported in
   and LCSC part number. The pick-and-place list gives each part's centre (the
   middle of its pads, not its footprint's origin), side and rotation. A part's **LCSC part** is
   set in the inspector (C25804…; checked, kept through Eagle export), or comes from its
-  component in the library (see below); parts without one are
+  component in the library (see below). Changing a part's value changes its own number to the
+  one for the new value, or removes it when the parts table has none. Parts without one are
   pointed out, as JLCPCB then matches them by hand. The **JLCPCB parts** panel counts the parts
   with LCSC numbers, and its **Assign** button gives each chip resistor and capacitor (0603,
   0805) without one the JLCPCB Basic part for its value and package (else a preferred Extended
