@@ -78,6 +78,11 @@ native model (see [docs/format.md](docs/format.md)). Eagle files are imported in
   wherever their pieces are drawn: wires, labels, traces, vias and pours become one net, in one
   undo step. Joining into a supply net (GND, say) works the same; a supply net itself keeps its
   name.
+- **Net labels** (schematic): renaming a net shows its new name: each piece of its wiring
+  without a label gets one at a loose wire end (text running away from the wire), else in the
+  middle of a wire, in the same undo step. An automatic N$n name gets none. A selected wire's
+  **Show label** checkbox adds or removes the label of its piece; labels only show the name,
+  nets connect by name either way. Drag a label to move it.
 - **Copy and paste** (schematic): copy a selection of parts, wiring and drawing, and paste it
   as many times as needed; each copy floats until you click to place it. Names stay unique:
   C4 becomes the next free C, RF becomes RF1, automatic nets get new numbers, named nets a
@@ -105,8 +110,11 @@ native model (see [docs/format.md](docs/format.md)). Eagle files are imported in
   Legs bend at 45°; changing layer adds a via. Corners snap to the grid, except that a grid line
   within half a step of a pad of the net moves onto the pad's row or column, so a pad off the
   grid can be reached with a straight last leg. The route ends on copper of the same net, and
-  the airwire it replaces disappears. Width and via drill come from the net class, else the
-  board's most common ones. Each leg is checked against other nets' copper and the board edge
+  the airwire it replaces disappears. The toolbar's **Width** picker, shown while routing,
+  sets the trace width: the net's default (its class's width, else the board's most common
+  one), a standard size from 6 to 50 mil, or Other… to type one in mm or mil ("0.3", "14mil");
+  the choice is kept while the project is open, and widths under 5 mil show red (beyond what
+  JLCPCB reliably makes). Via drill comes from the net class, else the board's most common one. Each leg is checked against other nets' copper and the board edge
   as you route. When the direct leg would break a clearance rule, the route goes around the
   obstacles instead (like Eagle's follow-me routing): a 45° path that keeps clear, found on a
   grid an eighth of the routing grid. If there's no way round on the current layer, it goes
@@ -114,6 +122,9 @@ native model (see [docs/format.md](docs/format.md)). Eagle files are imported in
   preferred); copper only on the other layer, such as a bottom-side pad, is reached the same
   way. Where there is no way through at all, the leg shows red and isn't placed (Shift+click
   places the direct leg anyway; Shift+L a via).
+- **Trace properties** (board): a selected trace's width (the same sizes, or Other…) and copper
+  layer are editable in the inspector, for several selected traces at once too; each change is
+  one undo step, and the DRC lists anything it crowds or disconnects.
 - **Design-rule check** (board): the Design rules panel checks copper clearance between
   nets (Eagle's wire/pad/SMD/via distances), shorts, minimum trace width and drill, and copper
   near the board edge or holes, an outline left open (ends that don't meet), and lists every airwire left as unrouted (a board passes only

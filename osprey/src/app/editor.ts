@@ -27,7 +27,8 @@ import { ClearanceChecker, type Conflict, type ObstacleGrid } from '../model/drc
 import { findDetour, findPath, type Detour } from '../edit/walkaround';
 import { addRoute, anchors, bend45, copperLayers, traceWidth, viaDrill, type Anchor, type Leg } from '../edit/route';
 import { addWire, cleanPath, sheetPins, snapPoints, touchAt, usualWireWidth, type WireResult } from '../edit/wire';
-import { renameNet, renamePart, setPartValue, smash, unsmash } from '../edit/properties';
+import { renameNet, renamePart, setPartValue, setTraceProps, smash, unsmash, type TracePatch } from '../edit/properties';
+import { setSegmentLabel } from '../edit/netlabels';
 import {
   addComponent, addGate, addItem, addVariant, autoConnect, connectPin, copyItem, deleteVariant, duplicateItem, lcscNumber, nextPadName,
   nextPinName, renameGate, renameItem, renameLibrary, renamePad, renamePin, renameVariant, setComponent, setGate, setGraphic,
@@ -256,6 +257,22 @@ export class Editor {
   }
 
   /** Change pour properties. */
+  /** Set the width and/or layer of traces (one undo step). */
+  setTraces(traces: O.Trace[], patch: TracePatch): string | undefined {
+    const what = patch.width !== undefined && patch.layer !== undefined ? 'width and layer' : patch.width !== undefined ? 'width' : 'layer';
+    return this.property(`Trace ${what}`, (tx) => setTraceProps(this.project, traces, patch, tx));
+  }
+
+  /** Show or hide the net label of a wire's piece of wiring (one undo step). */
+  setWireLabel(seg: O.Segment, wire: O.Wire, on: boolean): boolean {
+    let changed = false;
+    this.property(on ? 'Show net label' : 'Hide net label', (tx) => {
+      changed = setSegmentLabel(this.project, seg, wire, on, tx, this.index());
+      return undefined;
+    });
+    return changed;
+  }
+
   setPour(pour: O.PolygonShape, patch: PourPatch, label: string): string | undefined {
     return this.property(label, (tx) => setPourProps(pour, patch, tx));
   }
@@ -1010,6 +1027,7 @@ export class RouteSession {
   /** Obstacle rasters by net, layer and width (rebuilt when the model changes). */
   private grids = new Map<string, ObstacleGrid>();
   private lastKey = '';
+  private widthChoice: number | undefined;
 
   constructor(
     private readonly editor: Editor,
@@ -1034,8 +1052,21 @@ export class RouteSession {
     return { x: this.cursor[0], y: this.cursor[1] };
   }
 
+  /** The width new traces get: the one chosen (see setWidth), else the net's default. */
   get width(): number {
-    return this.net ? traceWidth(this.editor.project, this.net) : traceWidth(this.editor.project, '');
+    return this.chosenWidth ?? traceWidth(this.editor.project, this.net ?? '');
+  }
+
+  /** The width chosen for this route session, if any (undefined: the net's default). */
+  get chosenWidth(): number | undefined {
+    return this.widthChoice;
+  }
+
+  /** Route with this width (mm) from now on, the leg in progress too; undefined goes back to the net's default. */
+  setWidth(mm: number | undefined): void {
+    this.widthChoice = mm;
+    this.lastKey = '';
+    this.update();
   }
 
   get drill(): number {
@@ -1278,7 +1309,7 @@ export class RouteSession {
     this.reset();
     if (!net || (!legs.length && !vias.length)) return undefined;
     const tx = new Transaction(`Route ${net}`);
-    const res = addRoute(this.editor.project, net, legs, vias, tx);
+    const res = addRoute(this.editor.project, net, legs, vias, tx, this.widthChoice);
     this.editor.push(tx);
     this.refresh();
     return { net, traces: res.traces.length, vias: res.vias.length };

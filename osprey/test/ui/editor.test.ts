@@ -75,6 +75,56 @@ describe.skipIf(!findChrome())('editor in the browser', () => {
     expect(d.problems).toEqual([]);
   });
 
+  it('changes a trace\'s width and layer in the inspector, and routes with a width from the toolbar', async () => {
+    // The longest trace, clicked in its middle.
+    const t = await d.evaluate<{ net: string; i: number; mid: [number, number] }>(`(() => {
+      let best;
+      for (const n of __osprey.project.nets) (n.traces ?? []).forEach((t, i) => {
+        const len = Math.hypot(t.line[1][0] - t.line[0][0], t.line[1][1] - t.line[0][1]);
+        if (!best || len > best.len) best = { net: n.name, i, len, mid: [(t.line[0][0] + t.line[1][0]) / 2, (t.line[0][1] + t.line[1][1]) / 2] };
+      });
+      return best;
+    })()`);
+    await d.click(t.mid[0], t.mid[1]);
+    expect((await d.state()).selection).toEqual([{ kind: 'trace', label: `Trace ${t.net}`, net: t.net }]);
+    const trace = `__osprey.project.nets.find((n) => n.name === ${JSON.stringify(t.net)}).traces[${t.i}]`;
+    await d.choose('#inspector select[data-field="width"]', '0.508');
+    expect(await d.evaluate(`${trace}.width`)).toBe(0.508);
+    expect((await d.state()).undo).toBe('Trace width');
+    await d.choose('#inspector select[data-field="layer"]', 'copper.bottom');
+    expect(await d.evaluate(`${trace}.layer`)).toBe('copper.bottom');
+    await d.key('Ctrl+z');
+    await d.key('Ctrl+z');
+    // Routing shows the width picker; the width chosen is what the route draws with.
+    expect(await d.evaluate(`document.getElementById('width-field').hidden`)).toBe(true);
+    await d.button('Route');
+    expect(await d.evaluate(`document.getElementById('width-field').hidden`)).toBe(false);
+    await d.choose('#width-field select', '0.4064');
+    expect(await d.evaluate('__osprey.state().mode')).toBe('route');
+    await d.key('Escape');
+    expect(await d.evaluate(`document.getElementById('width-field').hidden`)).toBe(true);
+    expect(d.problems).toEqual([]);
+  });
+
+  it('labels a net renamed in the inspector, and hides the label with Show label', async () => {
+    await d.view('schematic');
+    const w = await d.evaluate<{ net: string; mid: [number, number] }>(`(() => {
+      const n = __osprey.project.nets.find((n) => /^N\\$/.test(n.name) && n.segments?.length === 1 && !n.segments[0].labels?.length && n.segments[0].wires.length);
+      const l = n.segments[0].wires[0].line;
+      return { net: n.name, mid: [(l[0][0] + l[1][0]) / 2, (l[0][1] + l[1][1]) / 2] };
+    })()`);
+    await d.click(w.mid[0], w.mid[1]);
+    await d.type('net', 'sense');
+    const labels = `(__osprey.project.nets.find((n) => n.name === 'SENSE').segments[0].labels ?? []).length`;
+    expect(await d.evaluate(labels)).toBe(1);
+    await d.click(w.mid[0], w.mid[1]);
+    expect(await d.evaluate(`document.querySelector('#inspector input[data-field="show-label"]').checked`)).toBe(true);
+    await d.button('#inspector input[data-field="show-label"]');
+    expect(await d.evaluate(labels)).toBe(0);
+    expect((await d.state()).undo).toBe('Hide net label');
+    expect(d.problems).toEqual([]);
+  });
+
   it('checks the electrical rules, selects what a problem involves, and keeps the list up to date', async () => {
     await d.view('schematic');
     await d.button('#erc-run');

@@ -24,6 +24,7 @@ import type * as O from './model/types';
 import { buildBoardScene } from './scene/board';
 import { airwireNets, hideAirwires, type AirwireNet } from './scene/airwires';
 import { supplyReason } from './edit/properties';
+import { MIN_PRACTICAL_WIDTH, milToMm, parseWidth, TRACE_WIDTHS_MIL, traceWidth, widthLabel } from './edit/route';
 import { isGroundNet } from './model/placement';
 import { indexScene, type SceneIndex } from './scene/index';
 import { buildLibraryScene, libraryItemProps, type LibraryItemKind, type LibraryItemRef } from './scene/library';
@@ -95,6 +96,8 @@ const viaBtn = $<HTMLButtonElement>('via-btn');
 const textBtn = $<HTMLButtonElement>('text-btn');
 const layerField = $<HTMLLabelElement>('layer-field');
 const layerSelect = $<HTMLSelectElement>('layer-select');
+const widthField = $<HTMLLabelElement>('width-field');
+const widthSlot = $<HTMLSpanElement>('width-slot');
 const drcPanel = $<HTMLElement>('drc-panel');
 const drcName = $<HTMLSpanElement>('drc-name');
 const drcLoad = $<HTMLSelectElement>('drc-load');
@@ -338,6 +341,7 @@ function openSources(sources: SourceFile[], initialView?: ViewKind): void {
     stopVias();
     lastPour = {};
     activeLayer = undefined;
+    routeWidth = undefined;
     drcResult = undefined;
     drcShown.clear();
     ercResult = undefined;
@@ -1488,9 +1492,19 @@ function renderInspector(): void {
   const bf = blockField();
   if (bf) inspector.append(bf);
 
+  // Traces (one or several): width and layer, editable together.
+  const traces = editable() && owners.every((o) => o.target?.kind === 'trace') ? owners.map((o) => (o.target as { trace: O.Trace }).trace) : [];
+  if (traces.length > 1) inspector.append(traceFields(traces));
+
   if (owners.length === 1) {
     const fields = propertyFields(owners[0]!);
     if (fields) inspector.append(fields.table);
+    if (traces.length === 1) {
+      inspector.append(traceFields(traces));
+      fields?.covers.add('Width').add('Layer');
+    }
+    const t = owners[0]!.target;
+    if (t?.kind === 'wire' && !t.bus && editable() && 'pins' in t.segment) inspector.append(wireLabelField(t.segment as O.Segment, t.wire));
     const table = document.createElement('table');
     table.className = 'props';
     for (const [k, v] of owners[0]!.props) {
@@ -1517,6 +1531,64 @@ function renderInspector(): void {
     }
     inspector.append(list);
   }
+}
+
+/** Width and copper layer of traces, for one or several (each change is one undo step). */
+function traceFields(traces: O.Trace[]): HTMLTableElement {
+  const ed = editor!;
+  const table = document.createElement('table');
+  table.className = 'props fields';
+  const row = (label: string, control: HTMLElement) => {
+    const tr = document.createElement('tr');
+    const td = document.createElement('td');
+    td.append(control);
+    tr.append(el('th', '', label), td);
+    table.append(tr);
+  };
+  const what = traces.length > 1 ? `${traces.length} traces` : 'Trace';
+  const widths = new Set(traces.map((t) => t.width));
+  const width = widths.size === 1 ? traces[0]!.width : undefined;
+  row('Width', widthPicker(width, { mixed: widths.size > 1 }, (mm) => {
+    const err = ed.setTraces(traces, { width: mm });
+    if (!err) flash(`${what}: width ${widthLabel(mm!)}${mm! < MIN_PRACTICAL_WIDTH ? ' (narrower than 5 mil, beyond what JLCPCB reliably makes)' : ''}`);
+    return err;
+  }));
+  const layers = new Set(traces.map((t) => t.layer));
+  const layerSel = document.createElement('select');
+  layerSel.dataset.field = 'layer';
+  layerSel.setAttribute('aria-label', 'Trace layer');
+  if (layers.size > 1) layerSel.append(Object.assign(new Option('(mixed)', 'mixed'), { disabled: true }));
+  for (const l of boardCopper()) layerSel.append(new Option(l.replace('copper.', ''), l));
+  layerSel.value = layers.size === 1 ? traces[0]!.layer : 'mixed';
+  layerSel.addEventListener('change', () => {
+    const err = ed.setTraces(traces, { layer: layerSel.value });
+    flash(err ?? `${what}: moved to ${layerSel.value.replace('copper.', '')} (DRC lists anything this disconnects or crowds)`);
+    canvas.focus({ preventScroll: true });
+  });
+  row('Layer', layerSel);
+  return table;
+}
+
+/** "Show label" for a schematic wire: its piece of wiring shows the net's name, or not. */
+function wireLabelField(seg: O.Segment, wire: O.Wire): HTMLTableElement {
+  const table = document.createElement('table');
+  table.className = 'props fields';
+  const cb = document.createElement('input');
+  cb.type = 'checkbox';
+  cb.dataset.field = 'show-label';
+  cb.checked = (seg.labels?.length ?? 0) > 0;
+  cb.title = "Show the net's name on this piece of wiring. Nets connect by name either way.";
+  cb.addEventListener('change', () => {
+    editor!.setWireLabel(seg, wire, cb.checked);
+    flash(cb.checked ? 'Net label shown: drag it to move it' : 'Net label hidden');
+    canvas.focus({ preventScroll: true });
+  });
+  const tr = document.createElement('tr');
+  const td = document.createElement('td');
+  td.append(cb);
+  tr.append(el('th', '', 'Show label'), td);
+  table.append(tr);
+  return table;
 }
 
 /** The verbs available for the current selection. */
@@ -2695,6 +2767,102 @@ function viaClick(force: boolean): void {
 // ---------------------------------------------------------------------------
 // Routing traces
 
+/**
+ * A trace width picker: the standard sizes (mil, with mm), Other… to type one (mm or mil), and
+ * optionally a default entry (picks undefined) or a "mixed" entry for several different widths.
+ * `pick` returns an error message to show, or undefined.
+ */
+function widthPicker(current: number | undefined, opts: { defaultLabel?: string; mixed?: boolean }, pick: (mm: number | undefined) => string | undefined): HTMLElement {
+  const wrap = document.createElement('span');
+  wrap.className = 'width-picker';
+  const sel = document.createElement('select');
+  sel.setAttribute('aria-label', 'Trace width');
+  sel.dataset.field = 'width';
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.hidden = true;
+  input.size = 9;
+  input.spellcheck = false;
+  input.placeholder = '0.3 or 14mil';
+  input.setAttribute('aria-label', 'Trace width (mm or mil)');
+  const same = (a: number, b: number) => Math.abs(a - b) < 1e-6;
+  if (opts.mixed) sel.append(Object.assign(new Option('(mixed)', 'mixed'), { disabled: true }));
+  if (opts.defaultLabel) sel.append(new Option(opts.defaultLabel, ''));
+  const sizes = TRACE_WIDTHS_MIL.map(milToMm);
+  if (current !== undefined && !sizes.some((w) => same(w, current))) sizes.push(current);
+  sizes.sort((a, b) => a - b);
+  for (const w of sizes) {
+    const o = new Option(widthLabel(w), String(w));
+    if (w < MIN_PRACTICAL_WIDTH) o.className = 'too-narrow';
+    sel.append(o);
+  }
+  sel.append(new Option('Other…', 'other'));
+  const shown = () => (opts.mixed ? 'mixed' : current === undefined ? '' : String(sizes.find((w) => same(w, current))));
+  sel.value = shown();
+  sel.classList.toggle('too-narrow', current !== undefined && current < MIN_PRACTICAL_WIDTH);
+  const apply = (mm: number | undefined, control: HTMLElement) => {
+    const err = pick(mm);
+    if (err) {
+      control.classList.add('invalid');
+      flash(err);
+      return false;
+    }
+    canvas.focus({ preventScroll: true });
+    return true;
+  };
+  sel.addEventListener('change', () => {
+    if (sel.value === 'other') {
+      input.hidden = false;
+      input.value = current !== undefined ? String(current) : '';
+      input.focus();
+      input.select();
+      return;
+    }
+    input.hidden = true;
+    if (!apply(sel.value === '' ? undefined : Number(sel.value), sel)) sel.value = shown();
+  });
+  input.addEventListener('keydown', (e) => {
+    e.stopPropagation();
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const mm = parseWidth(input.value);
+      if (!Number.isFinite(mm)) {
+        input.classList.add('invalid');
+        flash('Enter a width in mm (0.3) or mil (12mil)');
+        return;
+      }
+      apply(mm, input);
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      input.hidden = true;
+      sel.value = shown();
+      canvas.focus({ preventScroll: true });
+    }
+  });
+  input.addEventListener('input', () => input.classList.remove('invalid'));
+  wrap.append(sel, input);
+  return wrap;
+}
+
+/** The trace width chosen for routing (mm; kept while the project is open), else undefined for each net's default. */
+let routeWidth: number | undefined;
+
+/** Show the toolbar's width picker while routing, its default naming the net's width. */
+function renderWidthField(): void {
+  widthField.hidden = !routing;
+  if (!routing) return widthSlot.replaceChildren();
+  const r = routing;
+  const net = r.netName;
+  const fallback = traceWidth(project!, net ?? '');
+  widthSlot.replaceChildren(widthPicker(routeWidth, { defaultLabel: `${net ? `${net}'s` : 'Net'} default (${widthLabel(fallback)})` }, (mm) => {
+    routeWidth = mm;
+    r.setWidth(mm);
+    flash(`Routing with ${mm === undefined ? `the net's default width` : widthLabel(mm)}${mm !== undefined && mm < MIN_PRACTICAL_WIDTH ? ': narrower than 5 mil, beyond what JLCPCB reliably makes' : ''}`);
+    requestRender();
+    return undefined;
+  }));
+}
+
 function startRouting(): void {
   if (!editor || !project?.board || view !== 'board') return;
   stopPouring();
@@ -2703,6 +2871,8 @@ function startRouting(): void {
   if (move) commitMove();
   routing = editor.beginRoute(gridOf, activeLayer);
   if (!routing) return;
+  routing.setWidth(routeWidth);
+  renderWidthField();
   routing.moveTo(cursor, false, WIRE_SNAP_PX / vp.zoom);
   selection.clear();
   canvas.classList.add('wiring');
@@ -2717,6 +2887,7 @@ function stopRouting(announce = false): void {
   if (!routing) return;
   routing.cancel();
   routing = undefined;
+  renderWidthField();
   canvas.classList.remove('wiring');
   wireBtn.classList.remove('active');
   if (announce) flash('Stopped routing');
@@ -2756,6 +2927,8 @@ function routeClick(double: boolean, force: boolean): void {
   else if (r === 'nothing') flash('Start a route on a pad, via or trace end of a net');
   else if (r === 'started') flash(`Routing ${routing.netName} on ${routing.currentLayer.replace('copper.', '')} · L changes layer · ends on copper of ${routing.netName}`);
   else if (r === 'finish' || (double && routing.netName)) finishRoute();
+  // The width picker's default names the net once the route starts (and goes back after it).
+  if (r === 'started') renderWidthField();
   requestRender();
 }
 
@@ -2766,6 +2939,7 @@ function finishRoute(): void {
     const left = index ? airwiresLeft(res.net) : 0;
     flash(`Routed ${res.net}: ${res.traces} trace${res.traces === 1 ? '' : 's'}${res.vias ? `, ${res.vias} via${res.vias > 1 ? 's' : ''}` : ''}${left ? ` · ${left} airwire${left > 1 ? 's' : ''} left` : ' · fully routed'}`);
   }
+  renderWidthField();
   requestRender();
 }
 

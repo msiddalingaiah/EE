@@ -9,6 +9,7 @@ import { footprintTransform, gateTransform, mirrorLayer, rotation } from '../mod
 import type * as O from '../model/types';
 import { apply } from '../geom/transform';
 import { dropIfEmpty, insert, remove, set, type Transaction } from './ops';
+import { labelSegments } from './netlabels';
 import { joinNet } from './wire';
 
 /** Eagle stores part and net names in upper case and doesn't allow white space in them. */
@@ -71,12 +72,15 @@ export function renameNet(project: O.Project, oldName: string, raw: string, tx: 
   // A name another net has already: the two become one net (connected by name), everything of
   // this one (wires, labels, traces, vias, pours) joining the other.
   const into = project.nets.find((n) => n.name === name);
+  // Each piece of the renamed net's wiring shows its new name (automatic N$n names don't).
+  const segments = [...(net.segments ?? [])];
   if (into) {
     tx.label = `Join net ${oldName} into ${name}`;
     joinNet(project, net, into, tx);
-    return undefined;
+  } else {
+    tx.run(set(net, { name }));
   }
-  tx.run(set(net, { name }));
+  if (!/^N\$\d+$/.test(name)) labelSegments(project, segments, tx, index);
   return undefined;
 }
 
@@ -156,4 +160,28 @@ export function unsmash(placement: O.GatePlacement | O.FootprintPlacement, tx: T
   if (placement.labels) tx.run(dropIfEmpty(placement, 'labels'));
   tx.run(set(placement, { smashed: undefined }));
   return true;
+}
+
+// ---------------------------------------------------------------------------
+// Traces
+
+export interface TracePatch {
+  width?: number;
+  layer?: string;
+}
+
+/** Set the width and/or copper layer of traces. Returns an error message, or undefined. */
+export function setTraceProps(project: O.Project, traces: O.Trace[], patch: TracePatch, tx: Transaction): string | undefined {
+  if (patch.width !== undefined && !(Number.isFinite(patch.width) && patch.width > 0 && patch.width <= 10)) {
+    return 'Enter a trace width above 0, up to 10 mm (e.g. 0.254 or 10mil)';
+  }
+  const stack = project.board?.layers.length ? project.board.layers : ['copper.top', 'copper.bottom'];
+  if (patch.layer !== undefined && !stack.includes(patch.layer)) return `${patch.layer} isn't a copper layer of this board`;
+  for (const t of traces) {
+    const change: TracePatch = {};
+    if (patch.width !== undefined && t.width !== patch.width) change.width = patch.width;
+    if (patch.layer !== undefined && t.layer !== patch.layer) change.layer = patch.layer;
+    if (Object.keys(change).length) tx.run(set(t, change));
+  }
+  return undefined;
 }

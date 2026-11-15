@@ -26,6 +26,7 @@
       </div>
       <button id="fit-btn" type="button" title="Zoom to fit (Home)">Fit</button>
       <label id="layer-field" class="layer-field" hidden title="The copper layer Route and Pour work on (L switches)">Layer <select id="layer-select" aria-label="Copper layer"></select></label>
+      <label id="width-field" class="layer-field" hidden title="The width of the traces this route draws: the net's default, a standard size, or Other… to type one (mm or mil)">Width <span id="width-slot"></span></label>
       <button id="pour-btn" type="button" hidden title="Draw a copper pour: click the corners; click the first corner, double-click or press Enter to close. The first click on copper picks the net; L changes layer, / free angles.">Pour</button>
       <button id="via-btn" type="button" hidden title="Place vias: click to add one; it takes the net of the copper under it (pad, trace, via or pour), else the last via's net. Shift+click places one that breaks clearance. Esc or right-click stops.">Via</button>
       <button id="text-btn" type="button" hidden title="Add text (T): click where it goes, then type it. On the bottom layer it goes on the bottom silkscreen, mirrored.">Text</button>

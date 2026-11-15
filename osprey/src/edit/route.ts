@@ -13,6 +13,25 @@ const round = (v: number) => Math.round(v * 1e6) / 1e6;
 export const DEFAULT_TRACE_WIDTH = 0.254;
 /** The drill most of Eagle's boards use for vias (13.8 mil). */
 export const DEFAULT_VIA_DRILL = 0.35;
+/** Trace widths offered when routing and editing traces, in mil (Eagle's usual sizes). */
+export const TRACE_WIDTHS_MIL = [6, 8, 10, 12, 16, 20, 24, 32, 40, 50];
+/** Narrower than this (5 mil) is beyond what a two-layer JLCPCB board reliably makes. */
+export const MIN_PRACTICAL_WIDTH = 0.127;
+export const milToMm = (mil: number) => round(mil * 0.0254);
+
+/** A width typed as mm ("0.254", "0.254mm") or mil ("10mil", "10 mil"); NaN when unreadable. */
+export function parseWidth(raw: string): number {
+  const m = /^\s*([0-9]*\.?[0-9]+)\s*(mm|mil|mils)?\s*$/i.exec(raw);
+  if (!m) return NaN;
+  const v = Number(m[1]);
+  return m[2] && m[2].toLowerCase().startsWith('mil') ? milToMm(v) : v;
+}
+
+/** A width for display: "10 mil (0.254 mm)" when it is a whole number of mil, else "0.3 mm". */
+export function widthLabel(mm: number): string {
+  const mil = mm / 0.0254;
+  return Math.abs(mil - Math.round(mil)) < 1e-3 ? `${Math.round(mil)} mil (${round(mm)} mm)` : `${round(mm)} mm`;
+}
 
 /** Copper a route can start or end on. */
 export interface Anchor {
@@ -109,10 +128,10 @@ export interface Leg {
 }
 
 /** Add a route's traces and vias to a net (one transaction). */
-export function addRoute(project: O.Project, netName: string, legs: Leg[], vias: O.Pt[], tx: Transaction): { traces: O.Trace[]; vias: O.Via[] } {
+export function addRoute(project: O.Project, netName: string, legs: Leg[], vias: O.Pt[], tx: Transaction, traceWidthMm?: number): { traces: O.Trace[]; vias: O.Via[] } {
   const net = project.nets.find((n) => n.name === netName);
   if (!net) throw new Error(`No net ${netName}`);
-  const width = traceWidth(project, netName);
+  const width = traceWidthMm ?? traceWidth(project, netName);
   const traces: O.Trace[] = [];
   for (const l of legs) {
     const [a, b] = l.line;
