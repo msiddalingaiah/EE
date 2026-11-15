@@ -299,8 +299,33 @@ export class Editor {
     return this.property(`Rename ${oldName}`, (tx) => renamePart(this.project, oldName, newName, tx));
   }
 
+  /** What the last value change did to the part's LCSC number, in words (undefined: nothing). */
+  lcscNote: string | undefined;
+
+  /**
+   * Set a part's value. A part with its own LCSC number gets the number for the new value
+   * (the one Assign would pick), or loses it when the table has none: a number for the old
+   * value would have the board house fit the wrong part. Same undo step.
+   */
   setValue(partName: string, value: string): string | undefined {
-    return this.property(`Set value of ${partName}`, (tx) => setPartValue(this.project, partName, value, tx, this.index()));
+    this.lcscNote = undefined;
+    return this.property(`Set value of ${partName}`, (tx) => {
+      const part = this.project.parts.find((p) => p.name === partName);
+      const before = part?.value;
+      const err = setPartValue(this.project, partName, value, tx, this.index());
+      const old = part?.attributes?.LCSC;
+      if (err || !part || !old || part.value === before) return err;
+      const { LCSC: _, ...rest } = part.attributes!;
+      tx.run(set(part, { attributes: Object.keys(rest).length ? rest : undefined }));
+      const s = lcscStatus(this.project, this.index(), { throughHole: true }).find((x) => x.part === partName);
+      if (s && 'match' in s) {
+        tx.run(set(part, { attributes: { ...part.attributes, LCSC: s.match.lcsc } }));
+        this.lcscNote = s.match.lcsc === old ? undefined : `LCSC part number ${old} → ${s.match.lcsc}`;
+      } else {
+        this.lcscNote = `LCSC part number ${old} removed (it was for the old value)${s && 'missing' in s ? `: ${s.missing}` : ''}`;
+      }
+      return undefined;
+    });
   }
 
   /**

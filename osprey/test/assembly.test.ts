@@ -10,6 +10,7 @@ import { libraryProject } from '../src/edit/library';
 import { ProjectIndex } from '../src/model/derive';
 import { exportEagle, exportEagleLibrary } from '../src/model/export-eagle';
 import { readLibrary, readProject, writeLibrary } from '../src/model/file';
+import { findPassive, parseValue } from '../src/model/lcsc';
 import { padPosition } from '../src/model/geometry';
 import { importEagle, importLibraryFile } from '../src/model/import-eagle';
 import type * as O from '../src/model/types';
@@ -129,6 +130,32 @@ describe('assembly files', () => {
     expect(back.parts.find((x) => x.name === 'R1')!.attributes?.LCSC).toBe('C17414');
     expect(ed.setLcsc('R1', '')).toBeUndefined();
     expect(p.parts.find((x) => x.name === 'R1')!.attributes).toEqual({ BLOCK: 'Preamp' });
+  });
+
+  it('gives a part the LCSC number for its new value, or drops one there is none for, in the same undo step', () => {
+    const r6 = () => p.parts.find((x) => x.name === 'R6')!;
+    ed.assignLcsc();
+    const old = r6().attributes!.LCSC!;
+    const for10k = findPassive('R', '0805', parseValue('10k', 'R')!)!.lcsc;
+    expect(old).not.toBe(for10k);
+    expect(ed.setValue('R6', '10k')).toBeUndefined();
+    expect(r6().attributes).toMatchObject({ LCSC: for10k, BLOCK: 'Preamp' });
+    expect(ed.lcscNote).toBe(`LCSC part number ${old} → ${for10k}`);
+    const row = files().bom.find((r) => r[1]!.split(',').includes('R6'))!;
+    expect([row[0], row[2], row[3]]).toEqual(['10k', '0805', for10k]);
+    ed.undo();
+    expect(r6()).toMatchObject({ value: '1k', attributes: { LCSC: old } });
+    // A value the table has nothing for: the old number goes (it would fit a 1k).
+    expect(ed.setValue('R6', '1.234k')).toBeUndefined();
+    expect(r6().attributes).toEqual({ BLOCK: 'Preamp' });
+    expect(ed.lcscNote).toMatch(new RegExp(`^LCSC part number ${old} removed`));
+    // The same value again changes nothing; a part without a number gets none.
+    ed.undo();
+    expect(ed.setValue('R6', '1k')).toBeUndefined();
+    expect(r6().attributes?.LCSC).toBe(old);
+    ed.setLcsc('R6', '');
+    ed.setValue('R6', '10k');
+    expect(r6().attributes?.LCSC).toBeUndefined();
   });
 
   it('takes a component\'s default LCSC part number from the library, unless the part has its own', () => {

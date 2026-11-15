@@ -1952,7 +1952,8 @@ function propertyFields(o: Owner): { table: HTMLTableElement; covers: Set<string
         } else {
           // A net renamed to a name in use joins that net: say so (the undo step names it).
           const undo = editor?.history.undoLabel;
-          flash(field === 'net' && undo?.startsWith('Join net') ? `${undo.replace(/^Join/, 'Joined')}: connected by name` : `${label} changed`);
+          const lcsc = field === 'value' ? editor?.lcscNote : undefined;
+          flash(field === 'net' && undo?.startsWith('Join net') ? `${undo.replace(/^Join/, 'Joined')}: connected by name` : lcsc ? `Value changed · ${lcsc}` : `${label} changed`);
           done();
         }
       } else if (e.key === 'Escape') {
