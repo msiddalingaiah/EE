@@ -86,21 +86,19 @@ export function assemblyFiles(project: O.Project, options: AssemblyOptions = {},
   ].filter(Boolean);
   if (notPlaced.length) warnings.push(`Not placed: ${notPlaced.join(' and ')}; solder these yourself`);
 
-  // Bill of materials: parts with the same value, footprint and part numbers share a row.
-  const groups = new Map<string, { value: string; footprint: string; lcsc: string; mf: string; mpn: string; type: string; names: string[] }>();
+  // Bill of materials, JLCPCB's columns only: parts with the same value, footprint and LCSC
+  // part number share a row.
+  const groups = new Map<string, { value: string; footprint: string; lcsc: string; names: string[] }>();
   for (const { part, fp } of placed) {
-    const g = {
-      value: index.valueOf(part), footprint: componentName(fp.id), lcsc: attribute(index, part, LCSC_ATTRIBUTE),
-      mf: attribute(index, part, 'MF'), mpn: attribute(index, part, 'MPN'), type: mounting(fp),
-    };
-    const key = [g.value, g.footprint, g.lcsc, g.mf, g.mpn].join('\u0000');
+    const g = { value: index.valueOf(part), footprint: componentName(fp.id), lcsc: attribute(index, part, LCSC_ATTRIBUTE) };
+    const key = [g.value, g.footprint, g.lcsc].join('\u0000');
     const have = groups.get(key);
     if (have) have.names.push(part.name);
     else groups.set(key, { ...g, names: [part.name] });
   }
-  const bom = [row(['Comment', 'Designator', 'Footprint', 'LCSC Part #', 'Quantity', 'Manufacturer', 'MPN', 'Mounting'])];
+  const bom = [row(['Comment', 'Designator', 'Footprint', 'LCSC Part #'])];
   for (const g of [...groups.values()].sort((a, b) => natural(a.names[0]!, b.names[0]!))) {
-    bom.push(row([g.value, g.names.join(','), g.footprint, g.lcsc, String(g.names.length), g.mf, g.mpn, g.type]));
+    bom.push(row([g.value, g.names.join(','), g.footprint, g.lcsc]));
   }
 
   // Pick and place: each part's centre (the middle of its pads), side and rotation.

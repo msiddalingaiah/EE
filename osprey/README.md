@@ -187,9 +187,9 @@ native model (see [docs/format.md](docs/format.md)). Eagle files are imported in
   the same folder as the CAM zip: SMD parts, or SMD and through-hole parts (a choice in
   the menu; a board house's standard assembly is SMD, through-hole parts are usually soldered by
   hand). Parts marked **Do not place** (a checkbox in the inspector, the part's DNP attribute)
-  are left out too, and what was left out is listed. The BOM has one row per group of identical parts
-  (value, footprint, LCSC part number, manufacturer and MPN alike): designators, quantity, and
-  whether they are SMD or through-hole. The pick-and-place list gives each part's centre (the
+  are left out too, and what was left out is listed. The BOM has JLCPCB's columns only (Comment,
+  Designator, Footprint, LCSC Part #), one row per group of parts with the same value, footprint
+  and LCSC part number. The pick-and-place list gives each part's centre (the
   middle of its pads, not its footprint's origin), side and rotation. A part's **LCSC part** is
   set in the inspector (C25804…; checked, kept through Eagle export), or comes from its
   component in the library (see below); parts without one are

@@ -23,7 +23,8 @@ beforeEach(() => {
 
 /** A CSV file as rows of fields (handles quoted fields with commas). */
 function csv(text: string): string[][] {
-  return text.trim().split('\r\n').map((line) => [...line.matchAll(/("(?:[^"]|"")*"|[^,]*)(?:,|$)/g)].slice(0, -1).map((m) => m[1]!.replace(/^"|"$/g, '').replace(/""/g, '"')));
+  // Each field is followed by a comma, or by the end of the line (the last, possibly empty, one).
+  return text.trim().split('\r\n').map((line) => [...`${line},`.matchAll(/("(?:[^"]|"")*"|[^,]*),/g)].map((m) => m[1]!.replace(/^"|"$/g, '').replace(/""/g, '"')));
 }
 const files = (options: AssemblyOptions = {}) => {
   const r = assemblyFiles(p, options);
@@ -40,13 +41,12 @@ describe('assembly files', () => {
   it('with through-hole parts: lists every placed part once in each file, and nothing without a footprint', () => {
     const { bom, cpl } = files({ throughHole: true });
     const placed = p.board!.footprints.map((f) => f.part).sort();
-    expect(bom[0]).toEqual(['Comment', 'Designator', 'Footprint', 'LCSC Part #', 'Quantity', 'Manufacturer', 'MPN', 'Mounting']);
+    expect(bom[0]).toEqual(['Comment', 'Designator', 'Footprint', 'LCSC Part #']);
     expect(cpl[0]).toEqual(['Designator', 'Mid X', 'Mid Y', 'Layer', 'Rotation']);
     expect(designators(bom)).toEqual(placed);
     expect(cpl.slice(1).map((r) => r[0]).sort()).toEqual(placed);
-    // Quantities add up; supply symbols (GND, VCC) have no footprint and are left out.
-    expect(bom.slice(1).reduce((n, r) => n + Number(r[4]), 0)).toBe(placed.length);
-    expect(bom).toContainEqual(['BERG-2', 'IN,VCC,VOUT', 'BERG-2', '', '3', '', '', 'THT']);
+    // Supply symbols (GND, VCC) have no footprint and are left out.
+    expect(bom).toContainEqual(['BERG-2', 'IN,VCC,VOUT', 'BERG-2', '']);
   });
 
   it('leaves through-hole parts out by default, and says which', () => {
@@ -70,7 +70,7 @@ describe('assembly files', () => {
   });
 
   it('groups identical parts into one row', () => {
-    expect(files().bom).toContainEqual(['10u', 'C1,C3,C7,C13', '0805', '', '4', '', '', 'SMD']);
+    expect(files().bom).toContainEqual(['10u', 'C1,C3,C7,C13', '0805', '']);
   });
 
   it('places each part at the centre of its pads, with its side and rotation', () => {
@@ -119,7 +119,7 @@ describe('assembly files', () => {
     expect(ed.setLcsc('R1', 'x123')).toBe('An LCSC part number is C followed by digits, e.g. C25804');
     expect(ed.setLcsc('R1', ' c17414 ')).toBeUndefined();
     expect(p.parts.find((x) => x.name === 'R1')!.attributes).toMatchObject({ LCSC: 'C17414' });
-    expect(files().bom).toContainEqual(['3.3M', 'R1', '0805', 'C17414', '1', '', '', 'SMD']);
+    expect(files().bom).toContainEqual(['3.3M', 'R1', '0805', 'C17414']);
     expect(lcscWarning()).toMatch(new RegExp(`^${smd - 1} of ${smd}`));
     // The parts still without one are named (R1 no longer, in name order).
     const named = lcscWarning()!.slice(lcscWarning()!.lastIndexOf(': ') + 2).split(', ');

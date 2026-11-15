@@ -250,7 +250,7 @@ describe.skipIf(!findChrome())('editor in the browser', () => {
       for (let i = 0; i < 100 && !names.every((n) => existsSync(join(dir, n))); i++) await new Promise((r) => setTimeout(r, 50));
       await new Promise((r) => setTimeout(r, 100));
       const files = new Map(names.map((n) => [n, readFileSync(join(dir, n), 'utf8')]));
-      expect(files.get('wwvbfind_BOM.csv')).toContain('3.3M,R1,0805,C17414,1,,,SMD');
+      expect(files.get('wwvbfind_BOM.csv')).toContain('3.3M,R1,0805,C17414\r\n');
       expect(files.get('wwvbfind_CPL.csv')!.split('\r\n')[0]).toBe('Designator,Mid X,Mid Y,Layer,Rotation');
       // SMD parts only, by default: the through-hole ones, and parts still without LCSC numbers, are pointed out.
       expect(files.get('wwvbfind_BOM.csv')).not.toContain('BERG-2');
