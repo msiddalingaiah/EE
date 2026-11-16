@@ -306,7 +306,24 @@ description, checked, turned into a schematic, placed, routed and given JLCPCB p
    the same commands can be exposed over MCP (Model Context Protocol) for a live link to the
    open project; the installed app can't listen on a port, so that link needs a desktop
    wrapper (Tauri or Electron, which would also give real file paths).
-5. **A ready-to-order check:** ERC, DRC, unrouted connections, LCSC parts and silkscreen in
+5. **Library parts from a datasheet, a description or an existing library,** run by an
+   agent through the command line (`osprey lib …`), written into the user directory:
+   - **Existing libraries first:** Eagle libraries are plentiful (SparkFun, Adafruit, and the
+     Eagle exports from SnapEDA, Ultra Librarian and SamacSys) and Osprey already imports
+     `.lbr`. Search a collection of them for the part or package and copy it in (as **Copy
+     from…** does), keeping the source and its license.
+   - **By LCSC number:** fetch a part's EasyEDA symbol and footprint, whose pad layouts already
+     match JLCPCB assembly (check EasyEDA's terms first).
+   - **Generated:** the agent reads the datasheet (pinout table, package drawing) and writes a
+     part description (name, MPN, LCSC number, package type and dimensions, pins with number,
+     name, direction and gate). Osprey generates the footprint from IPC-7351 rules for common
+     packages (chip passives, SOT-23/223, SOIC, TSSOP, QFN, DIP, headers; anything else lists
+     its pads), the symbol from pin directions (power top and bottom, inputs left, outputs
+     right; one symbol per gate plus a power gate) and the component's pin-to-pad map.
+   - **Checks:** pin count matches pad count, every pin is mapped, no duplicate numbers, pitch
+     and span as described, silkscreen clear of pads; a preview image to compare against the
+     datasheet drawing before accepting.
+6. **A ready-to-order check:** ERC, DRC, unrouted connections, LCSC parts and silkscreen in
    one step.
 
 ### Roadmap
