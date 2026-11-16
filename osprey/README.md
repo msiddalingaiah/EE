@@ -312,6 +312,21 @@ Then, to take a board through manufacturing and assembly:
   Basic part before ordering, and shows how many distinct parts the BOM has.
 - **Board text in placement:** Place moves board text (titles, dates) clear of the parts.
 - **Label sizes:** an option to bring names up to a printable minimum (1 mm, say).
+- **Multilayer boards** (4 and 6 layers, through vias). The model already handles any copper
+  stack (`board.layers`, via spans, connectivity, DRC, airwires, pours and plotting per layer),
+  but only two-layer boards are tested. Still to do: choose the layer count in a board setup
+  (written to Eagle's layer setup on export); a default 4-layer CAM job with inner copper
+  Gerbers and the layer order (check JLCPCB's naming and stack-up); L cycling through the
+  layers (or 1–4 picking one); inner planes (a GND or VCC pour over a whole inner layer, through-hole
+  pads joined by thermals, SMD pads by vias); inner-layer annular rings in DRC; showing or
+  dimming inner layers; a 4-layer autoroute mode (GND on In1, power on In2, signals outside).
+  Check against a real 4-layer Eagle board. Not planned: blind and buried vias.
+- **Multiple schematic sheets:** imported sheets can already be viewed and edited, and nets
+  join across sheets by name. Still to do: add, delete, rename (the description) and reorder
+  sheets, with names in the sheet picker; move parts to another sheet; place a part's gates on
+  different sheets; net labels that show which sheets a net also appears on; ERC warns about a
+  net label whose net appears on no other sheet (likely a misspelled name). Schematic generation
+  can put each block on its own sheet.
 
 - **Design rules edited in place:** type a clearance, width or drill in the Design rules
   panel, without a `.dru` file.
