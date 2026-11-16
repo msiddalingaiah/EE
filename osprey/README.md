@@ -299,7 +299,14 @@ description, checked, turned into a schematic, placed, routed and given JLCPCB p
      First run offers to fill it with the samples.
    - **Out of the bundle:** libraries, rules and CAM jobs are no longer built into the app;
      the samples stay as demo projects.
-4. **A ready-to-order check:** ERC, DRC, unrouted connections, LCSC parts and silkscreen in
+4. **Command line,** so an agent can run the design flow on files with no browser:
+   `osprey check|place|route|labels|lcsc|cam <file.osprey>`, a thin layer over the functions
+   the UI and the tests already use (Suggest blocks, Place, Autoroute, Arrange labels, LCSC
+   Assign, ERC, DRC, CAM). The commands use the same ids as the menus' command list. Later
+   the same commands can be exposed over MCP (Model Context Protocol) for a live link to the
+   open project; the installed app can't listen on a port, so that link needs a desktop
+   wrapper (Tauri or Electron, which would also give real file paths).
+5. **A ready-to-order check:** ERC, DRC, unrouted connections, LCSC parts and silkscreen in
    one step.
 
 ### Roadmap
