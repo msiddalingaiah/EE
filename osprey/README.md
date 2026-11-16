@@ -286,8 +286,19 @@ description, checked, turned into a schematic, placed, routed and given JLCPCB p
    it connects by) and parameters (values that change per use). Captured from a block of a
    working design, kept in a library, reused by generation; autoplace keeps an instance's
    layout as one rigid block and autoroute connects only its ports.
-3. **Toolbar and UI cleanup:** group the board tools apart from file actions, move rarely
-   used commands into a menu.
+3. **Menus and a user directory,** in three steps:
+   - **Menus:** File, Edit, View, Tools, Help for commands; the toolbar keeps modes and state
+     (view, sheet, drawing tools, layer, width, Fit); the inspector keeps selection verbs. One
+     command list (id, label, shortcut, enabled, run) drives menus, toolbar, shortcuts and a
+     command palette; menu items keep the button ids the tests use.
+   - **User directory and Preferences** (File): one directory holding `libraries/`
+     (`.ospreylib`, `.lbr`), `rules/` (`.dru`) and `cam/` (`.cam`). In Chromium it's a folder
+     on disk (picked once, its handle kept in IndexedDB); elsewhere it's kept in the browser
+     (origin private file system) with export and import as a zip. Add part, update on open,
+     Design rules and CAM read from it, and saving in the library editor writes back to it.
+     First run offers to fill it with the samples.
+   - **Out of the bundle:** libraries, rules and CAM jobs are no longer built into the app;
+     the samples stay as demo projects.
 4. **A ready-to-order check:** ERC, DRC, unrouted connections, LCSC parts and silkscreen in
    one step.
 
