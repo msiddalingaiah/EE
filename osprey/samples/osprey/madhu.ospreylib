@@ -6402,6 +6402,16 @@
           { "name": "DTT1G", "footprint": "madhu/TSOP6", "pads": { "A.I": ["1"], "A.O": ["6"], "B.I": ["3"], "B.O": ["4"], "C.GND": ["2"], "C.VCC": ["5"] } }
         ]
       },
+      { "id": "madhu/NL27WZU04", "prefix": "U", "description": "Dual Inverter (unbuffered)",
+        "gates": [
+          { "name": "A", "at": [0, 10.16], "symbol": "madhu/INVERTER" },
+          { "name": "B", "at": [0, -10.16], "symbol": "madhu/INVERTER" },
+          { "name": "C", "at": [-30.48, 0], "symbol": "madhu/PWRN" }
+        ],
+        "variants": [
+          { "name": "DTT1G", "footprint": "madhu/TSOP6", "pads": { "A.I": ["1"], "A.O": ["6"], "B.I": ["3"], "B.O": ["4"], "C.GND": ["2"], "C.VCC": ["5"] } }
+        ]
+      },
       { "id": "madhu/P1410", "prefix": "T", "description": "Precision Inc. 1410 Ferrite transformer",
         "gates": [
           { "name": "A", "at": [0, 2.54], "symbol": "madhu/P1410" }
