@@ -147,7 +147,13 @@ class BlockPlacement {
   readonly nodes: Node[] = [];
   width = 0;
 
-  constructor(parts: RPart[], nets: RNet[], private readonly supplies: Map<string, SupplySymbol>) {
+  constructor(
+    parts: RPart[],
+    nets: RNet[],
+    private readonly supplies: Map<string, SupplySymbol>,
+    /** Each net's height in the circuit: 1 on the supply drawn above (VCC), 0 on ground. */
+    private readonly potential: Map<string, number> = new Map(),
+  ) {
     const pinNet = new Map<string, RNet>();
     for (const n of nets) for (const r of n.pins) pinNet.set(`${r.part}.${r.gate}.${r.pin}`, n);
     let order = 0;
@@ -237,7 +243,22 @@ class BlockPlacement {
         }
       }
     }
-    for (const n of this.nodes) if (n.powerOnly) n.col = signal.find((x) => x.part === n.part)?.col ?? 0;
+    // A gate with only supply pins: a power gate goes with the part's other gates; a decoupling
+    // capacitor (a part of its own) with the IC whose supply it is on, right after it.
+    const anchors = new Map<Node, Node>();
+    for (const n of this.nodes) {
+      if (!n.powerOnly) continue;
+      const sibling = signal.find((x) => x.part === n.part);
+      if (sibling) {
+        n.col = sibling.col;
+        continue;
+      }
+      const supplies = new Set(n.pins.filter((p) => p.net?.supply).map((p) => p.net!.name));
+      const anchor = signal.find((m) => (m.part.component.gates.length > 1 || m.pins.length >= 3)
+        && this.nodes.some((g) => g.part === m.part && g.pins.some((p) => p.net && supplies.has(p.net.name))));
+      n.col = anchor?.col ?? 0;
+      if (anchor) anchors.set(n, anchor);
+    }
 
     // Two-pin parts lying across: the pin toward the earlier column on the left.
     for (const n of flip ? signal : []) {
@@ -253,14 +274,29 @@ class BlockPlacement {
     const columns: Node[][] = [];
     for (const n of [...this.nodes].sort((a, b) => a.order - b.order)) (columns[n.col] ??= []).push(n);
     for (let c = 0; c < columns.length; c++) columns[c] ??= [];
-    // Each column in the order of its neighbours in the column before.
-    for (let c = 1; c < columns.length; c++) {
-      const prev = columns[c - 1]!;
+    // Each column from top to bottom as the circuit goes from the supply to ground (a collector
+    // load above its transistor, the emitter resistor below), then by its neighbours in the
+    // column before.
+    const level = (n: Node) => {
+      const ps = n.pins.filter((p) => p.net).map((p) => this.potential.get(p.net!.name) ?? 0.5);
+      return ps.length ? ps.reduce((a, b) => a + b, 0) / ps.length : 0.5;
+    };
+    for (let c = 0; c < columns.length; c++) {
+      const prev = columns[c - 1];
       const rank = (n: Node) => {
-        const ns = this.neighbours(n).filter((m) => m.col === c - 1).map((m) => prev.indexOf(m));
-        return ns.length ? ns.reduce((a, b) => a + b, 0) / ns.length : Infinity;
+        const ns = prev ? this.neighbours(n).filter((m) => m.col === c - 1).map((m) => prev.indexOf(m)) : [];
+        return ns.length ? ns.reduce((a, b) => a + b, 0) / ns.length : 1e9;
       };
-      columns[c] = columns[c]!.map((n, i) => ({ n, k: rank(n), i })).sort((a, b) => (a.k - b.k) || (a.i - b.i)).map((x) => x.n);
+      columns[c] = columns[c]!.map((n, i) => ({ n, l: Math.round(level(n) * 4), k: rank(n), i }))
+        .sort((a, b) => (b.l - a.l) || (a.k - b.k) || (a.i - b.i)).map((x) => x.n);
+      // Decoupling capacitors right below their IC (after its other gates).
+      for (const [cap, ic] of anchors) {
+        const col = columns[c]!;
+        if (!col.includes(cap)) continue;
+        col.splice(col.indexOf(cap), 1);
+        const last = Math.max(...col.map((n, i) => (n.part === ic.part ? i : -1)));
+        col.splice(last + 1, 0, cap);
+      }
     }
 
     // Room above and below for stubs and upright supply symbols.
@@ -275,16 +311,47 @@ class BlockPlacement {
       }
     }
 
-    // Rows: each column stacks down from the top; a gate lines up with a pin it connects to in
-    // the column before, when there is room.
-    for (let c = 0; c < columns.length; c++) {
-      let cursor = 0;
-      for (const n of columns[c]!) {
-        const highest = snapDown(cursor - n.above - n.box.y1);
-        const target = this.alignTarget(n, c);
-        n.at = [0, target !== undefined && target <= highest ? target : highest];
-        cursor = n.at[1] + n.box.y0 - n.below - GAP_Y;
+    // Bands across the whole block, from the supply down to ground: a gate stands no higher
+    // than its band's top in any column, so parts near VCC are above parts near GND throughout.
+    const band = (n: Node): number => {
+      const ic = anchors.get(n) ?? (n.powerOnly ? signal.find((x) => x.part === n.part) : undefined);
+      return Math.round(level(ic ?? n) * 4);
+    };
+    const bandTop = new Map<number, number>();
+    let top = 0;
+    for (let b = 4; b >= 0; b--) {
+      bandTop.set(b, top);
+      let deepest = 0;
+      for (const col of columns) {
+        const h = col.filter((n) => band(n) === b).reduce((s, n) => s + n.above + (n.box.y1 - n.box.y0) + n.below + GAP_Y, 0);
+        deepest = Math.max(deepest, h);
       }
+      top -= deepest;
+    }
+
+    // Rows: each gate at the height that lines its side pins up with the pins they connect to
+    // in other columns, so the wires between run straight. A few passes; each column keeps its
+    // order, stacked down from the top with nothing overlapping.
+    const stack = (want: Map<Node, number>) => {
+      for (const col of columns) {
+        let cursor = 0;
+        for (const n of col) {
+          cursor = Math.min(cursor, bandTop.get(band(n))!);
+          const highest = snapDown(cursor - n.above - n.box.y1);
+          const w = want.get(n);
+          n.at = [0, w !== undefined && w <= highest ? w : highest];
+          cursor = n.at[1] + n.box.y0 - n.below - GAP_Y;
+        }
+      }
+    };
+    stack(new Map());
+    for (let pass = 0; pass < 6; pass++) {
+      const want = new Map<Node, number>();
+      for (const n of this.nodes) {
+        const ys = this.levelWith(n).sort((a, b) => a - b);
+        if (ys.length) want.set(n, ys[Math.floor((ys.length - 1) / 2)]!);
+      }
+      stack(want);
     }
 
     // Columns' x: the widest gate, and a gap that grows with the nets between the columns.
@@ -299,18 +366,23 @@ class BlockPlacement {
     this.width = x;
   }
 
-  /** The y that puts a pin of `n` level with the pin it connects to in column c - 1. */
-  private alignTarget(n: Node, c: number): number | undefined {
-    if (c === 0) return undefined;
+  /**
+   * The heights that would put a side pin of `n` level with a pin facing it in another column
+   * (a left pin with a right pin in a column before, a right pin with a left pin after).
+   */
+  private levelWith(n: Node): number[] {
+    const out: number[] = [];
     for (const p of n.pins) {
-      if (!p.net || p.net.supply || p.side !== 'L') continue;
+      if (!p.net || p.net.supply || (p.side !== 'L' && p.side !== 'R')) continue;
       for (const r of p.net.pins) {
-        const m = this.nodes.find((x) => x.part.part.name === r.part && x.gate.name === r.gate && x.col === c - 1);
+        const m = this.nodes.find((x) => x.part.part.name === r.part && x.gate.name === r.gate);
         const q = m?.pins.find((x) => x.ref.pin === r.pin);
-        if (m && q && q.side === 'R') return snapDown(m.at[1] + q.local[1] - p.local[1]);
+        if (!m || !q || m === n) continue;
+        const facing = (p.side === 'L' && m.col < n.col && q.side === 'R') || (p.side === 'R' && m.col > n.col && q.side === 'L');
+        if (facing) out.push(snapDown(m.at[1] + q.local[1] - p.local[1]));
       }
     }
-    return undefined;
+    return out;
   }
 }
 
@@ -812,16 +884,16 @@ function routeNodes(nodes: Node[], nets: RNet[], supplies: Map<string, SupplySym
   }
   const s = router.stats;
   const area = ((extent.x1 - extent.x0) / G) * ((extent.y1 - extent.y0) / G);
-  return { router, extent, score: s.length + 4 * s.bends + 8 * s.crossings + 30 * labels + 60 * unrouted.length + area / 40 + 2 * backwards };
+  return { router, extent, score: s.length + 10 * s.bends + 8 * s.crossings + 30 * labels + 60 * unrouted.length + area / 40 + 2 * backwards };
 }
 
 /** A block laid out the best of several ways: each signal gate as the start, flipped or not. */
-function bestPlacement(parts: RPart[], nets: RNet[], supplies: Map<string, SupplySymbol>): BlockPlacement {
+function bestPlacement(parts: RPart[], nets: RNet[], supplies: Map<string, SupplySymbol>, potential: Map<string, number>): BlockPlacement {
   let best: { placement: BlockPlacement; score: number } | undefined;
-  const starts = Math.min(8, new BlockPlacement(parts, nets, supplies).starts);
+  const starts = Math.min(8, new BlockPlacement(parts, nets, supplies, potential).starts);
   for (let start = 0; start < starts; start++) {
     for (const flip of [true, false]) {
-      const placement = new BlockPlacement(parts, nets, supplies);
+      const placement = new BlockPlacement(parts, nets, supplies, potential);
       placement.place(start, flip);
       if (!placement.nodes.length) return placement;
       const { score } = routeNodes(placement.nodes, nets, supplies, () => 'S');
@@ -910,6 +982,60 @@ function arrange(placements: { block: string; placement: BlockPlacement }[], net
   }
 }
 
+/**
+ * Each net's height in the circuit, 0 to 1: how much nearer it is to a supply drawn above (VCC,
+ * whose symbol points up) than to one drawn below (GND), counting two-pin parts between nets.
+ * A transistor or IC (three pins or more) doesn't pass height on: its pins are at different
+ * heights; nor does a capacitor (no path for DC: a decoupling capacitor doesn't pull a rail
+ * down). VCCA, through R10 from VCC, is at the top; an emitter resistor near the bottom.
+ */
+function netPotential(design: Resolved, supplies: Map<string, SupplySymbol>): Map<string, number> {
+  const capacitor = new Set(design.parts.filter((p) => (p.component.prefix ?? '').toUpperCase() === 'C').map((p) => p.part.name));
+  const netsOf = new Map<string, Set<string>>();
+  for (const n of design.nets) {
+    for (const r of n.pins) {
+      if (capacitor.has(r.part)) continue;
+      if (!netsOf.has(r.part)) netsOf.set(r.part, new Set());
+      netsOf.get(r.part)!.add(n.name);
+    }
+  }
+  const neighbours = new Map<string, Set<string>>();
+  for (const nets of netsOf.values()) {
+    if (nets.size > 2) continue;
+    for (const a of nets) {
+      for (const b of nets) {
+        if (a === b) continue;
+        if (!neighbours.has(a)) neighbours.set(a, new Set());
+        neighbours.get(a)!.add(b);
+      }
+    }
+  }
+  const distance = (from: string[]) => {
+    const d = new Map<string, number>(from.map((n) => [n, 0]));
+    const queue = [...from];
+    while (queue.length) {
+      const n = queue.shift()!;
+      for (const m of neighbours.get(n) ?? []) {
+        if (d.has(m)) continue;
+        d.set(m, d.get(n)! + 1);
+        queue.push(m);
+      }
+    }
+    return d;
+  };
+  const up = [...supplies].filter(([, s]) => s.body[1] > 0).map(([n]) => n);
+  const down = [...supplies].filter(([, s]) => s.body[1] <= 0).map(([n]) => n);
+  const dUp = distance(up);
+  const dDown = distance(down);
+  const out = new Map<string, number>();
+  for (const n of design.nets) {
+    const a = dUp.get(n.name);
+    const b = dDown.get(n.name);
+    out.set(n.name, a === undefined && b === undefined ? 0.5 : a === undefined ? 0 : b === undefined ? 1 : b / (a + b || 1));
+  }
+  return out;
+}
+
 /** Build a project (schematic, board with footprints parked beside it) from a resolved description. */
 export function generateProject(design: Resolved): O.Project {
   const supplies = new Map<string, SupplySymbol>();
@@ -956,6 +1082,7 @@ export function generateProject(design: Resolved): O.Project {
   let sheetX = 0;
   let rowTop = 0;
   let rowBottom = 0;
+  const potential = netPotential(design, supplies);
   // How many blocks each net has pins in (a rail through three or more is labelled per block).
   const partBlock = new Map(design.parts.map((p) => [p.part.name, p.block]));
   const netBlocks = new Map(design.nets.map((n) => [n.name, new Set(n.pins.map((r) => partBlock.get(r.part)).filter((b): b is string => b !== undefined))]));
@@ -963,7 +1090,7 @@ export function generateProject(design: Resolved): O.Project {
   groups.forEach((group) => {
     // Each block laid out the best of several ways; then the group's blocks arranged, each
     // beside what it connects to.
-    const placements = group.map((b) => ({ block: b, placement: bestPlacement(design.parts.filter((p) => p.block === b), design.nets, supplies) }));
+    const placements = group.map((b) => ({ block: b, placement: bestPlacement(design.parts.filter((p) => p.block === b), design.nets, supplies, potential) }));
     arrange(placements, netBlocks);
     const nodes = placements.flatMap((x) => x.placement.nodes);
     const { router, extent } = routeNodes(nodes, design.nets, supplies, (s) => `${s.component.prefix || 'SUPPLY'}${++supplyCount}`);
