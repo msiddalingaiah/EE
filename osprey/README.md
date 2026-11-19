@@ -27,7 +27,7 @@ native model (see [docs/format.md](docs/format.md)). Eagle files are imported in
   for permission again: **Reconnect**, in the left panel or the File menu); in any browser it can
   be kept in the browser's own storage, moved with **Export zip** and **Import zip…**. Add part,
   Copy from…, the update on opening a project, Load design rules and File ▸ CAM list its files
-  (ahead of the samples); **File ▸ Open from user directory** opens a library there, and Save
+  (none are built into the app); **File ▸ Open from user directory** opens a library there, and Save
   writes it back; a new or imported library saves into `libraries/`. A `.dru` or `.cam` file
   opened from elsewhere is kept there too. **Add the samples** copies in the sample libraries,
   rules and CAM job. Until one is set up, a note at the top of the left panel offers it.
@@ -82,11 +82,11 @@ native model (see [docs/format.md](docs/format.md)). Eagle files are imported in
 - **Commands** (the verbs): move (drag, or M then click), rotate (R), flip to the other board
   side / mirror in the schematic (F), delete (Del), rename part or net (N), value (V),
   smash/unsmash. Moves snap to the grid (Alt = fine grid). Undo/redo for everything.
-- **Adding parts** (schematic): pick a component from the project's library, a sample library,
-  an Osprey `.ospreylib` or any Eagle `.lbr`, then click to place each gate. The component, its symbols and
+- **Adding parts** (schematic): pick a component from the project's library, a library in the
+  user directory, or an Osprey `.ospreylib` or Eagle `.lbr` opened for the session, then click to place each gate. The component, its symbols and
   footprints are copied into the project; the footprint is parked beside the board outline.
 - **Updating from a library**: opening a project updates it from the Osprey libraries
-  (`.ospreylib`: the samples, and any opened this session) as one undo step, so library edits
+  (`.ospreylib`: the user directory's, and any opened this session) as one undo step, so library edits
   reach every project that uses them (Eagle `.lbr` files aren't used: an older import shares
   the ids). For a library opened later, choose it in the Add part panel and press Update. Every component, symbol and footprint the project has from it is replaced by
   the library's version, and the schematic and board follow (new pad shapes and positions, pin
@@ -261,7 +261,7 @@ native model (see [docs/format.md](docs/format.md)). Eagle files are imported in
   (RS-274X with X2 file functions) for copper, solder mask, paste, silkscreen and the board
   outline, and an Excellon drill file (plated and unplated holes merged). The built-in job writes
   the common two-layer set (`.GTL`, `.GBL`, `.GTS`, … `.GKO`, `.XLN`, the files and layers of
-  JLCPCB's Eagle job); an Eagle `.cam` job file can be used instead. Pads are flashed with
+  JLCPCB's Eagle job); an Eagle `.cam` job file (in the user directory's `cam/`, or opened) can be used instead. Pads are flashed with
   Eagle's apertures; mask openings and paste follow the stop and cream rules (vias tented below
   the via stop limit). Checked against Eagle's own CAM output for TA7358A: drill file, masks and
   paste identical, pads, vias and traces identical, outline identical; poured copper within 1%
@@ -306,17 +306,14 @@ description, checked, turned into a schematic, placed, routed and given JLCPCB p
    it connects by) and parameters (values that change per use). Captured from a block of a
    working design, kept in a library, reused by generation; autoplace keeps an instance's
    layout as one rigid block and autoroute connects only its ports.
-3. **Libraries, rules and CAM jobs out of the bundle:** they come from the user directory
-   (done) instead of being built into the app; the samples stay as demo projects, and as the
-   files Preferences ▸ Add the samples copies in.
-4. **Command line,** so an agent can run the design flow on files with no browser:
+3. **Command line,** so an agent can run the design flow on files with no browser:
    `osprey check|place|route|labels|lcsc|cam <file.osprey>`, a thin layer over the functions
    the UI and the tests already use (Suggest blocks, Place, Autoroute, Arrange labels, LCSC
    Assign, ERC, DRC, CAM). The commands use the same ids as the menus' command list. Later
    the same commands can be exposed over MCP (Model Context Protocol) for a live link to the
    open project; the installed app can't listen on a port, so that link needs a desktop
    wrapper (Tauri or Electron, which would also give real file paths).
-5. **Library parts from a datasheet, a description or an existing library,** run by an
+4. **Library parts from a datasheet, a description or an existing library,** run by an
    agent through the command line (`osprey lib …`), written into the user directory:
    - **Existing libraries first:** Eagle libraries are plentiful (SparkFun, Adafruit, and the
      Eagle exports from SnapEDA, Ultra Librarian and SamacSys) and Osprey already imports
@@ -333,7 +330,7 @@ description, checked, turned into a schematic, placed, routed and given JLCPCB p
    - **Checks:** pin count matches pad count, every pin is mapped, no duplicate numbers, pitch
      and span as described, silkscreen clear of pads; a preview image to compare against the
      datasheet drawing before accepting.
-6. **A ready-to-order check:** ERC, DRC, unrouted connections, LCSC parts and silkscreen in
+5. **A ready-to-order check:** ERC, DRC, unrouted connections, LCSC parts and silkscreen in
    one step.
 
 ### Roadmap
@@ -489,7 +486,7 @@ To cover more (other packages, inductors, ferrite beads), change the filters in
 | Show / hide pour fill (board) | `P`, or the pour fill checkbox in the Layers panel |
 | Put the selected parts in a block | `B`, type a name or path (`rx/frontend`), Enter; empty takes them out |
 | Show / hide block outlines | Shift+B, or the blocks checkbox in the Layers panel |
-| Design-rule check (board) | Design rules panel: Check; Load rules… for a `.dru` file; click a problem to mark it on the board, again to unmark it |
+| Design-rule check (board) | Design rules panel: Check; Load rules… for one in the user directory's `rules/`, or a `.dru` file; click a problem to mark it on the board, again to unmark it |
 | Route traces (board) | `W` or the Route button; click a pad, via or trace end to start, click adds corners, `L` changes layer (adds a via), `/` flips the bend, Shift+click / Shift+L place a leg or via that breaks clearance; ends on copper of the same net, or with a double click, Esc or right-click; Esc again stops |
 | Draw wires (schematic) | `W` or the Wire button; click to start, click adds a corner, `/` flips the bend; a wire ends on a pin or wire, or with a double click, Esc or right-click; Esc again stops |
 | Add part (schematic) | `A` to search, choose a component, Place (or Enter); click places each gate, `R`/`F` while placing, Esc or right-click stops |

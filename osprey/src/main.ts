@@ -535,35 +535,23 @@ async function exportToEagle(): Promise<void> {
 // ---------------------------------------------------------------------------
 // CAM output
 
-const sampleCamJobs = import.meta.glob('../samples/eagle/*.cam', { query: '?raw', import: 'default' });
-
-/** File ▸ CAM ▸ a job file: run it on the board. */
+/** File ▸ CAM ▸ a job file in the user directory: run it on the board. */
 async function camFromJob(key: string): Promise<void> {
-  const name = key.split(/[/:]/).pop()!;
+  const name = key.replace(/^dir:/, '');
   try {
-    await makeCam(parseCamJob(await readSource('cam', sampleCamJobs, key), name));
+    await makeCam(parseCamJob(await readSource('cam', key), name));
   } catch (e) {
     showError(`${name}: ${e instanceof Error ? e.message : String(e)}`);
   }
 }
 
-type Glob = Record<string, () => Promise<unknown>>;
-
-/**
- * Files of one kind to choose from: the user directory's ("dir:<name>"), then the samples
- * (by path) that one of the same name in the user directory doesn't replace.
- */
-function dirAndSamples(sub: Sub, glob: Glob): { key: string; name: string }[] {
-  const out = userDir.list(sub).map((name) => ({ key: `dir:${name}`, name }));
-  for (const path of Object.keys(glob).sort()) {
-    const name = path.split('/').pop()!;
-    if (!userDir.has(sub, name)) out.push({ key: path, name });
-  }
-  return out;
+/** Files of one kind in the user directory to choose from, keyed "dir:<name>". */
+function dirFiles(sub: Sub): { key: string; name: string }[] {
+  return userDir.list(sub).map((name) => ({ key: `dir:${name}`, name }));
 }
 
-async function readSource(sub: Sub, glob: Glob, key: string): Promise<string> {
-  return key.startsWith('dir:') ? userDir.read(sub, key.slice(4)) : ((await glob[key]!()) as string);
+async function readSource(sub: Sub, key: string): Promise<string> {
+  return userDir.read(sub, key.replace(/^dir:/, ''));
 }
 
 /** Keep a file opened from elsewhere (a .dru, a .cam) in the user directory; whether it was added. */
@@ -2547,10 +2535,6 @@ const round = (n: number) => Math.round(n * 1000) / 1000;
 // Adding parts
 
 const PROJECT_SOURCE = 'project';
-const sampleLibraries = {
-  ...import.meta.glob('../samples/osprey/*.ospreylib', { query: '?raw', import: 'default' }),
-  ...import.meta.glob('../samples/eagle/*.lbr', { query: '?raw', import: 'default' }),
-};
 
 /** A library to place parts from: an Osprey library, or an Eagle one imported. */
 const libraryFrom = (name: string, text: string): O.Library =>
@@ -2560,15 +2544,11 @@ const libraryFrom = (name: string, text: string): O.Library =>
 const dirLibraries = new Map<string, O.Library>();
 
 /**
- * The libraries to place parts from, by file name: the user directory's, then the samples and
- * any opened this session (a user directory library hides a sample of the same name).
+ * The libraries to place parts from, by file name: the user directory's, and any opened this
+ * session (Add part ▸ Open library…).
  */
 function libraryNames(): string[] {
-  const names = new Set([
-    ...userDir.list('libraries'),
-    ...Object.keys(sampleLibraries).map((p) => p.split('/').pop()!),
-    ...loadedLibraries.keys(),
-  ]);
+  const names = new Set([...userDir.list('libraries'), ...loadedLibraries.keys()]);
   return [...names].sort((a, b) => a.localeCompare(b));
 }
 
@@ -2581,12 +2561,7 @@ async function librarySource(key: string): Promise<O.Library | undefined> {
     dirLibraries.set(key, lib);
     return lib;
   }
-  if (loadedLibraries.has(key)) return loadedLibraries.get(key);
-  const path = Object.keys(sampleLibraries).find((p) => p.endsWith(`/${key}`));
-  if (!path) return undefined;
-  const lib = libraryFrom(key, (await sampleLibraries[path]!()) as string);
-  loadedLibraries.set(key, lib);
-  return lib;
+  return loadedLibraries.get(key);
 }
 
 function renderPartsSources(): void {
@@ -3132,7 +3107,6 @@ function routeSketch(r: RouteSession) {
 // ---------------------------------------------------------------------------
 // Design rules and DRC
 
-const sampleRules = import.meta.glob('../samples/eagle/*.dru', { query: '?raw', import: 'default' });
 const DRC_KIND: Record<Violation['kind'], string> = { overlap: 'Short', clearance: 'Clearance', width: 'Width', drill: 'Drill', dimension: 'Edge', unrouted: 'Unrouted' };
 
 function renderDrcPanel(): void {
@@ -3140,7 +3114,7 @@ function renderDrcPanel(): void {
   const rules = designRules(project);
   drcName.textContent = rules.get('@name') ?? (rules.size ? 'unnamed' : "Eagle's defaults");
   drcLoad.replaceChildren(new Option('Load rules…', ''));
-  for (const { key, name } of dirAndSamples('rules', sampleRules)) drcLoad.append(new Option(name, key));
+  for (const { key, name } of dirFiles('rules')) drcLoad.append(new Option(name, key));
   drcLoad.append(new Option('From a .dru file…', 'open'));
   drcList.replaceChildren();
   if (!drcResult) {
@@ -3241,7 +3215,7 @@ druInput.addEventListener('change', async () => {
 async function loadRulesFrom(key: string): Promise<void> {
   const name = key.split(/[/:]/).pop()!;
   try {
-    await loadRules(name, await readSource('rules', sampleRules, key));
+    await loadRules(name, await readSource('rules', key));
   } catch (e) {
     showError(`Could not read ${name}: ${e instanceof Error ? e.message : String(e)}`);
   }
@@ -4538,10 +4512,25 @@ async function openRecent(r: Recent): Promise<void> {
   }
 }
 
+/**
+ * The sample libraries, design rules and CAM job: not built into the app (the user directory
+ * holds what is used), only copied into it by Preferences ▸ Add the samples. Each loads on
+ * demand, as its own chunk.
+ */
+type Glob = Record<string, () => Promise<unknown>>;
+const sampleUserFiles: [Sub, Glob][] = [
+  ['libraries', {
+    ...import.meta.glob('../samples/osprey/*.ospreylib', { query: '?raw', import: 'default' }),
+    ...import.meta.glob('../samples/eagle/*.lbr', { query: '?raw', import: 'default' }),
+  }],
+  ['rules', import.meta.glob('../samples/eagle/*.dru', { query: '?raw', import: 'default' })],
+  ['cam', import.meta.glob('../samples/eagle/*.cam', { query: '?raw', import: 'default' })],
+];
+
 /** Copy the sample libraries, design rules and CAM job into the user directory (those not there). */
 async function addSamplesToUserDir(): Promise<number> {
   let n = 0;
-  const sets: [Sub, Glob][] = [['libraries', sampleLibraries], ['rules', sampleRules], ['cam', sampleCamJobs]];
+  const sets = sampleUserFiles;
   for (const [sub, glob] of sets) {
     for (const path of Object.keys(glob).sort()) {
       const name = path.split('/').pop()!;
@@ -4751,7 +4740,7 @@ commands.add(
     id: 'file.cam', menu: 'File', group: 'cam', label: 'CAM', title: 'Manufacturing files: Gerber and Excellon drill, zipped',
     children: () => [
       { id: 'cam.default', domId: 'cam-default', group: 'jobs', label: `${DEFAULT_JOB.name} (.zip)`, enabled: () => !!project?.board, run: () => makeCam(DEFAULT_JOB) },
-      ...dirAndSamples('cam', sampleCamJobs).map(({ key, name }): Command => ({
+      ...dirFiles('cam').map(({ key, name }): Command => ({
         id: `cam.job.${name}`, group: 'jobs', label: `Job ${name}`, enabled: () => !!project?.board, run: () => camFromJob(key),
       })),
       { id: 'cam.open', domId: 'cam-open', group: 'file', label: 'From a .cam job file…', enabled: () => !!project?.board, run: () => camInput.click() },
@@ -4841,7 +4830,7 @@ commands.add(
   {
     id: 'tools.load-rules', menu: 'Tools', group: 'check', label: 'Load design rules',
     children: () => [
-      ...dirAndSamples('rules', sampleRules).map(({ key, name }): Command => ({
+      ...dirFiles('rules').map(({ key, name }): Command => ({
         id: `rules.${name}`, group: 'files', label: name, enabled: canEditBoard, run: () => loadRulesFrom(key),
       })),
       { id: 'rules.open', group: 'open', label: 'From a .dru file…', enabled: canEditBoard, run: () => druInput.click() },

@@ -353,14 +353,17 @@ describe.skipIf(!findChrome())('editor in the browser', () => {
 
   it('runs commands from the menus, which show their state', async () => {
     await d.button('#autoroute-btn'); // Tools ▸ Autoroute
-    const routed = (await d.state()).undo;
-    expect(routed).toBeTruthy();
+    expect((await d.state()).status).toMatch(/^Autorouted/);
     expect(await d.evaluate('document.querySelector(".menubar").classList.contains("open")')).toBe(false);
-    // Edit ▸ Undo names what it undoes.
+    // Edit ▸ Rotate acts on the selection; Edit ▸ Undo names what it undoes.
+    const { at } = await footprint('R1');
+    await d.click(at[0], at[1]);
+    await d.button('#cmd-edit-rotate');
+    expect((await d.state()).undo).toBe('Rotate R1');
     await d.menu('Edit');
-    expect(await d.evaluate('document.getElementById("cmd-edit-undo").textContent')).toContain(`Undo ${routed}`);
+    expect(await d.evaluate('document.getElementById("cmd-edit-undo").textContent')).toContain('Undo Rotate R1');
     await d.button('#cmd-edit-undo');
-    expect((await d.state()).redo).toBe(routed);
+    expect((await d.state()).redo).toBe('Rotate R1');
     // View ▸ Show poured copper is ticked, and P turns it off.
     await d.menu('View');
     expect(await d.evaluate('document.getElementById("cmd-view-pours").getAttribute("aria-checked")')).toBe('true');
@@ -582,8 +585,12 @@ describe.skipIf(!findChrome())('libraries in the browser', () => {
     expect(d.problems).toEqual([]);
   });
 
+  /** Libraries come from the user directory: keep it in the browser, with the samples in it. */
+  const userDirWithSamples = () => d.evaluate('__osprey.userDir.useBrowser().then(() => __osprey.addSamplesToUserDir())');
+
   it('copies items from another library and from a project, and duplicates one', async () => {
     await d.open('madhu.ospreylib');
+    await userDirWithSamples();
     await d.button('#new-lib-btn');
     await d.type('library-name', 'mine');
     await d.choose('#copy-from', 'lib:madhu.ospreylib');
@@ -609,6 +616,7 @@ describe.skipIf(!findChrome())('libraries in the browser', () => {
     await d.open('madhu.ospreylib');
     expect((await d.state()).view).toBe('library');
     await d.open('wwvbfind.osprey', 'schematic');
+    await userDirWithSamples();
     await d.choose('#parts-source', 'madhu.ospreylib');
     await d.waitFor(() => document.querySelectorAll('#parts-list button').length > 10, 'the library parts');
     expect(d.problems).toEqual([]);
@@ -629,6 +637,9 @@ describe.skipIf(!findChrome())('the user directory', () => {
 
   it('offers to set one up, and fills it with the samples', async () => {
     expect(await d.evaluate('document.getElementById("userdir-panel").hidden')).toBe(false);
+    // Nothing is built in: Add part offers only the project's own library.
+    expect(await d.evaluate('[...document.getElementById("parts-source").options].map((o) => o.value)')).toEqual(['project', 'open']);
+    expect((await d.state()).dirty).toBe(false); // no library to update the project from
     await d.evaluate('__osprey.userDir.useBrowser()');
     expect(await d.evaluate('__osprey.addSamplesToUserDir()')).toBe(4);
     expect(await listed('libraries')).toEqual(['madhu.lbr', 'madhu.ospreylib']);
