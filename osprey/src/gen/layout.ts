@@ -136,6 +136,8 @@ interface Node {
   at: Vec;
 }
 
+/** Separates a net's name from the block in a routing key for a piece of it. */
+const KEY = '\u0001';
 const labelWidth = (name: string) => name.length * LABEL_SIZE * 0.85 + G / 2;
 
 // ---------------------------------------------------------------------------
@@ -195,7 +197,16 @@ class BlockPlacement {
   }
 
   /** Place the gates; positions are relative to the block's top left (y down is negative). */
-  place(): void {
+  /** The gates the left-to-right order can start from (one per variant tried). */
+  get starts(): number {
+    return Math.max(1, this.nodes.filter((n) => !n.powerOnly).length);
+  }
+
+  /**
+   * `start`: which signal gate the left-to-right order starts from; `flip`: turn two-pin
+   * parts so their pin toward the earlier column is on the left.
+   */
+  place(start = 0, flip = true): void {
     // Two-pin parts on a supply (a pin on each side: a resistor, a capacitor) stand upright,
     // the supply pin down (ground) or up.
     for (const n of this.nodes) {
@@ -210,7 +221,8 @@ class BlockPlacement {
     // Columns: breadth first through signal nets, from the first part listed.
     const signal = this.nodes.filter((n) => !n.powerOnly);
     const seen = new Set<Node>();
-    for (const start of signal) {
+    for (const first of [...signal.slice(start), ...signal.slice(0, start)]) {
+      const start = first;
       if (seen.has(start)) continue;
       start.col = 0;
       seen.add(start);
@@ -228,7 +240,7 @@ class BlockPlacement {
     for (const n of this.nodes) if (n.powerOnly) n.col = signal.find((x) => x.part === n.part)?.col ?? 0;
 
     // Two-pin parts lying across: the pin toward the earlier column on the left.
-    for (const n of signal) {
+    for (const n of flip ? signal : []) {
       if (n.pins.length !== 2 || n.rot !== 0) continue;
       const left = n.pins.find((p) => p.side === 'L');
       const right = n.pins.find((p) => p.side === 'R');
@@ -522,11 +534,19 @@ class Router {
     return undefined;
   }
 
+  /** How the drawing came out, for comparing layouts: grid steps of wire, bends, crossings. */
+  readonly stats = { length: 0, bends: 0, crossings: 0 };
+
   private commit(net: string, path: Vec[]): void {
     const own = this.net(net);
+    let last: Dir | undefined;
     for (let n = 0; n + 1 < path.length; n++) {
       const [i, j] = path[n]!;
       const d = dirOf([path[n + 1]![0] - i, path[n + 1]![1] - j]);
+      this.stats.length++;
+      if (last !== undefined && last !== d) this.stats.bends++;
+      last = d;
+      if (n > 0) for (const [name, other] of this.nets) if (name !== net && other.use.has(pk(i, j))) this.stats.crossings++;
       this.edges.set(this.edgeKey(i, j, d), net);
       own.use.set(pk(i, j), (own.use.get(pk(i, j)) ?? 0) | BIT[d]!);
       const k2 = pk(path[n + 1]![0], path[n + 1]![1]);
@@ -535,13 +555,13 @@ class Router {
   }
 
   /** Wire a pin to its net's drawing so far (or, the first time, to `first`); false if no way. */
-  connect(p: PinPoint, first?: PinPoint): boolean {
+  connect(p: PinPoint, first?: PinPoint, maxLength = Infinity): boolean {
     const own = this.net(p.net);
     const target = first
       ? (i: number, j: number, d: Dir) => i === first.i && j === first.j && d === opposite(first.out)
       : (i: number, j: number, d: Dir) => this.joinable(own, pk(i, j), d);
     const path = this.search(p.net, [{ i: p.i, j: p.j, dirs: [p.out] }], target);
-    if (!path) return false;
+    if (!path || path.length - 1 > maxLength) return false;
     this.commit(p.net, path);
     return true;
   }
@@ -675,7 +695,8 @@ class Router {
             return labelFor(seg as O.Segment, w, pinPts);
           });
         }
-        if (set.size) out.push({ net: name, segment: seg });
+        // A routing key "NET0001block" is a piece of NET drawn on its own (a rail in one block).
+      if (set.size) out.push({ net: name.split(KEY)[0]!, segment: seg });
       }
     }
     return out;
@@ -683,6 +704,211 @@ class Router {
 }
 
 // ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// Routing a set of placed gates, and judging the result
+
+/** Where a gate's drawing reaches, room for its stubs and supply symbols included. */
+const extentOf = (n: Node): Vec[] => [[n.at[0] + n.box.x0, n.at[1] + n.box.y0 - n.below], [n.at[0] + n.box.x1, n.at[1] + n.box.y1 + n.above]];
+
+/**
+ * Route placed gates. A net wholly among them in one block, or in two, is wired; a net in
+ * three or more blocks (a rail such as VCCA) or reaching gates not among them is wired within
+ * each block and labelled there once. Then a supply symbol at each supply pin, then labels.
+ * The score adds wire length, bends, crossings, labels, pins left unwired and area: lower is
+ * better.
+ */
+function routeNodes(nodes: Node[], nets: RNet[], supplies: Map<string, SupplySymbol>, supplyName: (s: SupplySymbol) => string): { router: Router; extent: Box; score: number } {
+  const extent = boxOf(nodes.flatMap(extentOf));
+  const router = new Router(extent);
+  const blockOfPart = new Map(nodes.map((n) => [n.part.part.name, n.part.block]));
+  const policy = new Map<string, { whole: boolean }>();
+  for (const net of nets) {
+    if (net.supply) continue;
+    const here = new Set(net.pins.filter((r) => blockOfPart.has(r.part)).map((r) => blockOfPart.get(r.part)!));
+    const elsewhere = net.pins.some((r) => !blockOfPart.has(r.part));
+    policy.set(net.name, { whole: !elsewhere && here.size <= 2 });
+  }
+  const keyOf = (net: RNet, block: string) => (net.supply || policy.get(net.name)!.whole ? net.name : `${net.name}${KEY}${block}`);
+
+  const pins: PinPoint[] = [];
+  const offGrid: PinPoint[] = [];
+  for (const n of nodes) {
+    router.addGate(
+      { x0: n.at[0] + n.body.x0, y0: n.at[1] + n.body.y0, x1: n.at[0] + n.body.x1, y1: n.at[1] + n.body.y1 },
+      textBoxes(n.symbol).map((t) => rotBox(t, n.rot)).map((b) => ({ x0: n.at[0] + b.x0, y0: n.at[1] + b.y0, x1: n.at[0] + b.x1, y1: n.at[1] + b.y1 })),
+    );
+    for (const p of n.pins) {
+      if (!p.net) continue;
+      const x = n.at[0] + p.local[0];
+      const y = n.at[1] + p.local[1];
+      const pp: PinPoint = { ref: p.ref, net: keyOf(p.net, n.part.block), out: dirOf(OUT[p.side]), i: Math.round(x / G), j: Math.round(y / G) };
+      if (onGrid(x) && onGrid(y)) {
+        router.addPin(pp);
+        pins.push(pp);
+      } else offGrid.push(pp);
+    }
+  }
+  const byKey = new Map<string, PinPoint[]>();
+  for (const p of pins) byKey.set(p.net, [...(byKey.get(p.net) ?? []), p]);
+  const rnet = new Map(nets.map((n) => [n.name, n]));
+  const real = (key: string) => rnet.get(key.split(KEY)[0]!)!;
+  const span = (ps: PinPoint[]) => Math.max(...ps.map((p) => p.i)) - Math.min(...ps.map((p) => p.i)) + Math.max(...ps.map((p) => p.j)) - Math.min(...ps.map((p) => p.j));
+  const signal = [...byKey].filter(([k]) => !real(k).supply).sort((a, b) => span(a[1]) - span(b[1]));
+
+  let labels = 0;
+  const unrouted: PinPoint[] = [];
+  const brokenKeys = new Set<string>();
+  for (const [key, ps] of signal) {
+    // A net between two blocks is wired only if the wire stays reasonably short.
+    const blocks = new Set(ps.map((p) => blockOfPart.get(p.ref.part)));
+    const limit = blocks.size > 1 ? 2 * span(ps) + 12 : Infinity;
+    const order = [...ps].sort((a, b) => a.i - b.i || b.j - a.j);
+    const first = order[0]!;
+    let connected = 0;
+    for (const p of order.slice(1)) {
+      if (router.connect(p, connected === 0 ? first : undefined, limit)) connected++;
+      else {
+        unrouted.push(p);
+        brokenKeys.add(key);
+      }
+    }
+    if (!connected && order.length > 1) unrouted.push(first);
+  }
+  for (const [key, ps] of byKey) {
+    const net = real(key);
+    if (!net.supply) continue;
+    for (const p of ps) {
+      const s = supplies.get(net.name);
+      if (!s || !router.supply(p, s, supplyName(s))) unrouted.push(p);
+    }
+  }
+  // Labels: a piece of a net drawn on its own (a rail's, a net leaving these gates), a net cut
+  // short, a lone pin; then a label at each pin left unwired.
+  for (const [key, ps] of signal) {
+    const lone = ps.length === 1 && !unrouted.includes(ps[0]!);
+    const drawn = ps.filter((p) => !unrouted.includes(p));
+    if ((key.includes(KEY) || brokenKeys.has(key) || lone) && drawn.length) {
+      if (router.label(key, drawn, real(key).name)) labels++;
+      else for (const p of drawn) if (!unrouted.includes(p)) unrouted.push(p);
+    }
+  }
+  for (const p of unrouted) {
+    if (!router.label(p.net, [p], real(p.net).name)) router.stubLabel(p);
+    labels++;
+  }
+  for (const p of offGrid) {
+    router.stubLabel(p);
+    labels++;
+  }
+  let backwards = 0;
+  const where = new Map<string, number>();
+  for (const n of nodes) for (const p of n.pins) where.set(`${p.ref.part}.${p.ref.gate}.${p.ref.pin}`, n.at[0] + p.local[0]);
+  for (const n of nodes) {
+    for (const p of n.pins) {
+      if (p.pin.direction !== 'out' || !p.net) continue;
+      for (const q of nodes) for (const r of q.pins) if (r.net === p.net && r.pin.direction === 'in') backwards += Math.max(0, (where.get(`${p.ref.part}.${p.ref.gate}.${p.ref.pin}`)! - (q.at[0] + r.local[0])) / G);
+    }
+  }
+  const s = router.stats;
+  const area = ((extent.x1 - extent.x0) / G) * ((extent.y1 - extent.y0) / G);
+  return { router, extent, score: s.length + 4 * s.bends + 8 * s.crossings + 30 * labels + 60 * unrouted.length + area / 40 + 2 * backwards };
+}
+
+/** A block laid out the best of several ways: each signal gate as the start, flipped or not. */
+function bestPlacement(parts: RPart[], nets: RNet[], supplies: Map<string, SupplySymbol>): BlockPlacement {
+  let best: { placement: BlockPlacement; score: number } | undefined;
+  const starts = Math.min(8, new BlockPlacement(parts, nets, supplies).starts);
+  for (let start = 0; start < starts; start++) {
+    for (const flip of [true, false]) {
+      const placement = new BlockPlacement(parts, nets, supplies);
+      placement.place(start, flip);
+      if (!placement.nodes.length) return placement;
+      const { score } = routeNodes(placement.nodes, nets, supplies, () => 'S');
+      if (!best || score < best.score) best = { placement, score };
+    }
+  }
+  return best!.placement;
+}
+
+/**
+ * Arrange a group's blocks: the first where it is; each next one beside the block it connects
+ * to most (by nets between just the two), on the side and at the height that brings the pins
+ * closest, slid along that side until it is clear of the others. A block with no such link
+ * goes to the right of the rest.
+ */
+function arrange(placements: { block: string; placement: BlockPlacement }[], netBlocks: Map<string, Set<string>>): void {
+  const placed: { block: string; box: Box }[] = [];
+  const pinsAt = new Map<string, { at: Vec; side: Side }>();
+  const local = (n: Node, p: PinInfo): Vec => [n.at[0] + p.local[0], n.at[1] + p.local[1]];
+  const clear = (b: Box) => placed.every(({ box }) => b.x1 + INNER_GAP <= box.x0 || box.x1 + INNER_GAP <= b.x0 || b.y1 + INNER_GAP <= box.y0 || box.y1 + INNER_GAP <= b.y0);
+  const shift = (b: Box, d: Vec): Box => ({ x0: b.x0 + d[0], y0: b.y0 + d[1], x1: b.x1 + d[0], y1: b.y1 + d[1] });
+  for (const { block, placement } of placements) {
+    const nodes = placement.nodes;
+    if (!nodes.length) continue;
+    const box = boxOf(nodes.flatMap(extentOf));
+    // Links: this block's pins on a net shared with exactly one block placed before it.
+    const links: { from: Vec; to: Vec; side: Side; block: string }[] = [];
+    for (const n of nodes) {
+      for (const p of n.pins) {
+        if (!p.net || p.net.supply) continue;
+        const bs = netBlocks.get(p.net.name)!;
+        if (bs.size !== 2) continue;
+        for (const r of p.net.pins) {
+          const to = pinsAt.get(`${r.part}.${r.gate}.${r.pin}`);
+          const other = placed.find((x) => x.block !== block && bs.has(x.block));
+          if (to && other) links.push({ from: local(n, p), to: to.at, side: to.side, block: other.block });
+        }
+      }
+    }
+    let offset: Vec = [0, 0];
+    if (placed.length && !links.length) {
+      const all = boxOf(placed.flatMap(({ box: b }) => [[b.x0, b.y0], [b.x1, b.y1]] as Vec[]));
+      offset = [all.x1 + INNER_GAP - box.x0, all.y1 - box.y1];
+    } else if (links.length) {
+      const counts = new Map<string, number>();
+      for (const l of links) counts.set(l.block, (counts.get(l.block) ?? 0) + 1);
+      const target = [...counts].sort((a, b) => b[1] - a[1])[0]![0];
+      const tb = placed.find((x) => x.block === target)!.box;
+      const mean = (vs: Vec[]): Vec => [vs.reduce((s, v) => s + v[0], 0) / vs.length, vs.reduce((s, v) => s + v[1], 0) / vs.length];
+      const [px, py] = mean(links.map((l) => l.from));
+      const [tx, ty] = mean(links.map((l) => l.to));
+      // The side the linked pins face is best; else right (signal flows on), left, below, above.
+      const facing = new Map<Side, number>();
+      // (A pin on top or bottom, a transistor's collector, says little: such a link counts for right.)
+      for (const l of links) {
+        const side: Side = l.side === 'L' ? 'L' : 'R';
+        facing.set(side, (facing.get(side) ?? 0) + 1);
+      }
+      const face = [...facing].sort((a, b) => b[1] - a[1])[0]![0];
+      const bias = (side: Side, fallback: number) => (side === face ? 0 : fallback);
+      const sides: { d: Vec; along: Vec; bias: number }[] = [
+        { d: [tb.x1 + INNER_GAP - box.x0, ty - py], along: [0, 1], bias: bias('R', 10) },
+        { d: [tb.x0 - INNER_GAP - box.x1, ty - py], along: [0, 1], bias: bias('L', 15) },
+        { d: [tx - px, tb.y0 - INNER_GAP - box.y1], along: [1, 0], bias: bias('B', 25) },
+        { d: [tx - px, tb.y1 + INNER_GAP - box.y0], along: [1, 0], bias: bias('T', 35) },
+      ];
+      let best: { d: Vec; cost: number } | undefined;
+      for (const side of sides) {
+        for (let k = 0; k < 120; k++) {
+          const slide = (k % 2 ? 1 : -1) * Math.ceil(k / 2) * G;
+          const d: Vec = [snap(side.d[0] + side.along[0] * slide), snap(side.d[1] + side.along[1] * slide)];
+          if (!clear(shift(box, d))) continue;
+          const cost = links.reduce((s, l) => s + Math.abs(l.from[0] + d[0] - l.to[0]) + Math.abs(l.from[1] + d[1] - l.to[1]), 0) / G / links.length + side.bias;
+          if (!best || cost < best.cost) best = { d, cost };
+          break;
+        }
+      }
+      if (best) offset = best.d;
+    }
+    offset = [snap(offset[0]), snap(offset[1])];
+    for (const n of nodes) {
+      n.at = [r6(n.at[0] + offset[0]), r6(n.at[1] + offset[1])];
+      for (const p of n.pins) pinsAt.set(`${p.ref.part}.${p.ref.gate}.${p.ref.pin}`, { at: local(n, p), side: p.side });
+    }
+    placed.push({ block, box: shift(box, offset) });
+  }
+}
 
 /** Build a project (schematic, board with footprints parked beside it) from a resolved description. */
 export function generateProject(design: Resolved): O.Project {
@@ -716,9 +942,6 @@ export function generateProject(design: Resolved): O.Project {
   const top = (b: string) => b.split('/')[0]!;
   const groups: string[][] = [];
   for (const t of [...new Set(blocks.map(top))]) groups.push([...blocks.filter((b) => b === t), ...blocks.filter((b) => b !== t && top(b) === t)]);
-  const groupOf = new Map<string, number>();
-  groups.forEach((g, i) => g.forEach((b) => groupOf.set(b, i)));
-  const partGroup = new Map(design.parts.map((p) => [p.part.name, groupOf.get(p.block)!]));
 
   let supplyCount = 0;
   const sheet = project.schematic!.sheets[0]!;
@@ -733,74 +956,17 @@ export function generateProject(design: Resolved): O.Project {
   let sheetX = 0;
   let rowTop = 0;
   let rowBottom = 0;
-  groups.forEach((group, gi) => {
-    // Place the group's blocks side by side.
-    const nodes: Node[] = [];
-    let x = 0;
-    for (const b of group) {
-      const placement = new BlockPlacement(design.parts.filter((p) => p.block === b), design.nets, supplies);
-      placement.place();
-      for (const n of placement.nodes) n.at = [snap(n.at[0] + x), n.at[1]];
-      nodes.push(...placement.nodes);
-      x = snap(x + placement.width + INNER_GAP);
-    }
-    const extent = boxOf(nodes.flatMap((n) => [[n.at[0] + n.box.x0, n.at[1] + n.box.y0 - n.below], [n.at[0] + n.box.x1, n.at[1] + n.box.y1 + n.above]] as Vec[]));
+  // How many blocks each net has pins in (a rail through three or more is labelled per block).
+  const partBlock = new Map(design.parts.map((p) => [p.part.name, p.block]));
+  const netBlocks = new Map(design.nets.map((n) => [n.name, new Set(n.pins.map((r) => partBlock.get(r.part)).filter((b): b is string => b !== undefined))]));
 
-    // Route it: signal nets (most local first), then supply symbols, then labels.
-    const router = new Router(extent);
-    const pinPoints: PinPoint[] = [];
-    const offGrid: PinPoint[] = [];
-    for (const n of nodes) {
-      router.addGate(
-        { x0: n.at[0] + n.body.x0, y0: n.at[1] + n.body.y0, x1: n.at[0] + n.body.x1, y1: n.at[1] + n.body.y1 },
-        textBoxes(n.symbol).map((t) => rotBox(t, n.rot)).map((b) => ({ x0: n.at[0] + b.x0, y0: n.at[1] + b.y0, x1: n.at[0] + b.x1, y1: n.at[1] + b.y1 })),
-      );
-      for (const p of n.pins) {
-        if (!p.net) continue;
-        const x0 = n.at[0] + p.local[0];
-        const y0 = n.at[1] + p.local[1];
-        const pp: PinPoint = { ref: p.ref, net: p.net.name, out: dirOf(OUT[p.side]), i: Math.round(x0 / G), j: Math.round(y0 / G) };
-        if (onGrid(x0) && onGrid(y0)) {
-          router.addPin(pp);
-          pinPoints.push(pp);
-        } else offGrid.push(pp);
-      }
-    }
-    const byNet = new Map<string, PinPoint[]>();
-    for (const p of pinPoints) byNet.set(p.net, [...(byNet.get(p.net) ?? []), p]);
-    const rnet = new Map(design.nets.map((n) => [n.name, n]));
-    const leaves = (name: string) => rnet.get(name)!.pins.some((r) => partGroup.get(r.part) !== gi);
-    const span = (ps: PinPoint[]) => Math.max(...ps.map((p) => p.i)) - Math.min(...ps.map((p) => p.i)) + Math.max(...ps.map((p) => p.j)) - Math.min(...ps.map((p) => p.j));
-    const signal = [...byNet].filter(([name]) => !rnet.get(name)!.supply).sort((a, b) => span(a[1]) - span(b[1]));
-    const unrouted: PinPoint[] = [];
-    for (const [, ps] of signal) {
-      // From the left: the first pin, then each next one nearest to what is drawn.
-      const order = [...ps].sort((a, b) => a.i - b.i || b.j - a.j);
-      const first = order[0]!;
-      let connected = 0;
-      for (const p of order.slice(1)) {
-        if (router.connect(p, connected === 0 ? first : undefined)) connected++;
-        else unrouted.push(p);
-      }
-      if (!connected && order.length > 1) unrouted.push(first);
-    }
-    for (const [name, ps] of byNet) {
-      if (!rnet.get(name)!.supply) continue;
-      for (const p of ps) {
-        const s = supplies.get(name);
-        if (!s || !router.supply(p, s, `${s.component.prefix || 'SUPPLY'}${supplyCount + 1}`)) unrouted.push(p);
-        else supplyCount++;
-      }
-    }
-    // Labels: one per group for a net that leaves it (or a lone pin), then any pin left over.
-    for (const [name, ps] of signal) {
-      const lone = ps.length === 1 && !unrouted.includes(ps[0]!);
-      if ((leaves(name) || lone) && !router.label(name, ps, name)) for (const p of ps) if (!unrouted.includes(p)) unrouted.push(p);
-    }
-    for (const p of unrouted) {
-      if (!router.label(p.net, [p], p.net)) router.stubLabel(p);
-    }
-    for (const p of offGrid) router.stubLabel(p);
+  groups.forEach((group) => {
+    // Each block laid out the best of several ways; then the group's blocks arranged, each
+    // beside what it connects to.
+    const placements = group.map((b) => ({ block: b, placement: bestPlacement(design.parts.filter((p) => p.block === b), design.nets, supplies) }));
+    arrange(placements, netBlocks);
+    const nodes = placements.flatMap((x) => x.placement.nodes);
+    const { router, extent } = routeNodes(nodes, design.nets, supplies, (s) => `${s.component.prefix || 'SUPPLY'}${++supplyCount}`);
 
     // The group's drawing, moved to its place on the sheet.
     const segments = router.segments();

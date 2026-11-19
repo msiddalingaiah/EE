@@ -33,7 +33,8 @@ function netlist(p: O.Project): string[] {
     .sort();
 }
 
-describe('schematic generation', () => {
+// Generating routes each block several ways to pick the best: slower than most tests.
+describe('schematic generation', { timeout: 30000 }, () => {
   it('draws wwvbfind2 from its block description with the same netlist as the hand-drawn one', () => {
     const { problems, project } = generate(description);
     expect(problems).toEqual([]);
