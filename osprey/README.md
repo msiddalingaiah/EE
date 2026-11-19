@@ -273,11 +273,13 @@ native model (see [docs/format.md](docs/format.md)). Eagle files are imported in
   words (see [Block descriptions](#block-descriptions)). It is checked first (components and
   packages in the libraries, pins, pins on two nets, pins left unconnected), with problems by
   line; then each block gets its own area with its BLOCK attribute set, parts in columns by
-  signal flow, wires inside a block on vertical trunks between columns (only T junctions, a wire
-  between any two pins), net labels for the nets between blocks, and a supply symbol at each
-  power pin above or below a part (a label on a side). `samples/blocks/wwvbfind2.blocks`
-  generates the same netlist as the hand-drawn `wwvbfind2`. Not yet: drawing feedback loops
-  (an oscillator's) as a person would; such a block falls back to labels for some local nets.
+  signal flow. A grid router wires each top-level block and the blocks inside it as one circuit:
+  orthogonal wires around the symbols, T junctions only, a wire between any two pins, crossings
+  straight through; each supply pin gets an upright supply symbol in the nearest free spot, and
+  only a net that leaves the group gets a net label. `samples/blocks/wwvbfind2.blocks` generates
+  the same netlist as the hand-drawn `wwvbfind2` (`wwvbfind2-gen.osprey`). Not yet: placement
+  that keeps wires short (a rail like VCCA, or an MCU's pins to its sub-blocks, still loops
+  around the parts).
 - **Command line** (`npm run osprey -- …`, or `node scripts/osprey.mjs`): runs the design flow on
   `.osprey` files with no browser, for agents and scripts: `osprey x.osprey place route labels
   lcsc check cam assembly` runs the steps in order and saves the project in place (or `-o`).
