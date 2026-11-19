@@ -43,7 +43,10 @@ export interface Driver {
   drag(x1: number, y1: number, x2: number, y2: number, opts?: { steps?: number; modifiers?: number }): Promise<void>;
   key(spec: string): Promise<void>;
   type(field: string, text: string): Promise<void>;
+  /** Click by text or selector; a menu item's menu is opened first. */
   button(target: string): Promise<void>;
+  /** Open a menu and its submenus, e.g. "File" or "File/CAM". */
+  menu(path: string): Promise<void>;
   choose(selector: string, value: string): Promise<void>;
   /** Save files the page saves (Save, Export) into dir, as downloads, instead of showing a save dialog. */
   downloads(dir: string): Promise<void>;

@@ -7,13 +7,20 @@ A browser-based electronic CAD tool built around noun-verb (select, then act) ed
 An Osprey **project** is one `.osprey` file holding a schematic and its board as a single
 native model (see [docs/format.md](docs/format.md)). Eagle files are imported into it.
 
-- **Open** an `.osprey` project, or **import** an Eagle `.sch` + `.brd` pair (select both, or
-  drop both on the canvas).
-- **Save** (Ctrl+S) writes one `.osprey` file: JSON in a canonical, diff-friendly layout.
-  In Chromium browsers a project opened with Open… is saved in place. The project is named
+- **Menus:** File, Edit, View, Tools and Help hold the commands, each with its shortcut; the
+  toolbar keeps Save, Undo and Redo, and the modes and settings (view, sheet, Wire/Route, Pour,
+  Via, Text, layer, width, Fit). One command list drives the menus, the shortcuts and the
+  **command palette** (Ctrl+Shift+P or F1: type part of a command's name or menu, Enter runs it);
+  Help ▸ Shortcuts lists every key.
+- **File ▸ New project** starts an empty schematic and a 50 × 40 mm board; **Open project…**
+  opens an `.osprey` project, **Import Eagle…** an Eagle `.sch` + `.brd` pair (select both, or
+  drop both on the canvas), and **Open sample** any of the samples.
+- **Save** (Ctrl+S) writes one `.osprey` file: JSON in a canonical, diff-friendly layout;
+  **Save as…** (Ctrl+Shift+S) asks where. In Chromium browsers a project opened with Open
+  project… is saved in place. The project is named
   after its file: opening `x.osprey`, or saving under a new name, makes the title, CAM and
   assembly zips (`x_CAM.zip`, `x_assembly.zip`) and Eagle export follow it.
-- **Libraries:** open an Osprey library (`.ospreylib`), or import an Eagle library (`.lbr`);
+- **Libraries:** open an Osprey library (File ▸ Open library…), or import an Eagle library (`.lbr`);
   Save writes an `.ospreylib` (the same canonical JSON) and Export Eagle writes an `.lbr`.
   The Library panel lists components, symbols or footprints (tabs, with counts), filtered by
   name or description. A component links to its gates' symbols and its variants' footprints,
@@ -32,7 +39,7 @@ native model (see [docs/format.md](docs/format.md)). Eagle files are imported in
   a pad's name, size and roundness (SMD) or drill, diameter and shape, position and rotation.
   Renaming or deleting a pin or pad updates the pin-to-pad maps of the library's components
   that use it, so the library stays consistent.
-- **Drawing symbols and footprints** (library): **New library** starts an empty one; **+ Symbol**
+- **Drawing symbols and footprints** (library): **File ▸ New library** starts an empty one; **+ Symbol**
   and **+ Footprint** add items, named in the inspector (as is the library). The toolbar's tools
   add pins (named P$1, P$2…, pointing in toward the origin), through-hole and SMD pads
   (numbered 1, 2…), lines (click the corners; double-click, Enter or Esc ends), rectangles,
@@ -49,7 +56,7 @@ native model (see [docs/format.md](docs/format.md)). Eagle files are imported in
   a transistor) can have a default **LCSC part** number per variant (and technology), which its
   parts use unless they have their own; it is stored as a technology attribute, as Eagle keeps
   MF and MPN. Components with typed values (resistors) take the number on each part instead.
-- **Export Eagle…** writes the project back as an Eagle 9 `.sch` + `.brd`, with pad lists and
+- **File ▸ Export Eagle…** writes the project back as an Eagle 9 `.sch` + `.brd`, with pad lists and
   airwires regenerated and the Eagle data Osprey doesn't model written back. Importing the
   exported files gives the same project again (checked on 152 real pairs).
 - **Views:** schematic and board, switched with Tab or the toolbar toggle; each keeps its own
@@ -91,7 +98,7 @@ native model (see [docs/format.md](docs/format.md)). Eagle files are imported in
   suffix (IN → IN_2), while supply nets (GND, VCC) join the existing net. A name that is free
   is kept, so cut and paste keeps names. The clipboard holds the components the parts use,
   so a selection can be pasted into another project.
-- **Autoroute** (board): routes the easy part of a board in one undo step. Each SMD pad on
+- **Tools ▸ Autoroute** (board): routes the easy part of a board in one undo step. Each SMD pad on
   ground gets a short trace to its own via; then the signal connections, shortest first, go on
   the top layer at the net's width (10 mil by default), with a short run (up to 8 mm) on the
   bottom through two vias where the top is blocked; then pours cover the board, the main supply
@@ -103,7 +110,7 @@ native model (see [docs/format.md](docs/format.md)). Eagle files are imported in
   already routed stays as it is (route the tricky parts by hand first; running it again only
   adds what is missing). DRC runs
   after.
-- **Labels** (board): moves part names and values that sit on pads, vias, holes, silkscreen
+- **Tools ▸ Arrange labels** (board): moves part names and values that sit on pads, vias, holes, silkscreen
   outlines, board text, the board edge or each other to a clear spot next to their part, in
   one undo step. Labels already clear stay where they are, so hand placement is kept. A moved
   label is centred on its spot, reading left to right or bottom to top, nearer its own part
@@ -182,10 +189,10 @@ native model (see [docs/format.md](docs/format.md)). Eagle files are imported in
   them when it ends). The **pour fill** checkbox in the Layers panel (or P) shows them filled or
   as outlines only (a pour's dashed outline shows only when it has no copper to show); that's just the view, so airwires and the DRC count the copper either way.
   Not yet: hatched fill (drawn solid), and removing copper narrower than the pour's width.
-- **Assembly files** (board): **CAM… → Assembly** saves a bill of materials (`x_BOM.csv`) and a
+- **Assembly files** (board): **File ▸ Assembly** saves a bill of materials (`x_BOM.csv`) and a
   pick-and-place list (`x_CPL.csv`) in JLCPCB's format, as separate files ready to upload, in
   the same folder as the CAM zip: SMD parts, or SMD and through-hole parts (a choice in
-  the menu; a board house's standard assembly is SMD, through-hole parts are usually soldered by
+  the submenu; a board house's standard assembly is SMD, through-hole parts are usually soldered by
   hand). Parts marked **Do not place** (a checkbox in the inspector, the part's DNP attribute)
   are left out too, and what was left out is listed. The BOM has JLCPCB's columns only (Comment,
   Designator, Footprint, LCSC Part #), one row per group of parts with the same value, footprint
@@ -235,7 +242,7 @@ native model (see [docs/format.md](docs/format.md)). Eagle files are imported in
   IC's block and suggesting again fills it in. One undo step.
   A part's block is its BLOCK attribute, so it is kept through Eagle export. Placement is to work
   block by block.
-- **CAM output** (board): the **CAM…** menu makes the manufacturing files as one zip (`x_CAM.zip`;
+- **CAM output** (board): the **File ▸ CAM** submenu makes the manufacturing files as one zip (`x_CAM.zip`;
   in Chrome and Edge it asks for a folder once, and CAM and assembly files go there while the
   project is open; other browsers download them): Gerber
   (RS-274X with X2 file functions) for copper, solder mask, paste, silkscreen and the board
@@ -286,11 +293,7 @@ description, checked, turned into a schematic, placed, routed and given JLCPCB p
    it connects by) and parameters (values that change per use). Captured from a block of a
    working design, kept in a library, reused by generation; autoplace keeps an instance's
    layout as one rigid block and autoroute connects only its ports.
-3. **Menus and a user directory,** in three steps:
-   - **Menus:** File, Edit, View, Tools, Help for commands; the toolbar keeps modes and state
-     (view, sheet, drawing tools, layer, width, Fit); the inspector keeps selection verbs. One
-     command list (id, label, shortcut, enabled, run) drives menus, toolbar, shortcuts and a
-     command palette; menu items keep the button ids the tests use.
+3. **A user directory,** in two steps (the menus it builds on are done):
    - **User directory and Preferences** (File): one directory holding `libraries/`
      (`.ospreylib`, `.lbr`), `rules/` (`.dru`) and `cam/` (`.cam`). In Chromium it's a folder
      on disk (picked once, its handle kept in IndexedDB); elsewhere it's kept in the browser
@@ -426,7 +429,7 @@ Opening `dist/index.html` straight from disk doesn't work: browsers don't run mo
 from `file://`.
 
 The app opens the sample last opened, or the `TA7358A` Osprey project, by default; open your
-own files with Open… (or drop them on the canvas). Any file in `samples/` can be opened by URL,
+own files from the File menu (or drop them on the canvas). Any file in `samples/` can be opened by URL,
 e.g. `http://localhost:5173/#TA7358A.osprey`, or `#TA7358A.osprey/board` for the board view.
 
 To also check import, airwires and export against a folder of your own Eagle designs (every
@@ -485,8 +488,12 @@ To cover more (other packages, inductors, ferrite beads), change the filters in
 | Add part (schematic) | `A` to search, choose a component, Place (or Enter); click places each gate, `R`/`F` while placing, Esc or right-click stops |
 | Edit name / net name, value | `N`, `V` (Enter applies, Esc cancels) |
 | Fine grid while moving | Hold Alt |
-| Undo / redo | Ctrl+Z / Ctrl+Y (or Ctrl+Shift+Z) |
-| Save | Ctrl+S |
+| Undo / redo | Ctrl+Z / Ctrl+Y (or Ctrl+Shift+Z), or the toolbar icons |
+| Save / save as | Ctrl+S / Ctrl+Shift+S |
+| New project / open project | Ctrl+N / Ctrl+O |
+| Command palette | Ctrl+Shift+P or F1 |
+| Open a menu | Alt + its first letter (Alt+F: File); arrows, Enter, Esc inside |
+| List the shortcuts | `?` (Help ▸ Shortcuts) |
 | Pan | Right- or middle-drag, or Space + drag |
 | Zoom | Mouse wheel (about the cursor) |
 | Fit | Home |
@@ -514,7 +521,8 @@ To cover more (other packages, inductors, ferrite beads), change the filters in
   shared `builder.ts` (graphics, pads, text) and `symbol.ts` (symbols and pins)
 - `src/view/`: Canvas2D renderer, viewport, hit testing, layer palette and fill patterns
 - `src/project/consistency.ts`: schematic/board consistency check, used to report on imports
-- `src/app/`: selection, the editor (commands, move sessions, history), file open/save
+- `src/app/`: selection, the editor (commands, move sessions, history), file open/save, the
+  command list (`commands.ts`) with the menu bar (`menus.ts`) and command palette (`palette.ts`)
 - `src/main.ts`: application shell (panels, file handling, pointer and keyboard)
 - `test/`: Vitest suites
 

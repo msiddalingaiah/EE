@@ -204,7 +204,7 @@ describe.skipIf(!findChrome())('editor in the browser', () => {
       expect(await d.evaluate('__osprey.project.project.name')).toBe('wwvbfind2-hand');
       expect(await d.evaluate('document.title')).toContain('wwvbfind2-hand');
       await d.downloads(dir);
-      await d.choose('#cam-select', 'default');
+      await d.button('#cam-default');
       const file = join(dir, 'wwvbfind2-hand_CAM.zip');
       for (let i = 0; i < 100 && !existsSync(file); i++) await new Promise((r) => setTimeout(r, 50));
       await new Promise((r) => setTimeout(r, 100));
@@ -229,8 +229,8 @@ describe.skipIf(!findChrome())('editor in the browser', () => {
       };
       window.showDirectoryPicker = async () => { window.__picks++; return folder; };
     })()`);
-    await d.choose('#cam-select', 'default');
-    await d.choose('#cam-select', 'assembly');
+    await d.button('#cam-default');
+    await d.button('#cam-assembly');
     expect(await d.evaluate('window.__picks')).toBe(1);
     expect(Object.keys(await d.evaluate<Record<string, number>>('window.__written')).sort()).toEqual(['wwvbfind_BOM.csv', 'wwvbfind_CAM.zip', 'wwvbfind_CPL.csv']);
     expect(d.problems).toEqual([]);
@@ -256,16 +256,16 @@ describe.skipIf(!findChrome())('editor in the browser', () => {
       };
       window.showDirectoryPicker = async () => { window.__picks++; return folder; };
     })()`);
-    await d.choose('#cam-select', 'assembly');
+    await d.button('#cam-assembly');
     await new Promise((r) => setTimeout(r, 500));
     expect(await d.evaluate('window.__written')).toEqual(['wwvbfind_BOM.csv', 'wwvbfind_CPL.csv']);
     // Refusing every time: the error names the file, and the next run asks for the folder again.
     await d.evaluate('window.__refusals = 100');
-    await d.choose('#cam-select', 'assembly');
+    await d.button('#cam-assembly');
     await new Promise((r) => setTimeout(r, 500));
     expect((await d.state()).error).toMatch(/Could not write wwvbfind_BOM\.csv in jlcpcb: .*open in another program/);
     await d.evaluate('window.__refusals = 0');
-    await d.choose('#cam-select', 'assembly');
+    await d.button('#cam-assembly');
     await new Promise((r) => setTimeout(r, 500));
     expect(await d.evaluate('window.__picks')).toBe(2);
   });
@@ -278,7 +278,7 @@ describe.skipIf(!findChrome())('editor in the browser', () => {
       await d.type('lcsc', 'c17414');
       expect(await d.evaluate('__osprey.project.parts.find((p) => p.name === "R1").attributes')).toMatchObject({ LCSC: 'C17414' });
       await d.downloads(dir);
-      await d.choose('#cam-select', 'assembly');
+      await d.button('#cam-assembly');
       // Two files, ready to upload (no zip).
       const names = ['wwvbfind_BOM.csv', 'wwvbfind_CPL.csv'];
       for (let i = 0; i < 100 && !names.every((n) => existsSync(join(dir, n))); i++) await new Promise((r) => setTimeout(r, 50));
@@ -349,6 +349,66 @@ describe.skipIf(!findChrome())('editor in the browser', () => {
   it('checks the design rules from the panel', async () => {
     await d.button('#drc-run');
     expect((await d.state()).drc).toEqual([]);
+  });
+
+  it('runs commands from the menus, which show their state', async () => {
+    await d.button('#autoroute-btn'); // Tools ▸ Autoroute
+    const routed = (await d.state()).undo;
+    expect(routed).toBeTruthy();
+    expect(await d.evaluate('document.querySelector(".menubar").classList.contains("open")')).toBe(false);
+    // Edit ▸ Undo names what it undoes.
+    await d.menu('Edit');
+    expect(await d.evaluate('document.getElementById("cmd-edit-undo").textContent')).toContain(`Undo ${routed}`);
+    await d.button('#cmd-edit-undo');
+    expect((await d.state()).redo).toBe(routed);
+    // View ▸ Show poured copper is ticked, and P turns it off.
+    await d.menu('View');
+    expect(await d.evaluate('document.getElementById("cmd-view-pours").getAttribute("aria-checked")')).toBe('true');
+    await d.key('Escape');
+    await d.key('p');
+    await d.menu('View');
+    expect(await d.evaluate('document.getElementById("cmd-view-pours").getAttribute("aria-checked")')).toBe('false');
+    await d.key('Escape');
+    await d.key('p');
+    expect(d.problems).toEqual([]);
+  });
+
+  it('opens menus from the keyboard, and keeps editor keys out while one is open', async () => {
+    const { at, rot } = await footprint('R1');
+    await d.click(at[0], at[1]);
+    await d.key('Alt+e');
+    expect(await d.evaluate('document.querySelector("[data-menu-title=Edit]").getAttribute("aria-expanded")')).toBe('true');
+    await d.key('r'); // swallowed by the open menu, not a rotation
+    expect((await footprint('R1')).rot).toBe(rot);
+    await d.key('Escape');
+    expect(await d.evaluate('document.querySelector(".menubar").classList.contains("open")')).toBe(false);
+    await d.key('r');
+    expect((await footprint('R1')).rot).toBe(((rot ?? 0) + 90) % 360);
+    expect(d.problems).toEqual([]);
+  });
+
+  it('finds and runs a command from the palette', async () => {
+    await d.key('Ctrl+Shift+p');
+    expect((await d.state()).dialog).toBe(true);
+    await d.send('Input.insertText', { text: 'switch' });
+    await d.key('Enter');
+    const s = await d.state();
+    expect(s.dialog).toBeUndefined();
+    expect(s.view).toBe('schematic');
+    expect(d.problems).toEqual([]);
+  });
+
+  it('starts a new, empty project with a schematic and a board outline', async () => {
+    await d.button('#cmd-file-new-project');
+    await d.waitFor(() => (window as unknown as { __osprey: { project?: { project: { name: string } } } }).__osprey.project?.project.name === 'untitled', 'the new project');
+    const p = await d.evaluate<{ parts: unknown[]; sheets: number; outline: number }>(
+      '({ parts: __osprey.project.parts, sheets: __osprey.project.schematic.sheets.length, outline: __osprey.project.board.drawing.filter((g) => g.layer === "outline").length })',
+    );
+    expect(p).toEqual({ parts: [], sheets: 1, outline: 4 });
+    expect((await d.state()).view).toBe('schematic');
+    await d.key('Tab');
+    expect((await d.state()).view).toBe('board');
+    expect(d.problems).toEqual([]);
   });
 });
 

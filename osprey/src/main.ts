@@ -3,7 +3,10 @@
 import { Editor, subject, type CornerDrag, type LineEndDrag, type MoveSession, type PlaceSession, type PourSession, type RouteSession, type ViaSession, type WireSession } from './app/editor';
 import { edgeMiddle } from './edit/pours';
 import { layerNumber } from './model/layers';
-import { canPickFiles, pickFiles, saveFile, saveToFolder, type FileHandle, type FolderHandle } from './app/files';
+import { canPickFiles, OPEN_EXTENSIONS, pickFiles, saveFile, saveToFolder, type FileHandle, type FolderHandle, type OpenKind } from './app/files';
+import { Commands, type Command } from './app/commands';
+import { MenuBar } from './app/menus';
+import { openPalette, showDialog, showShortcuts } from './app/palette';
 import { Selection, type SelectMode } from './app/selection';
 import { parseEagle } from './eagle/parse';
 import { parseClip, type Clip, type Pasted } from './edit/clipboard';
@@ -79,8 +82,6 @@ const statusHint = $<HTMLSpanElement>('status-hint');
 const undoBtn = $<HTMLButtonElement>('undo-btn');
 const redoBtn = $<HTMLButtonElement>('redo-btn');
 const saveBtn = $<HTMLButtonElement>('save-btn');
-const exportBtn = $<HTMLButtonElement>('export-btn');
-const camSelect = $<HTMLSelectElement>('cam-select');
 const camInput = $<HTMLInputElement>('cam-input');
 const viewToggle = $<HTMLDivElement>('view-toggle');
 const projectPanel = $<HTMLElement>('project-panel');
@@ -268,24 +269,26 @@ function parseSampleLink(hash: string, list: Map<string, Sample>): { key?: strin
 /** The sample currently open (its key), to keep the address bar pointing at it. */
 let openSample = '';
 
+/** Open a sample by its key ("TA7358A.osprey", "TA7358A.sch+brd"), pointing the address bar at it. */
+async function openSampleKey(key: string, initialView?: ViewKind): Promise<void> {
+  const sample = sampleList().get(key);
+  if (!sample) return;
+  const sources = await Promise.all(
+    sample.paths.map(async (p): Promise<SourceFile> => ({ name: p.split('/').pop()!, text: (await samples[p]!()) as string })),
+  );
+  openSample = key;
+  openSources(sources, initialView);
+  storeSet('osprey.sample', key);
+  updateSampleLink();
+}
+
 function initSamples(): void {
   const list = sampleList();
-  const open = async (key: string, initialView?: ViewKind) => {
-    const sample = list.get(key);
-    if (!sample) return;
-    const sources = await Promise.all(
-      sample.paths.map(async (p): Promise<SourceFile> => ({ name: p.split('/').pop()!, text: (await samples[p]!()) as string })),
-    );
-    openSample = key;
-    openSources(sources, initialView);
-    storeSet('osprey.sample', key);
-    updateSampleLink();
-  };
   const link = parseSampleLink(location.hash, list);
   const remembered = storeGet('osprey.sample');
   const initial = link.key ?? (remembered && list.has(remembered) ? remembered : [...list.keys()][0]);
   if (initial) {
-    void open(initial, link.key ? link.view : undefined);
+    void openSampleKey(initial, link.key ? link.view : undefined);
   }
 }
 
@@ -374,14 +377,17 @@ function openSources(sources: SourceFile[], initialView?: ViewKind): void {
   }
 }
 
-async function openViaDialog(): Promise<void> {
+/** File ▸ Open project, Open library, Import Eagle: the open dialog, showing only that kind of file. */
+async function openViaDialog(kind: OpenKind): Promise<void> {
   if (!confirmDiscard()) return;
   if (!canPickFiles()) {
+    fileInput.accept = OPEN_EXTENSIONS[kind].join(',');
+    fileInput.multiple = kind === 'eagle';
     fileInput.click();
     return;
   }
   try {
-    const files = await pickFiles();
+    const files = await pickFiles(kind);
     if (!files.length) return;
     openSources(files);
     clearSampleLink();
@@ -394,6 +400,34 @@ async function openDropped(files: File[]): Promise<void> {
   if (!files.length || !confirmDiscard()) return;
   openSources(await Promise.all(files.map(async (f) => ({ name: f.name, text: await f.text() }))));
   clearSampleLink();
+}
+
+/** File ▸ New project: an empty schematic (one sheet) and board (a 50 × 40 mm outline). */
+function newProject(): void {
+  if (!confirmDiscard()) return;
+  const [w, h] = [50, 40];
+  const corners: [number, number][] = [[0, 0], [w, 0], [w, h], [0, h]];
+  const p: O.Project = {
+    osprey: FORMAT_VERSION, project: { name: 'untitled' },
+    library: { symbols: [], footprints: [], components: [] }, parts: [], nets: [],
+    schematic: { grid: { step: 2.54, fine: 0.254, unit: 'inch' }, sheets: [{ id: '1', gates: [], drawing: [] }] },
+    board: {
+      grid: { step: 0.635, fine: 0.127, unit: 'mm' }, layers: ['copper.top', 'copper.bottom'], footprints: [],
+      drawing: corners.map((a, i) => ({ line: [a, corners[(i + 1) % 4]!], width: 0, layer: 'outline' })),
+    },
+  };
+  openSources([{ name: 'untitled.osprey', text: JSON.stringify(p) }]);
+  clearSampleLink();
+  flash('New project: add parts with A, draw wires with W; Save asks where to keep it');
+}
+
+/** File ▸ New library: an empty library to draw symbols and footprints in. */
+function newLibrary(): void {
+  if (!confirmDiscard()) return;
+  const file: O.LibraryFile = { osprey: FORMAT_VERSION, name: 'untitled', library: { symbols: [], footprints: [], components: [] } };
+  openSources([{ name: 'untitled.ospreylib', text: writeLibrary(file) }]);
+  clearSampleLink();
+  flash('New library: add a symbol or footprint (Library panel), and name the library in the inspector');
 }
 
 /**
@@ -409,13 +443,13 @@ function syncProjectName(): boolean {
   return true;
 }
 
-/** Save the project as one `.osprey` file, or the library as an `.ospreylib` file. */
-async function save(): Promise<void> {
-  if (library) return saveLibrary(library.file);
+/** Save the project as one `.osprey` file, or the library as an `.ospreylib` file; `as`: ask where (Save as). */
+async function save(as = false): Promise<void> {
+  if (library) return saveLibrary(library.file, as);
   if (!editor || !project) return;
   if (move) commitMove();
   try {
-    const result = await saveFile(editor.serialize(), saveName, saveHandle);
+    const result = await saveFile(editor.serialize(), saveName, as ? undefined : saveHandle);
     if (!result) return; // cancelled
     if (result.handle) {
       saveHandle = result.handle;
@@ -431,10 +465,10 @@ async function save(): Promise<void> {
   }
 }
 
-async function saveLibrary(file: O.LibraryFile): Promise<void> {
+async function saveLibrary(file: O.LibraryFile, as = false): Promise<void> {
   try {
     if (move) commitMove();
-    const result = await saveFile(writeLibrary(file), saveName, saveHandle, 'ospreylib');
+    const result = await saveFile(writeLibrary(file), saveName, as ? undefined : saveHandle, 'ospreylib');
     if (!result) return; // cancelled
     if (result.handle) {
       saveHandle = result.handle;
@@ -481,11 +515,15 @@ async function exportToEagle(): Promise<void> {
 
 const sampleCamJobs = import.meta.glob('../samples/eagle/*.cam', { query: '?raw', import: 'default' });
 
-camSelect.append(new Option('CAM…', ''), new Option(`${DEFAULT_JOB.name} (.zip)`, 'default'));
-for (const path of Object.keys(sampleCamJobs).sort()) camSelect.append(new Option(`Job ${path.split('/').pop()!}`, path));
-camSelect.append(new Option('From a .cam job file…', 'open'));
-camSelect.append(new Option('Assembly: SMD parts (BOM + pick-and-place .csv)', 'assembly'));
-camSelect.append(new Option('Assembly: SMD and through-hole parts', 'assembly-tht'));
+/** File ▸ CAM ▸ a job file: run it on the board. */
+async function camFromJob(path: string): Promise<void> {
+  const name = path.split('/').pop()!;
+  try {
+    await makeCam(parseCamJob((await sampleCamJobs[path]!()) as string, name));
+  } catch (e) {
+    showError(`${name}: ${e instanceof Error ? e.message : String(e)}`);
+  }
+}
 
 /**
  * The folder CAM and assembly files go into (chosen on the first run; kept while the project
@@ -542,21 +580,6 @@ async function makeCam(job: CamJob): Promise<void> {
   }
 }
 
-camSelect.addEventListener('change', async () => {
-  const v = camSelect.value;
-  camSelect.value = '';
-  if (v === 'open') camInput.click();
-  else if (v === 'assembly' || v === 'assembly-tht') await makeAssembly(v === 'assembly-tht');
-  else if (v === 'default') await makeCam(DEFAULT_JOB);
-  else if (v && sampleCamJobs[v]) {
-    const name = v.split('/').pop()!;
-    try {
-      await makeCam(parseCamJob((await sampleCamJobs[v]!()) as string, name));
-    } catch (e) {
-      showError(`${name}: ${e instanceof Error ? e.message : String(e)}`);
-    }
-  }
-});
 camInput.addEventListener('change', async () => {
   const file = camInput.files?.[0];
   camInput.value = '';
@@ -604,8 +627,6 @@ function setupViewChrome(): void {
   renderLcscPanel();
   wireBtn.textContent = view === 'board' ? 'Route' : 'Wire';
   pourBtn.hidden = !(project?.board && view === 'board');
-  $('autoroute-btn').hidden = pourBtn.hidden;
-  $('labels-btn').hidden = pourBtn.hidden;
   viaBtn.hidden = pourBtn.hidden;
   textBtn.hidden = !(project && (view === 'board' ? project.board : view === 'schematic' ? project.schematic : undefined));
   layerField.hidden = pourBtn.hidden;
@@ -642,11 +663,8 @@ function updateChrome(): void {
   undoBtn.title = h?.undoLabel ? `Undo ${h.undoLabel} (Ctrl+Z)` : 'Undo (Ctrl+Z)';
   redoBtn.title = h?.redoLabel ? `Redo ${h.redoLabel} (Ctrl+Y)` : 'Redo (Ctrl+Y)';
   saveBtn.disabled = !editor && !library;
-  exportBtn.disabled = !project && !library;
-  exportBtn.title = library ? 'Export the library as an Eagle library (.lbr)' : 'Export the project as an Eagle schematic and board (.sch + .brd)';
-  camSelect.disabled = !project?.board;
-  saveBtn.textContent = dirty ? 'Save •' : 'Save';
-  saveBtn.title = project || library ? `Save ${saveName} (Ctrl+S)` : 'Save (Ctrl+S)';
+  saveBtn.classList.toggle('dirty', dirty);
+  saveBtn.title = project || library ? `Save ${saveName}${dirty ? ' (unsaved changes)' : ''} (Ctrl+S)` : 'Save (Ctrl+S)';
 }
 
 function buildScene(): Scene | undefined {
@@ -990,11 +1008,35 @@ document.addEventListener('cut', (e) => {
 document.addEventListener('paste', (e) => {
   if (isTextEntry(e.target) || !editor) return;
   e.preventDefault();
-  const text = e.clipboardData?.getData('text/plain') ?? '';
+  pasteText(e.clipboardData?.getData('text/plain') ?? '');
+});
+
+function pasteText(text: string): void {
   const clip = text ? parseClip(text) : lastClip;
   if (clip) startPaste(clip);
   else flash('The clipboard holds no Osprey selection');
-});
+}
+
+/**
+ * Edit ▸ Copy, Cut (from the menu, not the keys): the browser's copy command fires the same
+ * copy and cut events Ctrl+C and Ctrl+X do.
+ */
+function clipboardCmd(which: 'copy' | 'cut'): void {
+  canvas.focus({ preventScroll: true });
+  if (!document.execCommand(which)) flash(`Use Ctrl+${which === 'copy' ? 'C' : 'X'} (this browser doesn't let a menu ${which})`);
+}
+
+/** Edit ▸ Paste: reads the clipboard where the browser allows it, else the last copy made here. */
+async function pasteCmd(): Promise<void> {
+  if (!editor) return;
+  let text = '';
+  try {
+    text = await navigator.clipboard.readText();
+  } catch {
+    // Not allowed (or not granted): the last clip copied in this window.
+  }
+  pasteText(text);
+}
 
 /** Start a move. `drag` = following a held mouse button; otherwise it follows the cursor until a click. */
 function beginMove(start: Point, drag: boolean): void {
@@ -3096,7 +3138,6 @@ function autorouteCmd(): void {
   const left = r.left.length;
   flash(`Autorouted ${r.routed} connection${r.routed === 1 ? '' : 's'}${r.groundVias ? `, ${r.groundVias} ground via${r.groundVias === 1 ? '' : 's'}` : ''}${r.pours.length ? `, pours: ${r.pours.join(', ')}` : ''}; ${left ? `${left} left to route by hand` : 'nothing left'}. Ctrl+Z undoes`);
 }
-$('autoroute-btn').addEventListener('click', autorouteCmd);
 
 /** Move part names and values that sit on something to a clear spot. */
 function arrangeLabelsCmd(): void {
@@ -3106,7 +3147,6 @@ function arrangeLabelsCmd(): void {
   const crowded = r.crowded.length ? `; no clear spot for ${r.crowded.join(', ')}` : '';
   flash(r.moved.length ? `Moved ${r.moved.length} label${r.moved.length === 1 ? '' : 's'}${crowded}. Ctrl+Z undoes` : `Labels are all clear${crowded}`);
 }
-$('labels-btn').addEventListener('click', arrangeLabelsCmd);
 drcLoad.addEventListener('change', async () => {
   const v = drcLoad.value;
   drcLoad.value = '';
@@ -4267,57 +4307,49 @@ window.addEventListener('keydown', (e) => {
   // A focused dropdown keeps plain keys for type-ahead; shortcuts with Ctrl still apply.
   if (e.target instanceof HTMLSelectElement && !ctrl) return;
 
-  if (ctrl && key === 's') {
-    e.preventDefault();
-    void save();
-  } else if (ctrl && key === 'z' && !e.shiftKey) {
-    e.preventDefault();
-    undoCmd();
-  } else if (ctrl && (key === 'y' || (key === 'z' && e.shiftKey))) {
-    e.preventDefault();
-    redoCmd();
-  } else if (ctrl && key === 'a' && index) {
-    e.preventDefault();
-    const all = [...index.ownerPrims.entries()]
-      .filter(([, ids]) => ids.some((i) => isVisible(index!.scene.prims[i]!.layer)))
-      .map(([id]) => id);
-    selection.select(all, 'replace');
-  } else if (ctrl) {
-    return;
+  // Keys that belong to the tool running now come first; then the command list.
+  if (ctrl || e.altKey) {
+    // (no tool keys use Ctrl or Alt)
   } else if (e.key === ' ') {
     spaceDown = true;
     e.preventDefault();
+    return;
   } else if (e.key === 'Escape' && placingText) {
     stopText(true);
-  } else if (key === 't' && project && (view === 'board' || view === 'schematic')) {
-    if (placingText) stopText(true);
-    else startText();
+    return;
   } else if (e.key === 'Escape' && drafting) {
     if (drafting.points.length) endDraftShape();
     else stopDrafting(true);
+    return;
   } else if (e.key === 'Enter' && drafting) {
     e.preventDefault();
     endDraftShape();
+    return;
   } else if (e.key === 'Escape' && vias) {
     stopVias(true);
+    return;
   } else if (e.key === 'Escape' && pouring) {
     if (pouring.drawing) {
       pouring.cancel();
       flash('Pour cancelled (click to start again, Esc stops)');
       requestRender();
     } else stopPouring(true);
+    return;
   } else if (e.key === 'Enter' && pouring) {
     e.preventDefault();
     finishPour();
+    return;
   } else if (key === 'l' && pouring) {
     flash(`Pour on ${pouring.switchLayer().replace('copper.', '')}`);
     syncLayer();
     requestRender();
+    return;
   } else if (e.key === '/' && pouring) {
     e.preventDefault();
     pouring.freeAngle = !pouring.freeAngle;
     flash(pouring.freeAngle ? 'Edges at any angle (/ for 45°)' : 'Edges at 45° (/ for any angle)');
     requestRender();
+    return;
   } else if (e.key === 'Escape') {
     if (routing?.netName) finishRoute();
     else if (routing) stopRouting(true);
@@ -4326,38 +4358,7 @@ window.addEventListener('keydown', (e) => {
     else if (placing) stopPlacing(true);
     else if (move) cancelMove();
     else selection.clear();
-  } else if (e.key === 'Tab' && views().length > 1) {
-    e.preventDefault();
-    const vs = views();
-    switchView(vs[(vs.indexOf(view) + 1) % vs.length]!);
-  } else if (e.key === 'Home') {
-    fitView();
-  } else if (key === 'n') {
-    e.preventDefault();
-    focusField(['name', 'net']);
-  } else if (key === 'v') {
-    e.preventDefault();
-    focusField(['value']);
-  } else if (key === 'b' && e.shiftKey && project && view !== 'library') {
-    setShowBlocks(!showBlocks);
-  } else if (key === 'b' && project && view !== 'library') {
-    e.preventDefault();
-    if (selectedParts().length) focusField(['block']);
-    else flash('Select the parts to put in a block first');
-  } else if (key === 'a' && project && view === 'schematic') {
-    e.preventDefault();
-    partsFilter.focus();
-    partsFilter.select();
-  } else if (key === 'w' && project && view === 'schematic') {
-    if (wiring) stopWiring(true);
-    else startWiring();
-  } else if (key === 'w' && project && view === 'board') {
-    if (routing) stopRouting(true);
-    else startRouting();
-  } else if (key === 'p' && view === 'board' && project?.board) {
-    setShowPours(!showPours);
-  } else if (key === 'l' && view === 'board' && project?.board && !routing && !pouring) {
-    setActiveLayer(nextLayer(activeLayer));
+    return;
   } else if (key === 'l' && routing) {
     applyRouteMove();
     const res = routing.switchLayer(e.shiftKey);
@@ -4365,25 +4366,23 @@ window.addEventListener('keydown', (e) => {
     else flash(`Routing on ${res.layer.replace('copper.', '')}${routing.netName ? ' (via added)' : ''}`);
     syncLayer();
     requestRender();
+    return;
   } else if (e.key === '/' && (wiring || routing)) {
     e.preventDefault();
     (wiring ?? routing)!.flipBend();
     requestRender();
-  } else if (key === 'm') {
-    beginMove(cursor, false);
-  } else if (key === 'r') {
-    rotateCmd(e.shiftKey ? -1 : 1);
-  } else if (key === 'f') {
-    mirrorCmd();
+    return;
   } else if ((e.key === 'Delete' || e.key === 'Backspace') && activeCorner && selectedPour() === activeCorner.pour && editor) {
     e.preventDefault();
     const err = editor.removePourCorner(activeCorner.pour, activeCorner.index);
     flash(err ?? 'Corner removed');
     if (!err) activeCorner = undefined;
-  } else if (e.key === 'Delete' || e.key === 'Backspace') {
-    e.preventDefault();
-    deleteCmd();
+    return;
   }
+  const command = commands.match(e);
+  if (!command) return;
+  e.preventDefault();
+  void command.run?.();
 });
 window.addEventListener('keyup', (e) => {
   if (e.key === ' ') spaceDown = false;
@@ -4399,8 +4398,165 @@ selection.onChange(() => {
   requestRender();
 });
 
+// ---------------------------------------------------------------------------
+// Commands: the menus, shortcuts and palette all run these (src/app/commands.ts).
+
+const commands = new Commands();
+const onBoard = () => !!project?.board && view === 'board';
+const onSchematic = () => !!project?.schematic && view === 'schematic';
+const inDesign = () => !!project && (view === 'board' || view === 'schematic');
+const canEditBoard = () => editable() && onBoard();
+const toggleWire = () => (wiring ? stopWiring(true) : startWiring());
+const toggleRoute = () => (routing ? stopRouting(true) : startRouting());
+
+commands.add(
+  // File
+  { id: 'file.new-project', menu: 'File', group: 'new', label: 'New project', keys: ['Ctrl+N'], run: newProject },
+  { id: 'file.new-library', menu: 'File', group: 'new', label: 'New library', domId: 'new-lib-btn', title: 'Start a new, empty library (.ospreylib)', run: newLibrary },
+  { id: 'file.open-project', menu: 'File', group: 'open', label: 'Open project…', domId: 'open-btn', keys: ['Ctrl+O'], title: 'Open an Osprey project (.osprey). Files can also be dropped on the canvas.', run: () => openViaDialog('project') },
+  { id: 'file.open-library', menu: 'File', group: 'open', label: 'Open library…', title: 'Open an Osprey library (.ospreylib) to edit', run: () => openViaDialog('library') },
+  {
+    id: 'file.open-sample', menu: 'File', group: 'open', label: 'Open sample',
+    children: () => [...sampleList().keys()].map((key): Command => ({
+      id: `file.sample.${key}`, label: key, group: key.endsWith('.osprey') ? 'a' : key.includes('+') ? 'b' : 'c',
+      run: async () => {
+        if (!confirmDiscard()) return;
+        await openSampleKey(key);
+      },
+    })),
+  },
+  { id: 'file.import-eagle', menu: 'File', group: 'eagle', label: 'Import Eagle…', title: 'Import an Eagle schematic and board (select both), or an Eagle library (.lbr)', run: () => openViaDialog('eagle') },
+  {
+    id: 'file.export-eagle', menu: 'File', group: 'eagle', label: 'Export Eagle…', domId: 'export-btn',
+    title: () => (library ? 'Export the library as an Eagle library (.lbr)' : 'Export the project as an Eagle schematic and board (.sch + .brd)'),
+    enabled: () => !!project || !!library, run: exportToEagle,
+  },
+  { id: 'file.save', menu: 'File', group: 'save', label: 'Save', keys: ['Ctrl+S'], enabled: () => !!editor || !!library, run: () => save() },
+  { id: 'file.save-as', menu: 'File', group: 'save', label: 'Save as…', keys: ['Ctrl+Shift+S'], enabled: () => !!editor || !!library, run: () => save(true) },
+  {
+    id: 'file.cam', menu: 'File', group: 'cam', label: 'CAM', title: 'Manufacturing files: Gerber and Excellon drill, zipped',
+    children: () => [
+      { id: 'cam.default', domId: 'cam-default', group: 'jobs', label: `${DEFAULT_JOB.name} (.zip)`, enabled: () => !!project?.board, run: () => makeCam(DEFAULT_JOB) },
+      ...Object.keys(sampleCamJobs).sort().map((path): Command => ({
+        id: `cam.job.${path.split('/').pop()!}`, group: 'jobs', label: `Job ${path.split('/').pop()!}`, enabled: () => !!project?.board, run: () => camFromJob(path),
+      })),
+      { id: 'cam.open', domId: 'cam-open', group: 'file', label: 'From a .cam job file…', enabled: () => !!project?.board, run: () => camInput.click() },
+    ],
+  },
+  {
+    id: 'file.assembly', menu: 'File', group: 'cam', label: 'Assembly', title: "Bill of materials and pick-and-place (.csv), in JLCPCB's format",
+    children: () => [
+      { id: 'cam.assembly', domId: 'cam-assembly', label: 'SMD parts', enabled: () => !!project?.board, run: () => makeAssembly(false) },
+      { id: 'cam.assembly-tht', domId: 'cam-assembly-tht', label: 'SMD and through-hole parts', enabled: () => !!project?.board, run: () => makeAssembly(true) },
+    ],
+  },
+
+  // Edit
+  { id: 'edit.undo', menu: 'Edit', group: 'history', label: () => (editor?.history.undoLabel ? `Undo ${editor.history.undoLabel}` : 'Undo'), keys: ['Ctrl+Z'], enabled: () => !!editor?.history.canUndo || !!move, run: undoCmd },
+  { id: 'edit.redo', menu: 'Edit', group: 'history', label: () => (editor?.history.redoLabel ? `Redo ${editor.history.redoLabel}` : 'Redo'), keys: ['Ctrl+Y', 'Ctrl+Shift+Z'], enabled: () => !!editor?.history.canRedo, run: redoCmd },
+  { id: 'edit.cut', menu: 'Edit', group: 'clip', label: 'Cut', keys: ['Ctrl+X'], nativeKeys: true, enabled: () => editable() && selection.size > 0, run: () => clipboardCmd('cut') },
+  { id: 'edit.copy', menu: 'Edit', group: 'clip', label: 'Copy', keys: ['Ctrl+C'], nativeKeys: true, enabled: () => !!editor && selection.size > 0, run: () => clipboardCmd('copy') },
+  { id: 'edit.paste', menu: 'Edit', group: 'clip', label: 'Paste', keys: ['Ctrl+V'], nativeKeys: true, enabled: editable, run: pasteCmd },
+  { id: 'edit.delete', menu: 'Edit', group: 'clip', label: 'Delete', keys: ['Delete', 'Backspace'], enabled: editable, run: deleteCmd },
+  {
+    id: 'edit.select-all', menu: 'Edit', group: 'clip', label: 'Select all', keys: ['Ctrl+A'], enabled: () => !!index,
+    run: () => {
+      if (!index) return;
+      const all = [...index.ownerPrims.entries()]
+        .filter(([, ids]) => ids.some((i) => isVisible(index!.scene.prims[i]!.layer)))
+        .map(([id]) => id);
+      selection.select(all, 'replace');
+    },
+  },
+  { id: 'edit.move', menu: 'Edit', group: 'verbs', label: 'Move', keys: ['M'], enabled: editable, run: () => beginMove(cursor, false) },
+  { id: 'edit.rotate', menu: 'Edit', group: 'verbs', label: 'Rotate', keys: ['R'], enabled: editable, run: () => rotateCmd(1) },
+  { id: 'edit.rotate-back', menu: 'Edit', group: 'verbs', label: 'Rotate clockwise', keys: ['Shift+R'], enabled: editable, run: () => rotateCmd(-1) },
+  { id: 'edit.flip', menu: 'Edit', group: 'verbs', label: () => (view === 'board' ? 'Flip to the other side' : 'Mirror'), keys: ['F'], enabled: editable, run: mirrorCmd },
+  { id: 'edit.name', menu: 'Edit', group: 'fields', label: 'Name…', keys: ['N'], enabled: () => !!editor, run: () => focusField(['name', 'net']) },
+  { id: 'edit.value', menu: 'Edit', group: 'fields', label: 'Value…', keys: ['V'], enabled: () => !!project, run: () => focusField(['value']) },
+  {
+    id: 'edit.block', menu: 'Edit', group: 'fields', label: 'Block…', keys: ['B'], enabled: inDesign,
+    run: () => (selectedParts().length ? focusField(['block']) : flash('Select the parts to put in a block first')),
+  },
+
+  // View
+  {
+    id: 'view.switch', menu: 'View', group: 'view', label: () => `Switch to ${view === 'board' ? 'schematic' : 'board'}`, keys: ['Tab'], enabled: () => views().length > 1,
+    run: () => {
+      const vs = views();
+      switchView(vs[(vs.indexOf(view) + 1) % vs.length]!);
+    },
+  },
+  { id: 'view.fit', menu: 'View', group: 'view', label: 'Zoom to fit', keys: ['Home'], run: fitView },
+  { id: 'view.blocks', menu: 'View', group: 'show', label: 'Show blocks', keys: ['Shift+B'], enabled: inDesign, checked: () => showBlocks, run: () => setShowBlocks(!showBlocks) },
+  { id: 'view.pours', menu: 'View', group: 'show', label: 'Show poured copper', keys: ['P'], enabled: onBoard, checked: () => showPours, run: () => setShowPours(!showPours) },
+  { id: 'view.next-layer', menu: 'View', group: 'layers', label: 'Next copper layer', keys: ['L'], enabled: () => onBoard() && !routing && !pouring, run: () => setActiveLayer(nextLayer(activeLayer)) },
+  { id: 'view.layers-all', menu: 'View', group: 'layers', label: 'Show all layers', enabled: () => !!index, run: () => setAllLayers(true) },
+  { id: 'view.layers-none', menu: 'View', group: 'layers', label: 'Hide all layers', enabled: () => !!index, run: () => setAllLayers(false) },
+
+  // Tools
+  {
+    id: 'tools.add-part', menu: 'Tools', group: 'draw', label: 'Add part', keys: ['A'], enabled: () => !!project && view === 'schematic',
+    run: () => {
+      partsFilter.focus();
+      partsFilter.select();
+    },
+  },
+  { id: 'tools.wire', menu: 'Tools', group: 'draw', label: 'Draw wires', keys: ['W'], enabled: () => !!project && view === 'schematic', checked: () => !!wiring, run: toggleWire },
+  { id: 'tools.route', menu: 'Tools', group: 'draw', label: 'Route traces', keys: ['W'], enabled: () => !!project && view === 'board', checked: () => !!routing, run: toggleRoute },
+  { id: 'tools.text', menu: 'Tools', group: 'draw', label: 'Add text', keys: ['T'], enabled: () => inDesign() && !!(view === 'board' ? project!.board : project!.schematic), checked: () => placingText, run: () => (placingText ? stopText(true) : startText()) },
+  { id: 'tools.pour', menu: 'Tools', group: 'draw', label: 'Draw a pour', enabled: onBoard, checked: () => !!pouring, run: () => (pouring ? stopPouring(true) : startPouring()) },
+  { id: 'tools.via', menu: 'Tools', group: 'draw', label: 'Place vias', enabled: onBoard, checked: () => !!vias, run: () => (vias ? stopVias(true) : startVias()) },
+  { id: 'tools.suggest-blocks', menu: 'Tools', group: 'auto', label: 'Suggest blocks', enabled: () => editable() && inDesign(), run: suggestBlocksCmd },
+  { id: 'tools.place', menu: 'Tools', group: 'auto', label: 'Place parts', enabled: canEditBoard, run: placeBlocksCmd },
+  {
+    id: 'tools.autoroute', menu: 'Tools', group: 'auto', label: 'Autoroute', domId: 'autoroute-btn', enabled: canEditBoard, run: autorouteCmd,
+    title: "Route the easy part of the board: a via for each SMD ground pad, then signal connections shortest first on the top layer (short bottom hops through vias where the top is blocked), then pours: VCC on top, GND on the bottom. What doesn't route stays an airwire. One undo step; DRC runs after.",
+  },
+  {
+    id: 'tools.labels', menu: 'Tools', group: 'auto', label: 'Arrange labels', domId: 'labels-btn', enabled: canEditBoard, run: arrangeLabelsCmd,
+    title: 'Move part names and values that sit on pads, vias, holes, silkscreen outlines, the board edge or each other to a clear spot next to their part. Labels already clear stay put. One undo step.',
+  },
+  { id: 'tools.erc', menu: 'Tools', group: 'check', label: 'Check electrical rules', enabled: onSchematic, run: runErc },
+  { id: 'tools.drc', menu: 'Tools', group: 'check', label: 'Check design rules', enabled: onBoard, run: runDrc },
+  {
+    id: 'tools.load-rules', menu: 'Tools', group: 'check', label: 'Load design rules',
+    children: () => [
+      ...Object.keys(sampleRules).sort().map((path): Command => ({
+        id: `rules.${path.split('/').pop()!}`, group: 'files', label: path.split('/').pop()!, enabled: canEditBoard,
+        run: async () => loadRules(path.split('/').pop()!, (await sampleRules[path]!()) as string),
+      })),
+      { id: 'rules.open', group: 'open', label: 'From a .dru file…', enabled: canEditBoard, run: () => druInput.click() },
+    ],
+  },
+  { id: 'tools.lcsc', menu: 'Tools', group: 'parts', label: 'Assign LCSC parts', enabled: () => editable() && inDesign(), run: assignLcscCmd },
+  {
+    id: 'tools.update-library', menu: 'Tools', group: 'parts', label: 'Update from the chosen library',
+    title: 'Update the project from the library chosen in the Add part panel', enabled: () => !partsPanel.hidden && !$<HTMLButtonElement>('parts-update').disabled,
+    run: updateFromLibraryCmd,
+  },
+
+  // Help
+  { id: 'help.shortcuts', menu: 'Help', label: 'Shortcuts', keys: ['?'], run: () => showShortcuts(commands, afterCommand) },
+  { id: 'help.palette', menu: 'Help', label: 'Command palette…', keys: ['Ctrl+Shift+P', 'F1'], run: () => openPalette(commands, afterCommand) },
+  {
+    id: 'help.about', menu: 'Help', label: 'About Osprey',
+    run: () => showDialog('Osprey', [
+      Object.assign(document.createElement('p'), { textContent: 'Browser-based electronic CAD built around noun-verb editing: select, then act.' }),
+      Object.assign(document.createElement('p'), { textContent: 'Projects are single .osprey files; Eagle files are imported and exported.' }),
+    ], afterCommand),
+  },
+);
+
+/** After a command from a menu or the palette: the canvas has the keys again (unless a field was focused). */
+function afterCommand(): void {
+  if (isTextEntry(document.activeElement) || document.querySelector('dialog[open]')) return;
+  canvas.focus({ preventScroll: true });
+}
+
+const menuBar = new MenuBar($('menubar'), commands, afterCommand);
+
 // Toolbar
-$('open-btn').addEventListener('click', () => void openViaDialog());
 fileInput.addEventListener('change', () => {
   void openDropped([...(fileInput.files ?? [])]);
   fileInput.value = '';
@@ -4413,13 +4569,6 @@ for (const b of viewToggle.querySelectorAll<HTMLButtonElement>('button')) {
 }
 $('fit-btn').addEventListener('click', fitView);
 textBtn.addEventListener('click', () => (placingText ? stopText(true) : startText()));
-$('new-lib-btn').addEventListener('click', () => {
-  if (!confirmDiscard()) return;
-  const file: O.LibraryFile = { osprey: FORMAT_VERSION, name: 'untitled', library: { symbols: [], footprints: [], components: [] } };
-  openSources([{ name: 'untitled.ospreylib', text: writeLibrary(file) }]);
-  clearSampleLink();
-  flash('New library: add a symbol or footprint (Library panel), and name the library in the inspector');
-});
 $('new-component-btn').addEventListener('click', () => {
   if (!editor || !library) return;
   const c = editor.addComponent();
@@ -4443,17 +4592,10 @@ for (const b of drawTools.querySelectorAll<HTMLButtonElement>('button')) {
 }
 pourBtn.addEventListener('click', () => (pouring ? stopPouring(true) : startPouring()));
 viaBtn.addEventListener('click', () => (vias ? stopVias(true) : startVias()));
-wireBtn.addEventListener('click', () => {
-  if (view === 'board') {
-    if (routing) stopRouting(true);
-    else startRouting();
-  } else if (wiring) stopWiring(true);
-  else startWiring();
-});
+wireBtn.addEventListener('click', () => (view === 'board' ? toggleRoute() : toggleWire()));
 undoBtn.addEventListener('click', undoCmd);
 redoBtn.addEventListener('click', redoCmd);
 saveBtn.addEventListener('click', () => void save());
-exportBtn.addEventListener('click', () => void exportToEagle());
 sheetSelect.addEventListener('change', () => {
   stopWiring();
   stopPlacing();
@@ -4526,6 +4668,10 @@ if (import.meta.env.DEV) {
       get editor() { return editor; },
       get drc() { return drcResult; },
       get erc() { return ercResult; },
+      /** Open the menu (and submenus) holding an item, by its data-menu path ("File/CAM"). */
+      revealMenu(path: string) { menuBar.reveal(path); },
+      /** The command ids, as the menus, palette and command line know them. */
+      commands: () => commands.list().map((c) => c.id),
       /** A world point (mm) in page CSS pixels, for clicking it. */
       toPage(x: number, y: number): Point {
         const r = canvas.getBoundingClientRect();

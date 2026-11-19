@@ -13,20 +13,22 @@
   <body>
     <header class="toolbar">
       <span class="brand">Osprey</span>
-      <button id="open-btn" type="button" title="Open an Osprey project or library, Eagle schematic and board (select both) to import, or an Eagle library. Files can also be dropped on the canvas.">Open…</button>
-      <button id="new-lib-btn" type="button" title="Start a new, empty library (.ospreylib)">New library</button>
+      <nav id="menubar" class="menubar" aria-label="Menu"></nav>
+      <span class="toolbar-sep"></span>
+      <button id="save-btn" class="icon-btn" type="button" disabled title="Save (Ctrl+S)" aria-label="Save"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 2.5h9l2 2v9h-11z M5 2.5v3.5h5v-3.5 M4.5 13.5v-4.5h7v4.5" /></svg></button>
+      <button id="undo-btn" class="icon-btn" type="button" disabled title="Undo (Ctrl+Z)" aria-label="Undo"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M5.5 3 2.5 6l3 3 M2.5 6h7a4 4 0 0 1 0 8h-3" /></svg></button>
+      <button id="redo-btn" class="icon-btn" type="button" disabled title="Redo (Ctrl+Y)" aria-label="Redo"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M10.5 3l3 3-3 3 M13.5 6h-7a4 4 0 0 0 0 8h3" /></svg></button>
+      <span class="toolbar-sep"></span>
       <input id="file-input" type="file" accept=".osprey,.ospreylib,.sch,.brd,.lbr" multiple hidden />
-      <label class="field" id="sheet-field" hidden>
-        <span>Sheet</span>
-        <select id="sheet-select"></select>
-      </label>
       <div id="view-toggle" class="view-toggle" role="group" aria-label="View" hidden>
         <button type="button" data-view="schematic" title="Schematic (Tab switches)">Schematic</button>
         <button type="button" data-view="board" title="Board (Tab switches)">Board</button>
       </div>
-      <button id="fit-btn" type="button" title="Zoom to fit (Home)">Fit</button>
-      <label id="layer-field" class="layer-field" hidden title="The copper layer Route and Pour work on (L switches)">Layer <select id="layer-select" aria-label="Copper layer"></select></label>
-      <label id="width-field" class="layer-field" hidden title="The width of the traces this route draws: the net's default, a standard size, or Other… to type one (mm or mil)">Width <span id="width-slot"></span></label>
+      <label class="field" id="sheet-field" hidden>
+        <span>Sheet</span>
+        <select id="sheet-select"></select>
+      </label>
+      <button id="wire-btn" type="button" hidden title="Draw wires (W): click to start, click to add corners; a wire ends on a pin or wire, or with a double click or Esc">Wire</button>
       <button id="pour-btn" type="button" hidden title="Draw a copper pour: click the corners; click the first corner, double-click or press Enter to close. The first click on copper picks the net; L changes layer, / free angles.">Pour</button>
       <button id="via-btn" type="button" hidden title="Place vias: click to add one; it takes the net of the copper under it (pad, trace, via or pour), else the last via's net. Shift+click places one that breaks clearance. Esc or right-click stops.">Via</button>
       <button id="text-btn" type="button" hidden title="Add text (T): click where it goes, then type it. On the bottom layer it goes on the bottom silkscreen, mirrored.">Text</button>
@@ -39,15 +41,9 @@
         <button type="button" data-tool="circle" title="Draw circles: click the centre, then a point on the circle">Circle</button>
         <button type="button" data-tool="text" title="Add text: click to place (edit it in the inspector; >NAME and >VALUE show the part's)">Text</button>
       </span>
-      <button id="autoroute-btn" type="button" hidden title="Route the easy part of the board: a via for each SMD ground pad, then signal connections shortest first on the top layer (short bottom hops through vias where the top is blocked), then pours: VCC on top, GND on the bottom. What doesn&#39;t route stays an airwire. One undo step; DRC runs after.">Autoroute</button>
-      <button id="labels-btn" type="button" hidden title="Arrange labels: move part names and values that sit on pads, vias, holes, silkscreen outlines, the board edge or each other to a clear spot next to their part. Labels already clear stay put. One undo step.">Labels</button>
-      <button id="wire-btn" type="button" hidden title="Draw wires (W): click to start, click to add corners; a wire ends on a pin or wire, or with a double click or Esc">Wire</button>
-      <span class="toolbar-sep"></span>
-      <button id="undo-btn" type="button" disabled>Undo</button>
-      <button id="redo-btn" type="button" disabled>Redo</button>
-      <button id="save-btn" type="button" disabled title="Save (Ctrl+S)">Save</button>
-      <button id="export-btn" type="button" disabled title="Export the project as an Eagle schematic and board (.sch + .brd)">Export Eagle…</button>
-      <select id="cam-select" disabled aria-label="CAM output" title="Manufacturing files: Gerber and Excellon drill, zipped"></select>
+      <label id="layer-field" class="layer-field" hidden title="The copper layer Route and Pour work on (L switches)">Layer <select id="layer-select" aria-label="Copper layer"></select></label>
+      <label id="width-field" class="layer-field" hidden title="The width of the traces this route draws: the net's default, a standard size, or Other… to type one (mm or mil)">Width <span id="width-slot"></span></label>
+      <button id="fit-btn" type="button" title="Zoom to fit (Home)">Fit</button>
       <input id="cam-input" type="file" accept=".cam" hidden />
       <span id="doc-title" class="doc-title"></span>
     </header>

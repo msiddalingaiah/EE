@@ -12,9 +12,18 @@ interface FsWindow {
   showSaveFilePicker?(opts: object): Promise<FileHandle>;
 }
 
-const PICKER_TYPES = [
-  { description: 'Osprey projects and libraries, Eagle files', accept: { 'application/octet-stream': ['.osprey', '.ospreylib', '.sch', '.brd', '.lbr'] } },
-];
+/** What the open dialog offers: a project, a library, or Eagle files to import. */
+export type OpenKind = 'project' | 'library' | 'eagle';
+export const OPEN_EXTENSIONS: Record<OpenKind, string[]> = {
+  project: ['.osprey'],
+  library: ['.ospreylib'],
+  eagle: ['.sch', '.brd', '.lbr'],
+};
+const PICKER_TYPES: Record<OpenKind, object[]> = {
+  project: [{ description: 'Osprey project', accept: { 'application/octet-stream': OPEN_EXTENSIONS.project } }],
+  library: [{ description: 'Osprey library', accept: { 'application/octet-stream': OPEN_EXTENSIONS.library } }],
+  eagle: [{ description: 'Eagle schematic and board (select both), or library', accept: { 'application/octet-stream': OPEN_EXTENSIONS.eagle } }],
+};
 const SAVE_TYPES = {
   osprey: [{ description: 'Osprey project', accept: { 'application/json': ['.osprey'] } }],
   ospreylib: [{ description: 'Osprey library', accept: { 'application/json': ['.ospreylib'] } }],
@@ -39,10 +48,10 @@ export function canPickFiles(): boolean {
  * Show the native open dialog (several files may be chosen, e.g. a .sch with its .brd).
  * Returns an empty list if the user cancels.
  */
-export async function pickFiles(): Promise<OpenedFile[]> {
+export async function pickFiles(kind: OpenKind): Promise<OpenedFile[]> {
   const w = window as FsWindow;
   try {
-    const handles = await w.showOpenFilePicker!({ types: PICKER_TYPES, multiple: true });
+    const handles = await w.showOpenFilePicker!({ id: `osprey-${kind}`, types: PICKER_TYPES[kind], multiple: kind === 'eagle' });
     return await Promise.all(
       handles.map(async (handle) => {
         const f = await handle.getFile();

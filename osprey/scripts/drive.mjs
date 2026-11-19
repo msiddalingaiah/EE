@@ -13,7 +13,8 @@
 //   drag:x1,y1,x2,y2          drag with the left button
 //   key:<key>                 press a key: w, Escape, Enter, Shift+L, Ctrl+z, Delete, Tab …
 //   type:<field>=<text>       type into an inspector field (name, value, net, x, y …) + Enter
-//   button:<text or #id>      click a button (or other element) by its text or id
+//   button:<text or #id>      click a button (or other element) by its text or id (a menu item: its menu opened first)
+//   menu:<path>               open a menu and submenus: File, File/CAM
 //   choose:<#id>=<value>      choose an option of a <select>
 //   wait:<ms>                 wait
 //   shot:<file.png>           screenshot of the page
@@ -328,9 +329,29 @@ export async function launch({ url, width = 1400, height = 900, chrome = findChr
       await driver.key('Enter');
     },
 
-    /** Click a button or other element, by its text or a selector ("#drc-run"). */
+    /**
+     * Click a button or other element, by its text or a selector ("#drc-run"). A menu item
+     * ("#export-btn") is clicked as a person would: its menu (and submenu) opened first.
+     */
     async button(target) {
+      const path = await call((t) => {
+        let el;
+        try { el = /^[#.[]/.test(t) ? document.querySelector(t) : null; } catch { el = null; }
+        return el && el.offsetParent === null ? el.closest('[data-menu]')?.dataset.menu : undefined;
+      }, target);
+      if (path) await driver.menu(path);
       await clickAt(await elementCentre(target));
+    },
+
+    /** Open a menu, and submenus inside it: "File", "File/CAM". */
+    async menu(path) {
+      const [top, ...subs] = path.split('/');
+      await clickAt(await elementCentre(`[data-menu-title="${top}"]`));
+      let at = top;
+      for (const s of subs) {
+        at = `${at}/${s}`;
+        await clickAt(await elementCentre(`[data-submenu="${at}"]`));
+      }
     },
 
     /** Choose an option of a select, by value or label. */
@@ -423,6 +444,7 @@ async function main(argv) {
         case 'key': await d.key(arg); break;
         case 'type': { const eq = arg.indexOf('='); await d.type(arg.slice(0, eq), arg.slice(eq + 1)); break; }
         case 'button': await d.button(arg); break;
+        case 'menu': await d.menu(arg); break;
         // The selector may hold an "=" (an attribute selector): the value follows the last one.
         case 'choose': { const eq = arg.lastIndexOf('='); await d.choose(arg.slice(0, eq), arg.slice(eq + 1)); break; }
         case 'wait': await sleep(Number(arg)); break;
