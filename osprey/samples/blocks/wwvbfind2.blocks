@@ -1,0 +1,104 @@
+# WWVB receiver: preamp, oscillator and an ATtiny412 that decodes the time signal.
+# A block description: blocks of parts, and the nets between their pins (README "Schematic
+# generation"). Generate the schematic with:
+#   npm run osprey -- generate samples/blocks/wwvbfind2.blocks -o wwvbfind2-gen.osprey
+#
+# Parts are listed in signal order: that is the left-to-right order in each block.
+
+design wwvbfind2-gen
+use ../osprey/wwvbfind2.osprey          # its library has every component used here
+
+supply VCC supply2/VCC
+supply GND supply2/GND
+
+block Power
+VCC    madhu/BERG-2
+C1     madhu/CAPACITOR-NP   10u   0805
+VCC: VCC.2 C1.1
+GND: VCC.1 C1.2
+
+block Preamp/Input
+IN     madhu/BERG-2
+R1     madhu/RESISTOR       1.0M  0805-RES
+Q1     madhu/MPF102
+R2     madhu/RESISTOR       2.2k  0805-RES
+net: IN.2 R1.2 Q1.G
+net SRC1: Q1.S R2.2 Q2.B
+GND: IN.1 R1.1 R2.1
+
+block Preamp/Amp
+Q2     madhu/MMBT3904
+R5     madhu/RESISTOR       220   0805-RES
+R6     madhu/RESISTOR       1k    0805-RES
+C3     madhu/CAPACITOR-NP   10u   0805
+C4     madhu/CAPACITOR-NP   1.5n  0805
+L1     madhu/INDUCTOR-VAR2
+net: Q2.E R5.2
+net: R5.1 R6.2 C3.1
+net TANK: Q2.C C4.2 L1.A C5.1
+GND: R6.1 C3.2
+net VCCA: C4.1 L1.E1 L1.E
+
+block Preamp/Buffer
+C5     madhu/CAPACITOR-NP   10n   0805
+R7     madhu/RESISTOR       1M    0805-RES
+Q3     madhu/MPF102
+R15    madhu/RESISTOR       2.2k  0805-RES
+net: C5.2 R7.2 Q3.G
+net DET: Q3.S R15.2 R16.CW C14.1
+GND: R7.1 R15.1
+net VCCA: Q3.D
+
+block Preamp
+R10    madhu/RESISTOR       100   0805-RES
+C7     madhu/CAPACITOR-NP   10u   0805
+VCC: R10.1
+net VCCA: R10.2 C7.1 Q1.D
+GND: C7.2
+
+block MCU
+U1     madhu/ATTINY412
+C8     madhu/CAPACITOR-NP   100n  0805
+UPDI   madhu/BERG-3
+VCC: U1.VDD C8.1 UPDI.3
+GND: C8.2 UPDI.2
+net UPDI: U1.PA0 UPDI.1
+net CLK: U1.PA3 U2.B.O
+net ADC: U1.PA7 R16.CT C14.2
+net AUDIO: U1.PA6 R13.1
+net TICK: U1.PA1 R14.1
+nc: U1.PA2
+
+block Oscillator
+U2     madhu/NL27WZ14
+R11    madhu/RESISTOR       1M    0805-RES
+X1     madhu/CRYSTAL        20MHz HC49S
+R12    madhu/RESISTOR       220   0805-RES
+C9     madhu/CAPACITOR-NP   33p   0805
+C10    madhu/CAPACITOR-NP   33p   0805
+C11    madhu/CAPACITOR-NP   100n  0805
+net: U2.A.I R11.1 C9.1 X1.1
+net: U2.A.O R11.2 R12.2 U2.B.I
+net: X1.2 C10.1 R12.1
+GND: C9.2 C10.2 C11.2
+VCC: C11.1
+
+block MCU/Filter
+R13    madhu/RESISTOR       2.2k  0805-RES
+C12    madhu/CAPACITOR-NP   22n   0805
+C13    madhu/CAPACITOR-NP   10u   0805
+VOUT   madhu/BERG-2
+net: R13.2 C12.1 C13.1
+net: C13.2 VOUT.2
+GND: C12.2 VOUT.1
+
+block MCU/LED
+R14    madhu/RESISTOR       1k    0805-RES
+D1     madhu/LED            0805
+net: R14.2 D1.A
+GND: D1.C
+
+block MCU/ADC-bias
+R16    madhu/TRIMPOT        10k   -RM065
+C14    madhu/CAPACITOR-NP   100n  0805
+GND: R16.CCW

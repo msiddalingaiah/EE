@@ -268,6 +268,16 @@ native model (see [docs/format.md](docs/format.md)). Eagle files are imported in
   (see pours above). Silkscreen text is plotted in Roboto (below), where Eagle places its text
   and at the same height; text with strokes thinner than 0.15 mm, which fabs may not print
   well, is reported. Not yet: pick-and-place files.
+- **Schematic generation** (`osprey generate x.blocks`): draws a schematic from a block
+  description, a short text of blocks, parts and nets that an agent writes from a person's
+  words (see [Block descriptions](#block-descriptions)). It is checked first (components and
+  packages in the libraries, pins, pins on two nets, pins left unconnected), with problems by
+  line; then each block gets its own area with its BLOCK attribute set, parts in columns by
+  signal flow, wires inside a block on vertical trunks between columns (only T junctions, a wire
+  between any two pins), net labels for the nets between blocks, and a supply symbol at each
+  power pin above or below a part (a label on a side). `samples/blocks/wwvbfind2.blocks`
+  generates the same netlist as the hand-drawn `wwvbfind2`. Not yet: drawing feedback loops
+  (an oscillator's) as a person would; such a block falls back to labels for some local nets.
 - **Command line** (`npm run osprey -- …`, or `node scripts/osprey.mjs`): runs the design flow on
   `.osprey` files with no browser, for agents and scripts: `osprey x.osprey place route labels
   lcsc check cam assembly` runs the steps in order and saves the project in place (or `-o`).
@@ -302,17 +312,12 @@ text on copper.
 The goal is concept to orderable CAM and assembly files in under an hour: a block-by-block
 description, checked, turned into a schematic, placed, routed and given JLCPCB parts.
 
-1. **Schematic generation** from a hierarchical block description, with BLOCK attributes set
-   and each block drawn as its own area. Generated sheets follow two drafting rules: at least
-   one wire segment between component pins (never pin touching pin), and only T junctions
-   (no four-way junctions: one branch is offset so it becomes two T's). ERC can check the same
-   rules, as warnings, on sheets drawn by hand.
-2. **Subcircuits,** like standard cells: proven oscillators, buffers, preamps, power supplies
+1. **Subcircuits,** like standard cells: proven oscillators, buffers, preamps, power supplies
    and conditioning, each with its schematic, its tuned placement and routing, ports (the nets
    it connects by) and parameters (values that change per use). Captured from a block of a
    working design, kept in a library, reused by generation; autoplace keeps an instance's
    layout as one rigid block and autoroute connects only its ports.
-3. **Library parts from a datasheet, a description or an existing library,** run by an
+2. **Library parts from a datasheet, a description or an existing library,** run by an
    agent through the command line (`osprey lib …`), written into the user directory:
    - **Existing libraries first:** Eagle libraries are plentiful (SparkFun, Adafruit, and the
      Eagle exports from SnapEDA, Ultra Librarian and SamacSys) and Osprey already imports
@@ -329,7 +334,7 @@ description, checked, turned into a schematic, placed, routed and given JLCPCB p
    - **Checks:** pin count matches pad count, every pin is mapped, no duplicate numbers, pitch
      and span as described, silkscreen clear of pads; a preview image to compare against the
      datasheet drawing before accepting.
-4. **A ready-to-order check in the app:** ERC, DRC, unrouted connections, LCSC parts and
+3. **A ready-to-order check in the app:** ERC, DRC, unrouted connections, LCSC parts and
    silkscreen in one step, as the command line's `check` already does.
 
 ### Roadmap
@@ -343,6 +348,11 @@ Then, to take a board through manufacturing and assembly:
 - **Extended part notice:** the JLCPCB parts panel counts and names the Extended parts a board
   uses (each distinct one adds a setup fee; Basic parts don't), so one can be swapped for a
   Basic part before ordering, and shows how many distinct parts the BOM has.
+- **Schematic generation, next:** feedback loops drawn as a person would (an oscillator's
+  feedback resistor above its inverter); design rules named in the description; updating an
+  edited schematic from a changed description (adding and removing parts, keeping what was
+  moved); each block on its own sheet; ERC warnings for hand-drawn sheets that break the
+  drafting rules (pin touching pin, four-way junctions).
 - **Board text in placement:** Place moves board text (titles, dates) clear of the parts.
 - **Label sizes:** an option to bring names up to a printable minimum (1 mm, say).
 - **Multilayer boards** (4 and 6 layers, through vias). The model already handles any copper
@@ -428,6 +438,34 @@ first step that finds an error.
 | `cam[=<job.cam>]` | `x_CAM.zip`: the built-in job, or one from the user directory's `cam/` or a file |
 | `assembly[=tht]` | `x_BOM.csv` and `x_CPL.csv` (`=tht` adds through-hole parts) |
 | `eagle` | `x.sch` and `x.brd` |
+
+`osprey generate x.blocks [-o x.osprey] [<step>...]` draws a schematic from a block description
+and saves the project (a board outline with the footprints parked beside it); the steps follow,
+so `osprey generate x.blocks rules=oshpark-2layer.dru place route labels lcsc check` goes from
+a description to a checked board. With errors in the description it writes nothing.
+
+#### Block descriptions
+
+A block description is plain text, one item per line (`#` starts a comment):
+
+```
+design wwvbfind2                     # the project's name (default: the file's)
+use ../osprey/wwvbfind2.osprey       # more libraries: .ospreylib, .lbr, or a project's library
+supply GND supply2/GND               # a supply net and the symbol drawn at its pins
+block Oscillator                     # what follows is in this block (a path: MCU/Filter)
+U2  madhu/NL27WZ14                   # a part: name, component, then value, variant, key=value
+R11 madhu/RESISTOR 1M 0805-RES
+net: U2.A.I R11.1 X1.1               # a net, unnamed (N$…) or named (net CLK: …)
+net CLK: U2.B.O U1.PA3               # a named net in two blocks connects them
+GND: C9.2 C10.2                      # pins on a supply
+nc: U1.PA2                           # pins left unconnected on purpose
+```
+
+Components come from the `use` files, then the user directory's libraries, by id
+(`madhu/RESISTOR`) or by name when only one library has it. A part's variant is its package;
+a component with several needs one (the check lists them). Pins are `part.pin` or
+`part.gate.pin`; `PA3` finds `PA3/EXTCLK`. Power pins named like a supply (`GND`, `VCC`) join
+it unless listed elsewhere. Parts are drawn left to right in the order listed.
 
 Options: `--out <dir>` for CAM, assembly and Eagle files (default: beside the project);
 `--userdir <dir>` (or `OSPREY_USERDIR`) for the user directory, a folder with `libraries/`,
@@ -545,6 +583,7 @@ To cover more (other packages, inductors, ferrite beads), change the filters in
 - `docs/format.md`: the `.osprey` project format
 - `samples/osprey/`: native sample projects (`.osprey`), kept equal to imports of the Eagle samples
 - `samples/eagle/`: sample Eagle files (`.sch`, `.brd`, `.lbr`)
+- `samples/blocks/`: block descriptions (`wwvbfind2.blocks`, the netlist of `wwvbfind2`)
 - `src/model/`: the native project model (`types.ts`), `.osprey` reading and writing
   (`file.ts`), Eagle import and export (`import-eagle.ts`, `export-eagle.ts`, `passthrough.ts`, `layers.ts`), derived facts
   such as net pads (`derive.ts`), geometry (`geometry.ts`), the ratsnest (`ratsnest.ts`), design
@@ -564,6 +603,8 @@ To cover more (other packages, inductors, ferrite beads), change the filters in
 - `src/app/`: selection, the editor (commands, move sessions, history), file open/save, the
   command list (`commands.ts`) with the menu bar (`menus.ts`) and command palette (`palette.ts`),
   and the user directory (`userdir.ts`)
+- `src/gen/`: schematic generation: block descriptions parsed, resolved and checked
+  (`description.ts`), and drawn (`layout.ts`)
 - `src/cli/`: the command line: its steps (`steps.ts`, no Node or DOM) and the Node entry
   (`main.ts`), run by `scripts/osprey.mjs`
 - `src/main.ts`: application shell (panels, file handling, pointer and keyboard)

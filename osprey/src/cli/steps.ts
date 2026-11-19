@@ -36,6 +36,8 @@ export interface Problem {
   kind: string;
   message: string;
   at?: O.Pt;
+  /** Line in a block description (generate). */
+  line?: number;
 }
 
 export interface StepResult {

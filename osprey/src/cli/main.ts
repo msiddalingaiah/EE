@@ -2,6 +2,7 @@
 //
 //   osprey <file.osprey> <step>... [options]
 //   osprey import <x.sch> <x.brd> [-o x.osprey] [<step>...]
+//   osprey generate <x.blocks> [-o x.osprey] [<step>...]
 //   osprey commands
 //
 // Run through scripts/osprey.mjs, which bundles this for Node. The steps are in steps.ts.
@@ -9,15 +10,22 @@
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join, resolve } from 'node:path';
 import { parseEagle } from '../eagle/parse';
-import { readProject, writeProject } from '../model/file';
-import { importEagle } from '../model/import-eagle';
+import { parseDescription, resolveDescription, type Source } from '../gen/description';
+import { generateProject } from '../gen/layout';
+import { readLibrary, readProject, writeProject } from '../model/file';
+import { importEagle, importLibrary } from '../model/import-eagle';
 import type * as O from '../model/types';
-import { parseStep, runSteps, STEPS, UsageError, type RunResult, type StepEnv, type UserDirSub } from './steps';
+import { parseStep, runSteps, STEPS, UsageError, type RunResult, type StepEnv, type StepResult, type UserDirSub } from './steps';
 
 const USAGE = `Usage:
   osprey <file.osprey> <step>... [options]
   osprey import <x.sch> <x.brd> [-o x.osprey] [<step>...] [options]
+  osprey generate <x.blocks> [-o x.osprey] [<step>...] [options]
   osprey commands
+
+generate draws a schematic from a block description (README "Schematic generation"), after
+checking it; with errors it writes nothing. Components come from the description's "use"
+files, then the user directory's libraries.
 
 Steps run in order on the project, which is saved (in place, or to -o) if one changed it.
 The run stops at the first step that finds an error.
@@ -59,7 +67,7 @@ function parseArgs(argv: string[]): Args {
     else if (s === '--strict') a.strict = true;
     else if (s === '--dry-run') a.dryRun = true;
     else if (s.startsWith('-')) throw new UsageError(`Unknown option ${s}`);
-    else if (/\.(osprey|sch|brd)$/i.test(s) && !s.includes('=')) a.files.push(s);
+    else if (/\.(osprey|sch|brd|blocks)$/i.test(s) && !s.includes('=')) a.files.push(s);
     else a.steps.push(s);
   }
   return a;
@@ -95,7 +103,7 @@ function print(r: RunResult, file: string, json: boolean): void {
   for (const s of r.steps) {
     console.log(`${s.ok ? 'ok  ' : 'FAIL'} ${s.step}: ${s.summary}`);
     const shown = s.problems.filter((p) => p.message !== s.summary);
-    for (const p of shown.slice(0, 50)) console.log(`       ${p.severity === 'error' ? 'error  ' : 'warning'} ${p.message}`);
+    for (const p of shown.slice(0, 50)) console.log(`       ${p.severity === 'error' ? 'error  ' : 'warning'} ${p.line ? `line ${p.line}: ` : ''}${p.message}`);
     if (shown.length > 50) console.log(`       … and ${shown.length - 50} more (--json lists all)`);
   }
   if (r.saved) console.log(`Saved ${r.saved}`);
@@ -111,13 +119,28 @@ async function main(argv: string[]): Promise<number> {
     return 0;
   }
   const importing = argv[0] === 'import';
-  const args = parseArgs(importing ? argv.slice(1) : argv);
+  const generating = argv[0] === 'generate';
+  const args = parseArgs(importing || generating ? argv.slice(1) : argv);
   for (const s of args.steps) if (!STEPS[parseStep(s).name]) throw new UsageError(`Unknown step "${s}" (osprey commands lists them)`);
   if (importing || args.steps.some((s) => parseStep(s).name === 'eagle')) await useDomParser();
+  const userdir = args.userdir ?? process.env.OSPREY_USERDIR;
 
   let project: O.Project;
   let target: string;
-  if (importing) {
+  /** The generate step's own result, ahead of the steps that follow. */
+  let generated: StepResult | undefined;
+  if (generating) {
+    const file = args.files.find((f) => f.toLowerCase().endsWith('.blocks'));
+    if (!file || args.files.length > 1) throw new UsageError('generate needs one block description (.blocks)');
+    const g = await generate(file, userdir, args.strict);
+    generated = g.result;
+    if (!g.project) {
+      print({ ok: false, steps: [g.result] }, resolve(file), args.json);
+      return 1;
+    }
+    project = g.project;
+    target = resolve(args.output ?? join(dirname(file), `${basename(file).replace(/\.blocks$/i, '')}.osprey`));
+  } else if (importing) {
     const eagle = args.files.filter((f) => /\.(sch|brd)$/i.test(f));
     if (!eagle.length) throw new UsageError('import needs an Eagle .sch and/or .brd');
     const r = importEagle(eagle.map((f) => ({ name: basename(f), file: parseEagle(readText(f)) })));
@@ -137,7 +160,6 @@ async function main(argv: string[]): Promise<number> {
   // As in the app, a project is named after its file: CAM and assembly files follow it.
   project.project.name = basename(target).replace(/\.osprey$/i, '');
 
-  const userdir = args.userdir ?? process.env.OSPREY_USERDIR;
   const outDir = resolve(args.out ?? dirname(target));
   const env: StepEnv = {
     listUserDir: (sub: UserDirSub) => {
@@ -159,12 +181,63 @@ async function main(argv: string[]): Promise<number> {
     },
   };
 
-  // An import is a new file: saved even when no step changes it.
-  if (importing && !args.dryRun) writeFileSync(target, writeProject(project));
+  // An import or a generated schematic is a new file: saved even when no step changes it.
+  const fresh = importing || generating;
+  if (fresh && !args.dryRun) writeFileSync(target, writeProject(project));
   const result = runSteps(project, args.steps, env, { strict: args.strict });
-  if (importing && !result.saved) result.saved = args.dryRun ? `${target} (not saved: --dry-run)` : target;
+  if (fresh && !result.saved) result.saved = args.dryRun ? `${target} (not saved: --dry-run)` : target;
+  if (generated) result.steps.unshift(generated);
   print(result, target, args.json);
   return result.ok ? 0 : 1;
+}
+
+/** The libraries a description draws from: its "use" files, then the user directory's. */
+async function librariesFor(file: string, uses: { path: string; line: number }[], userdir: string | undefined): Promise<{ sources: Source[]; missing: { path: string; line: number }[] }> {
+  const sources: Source[] = [];
+  const missing: { path: string; line: number }[] = [];
+  const load = async (path: string): Promise<O.Library> => {
+    const text = readText(path);
+    const lower = path.toLowerCase();
+    if (lower.endsWith('.osprey')) return readProject(text).library;
+    if (lower.endsWith('.ospreylib')) return readLibrary(text).library;
+    if (lower.endsWith('.lbr')) {
+      await useDomParser();
+      return importLibrary(basename(path), parseEagle(text));
+    }
+    throw new UsageError(`${path}: a library is an .ospreylib, an Eagle .lbr or an .osprey project`);
+  };
+  for (const u of uses) {
+    const path = resolve(dirname(file), u.path);
+    if (!existsSync(path)) missing.push(u);
+    else sources.push({ name: u.path, library: await load(path) });
+  }
+  const dir = userdir && join(userdir, 'libraries');
+  if (dir && existsSync(dir)) {
+    for (const name of readdirSync(dir).sort((a, b) => a.localeCompare(b))) {
+      if (/\.(ospreylib|lbr)$/i.test(name)) sources.push({ name, library: await load(join(dir, name)) });
+    }
+  }
+  return { sources, missing };
+}
+
+/** Read, check and draw a block description; the project when there are no errors. */
+async function generate(file: string, userdir: string | undefined, strict: boolean): Promise<{ project?: O.Project; result: StepResult }> {
+  const { description, problems } = parseDescription(readText(file));
+  const { sources, missing } = await librariesFor(file, description.uses, userdir);
+  for (const m of missing) problems.push({ severity: 'error', kind: 'use', message: `No file ${m.path} (relative to the description)`, line: m.line });
+  const stem = basename(file).replace(/\.blocks$/i, '');
+  const r = problems.some((p) => p.severity === 'error') ? { problems: [] } : resolveDescription(description, sources, stem);
+  problems.push(...r.problems);
+  const errors = problems.filter((p) => p.severity === 'error').length;
+  const failed = errors > 0 || (strict && problems.length > 0);
+  const resolved = 'resolved' in r ? r.resolved : undefined;
+  const result: StepResult = {
+    step: 'generate', ok: !failed, problems,
+    summary: resolved && !failed
+      ? `${resolved.parts.length} parts in ${resolved.blocks.length} blocks, ${resolved.nets.length} nets${problems.length ? `; ${problems.length} warning(s)` : ''}`
+      : `${errors} error(s)${problems.length > errors ? `, ${problems.length - errors} warning(s)` : ''}: nothing written`,
+  };
+  return { ...(resolved && !failed ? { project: generateProject(resolved) } : {}), result };
 }
 
 // exitCode, not exit(): output piped to another program is flushed first.
