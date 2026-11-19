@@ -4718,16 +4718,6 @@ commands.add(
     id: 'file.open-recent', menu: 'File', group: 'open', label: 'Open recent', visible: canPickFiles,
     children: () => recent.map((r): Command => ({ id: `file.recent.${r.name}`, label: r.name, run: () => openRecent(r) })),
   },
-  {
-    id: 'file.open-sample', menu: 'File', group: 'open', label: 'Open sample',
-    children: () => [...sampleList().keys()].map((key): Command => ({
-      id: `file.sample.${key}`, label: key, group: key.endsWith('.osprey') ? 'a' : key.includes('+') ? 'b' : 'c',
-      run: async () => {
-        if (!confirmDiscard()) return;
-        await openSampleKey(key);
-      },
-    })),
-  },
   { id: 'file.import-eagle', menu: 'File', group: 'eagle', label: 'Import Eagle…', title: 'Import an Eagle schematic and board (select both), or an Eagle library (.lbr)', run: () => openViaDialog('eagle') },
   {
     id: 'file.export-eagle', menu: 'File', group: 'eagle', label: 'Export Eagle…', domId: 'export-btn',

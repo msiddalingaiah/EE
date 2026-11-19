@@ -14,7 +14,7 @@ native model (see [docs/format.md](docs/format.md)). Eagle files are imported in
   Help ▸ Shortcuts lists every key.
 - **File ▸ New project** starts an empty schematic and a 50 × 40 mm board; **Open project…**
   opens an `.osprey` project, **Import Eagle…** an Eagle `.sch` + `.brd` pair (select both, or
-  drop both on the canvas), and **Open sample** any of the samples.
+  drop both on the canvas).
 - **Save** (Ctrl+S) writes one `.osprey` file: JSON in a canonical, diff-friendly layout;
   **Save as…** (Ctrl+Shift+S) asks where. In Chromium browsers a project opened with Open
   project… is saved in place. The project is named
