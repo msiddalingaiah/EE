@@ -19,7 +19,20 @@ native model (see [docs/format.md](docs/format.md)). Eagle files are imported in
   **Save as…** (Ctrl+Shift+S) asks where. In Chromium browsers a project opened with Open
   project… is saved in place. The project is named
   after its file: opening `x.osprey`, or saving under a new name, makes the title, CAM and
-  assembly zips (`x_CAM.zip`, `x_assembly.zip`) and Eagle export follow it.
+  assembly zips (`x_CAM.zip`, `x_assembly.zip`) and Eagle export follow it. **Open recent**
+  (Chromium) lists the last 8 projects and libraries opened or saved.
+- **User directory** (File ▸ Preferences…): one place for the libraries (`libraries/`:
+  `.ospreylib`, `.lbr`), design rules (`rules/`: `.dru`) and CAM jobs (`cam/`: `.cam`) you
+  keep. In Chrome and Edge it's a folder on disk, chosen once (after a reload the browser asks
+  for permission again: **Reconnect**, in the left panel or the File menu); in any browser it can
+  be kept in the browser's own storage, moved with **Export zip** and **Import zip…**. Add part,
+  Copy from…, the update on opening a project, Load design rules and File ▸ CAM list its files
+  (ahead of the samples); **File ▸ Open from user directory** opens a library there, and Save
+  writes it back; a new or imported library saves into `libraries/`. A `.dru` or `.cam` file
+  opened from elsewhere is kept there too. **Add the samples** copies in the sample libraries,
+  rules and CAM job. Until one is set up, a note at the top of the left panel offers it.
+  Preferences also holds the view settings (block outlines, poured copper) and the JLCPCB
+  through-hole choice.
 - **Libraries:** open an Osprey library (File ▸ Open library…), or import an Eagle library (`.lbr`);
   Save writes an `.ospreylib` (the same canonical JSON) and Export Eagle writes an `.lbr`.
   The Library panel lists components, symbols or footprints (tabs, with counts), filtered by
@@ -293,15 +306,9 @@ description, checked, turned into a schematic, placed, routed and given JLCPCB p
    it connects by) and parameters (values that change per use). Captured from a block of a
    working design, kept in a library, reused by generation; autoplace keeps an instance's
    layout as one rigid block and autoroute connects only its ports.
-3. **A user directory,** in two steps (the menus it builds on are done):
-   - **User directory and Preferences** (File): one directory holding `libraries/`
-     (`.ospreylib`, `.lbr`), `rules/` (`.dru`) and `cam/` (`.cam`). In Chromium it's a folder
-     on disk (picked once, its handle kept in IndexedDB); elsewhere it's kept in the browser
-     (origin private file system) with export and import as a zip. Add part, update on open,
-     Design rules and CAM read from it, and saving in the library editor writes back to it.
-     First run offers to fill it with the samples.
-   - **Out of the bundle:** libraries, rules and CAM jobs are no longer built into the app;
-     the samples stay as demo projects.
+3. **Libraries, rules and CAM jobs out of the bundle:** they come from the user directory
+   (done) instead of being built into the app; the samples stay as demo projects, and as the
+   files Preferences ▸ Add the samples copies in.
 4. **Command line,** so an agent can run the design flow on files with no browser:
    `osprey check|place|route|labels|lcsc|cam <file.osprey>`, a thin layer over the functions
    the UI and the tests already use (Suggest blocks, Place, Autoroute, Arrange labels, LCSC
@@ -522,7 +529,8 @@ To cover more (other packages, inductors, ferrite beads), change the filters in
 - `src/view/`: Canvas2D renderer, viewport, hit testing, layer palette and fill patterns
 - `src/project/consistency.ts`: schematic/board consistency check, used to report on imports
 - `src/app/`: selection, the editor (commands, move sessions, history), file open/save, the
-  command list (`commands.ts`) with the menu bar (`menus.ts`) and command palette (`palette.ts`)
+  command list (`commands.ts`) with the menu bar (`menus.ts`) and command palette (`palette.ts`),
+  and the user directory (`userdir.ts`)
 - `src/main.ts`: application shell (panels, file handling, pointer and keyboard)
 - `test/`: Vitest suites
 

@@ -615,6 +615,72 @@ describe.skipIf(!findChrome())('libraries in the browser', () => {
   });
 });
 
+describe.skipIf(!findChrome())('the user directory', () => {
+  let d: Driver;
+  beforeAll(async () => {
+    d = await launch();
+    await d.open('wwvbfind.osprey', 'schematic');
+  });
+  afterAll(async () => {
+    await d?.close();
+  });
+
+  const listed = (sub: string) => d.evaluate<string[]>(`__osprey.userDir.list(${JSON.stringify(sub)})`);
+
+  it('offers to set one up, and fills it with the samples', async () => {
+    expect(await d.evaluate('document.getElementById("userdir-panel").hidden')).toBe(false);
+    await d.evaluate('__osprey.userDir.useBrowser()');
+    expect(await d.evaluate('__osprey.addSamplesToUserDir()')).toBe(4);
+    expect(await listed('libraries')).toEqual(['madhu.lbr', 'madhu.ospreylib']);
+    expect(await listed('rules')).toEqual(['oshpark-2layer.dru']);
+    expect(await listed('cam')).toEqual(['jlcpcb_2_layer_v9.cam']);
+    expect(await d.evaluate('document.getElementById("userdir-panel").hidden')).toBe(true);
+    // Add part lists them (the user directory's copy, not the sample's).
+    expect(await d.evaluate('[...document.getElementById("parts-source").options].map((o) => o.value)')).toEqual(
+      expect.arrayContaining(['madhu.lbr', 'madhu.ospreylib']),
+    );
+    await d.button('#cmd-file-preferences');
+    expect(await d.evaluate('document.querySelector("dialog .preferences").textContent')).toContain('Kept in this browser: 2 libraries, 1 design rules file, 1 CAM job');
+    await d.key('Escape');
+    expect((await d.state()).dialog).toBeUndefined();
+    expect(d.problems).toEqual([]);
+  });
+
+  it('opens a library from it and saves it back in place', async () => {
+    const symbols = async () =>
+      (JSON.parse(await d.evaluate<string>('__osprey.userDir.read("libraries", "madhu.ospreylib")')) as { library: { symbols: unknown[] } }).library.symbols.length;
+    const before = await symbols();
+    await d.menu('File/Open from user directory');
+    await d.button('#cmd-file-userdir-madhu-ospreylib');
+    await d.waitFor(() => document.getElementById('doc-title')!.textContent!.includes('Library'), 'the library');
+    await d.button('#new-symbol-btn');
+    expect((await d.state()).dirty).toBe(true);
+    await d.key('Ctrl+s');
+    await d.waitFor(() => !(window as unknown as { __osprey: { state(): { dirty: boolean } } }).__osprey.state().dirty, 'the save');
+    expect(await symbols()).toBe(before + 1);
+    expect(d.problems).toEqual([]);
+  });
+
+  it('keeps a new library in it, where Add part finds it', async () => {
+    await d.button('#new-lib-btn');
+    await d.button('#new-footprint-btn');
+    await d.key('Ctrl+s');
+    await d.waitFor(() => (window as unknown as { __osprey: { userDir: { list(s: string): string[] } } }).__osprey.userDir.list('libraries').includes('untitled.ospreylib'), 'the new library');
+    expect((await d.state()).dirty).toBe(false);
+    await d.open('wwvbfind.osprey', 'schematic');
+    expect(await d.evaluate('[...document.getElementById("parts-source").options].map((o) => o.value)')).toContain('untitled.ospreylib');
+    expect(d.problems).toEqual([]);
+  });
+
+  it('loads design rules from it', async () => {
+    await d.view('board');
+    expect(await d.evaluate('[...document.getElementById("drc-load").options].map((o) => o.value)')).toContain('dir:oshpark-2layer.dru');
+    await d.choose('#drc-load', 'dir:oshpark-2layer.dru');
+    expect(await d.evaluate('document.getElementById("drc-name").textContent')).toBe('oshpark-2layer');
+    expect(d.problems).toEqual([]);
+  });
+});
+
 describe.skipIf(!findChrome())('installed app', () => {
   it('opens with no server once installed', async () => {
     const { build, preview } = await import('vite');

@@ -7,6 +7,7 @@ import { canPickFiles, OPEN_EXTENSIONS, pickFiles, saveFile, saveToFolder, type 
 import { Commands, type Command } from './app/commands';
 import { MenuBar } from './app/menus';
 import { openPalette, showDialog, showShortcuts } from './app/palette';
+import { browserUserDir, idbGet, idbSet, type Sub } from './app/userdir';
 import { Selection, type SelectMode } from './app/selection';
 import { parseEagle } from './eagle/parse';
 import { parseClip, type Clip, type Pasted } from './edit/clipboard';
@@ -159,6 +160,8 @@ let cursor: Point = { x: 0, y: 0 };
 let placing: PlaceSession | undefined;
 /** Libraries loaded for adding parts (Eagle .lbr files), by file name. */
 const loadedLibraries = new Map<string, O.Library>();
+/** The user directory: libraries/, rules/ and cam/ (src/app/userdir.ts). */
+const userDir = browserUserDir();
 /** The component chosen in the Add part panel. */
 let chosen: { source: string; id: string } | undefined;
 
@@ -391,6 +394,7 @@ async function openViaDialog(kind: OpenKind): Promise<void> {
     if (!files.length) return;
     openSources(files);
     clearSampleLink();
+    if (files.length === 1) addRecent(files[0]!.name, files[0]!.handle);
   } catch (e) {
     showError(`Could not open file: ${e instanceof Error ? e.message : String(e)}`);
   }
@@ -456,6 +460,7 @@ async function save(as = false): Promise<void> {
       saveName = result.handle.name;
       // Saved under a new name: the project takes it, and the file is written again with it.
       if (syncProjectName()) await saveFile(editor.serialize(), saveName, saveHandle);
+      addRecent(saveName, saveHandle);
     }
     editor.history.markSaved();
     flash(`${result.method === 'written' ? 'Saved' : 'Downloaded'} ${saveName}`);
@@ -465,15 +470,32 @@ async function save(as = false): Promise<void> {
   }
 }
 
+/**
+ * Save the library: to its file; a new or imported one (no file yet) goes into the user
+ * directory's libraries/ when there is one (asking before replacing a file there), else
+ * wherever the save dialog says.
+ */
 async function saveLibrary(file: O.LibraryFile, as = false): Promise<void> {
   try {
     if (move) commitMove();
-    const result = await saveFile(writeLibrary(file), saveName, as ? undefined : saveHandle, 'ospreylib');
+    const text = writeLibrary(file);
+    if (!saveHandle && !as && userDir.status === 'ready'
+      && (!userDir.has('libraries', saveName) || window.confirm(`Replace ${saveName} in the user directory?`))) {
+      saveHandle = await userDir.write('libraries', saveName, text);
+      editor?.history.markSaved();
+      flash(`Saved ${saveName} in the user directory (${userDir.label}): Add part lists it`);
+      updateChrome();
+      return;
+    }
+    const result = await saveFile(text, saveName, as ? undefined : saveHandle, 'ospreylib');
     if (!result) return; // cancelled
     if (result.handle) {
       saveHandle = result.handle;
       saveName = result.handle.name;
+      addRecent(saveName, saveHandle);
     }
+    // It may be a library in the user directory: Add part and updates read it again.
+    if (userDir.status === 'ready') await userDir.refresh();
     editor?.history.markSaved();
     flash(`${result.method === 'written' ? 'Saved' : 'Downloaded'} ${saveName}`);
     updateChrome();
@@ -516,12 +538,43 @@ async function exportToEagle(): Promise<void> {
 const sampleCamJobs = import.meta.glob('../samples/eagle/*.cam', { query: '?raw', import: 'default' });
 
 /** File ▸ CAM ▸ a job file: run it on the board. */
-async function camFromJob(path: string): Promise<void> {
-  const name = path.split('/').pop()!;
+async function camFromJob(key: string): Promise<void> {
+  const name = key.split(/[/:]/).pop()!;
   try {
-    await makeCam(parseCamJob((await sampleCamJobs[path]!()) as string, name));
+    await makeCam(parseCamJob(await readSource('cam', sampleCamJobs, key), name));
   } catch (e) {
     showError(`${name}: ${e instanceof Error ? e.message : String(e)}`);
+  }
+}
+
+type Glob = Record<string, () => Promise<unknown>>;
+
+/**
+ * Files of one kind to choose from: the user directory's ("dir:<name>"), then the samples
+ * (by path) that one of the same name in the user directory doesn't replace.
+ */
+function dirAndSamples(sub: Sub, glob: Glob): { key: string; name: string }[] {
+  const out = userDir.list(sub).map((name) => ({ key: `dir:${name}`, name }));
+  for (const path of Object.keys(glob).sort()) {
+    const name = path.split('/').pop()!;
+    if (!userDir.has(sub, name)) out.push({ key: path, name });
+  }
+  return out;
+}
+
+async function readSource(sub: Sub, glob: Glob, key: string): Promise<string> {
+  return key.startsWith('dir:') ? userDir.read(sub, key.slice(4)) : ((await glob[key]!()) as string);
+}
+
+/** Keep a file opened from elsewhere (a .dru, a .cam) in the user directory; whether it was added. */
+async function keepInUserDir(sub: Sub, name: string, text: string): Promise<boolean> {
+  if (userDir.status !== 'ready' || userDir.has(sub, name)) return false;
+  try {
+    await userDir.write(sub, name, text);
+    return true;
+  } catch (e) {
+    showError(`Could not keep ${name} in ${sub}/: ${e instanceof Error ? e.message : String(e)}`, 'notice');
+    return false;
   }
 }
 
@@ -585,7 +638,10 @@ camInput.addEventListener('change', async () => {
   camInput.value = '';
   if (!file) return;
   try {
-    await makeCam(parseCamJob(await file.text(), file.name));
+    const text = await file.text();
+    const job = parseCamJob(text, file.name);
+    await makeCam(job);
+    if (await keepInUserDir('cam', file.name, text)) flash(`${statusMsg.textContent} · ${file.name} kept in the user directory's cam/`);
   } catch (e) {
     showError(`${file.name}: ${e instanceof Error ? e.message : String(e)}`);
   }
@@ -1353,7 +1409,7 @@ const sampleProjects = Object.keys(samples).filter((p) => p.endsWith('.osprey'))
 
 function renderCopySources(): void {
   copyFrom.replaceChildren(new Option('Copy from…', ''));
-  const libs = new Set([...Object.keys(sampleLibraries).map((p) => p.split('/').pop()!), ...loadedLibraries.keys()]);
+  const libs = libraryNames();
   const group = (label: string, options: [string, string][]) => {
     if (!options.length) return;
     const g = document.createElement('optgroup');
@@ -1361,7 +1417,7 @@ function renderCopySources(): void {
     for (const [value, text] of options) g.append(new Option(text, value));
     copyFrom.append(g);
   };
-  group('Libraries', [...libs].sort().map((n) => [`lib:${n}`, n]));
+  group('Libraries', libs.map((n) => [`lib:${n}`, n]));
   group("Projects' libraries", sampleProjects.map((p) => [`project:${p}`, p.split('/').pop()!]));
   copyFrom.append(new Option('Open a library or project…', 'open'));
   copyFrom.value = '';
@@ -2500,9 +2556,31 @@ const sampleLibraries = {
 const libraryFrom = (name: string, text: string): O.Library =>
   name.toLowerCase().endsWith('.ospreylib') ? readLibrary(text).library : importLibrary(name, parseEagle(text));
 
-/** The library a source key stands for (loading a sample library on first use). */
+/** Libraries read from the user directory, by file name (cleared when it changes). */
+const dirLibraries = new Map<string, O.Library>();
+
+/**
+ * The libraries to place parts from, by file name: the user directory's, then the samples and
+ * any opened this session (a user directory library hides a sample of the same name).
+ */
+function libraryNames(): string[] {
+  const names = new Set([
+    ...userDir.list('libraries'),
+    ...Object.keys(sampleLibraries).map((p) => p.split('/').pop()!),
+    ...loadedLibraries.keys(),
+  ]);
+  return [...names].sort((a, b) => a.localeCompare(b));
+}
+
+/** The library a source key stands for (read on first use). */
 async function librarySource(key: string): Promise<O.Library | undefined> {
   if (key === PROJECT_SOURCE) return project?.library;
+  if (dirLibraries.has(key)) return dirLibraries.get(key);
+  if (userDir.has('libraries', key)) {
+    const lib = libraryFrom(key, await userDir.read('libraries', key));
+    dirLibraries.set(key, lib);
+    return lib;
+  }
   if (loadedLibraries.has(key)) return loadedLibraries.get(key);
   const path = Object.keys(sampleLibraries).find((p) => p.endsWith(`/${key}`));
   if (!path) return undefined;
@@ -2514,8 +2592,7 @@ async function librarySource(key: string): Promise<O.Library | undefined> {
 function renderPartsSources(): void {
   const current = partsSource.value || PROJECT_SOURCE;
   partsSource.replaceChildren(new Option('This project', PROJECT_SOURCE));
-  const names = new Set([...loadedLibraries.keys(), ...Object.keys(sampleLibraries).map((p) => p.split('/').pop()!)]);
-  for (const name of [...names].sort()) partsSource.append(new Option(name, name));
+  for (const name of libraryNames()) partsSource.append(new Option(name, name));
   partsSource.append(new Option('Open library…', 'open'));
   partsSource.value = [...partsSource.options].some((o) => o.value === current) ? current : PROJECT_SOURCE;
 }
@@ -2655,10 +2732,7 @@ $('parts-update').addEventListener('click', () => void updateFromLibraryCmd());
  * ids), as one undo step that marks it changed. ERC and DRC show what no longer fits.
  */
 async function updateOnOpen(ed: Editor): Promise<void> {
-  const keys = new Set([
-    ...Object.keys(sampleLibraries).map((p) => p.split('/').pop()!),
-    ...loadedLibraries.keys(),
-  ].filter((k) => k.toLowerCase().endsWith('.ospreylib')));
+  const keys = new Set(libraryNames().filter((k) => k.toLowerCase().endsWith('.ospreylib')));
   const sources: { name: string; library: O.Library }[] = [];
   for (const key of [...keys].sort()) {
     const library = await librarySource(key);
@@ -3065,11 +3139,9 @@ function renderDrcPanel(): void {
   if (!project) return;
   const rules = designRules(project);
   drcName.textContent = rules.get('@name') ?? (rules.size ? 'unnamed' : "Eagle's defaults");
-  if (drcLoad.options.length === 0) {
-    drcLoad.append(new Option('Load rules…', ''));
-    for (const path of Object.keys(sampleRules).sort()) drcLoad.append(new Option(path.split('/').pop()!, path));
-    drcLoad.append(new Option('From a .dru file…', 'open'));
-  }
+  drcLoad.replaceChildren(new Option('Load rules…', ''));
+  for (const { key, name } of dirAndSamples('rules', sampleRules)) drcLoad.append(new Option(name, key));
+  drcLoad.append(new Option('From a .dru file…', 'open'));
   drcList.replaceChildren();
   if (!drcResult) {
     drcSummary.className = 'drc-summary';
@@ -3151,13 +3223,29 @@ drcLoad.addEventListener('change', async () => {
   const v = drcLoad.value;
   drcLoad.value = '';
   if (v === 'open') druInput.click();
-  else if (v && sampleRules[v]) await loadRules(v.split('/').pop()!, (await sampleRules[v]!()) as string);
+  else if (v) await loadRulesFrom(v);
 });
 druInput.addEventListener('change', async () => {
   const file = druInput.files?.[0];
   druInput.value = '';
-  if (file) await loadRules(file.name, await file.text());
+  if (!file) return;
+  const text = await file.text();
+  await loadRules(file.name, text);
+  if (await keepInUserDir('rules', file.name, text)) {
+    flash(`${statusMsg.textContent} · ${file.name} kept in the user directory's rules/`);
+    renderDrcPanel();
+  }
 });
+
+/** Load design rules by source key: "dir:<name>" from the user directory, or a sample's path. */
+async function loadRulesFrom(key: string): Promise<void> {
+  const name = key.split(/[/:]/).pop()!;
+  try {
+    await loadRules(name, await readSource('rules', sampleRules, key));
+  } catch (e) {
+    showError(`Could not read ${name}: ${e instanceof Error ? e.message : String(e)}`);
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Electrical rule check (schematic)
@@ -4399,6 +4487,221 @@ selection.onChange(() => {
 });
 
 // ---------------------------------------------------------------------------
+// The user directory (libraries/, rules/, cam/), recent files and Preferences
+
+/** File ▸ Open from user directory: a library there, saved back in place. */
+async function openFromUserDir(name: string): Promise<void> {
+  if (!confirmDiscard()) return;
+  try {
+    const handle = await userDir.fileHandle('libraries', name);
+    const text = await (await handle.getFile()).text();
+    // An Eagle library is imported (saving writes an .ospreylib); an Osprey one saves in place.
+    openSources([{ name, text, ...(name.toLowerCase().endsWith('.ospreylib') ? { handle } : {}) }]);
+    clearSampleLink();
+  } catch (e) {
+    showError(`Could not open ${name}: ${e instanceof Error ? e.message : String(e)}`);
+  }
+}
+
+/** Projects and libraries opened or saved lately (Chromium: their file handles), newest first. */
+interface Recent { name: string; handle: FileHandle }
+let recent: Recent[] = [];
+const RECENT_MAX = 8;
+
+async function loadRecent(): Promise<void> {
+  try {
+    recent = (await idbGet<Recent[]>('recent')) ?? [];
+  } catch {
+    recent = [];
+  }
+}
+
+function addRecent(name: string, handle: FileHandle | undefined): void {
+  if (!handle || !/\.(osprey|ospreylib)$/i.test(name)) return;
+  recent = [{ name, handle }, ...recent.filter((r) => r.name !== name)].slice(0, RECENT_MAX);
+  void idbSet('recent', recent).catch(() => { /* not remembered */ });
+}
+
+async function openRecent(r: Recent): Promise<void> {
+  if (!confirmDiscard()) return;
+  const h = r.handle as FileHandle & { requestPermission?(o: { mode: 'readwrite' }): Promise<PermissionState> };
+  try {
+    if (h.requestPermission && (await h.requestPermission({ mode: 'readwrite' })) !== 'granted') return;
+    const file = await h.getFile();
+    openSources([{ name: file.name, text: await file.text(), handle: r.handle }]);
+    clearSampleLink();
+    addRecent(file.name, r.handle);
+  } catch (e) {
+    recent = recent.filter((x) => x !== r);
+    void idbSet('recent', recent).catch(() => { /* not remembered */ });
+    showError(`Could not open ${r.name} (moved or deleted?): ${e instanceof Error ? e.message : String(e)}`);
+  }
+}
+
+/** Copy the sample libraries, design rules and CAM job into the user directory (those not there). */
+async function addSamplesToUserDir(): Promise<number> {
+  let n = 0;
+  const sets: [Sub, Glob][] = [['libraries', sampleLibraries], ['rules', sampleRules], ['cam', sampleCamJobs]];
+  for (const [sub, glob] of sets) {
+    for (const path of Object.keys(glob).sort()) {
+      const name = path.split('/').pop()!;
+      if (userDir.has(sub, name)) continue;
+      await userDir.write(sub, name, (await glob[path]!()) as string);
+      n++;
+    }
+  }
+  return n;
+}
+
+async function reconnectUserDir(): Promise<void> {
+  try {
+    if (await userDir.reconnect()) flash(`User directory ${userDir.label} connected`);
+  } catch (e) {
+    showError(`Could not reconnect ${userDir.label}: ${e instanceof Error ? e.message : String(e)}`);
+  }
+}
+
+/** Run a user directory action, reporting failures; refreshes Preferences if open. */
+async function userDirAction(what: string, fn: () => Promise<string | void>): Promise<void> {
+  try {
+    const msg = await fn();
+    if (msg) flash(msg);
+  } catch (e) {
+    showError(`Could not ${what}: ${e instanceof Error ? e.message : String(e)}`);
+  }
+  renderPreferences();
+}
+
+const userDirPanel = document.createElement('section');
+userDirPanel.id = 'userdir-panel';
+userDirPanel.className = 'userdir-panel';
+userDirPanel.hidden = true;
+$('project-panel').before(userDirPanel);
+
+/** A note at the top of the left panel: set up a user directory, or reconnect it after a reload. */
+function renderUserDirPanel(): void {
+  const dismissed = storeGet('osprey.userdir.dismissed') === '1';
+  if (userDir.status === 'needs-permission') {
+    userDirPanel.replaceChildren(
+      el('p', '', `The user directory ${userDir.label} needs your permission again (the browser asks after a reload).`),
+      button('Reconnect', () => void reconnectUserDir()),
+    );
+    userDirPanel.hidden = false;
+  } else if (userDir.status === 'none' && !dismissed && (userDir.canPickFolder || userDir.canUseBrowser)) {
+    const later = button('Not now', () => {
+      storeSet('osprey.userdir.dismissed', '1');
+      renderUserDirPanel();
+    });
+    later.className = 'secondary';
+    userDirPanel.replaceChildren(
+      el('p', '', 'Keep your libraries, design rules and CAM jobs in one place: a user directory.'),
+      button('Set up…', openPreferences),
+      later,
+    );
+    userDirPanel.hidden = false;
+  } else userDirPanel.hidden = true;
+}
+
+/** The Preferences dialog's content, while it is open. */
+let preferencesBody: HTMLElement | undefined;
+
+function openPreferences(): void {
+  preferencesBody = document.createElement('div');
+  preferencesBody.className = 'preferences';
+  renderPreferences();
+  showDialog('Preferences', [preferencesBody], () => {
+    preferencesBody = undefined;
+    afterCommand();
+  });
+}
+
+function renderPreferences(): void {
+  const body = preferencesBody;
+  if (!body) return;
+  const count = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+  const counts = () => [
+    count(userDir.list('libraries').length, 'library', 'libraries'),
+    count(userDir.list('rules').length, 'design rules file', 'design rules files'),
+    count(userDir.list('cam').length, 'CAM job', 'CAM jobs'),
+  ].join(', ');
+  const status = userDir.status === 'ready'
+    ? `${userDir.where === 'browser' ? 'Kept in this browser' : `The folder ${userDir.label}`}: ${counts()}.`
+    : userDir.status === 'needs-permission' ? `The folder ${userDir.label}: the browser needs your permission again.`
+    : 'Not set up yet.';
+  const row = el('div', 'pref-buttons', '');
+  if (userDir.status === 'needs-permission') row.append(button('Reconnect', () => void userDirAction('reconnect', async () => void (await reconnectUserDir()))));
+  if (userDir.canPickFolder) {
+    row.append(button(userDir.where === 'folder' ? 'Choose another folder…' : 'Choose a folder…', () => void userDirAction('use that folder', async () => {
+      if (await userDir.choose()) return `User directory: ${userDir.label}`;
+    })));
+  }
+  if (userDir.canUseBrowser && userDir.where !== 'browser') {
+    row.append(button('Keep in this browser', () => void userDirAction('use the browser storage', async () => {
+      await userDir.useBrowser();
+      return 'User directory: kept in this browser';
+    })));
+  }
+  const ready = userDir.status === 'ready';
+  const files = el('div', 'pref-buttons', '');
+  if (ready) {
+    files.append(
+      button('Add the samples', () => void userDirAction('add the samples', async () => {
+        const n = await addSamplesToUserDir();
+        return n ? `Added ${n} sample file(s) to ${userDir.label}` : 'The samples are there already';
+      })),
+      button('Export zip', () => void userDirAction('export', async () => {
+        const r = await saveFile(await userDir.exportZip(), 'osprey-user-directory.zip', undefined, 'zip');
+        if (r) return 'Exported the user directory as a zip';
+      })),
+      button('Import zip…', () => {
+        const input = Object.assign(document.createElement('input'), { type: 'file', accept: '.zip' });
+        input.addEventListener('change', () => {
+          const f = input.files?.[0];
+          if (f) void userDirAction(`import ${f.name}`, async () => `Imported ${await userDir.importZip(new Uint8Array(await f.arrayBuffer()))} file(s) from ${f.name}`);
+        });
+        input.click();
+      }),
+    );
+  }
+  const check = (label: string, on: boolean, set: (v: boolean) => void) => {
+    const l = el('label', 'check-row', '');
+    const box = Object.assign(document.createElement('input'), { type: 'checkbox', checked: on });
+    box.addEventListener('change', () => {
+      set(box.checked);
+      renderPreferences();
+    });
+    l.append(box, document.createTextNode(` ${label}`));
+    return l;
+  };
+  const tht = $<HTMLInputElement>('lcsc-tht');
+  body.replaceChildren(
+    el('h3', '', 'User directory'),
+    el('p', 'pref-note', 'libraries/ (.ospreylib, .lbr) for Add part, Copy from and updating projects as they open; rules/ (.dru) for Load design rules; cam/ (.cam) for File ▸ CAM. Saving a library writes it there.'),
+    el('p', '', status),
+    row,
+    ...(ready ? [files] : []),
+    el('h3', '', 'View'),
+    check('Show block outlines (Shift+B)', showBlocks, setShowBlocks),
+    check('Show poured copper (P)', showPours, setShowPours),
+    el('h3', '', 'JLCPCB parts'),
+    check('Include through-hole parts', lcscThroughHole(), (v) => {
+      tht.checked = v;
+      tht.dispatchEvent(new Event('change'));
+    }),
+  );
+}
+
+userDir.onChange(() => {
+  dirLibraries.clear();
+  renderPartsSources();
+  if (!partsPanel.hidden) void renderPartsPanel();
+  if (library) renderCopySources();
+  if (!drcPanel.hidden) renderDrcPanel();
+  renderUserDirPanel();
+  renderPreferences();
+});
+
+// ---------------------------------------------------------------------------
 // Commands: the menus, shortcuts and palette all run these (src/app/commands.ts).
 
 const commands = new Commands();
@@ -4415,6 +4718,17 @@ commands.add(
   { id: 'file.new-library', menu: 'File', group: 'new', label: 'New library', domId: 'new-lib-btn', title: 'Start a new, empty library (.ospreylib)', run: newLibrary },
   { id: 'file.open-project', menu: 'File', group: 'open', label: 'Open project…', domId: 'open-btn', keys: ['Ctrl+O'], title: 'Open an Osprey project (.osprey). Files can also be dropped on the canvas.', run: () => openViaDialog('project') },
   { id: 'file.open-library', menu: 'File', group: 'open', label: 'Open library…', title: 'Open an Osprey library (.ospreylib) to edit', run: () => openViaDialog('library') },
+  {
+    id: 'file.open-userdir', menu: 'File', group: 'open', label: 'Open from user directory', visible: () => userDir.status === 'ready',
+    title: () => `Libraries in ${userDir.label}: saving writes back there`,
+    children: () => userDir.list('libraries').map((name): Command => ({
+      id: `file.userdir.${name}`, label: name, run: () => openFromUserDir(name),
+    })),
+  },
+  {
+    id: 'file.open-recent', menu: 'File', group: 'open', label: 'Open recent', visible: canPickFiles,
+    children: () => recent.map((r): Command => ({ id: `file.recent.${r.name}`, label: r.name, run: () => openRecent(r) })),
+  },
   {
     id: 'file.open-sample', menu: 'File', group: 'open', label: 'Open sample',
     children: () => [...sampleList().keys()].map((key): Command => ({
@@ -4437,8 +4751,8 @@ commands.add(
     id: 'file.cam', menu: 'File', group: 'cam', label: 'CAM', title: 'Manufacturing files: Gerber and Excellon drill, zipped',
     children: () => [
       { id: 'cam.default', domId: 'cam-default', group: 'jobs', label: `${DEFAULT_JOB.name} (.zip)`, enabled: () => !!project?.board, run: () => makeCam(DEFAULT_JOB) },
-      ...Object.keys(sampleCamJobs).sort().map((path): Command => ({
-        id: `cam.job.${path.split('/').pop()!}`, group: 'jobs', label: `Job ${path.split('/').pop()!}`, enabled: () => !!project?.board, run: () => camFromJob(path),
+      ...dirAndSamples('cam', sampleCamJobs).map(({ key, name }): Command => ({
+        id: `cam.job.${name}`, group: 'jobs', label: `Job ${name}`, enabled: () => !!project?.board, run: () => camFromJob(key),
       })),
       { id: 'cam.open', domId: 'cam-open', group: 'file', label: 'From a .cam job file…', enabled: () => !!project?.board, run: () => camInput.click() },
     ],
@@ -4450,6 +4764,11 @@ commands.add(
       { id: 'cam.assembly-tht', domId: 'cam-assembly-tht', label: 'SMD and through-hole parts', enabled: () => !!project?.board, run: () => makeAssembly(true) },
     ],
   },
+  {
+    id: 'file.reconnect', menu: 'File', group: 'prefs', label: () => `Reconnect ${userDir.label}`, visible: () => userDir.status === 'needs-permission',
+    title: 'The browser asks again for the user directory after a reload', run: reconnectUserDir,
+  },
+  { id: 'file.preferences', menu: 'File', group: 'prefs', label: 'Preferences…', run: openPreferences },
 
   // Edit
   { id: 'edit.undo', menu: 'Edit', group: 'history', label: () => (editor?.history.undoLabel ? `Undo ${editor.history.undoLabel}` : 'Undo'), keys: ['Ctrl+Z'], enabled: () => !!editor?.history.canUndo || !!move, run: undoCmd },
@@ -4522,9 +4841,8 @@ commands.add(
   {
     id: 'tools.load-rules', menu: 'Tools', group: 'check', label: 'Load design rules',
     children: () => [
-      ...Object.keys(sampleRules).sort().map((path): Command => ({
-        id: `rules.${path.split('/').pop()!}`, group: 'files', label: path.split('/').pop()!, enabled: canEditBoard,
-        run: async () => loadRules(path.split('/').pop()!, (await sampleRules[path]!()) as string),
+      ...dirAndSamples('rules', sampleRules).map(({ key, name }): Command => ({
+        id: `rules.${name}`, group: 'files', label: name, enabled: canEditBoard, run: () => loadRulesFrom(key),
       })),
       { id: 'rules.open', group: 'open', label: 'From a .dru file…', enabled: canEditBoard, run: () => druInput.click() },
     ],
@@ -4646,7 +4964,14 @@ function storeSet(key: string, value: string): void {
 }
 
 resize();
-initSamples();
+// The user directory comes first, so the project opened next is updated from its libraries.
+void userDir.init()
+  .catch((e: unknown) => console.warn('User directory not available:', e))
+  .finally(() => {
+    renderUserDirPanel();
+    initSamples();
+  });
+void loadRecent();
 
 // Installed as an app (a PWA), the service worker keeps every file cached so it runs with no
 // server; see vite.config.ts. Only in builds: the dev server serves fresh files.
@@ -4672,6 +4997,9 @@ if (import.meta.env.DEV) {
       revealMenu(path: string) { menuBar.reveal(path); },
       /** The command ids, as the menus, palette and command line know them. */
       commands: () => commands.list().map((c) => c.id),
+      /** The user directory, and filling it with the samples (for tests: browser storage). */
+      userDir,
+      addSamplesToUserDir,
       /** A world point (mm) in page CSS pixels, for clicking it. */
       toPage(x: number, y: number): Point {
         const r = canvas.getBoundingClientRect();

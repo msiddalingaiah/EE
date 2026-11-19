@@ -379,3 +379,15 @@ button.link:hover { color: var(--text); }
 .layer-list .airwire-nets ul li label { grid-template-columns: auto 1fr auto; }
 .width-picker { display: inline-flex; gap: 4px; align-items: center; }
 .width-picker select.too-narrow, .width-picker option.too-narrow { color: #ff4d4d; }
+
+/* User directory: the setup note in the left panel, and Preferences */
+.userdir-panel { background: var(--panel-2); border: 1px solid #3d4452; border-radius: 4px; padding: 6px 8px; margin-bottom: 8px; color: var(--text-dim); }
+.userdir-panel p { margin: 0 0 6px; }
+.userdir-panel button { margin-right: 6px; font-size: 12px; padding: 1px 8px; }
+button.secondary { background: none; }
+.preferences h3 { margin: 14px 0 6px; font-size: 13px; color: var(--accent); }
+.preferences h3:first-child { margin-top: 0; }
+.preferences p { margin: 0 0 6px; }
+.preferences .pref-note { color: var(--text-dim); font-size: 12px; }
+.pref-buttons { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
+.preferences .check-row { font-size: 13px; color: var(--text); }

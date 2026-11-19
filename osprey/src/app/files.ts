@@ -110,7 +110,7 @@ export class FolderWriteError extends Error {
  * changed on disk behind its back (a sync client, another program); one retry with a fresh
  * handle gets past a passing change.
  */
-async function writeInFolder(folder: FolderHandle, name: string, data: string | Uint8Array): Promise<void> {
+export async function writeInFolder(folder: FolderHandle, name: string, data: string | Uint8Array): Promise<void> {
   for (let attempt = 0; ; attempt++) {
     try {
       const out = await (await folder.getFileHandle(name, { create: true })).createWritable();
