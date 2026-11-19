@@ -10,6 +10,8 @@ import { parseEagle } from '../src/eagle/parse';
 import { readLibrary, readProject, writeLibrary, writeProject } from '../src/model/file';
 import { importEagle } from '../src/model/import-eagle';
 import { Editor } from '../src/app/editor';
+import { parseDescription, resolveDescription } from '../src/gen/description';
+import { generateProject } from '../src/gen/layout';
 import { unroutedSample } from './unrouted';
 
 const eagle = (name: string) => readFileSync(join(__dirname, '..', 'samples', 'eagle', name), 'utf8');
@@ -42,6 +44,16 @@ it('samples/osprey/wwvbfind2-placed.osprey is wwvbfind2 placed block by block', 
   const project = readProject(readFileSync(join(__dirname, '..', 'samples', 'osprey', 'wwvbfind2.osprey'), 'utf8'));
   new Editor(project, () => {}).autoplace();
   await expect(writeProject(project)).toMatchFileSnapshot('../samples/osprey/wwvbfind2-placed.osprey');
+});
+
+// wwvbfind2-gen.osprey is wwvbfind2's schematic generated from its block description
+// (samples/blocks/wwvbfind2.blocks): what the generator draws, beside the hand-drawn wwvbfind2.
+it('samples/osprey/wwvbfind2-gen.osprey is generated from samples/blocks/wwvbfind2.blocks', async () => {
+  const library = readProject(readFileSync(join(__dirname, '..', 'samples', 'osprey', 'wwvbfind2.osprey'), 'utf8')).library;
+  const { description, problems } = parseDescription(readFileSync(join(__dirname, '..', 'samples', 'blocks', 'wwvbfind2.blocks'), 'utf8'));
+  const r = resolveDescription(description, [{ name: 'wwvbfind2.osprey', library }]);
+  expect([...problems, ...r.problems]).toEqual([]);
+  await expect(writeProject(generateProject(r.resolved!))).toMatchFileSnapshot('../samples/osprey/wwvbfind2-gen.osprey');
 });
 
 // madhu.ospreylib started as the import of madhu.lbr and is edited in Osprey since: it isn't
