@@ -268,6 +268,12 @@ native model (see [docs/format.md](docs/format.md)). Eagle files are imported in
   (see pours above). Silkscreen text is plotted in Roboto (below), where Eagle places its text
   and at the same height; text with strokes thinner than 0.15 mm, which fabs may not print
   well, is reported. Not yet: pick-and-place files.
+- **Command line** (`npm run osprey -- …`, or `node scripts/osprey.mjs`): runs the design flow on
+  `.osprey` files with no browser, for agents and scripts: `osprey x.osprey place route labels
+  lcsc check cam assembly` runs the steps in order and saves the project in place (or `-o`).
+  Steps: info, update, rules=, suggest, place, route, labels, lcsc, erc, drc, check, cam,
+  assembly, eagle, and `osprey import x.sch x.brd`; each names the menu command it matches.
+  `check` says whether a board is ready to order. See [Command line](#command-line).
 - **Board text in Roboto**: the board view draws text from Roboto's outlines, bundled with
   Osprey, and CAM output plots the same outlines, so the screen shows exactly what is printed,
   on any computer. Size, alignment and rotation are Eagle's; a text's ratio makes it bolder
@@ -306,14 +312,7 @@ description, checked, turned into a schematic, placed, routed and given JLCPCB p
    it connects by) and parameters (values that change per use). Captured from a block of a
    working design, kept in a library, reused by generation; autoplace keeps an instance's
    layout as one rigid block and autoroute connects only its ports.
-3. **Command line,** so an agent can run the design flow on files with no browser:
-   `osprey check|place|route|labels|lcsc|cam <file.osprey>`, a thin layer over the functions
-   the UI and the tests already use (Suggest blocks, Place, Autoroute, Arrange labels, LCSC
-   Assign, ERC, DRC, CAM). The commands use the same ids as the menus' command list. Later
-   the same commands can be exposed over MCP (Model Context Protocol) for a live link to the
-   open project; the installed app can't listen on a port, so that link needs a desktop
-   wrapper (Tauri or Electron, which would also give real file paths).
-4. **Library parts from a datasheet, a description or an existing library,** run by an
+3. **Library parts from a datasheet, a description or an existing library,** run by an
    agent through the command line (`osprey lib …`), written into the user directory:
    - **Existing libraries first:** Eagle libraries are plentiful (SparkFun, Adafruit, and the
      Eagle exports from SnapEDA, Ultra Librarian and SamacSys) and Osprey already imports
@@ -330,13 +329,16 @@ description, checked, turned into a schematic, placed, routed and given JLCPCB p
    - **Checks:** pin count matches pad count, every pin is mapped, no duplicate numbers, pitch
      and span as described, silkscreen clear of pads; a preview image to compare against the
      datasheet drawing before accepting.
-5. **A ready-to-order check:** ERC, DRC, unrouted connections, LCSC parts and silkscreen in
-   one step.
+4. **A ready-to-order check in the app:** ERC, DRC, unrouted connections, LCSC parts and
+   silkscreen in one step, as the command line's `check` already does.
 
 ### Roadmap
 
 Then, to take a board through manufacturing and assembly:
 
+- **The command line over MCP** (Model Context Protocol), for a live link to the open project:
+  the installed app can't listen on a port, so that link needs a desktop wrapper (Tauri or
+  Electron, which would also give real file paths).
 - **LCSC parts beyond 0603/0805 passives:** common transistors, regulators and op-amps.
 - **Extended part notice:** the JLCPCB parts panel counts and names the Extended parts a board
   uses (each distinct one adds a setup fee; Basic parts don't), so one can be swapped for a
@@ -398,6 +400,40 @@ npm run typecheck
 npm run build
 npm run app        # build, serve it at http://localhost:4173 and open it (to install, below)
 ```
+
+### Command line
+
+`scripts/osprey.mjs` runs the design flow on files, with no browser: for agents, scripts and
+batch runs. It bundles `src/cli/` for Node with Vite (into `node_modules/.cache`, again only
+after a source changes), so there is nothing to build first.
+
+```sh
+npm run osprey -- board.osprey suggest place route labels lcsc check cam assembly
+npm run osprey -- import x.sch x.brd -o x.osprey check
+npm run osprey -- commands            # the steps, and the menu command each matches
+```
+
+Steps run in order on one loaded project, which is saved in place (or to `-o file`) if a step
+changed it, and before `cam`, `assembly` or `eagle` write files from it. The run stops at the
+first step that finds an error.
+
+| Step | Does |
+| --- | --- |
+| `info` | parts, nets, blocks, board size, unrouted connections, LCSC coverage |
+| `update` | update from the user directory's Osprey libraries (as opening in the app does) |
+| `rules=<name.dru>` | load design rules from the user directory's `rules/`, or a file |
+| `suggest`, `place`, `route`, `labels`, `lcsc` | Suggest blocks, Place, Autoroute, Arrange labels, LCSC Assign |
+| `erc`, `drc` | the checks (DRC includes unrouted connections) |
+| `check` | ready to order: ERC, DRC, LCSC numbers, labels on copper or each other; changes nothing |
+| `cam[=<job.cam>]` | `x_CAM.zip`: the built-in job, or one from the user directory's `cam/` or a file |
+| `assembly[=tht]` | `x_BOM.csv` and `x_CPL.csv` (`=tht` adds through-hole parts) |
+| `eagle` | `x.sch` and `x.brd` |
+
+Options: `--out <dir>` for CAM, assembly and Eagle files (default: beside the project);
+`--userdir <dir>` (or `OSPREY_USERDIR`) for the user directory, a folder with `libraries/`,
+`rules/` and `cam/` as the app keeps; `--json` prints one object with each step's summary and
+problems (severity, kind, message, place); `--strict` makes warnings fail; `--dry-run` doesn't
+save. Exit status: 0 all steps OK, 1 a step found problems, 2 bad usage or an unreadable file.
 
 ### Driving the app
 
@@ -528,6 +564,8 @@ To cover more (other packages, inductors, ferrite beads), change the filters in
 - `src/app/`: selection, the editor (commands, move sessions, history), file open/save, the
   command list (`commands.ts`) with the menu bar (`menus.ts`) and command palette (`palette.ts`),
   and the user directory (`userdir.ts`)
+- `src/cli/`: the command line: its steps (`steps.ts`, no Node or DOM) and the Node entry
+  (`main.ts`), run by `scripts/osprey.mjs`
 - `src/main.ts`: application shell (panels, file handling, pointer and keyboard)
 - `test/`: Vitest suites
 

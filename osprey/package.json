@@ -4,6 +4,9 @@
   "version": "0.1.0",
   "type": "module",
   "description": "Browser-based electronic CAD built around noun-verb editing",
+  "bin": {
+    "osprey": "scripts/osprey.mjs"
+  },
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
@@ -13,6 +16,7 @@
     "test:watch": "vitest",
     "test:ui": "vitest run --config vitest.ui.config.ts",
     "drive": "node scripts/drive.mjs",
+    "osprey": "node scripts/osprey.mjs",
     "samples": "vitest run test/samples.test.ts -u",
     "app": "npm run build && vite preview --port 4173 --strictPort --open",
     "icons": "node scripts/build-icons.mjs"
