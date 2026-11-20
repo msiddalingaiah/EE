@@ -272,9 +272,10 @@ native model (see [docs/format.md](docs/format.md)). Eagle files are imported in
   description, a short text of blocks, parts and nets that an agent writes from a person's
   words (see [Block descriptions](#block-descriptions)). It is checked first (components and
   packages in the libraries, pins, pins on two nets, pins left unconnected), with problems by
-  line; then the sheet is laid out as a person would: the signal path from the input to the
-  main IC along one row, each stage's other parts hanging below it (or above, nearer the
-  supply), and the blocks off the path (power, an oscillator, an MCU's outputs) in a band below,
+  line; then the sheet is laid out as a person would: left to right by signal, from the input
+  to the main IC, and top down from the supply: a rail (VCCA) is a line at the top, the parts on
+  it hang right below it, and everything else flows down from what it hangs from toward ground
+  (a collector under its tank, an emitter resistor under the emitter); the blocks off the path (power, an oscillator, an MCU's outputs) in a band below,
   each under what it connects to and laid out as a small row of its own. Parts hang from the
   pin or wire they join (an emitter resistor right under the emitter, a filter capacitor from its
   junction); parts in parallel stand side by side; an output connector faces back; a rail such as VCCA is a

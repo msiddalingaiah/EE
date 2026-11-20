@@ -286,6 +286,15 @@ class BlockPlacement {
       if (nets.length !== 2 || nets.every((x) => x.supply)) continue;
       groups.set(key(n), [...(groups.get(key(n)) ?? []), n]);
     }
+    // A two-pin part across two pins of a bigger part (C14 across R16's wiper and end) is in
+    // parallel with it too.
+    for (const group of groups.values()) {
+      if (group.length !== 1 || group[0]!.pins.length !== 2 || netsOf(group[0]!).some((x) => x.supply)) continue;
+      const nets = netsOf(group[0]!);
+      const big = this.nodes.find((m) => m !== group[0] && m.pins.length >= 3 && m.part.component.gates.length === 1
+        && nets.every((net) => m.pins.some((q) => q.net === net)));
+      if (big) group.push(big);
+    }
     for (const group of groups.values()) {
       if (group.length < 2) continue;
       const anchor = [...group].sort((a, b) => b.pins.length - a.pins.length || a.order - b.order)[0]!;
@@ -596,7 +605,7 @@ class BlockPlacement {
       if (this.path) return this.path.has(m) ? 2 : level(m) > 0.6 || m.pins.some((p) => p.net && this.rails.has(p.net.name)) ? 4 : 0;
       return Math.round(level(m) * 4);
     };
-    if (this.path) this.stackRow(columns, band, level);
+    if (this.path) this.flowRow(columns, parallel);
     else this.stackBands(columns, band);
     // A column of power gates (and their capacitors) starts level with its IC's top.
     for (const col of columns) {
@@ -687,77 +696,142 @@ class BlockPlacement {
         const b = ext(o);
         return a.x1 + G <= b.x0 || b.x1 + G <= a.x0 || a.y1 + G <= b.y0 || b.y1 + G <= a.y0;
       }));
+      // As low as the parts on it allow; the feed parts moved left of what they would hit
+      // before the rail is raised for them.
       let y = snapUp(Math.max(...others.map((n) => n.at[1] + n.box.y1 + n.above)) + 2 * G);
+      let shift = 0;
       place(y);
+      for (let k = 0; k < 30 && !clear(); k++) {
+        shift += G;
+        fed.at = [r6(fed.at[0] - G), fed.at[1]];
+        for (const c of feeds) if (c !== fed) c.at = [r6(c.at[0] - G), c.at[1]];
+      }
       for (let k = 0; k < 40 && !clear(); k++) place((y += G));
     }
   }
 
   /**
-   * A signal row: the path's gates at heights that line their pins up with each other; in each
-   * column the other gates stacked down from the path gate (or, between two, from the lower of
-   * them), and those nearer the supply above it, as a person hangs a stage off the signal line.
+   * A signal row laid out from the supply down: the rail (VCCA) is a line at the top; parts on it
+   * hang right below it (Q1's drain, L1 and C4); everything else flows down from what it hangs
+   * from (Q2's collector under the tank, R5 under the emitter, R1 under the IN-Q1 wire); a part
+   * with nothing above it lines up sideways with the pins it joins (IN, U1). Columns, left to
+   * right by signal, are kept; a part that would overlap one above it in its column moves down.
    */
-  /** In a signal row, the gate each stacked gate hangs from, and which way. */
-  private readonly hangs = new Map<Node, { from: Node; down: boolean }>();
-
-  private stackRow(columns: Node[][], band: (n: Node) => number, level: (n: Node) => number): void {
-    const onPath = (n: Node) => this.path!.has(n);
-    const path = this.nodes.filter(onPath).sort((a, b) => a.col - b.col);
-    for (const n of path) n.at = [0, snapDown(-n.above - n.box.y1)];
-    for (let pass = 0; pass < 6; pass++) {
-      for (const n of path.slice(1)) {
-        const ys = this.levelWith(n).sort((a, b) => a - b);
-        if (ys.length) n.at = [0, ys[Math.floor((ys.length - 1) / 2)]!];
+  private flowRow(columns: Node[][], parallel: Map<Node, { anchor: Node; net: string }>): void {
+    const RAIL = 0;
+    const nodeOf = (r: O.PinRef) => this.nodes.find((x) => x.part.part.name === r.part && x.gate.name === r.gate);
+    const nodes = columns.flat();
+    const inRow = new Set(nodes);
+    const onRail = (p: PinInfo) => !!p.net && this.rails.has(p.net.name);
+    // The rail's own parts (its feed resistor and capacitor) are placed with the rail, after.
+    const feeds = new Set(nodes.filter((n) => !this.path!.has(n) && n.pins.some(onRail) && n.pins.every((p) => !p.net || p.net.supply || onRail(p))));
+    const upSupply = (p: PinInfo) => !!p.net?.supply && !this.supplyDown(p.net);
+    // Depth: steps from the top (a part on a rail, or with a pin pointing up to a supply drawn
+    // above), through signal nets.
+    const depth = new Map<Node, number>();
+    const queue: Node[] = [];
+    for (const n of nodes) {
+      if (feeds.has(n) || n.powerOnly) continue;
+      if (n.pins.some(onRail) || n.pins.some((p) => p.side === 'T' && upSupply(p))) {
+        depth.set(n, 0);
+        queue.push(n);
       }
     }
-    const pathIn = (c: number) => columns[c]?.find(onPath);
-    const near = (c: number, d: number) => {
-      for (let k = c + d; k >= 0 && k < columns.length; k += d) if (pathIn(k)) return pathIn(k);
-      return undefined;
-    };
-    const snapUp = (v: number) => r6(Math.ceil(v / G - 1e-6) * G);
-    columns.forEach((col, c) => {
-      const p = pathIn(c);
-      const refs = p ? [p] : [near(c, -1), near(c, 1)].filter((x): x is Node => !!x);
-      const bottom = refs.length ? Math.min(...refs.map((n) => n.at[1] + n.box.y0 - n.below)) : 0;
-      const top = refs.length ? Math.max(...refs.map((n) => n.at[1] + n.box.y1 + n.above)) : 0;
-      const up = col.filter((n) => !onPath(n) && band(n) > 2).sort((a, b) => level(a) - level(b));
-      const down = col.filter((n) => !onPath(n) && band(n) <= 2);
-      let cursor = bottom - GAP_Y;
-      let from = p;
-      for (const n of down) {
-        n.at = [0, snapDown(cursor - n.above - n.box.y1)];
-        cursor = n.at[1] + n.box.y0 - n.below - GAP_Y;
-        if (from) this.hangs.set(n, { from, down: true });
-        from = n;
-      }
-      cursor = top + GAP_Y;
-      from = p;
-      // The first part above stands on the line from a row part's upward pin (a collector's
-      // load), its lower pin two grid steps above that pin, rather than above the whole row.
-      const standOn = (n: Node): number | undefined => {
-        for (const q of n.pins) {
-          if (!q.net || q.net.supply || q.local[1] > Math.min(...n.pins.map((x) => x.local[1]))) continue;
-          for (const ref of refs) {
-            const r = ref.pins.find((x) => x.net === q.net && x.side === 'T');
-            if (r) return r6(ref.at[1] + r.local[1] + 2 * G - q.local[1]);
+    while (queue.length) {
+      const n = queue.shift()!;
+      for (const p of n.pins) {
+        if (!p.net || p.net.supply || onRail(p)) continue;
+        for (const r of p.net.pins) {
+          const m = nodeOf(r);
+          if (m && inRow.has(m) && !feeds.has(m) && !depth.has(m)) {
+            depth.set(m, depth.get(n)! + 1);
+            queue.push(m);
           }
         }
-        return undefined;
-      };
-      if (up.length) {
-        const y = standOn(up[0]!);
-        if (y !== undefined) cursor = Math.min(cursor, y + up[0]!.box.y0 - up[0]!.below);
       }
-      for (const n of up) {
-        n.at = [0, snapUp(cursor + n.below - n.box.y0)];
-        cursor = n.at[1] + n.box.y1 + n.above + GAP_Y;
-        if (from) this.hangs.set(n, { from, down: false });
-        from = n;
+    }
+    const order = nodes.filter((n) => !feeds.has(n)).sort((a, b) => (depth.get(a) ?? 99) - (depth.get(b) ?? 99) || a.col - b.col || a.order - b.order);
+    const placed = new Set<Node>();
+    const pinY = (m: Node, r: PinInfo) => m.at[1] + r.local[1];
+    for (const n of order) {
+      let y: number | undefined;
+      let from: Node | undefined;
+      const pa = parallel.get(n);
+      const railPins = n.pins.filter(onRail);
+      if (pa && placed.has(pa.anchor)) {
+        const a = pa.anchor.pins.find((p) => p.net?.name === pa.net)!;
+        const f = n.pins.find((p) => p.net?.name === pa.net)!;
+        y = r6(pa.anchor.at[1] + a.local[1] - f.local[1]);
+      } else if (railPins.length) {
+        // Hanging from the rail: its highest rail pin two grid steps below the line.
+        y = r6(RAIL - 2 * G - Math.max(...railPins.map((p) => p.local[1])));
+      } else {
+        // Hanging from what is above: a pin pointing up, under a placed pin of its net that
+        // points down or sideways (a wire), the lowest of them.
+        let best: { y: number; m: Node; down: boolean } | undefined;
+        for (const q of n.pins) {
+          if (q.side !== 'T' || !q.net || q.net.supply) continue;
+          for (const r of q.net.pins) {
+            const m = nodeOf(r);
+            const rp = m?.pins.find((x) => x.ref.pin === r.pin);
+            if (!m || !rp || m === n || !placed.has(m) || rp.side === 'T') continue;
+            const cy = r6(pinY(m, rp) - 2 * G - q.local[1]);
+            if (!best || cy < best.y) best = { y: cy, m, down: rp.side === 'B' };
+          }
+        }
+        if (best) {
+          y = best.y;
+          if (best.down && best.m.col === n.col) from = best.m;
+        } else {
+          // Nothing above: in line with the pins it joins sideways.
+          const ys = this.levelWith(n, placed).sort((a, b) => a - b);
+          if (ys.length) y = ys[Math.floor((ys.length - 1) / 2)]!;
+        }
       }
-    });
+      const above = columns[n.col]!.filter((m) => placed.has(m));
+      // A decoupling capacitor (only supply pins) stands just above the IC in its column, as
+      // high as it must to clear what is placed.
+      if (n.powerOnly && y === undefined) {
+        const ic = above.find((m) => !m.powerOnly);
+        if (ic) {
+          const snapUp = (v: number) => r6(Math.ceil(v / G - 1e-6) * G);
+          let yy = snapUp(ic.at[1] + ic.box.y1 + ic.above + GAP_Y + n.below - n.box.y0);
+          for (let k = 0; k < 50; k++) {
+            const top = yy + n.box.y1 + n.above;
+            const bottom = yy + n.box.y0 - n.below;
+            const hit = [...placed].find((m) => m.col === n.col && !(bottom >= m.at[1] + m.box.y1 + m.above + G || top <= m.at[1] + m.box.y0 - m.below - G));
+            if (!hit) break;
+            yy = snapUp(hit.at[1] + hit.box.y1 + hit.above + G + n.below - n.box.y0);
+          }
+          n.at = [0, yy];
+          placed.add(n);
+          continue;
+        }
+      }
+      if (y === undefined) {
+        y = above.length
+          ? Math.min(...above.map((m) => m.at[1] + m.box.y0 - m.below)) - GAP_Y - n.above - n.box.y1
+          : RAIL - 2 * G - n.above - n.box.y1;
+      }
+      y = snapDown(y);
+      // Clear of what is already in its column: moved down below it.
+      for (let k = 0; k < 50; k++) {
+        const top = y + n.box.y1 + n.above;
+        const bottom = y + n.box.y0 - n.below;
+        const hit = above.find((m) => !(bottom >= m.at[1] + m.box.y1 + m.above + G || top <= m.at[1] + m.box.y0 - m.below - G));
+        if (!hit) break;
+        y = snapDown(hit.at[1] + hit.box.y0 - hit.below - G - n.above - n.box.y1);
+      }
+      n.at = [0, y];
+      placed.add(n);
+      if (from) this.hangs.set(n, { from, down: true });
+    }
+    // The rail's own parts somewhere out of the way until the rail is placed.
+    for (const n of feeds) n.at = [0, RAIL];
   }
+
+  /** In a signal row, the gate each part hangs from (in its column), for lining up pins. */
+  private readonly hangs = new Map<Node, { from: Node; down: boolean }>();
 
   /** Bands across the whole block, from the supply down to ground, and rows lined up within them. */
   private stackBands(columns: Node[][], band: (n: Node) => number): void {
@@ -805,14 +879,14 @@ class BlockPlacement {
    * The heights that would put a side pin of `n` level with a pin facing it in another column
    * (a left pin with a right pin in a column before, a right pin with a left pin after).
    */
-  private levelWith(n: Node): number[] {
+  private levelWith(n: Node, only?: Set<Node>): number[] {
     const out: number[] = [];
     for (const p of n.pins) {
       if (!p.net || p.net.supply || this.rails.has(p.net.name) || (p.side !== 'L' && p.side !== 'R')) continue;
       for (const r of p.net.pins) {
         const m = this.nodes.find((x) => x.part.part.name === r.part && x.gate.name === r.gate);
         const q = m?.pins.find((x) => x.ref.pin === r.pin);
-        if (!m || !q || m === n || this.riding.has(m)) continue;
+        if (!m || !q || m === n || this.riding.has(m) || (only && !only.has(m))) continue;
         const toward = (p.side === 'L' && m.col < n.col) || (p.side === 'R' && m.col > n.col);
         const facing = toward && ((p.side === 'L' && q.side === 'R') || (p.side === 'R' && q.side === 'L'));
         if (facing) out.push(snapDown(m.at[1] + q.local[1] - p.local[1]));
