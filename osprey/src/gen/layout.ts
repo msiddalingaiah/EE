@@ -18,6 +18,7 @@ import { Transaction } from '../edit/ops';
 import { addToLibrary, insertPart } from '../edit/place';
 import type * as O from '../model/types';
 import { FORMAT_VERSION } from '../model/types';
+import { isConnector } from '../model/suggest-blocks';
 import type { RNet, RPart, Resolved } from './description';
 
 const G = 2.54;
@@ -280,6 +281,8 @@ class BlockPlacement {
     for (const group of groups.values()) {
       if (group.length < 2) continue;
       const anchor = [...group].sort((a, b) => b.pins.length - a.pins.length || a.order - b.order)[0]!;
+      // A connector isn't drawn beside the part across it: that part hangs from the wire.
+      if (isConnector(anchor.part.component)) continue;
       // The net to line up: the one on the anchor's upper pin.
       const top = [...anchor.pins.filter((p) => p.net)].sort((a, b) => b.local[1] - a.local[1])[0]!;
       const net = top.net!.name;
@@ -429,7 +432,7 @@ class BlockPlacement {
       if (!n.powerOnly) continue;
       const sibling = signal.find((x) => x.part === n.part);
       if (sibling) {
-        n.col = this.path ? sibling.col : powerCol;
+        n.col = powerCol;
         continue;
       }
       const supplies = new Set(n.pins.filter((p) => p.net?.supply).map((p) => p.net!.name));
@@ -465,6 +468,34 @@ class BlockPlacement {
         const first = (xs: Node[]) => Math.min(Infinity, ...xs.map((x) => x.order));
         turn(first(others(p)) <= first(others(q)) ? p : q, 'T');
       }
+    }
+
+    const nodeOf = (r: O.PinRef) => this.nodes.find((x) => x.part.part.name === r.part && x.gate.name === r.gate);
+    const shunt = (n: Node) => n.pins.length === 2 && n.part.component.gates.length === 1
+      && n.pins.filter((p) => p.net?.supply).length === 1 && n.pins.filter((p) => p.net && !p.net.supply).length === 1;
+    // In a block, a part from a junction to a supply (a filter's capacitor) hangs between the
+    // two parts the junction joins.
+    if (!this.path) {
+      let moved = false;
+      for (const n of signal) {
+        if (!shunt(n)) continue;
+        const net = n.pins.find((p) => p.net && !p.net.supply)!.net!;
+        const cols = [...new Set(net.pins.map(nodeOf).filter((x): x is Node => !!x && x !== n && !shunt(x)).map((x) => x.col))].sort((a, b) => a - b);
+        if (cols.length < 2) continue;
+        n.col = cols[0]! + 0.5;
+        moved = true;
+      }
+      if (moved) {
+        const values = [...new Set(this.nodes.map((n) => n.col))].sort((a, b) => a - b);
+        for (const n of this.nodes) n.col = values.indexOf(n.col);
+      }
+    }
+    // A connector at the end of the signal (its pins all facing on, what they join all before
+    // it) turned to face back toward it.
+    for (const n of signal) {
+      if (!isConnector(n.part.component) || n.pins.length < 2 || !n.pins.every((p) => p.side === 'R')) continue;
+      const cols = n.pins.filter((p) => p.net && !p.net.supply).flatMap((p) => p.net!.pins.map(nodeOf)).filter((x): x is Node => !!x && x !== n).map((x) => x.col);
+      if (cols.length && cols.every((c) => c < n.col)) this.setRot(n, 180);
     }
 
     const parallel = this.pairParallel();
@@ -539,6 +570,14 @@ class BlockPlacement {
     };
     if (this.path) this.stackRow(columns, band, level);
     else this.stackBands(columns, band);
+    // A column of power gates (and their capacitors) starts level with its IC's top.
+    for (const col of columns) {
+      if (!col.length || !col.every((n) => n.powerOnly)) continue;
+      const ic = col.map((n) => this.nodes.find((x) => x.part === n.part && !x.powerOnly)).find((x) => x);
+      if (!ic) continue;
+      const d = snap(ic.at[1] + ic.box.y1 + ic.above - (col[0]!.at[1] + col[0]!.box.y1 + col[0]!.above));
+      for (const n of col) n.at = [n.at[0], r6(n.at[1] + d)];
+    }
     // Parts in parallel level with each other: the pins on their shared net in line.
     for (const [follower, { anchor, net }] of parallel) {
       const a = anchor.pins.find((p) => p.net?.name === net)!;
@@ -561,6 +600,17 @@ class BlockPlacement {
       x += colWidth[c]! + (c + 1 < columns.length ? (pairedNext ? 3 : 4 + Math.min(8, between.size)) * G : 0);
     }
     this.width = x;
+    // A gate hanging from another in its column moves sideways to put its pin right under (or
+    // over) the pin it hangs from, so the wire between drops straight (an emitter resistor
+    // under the emitter); its partner in parallel moves with it.
+    for (const [n, { from, down }] of this.hangs) {
+      const pair = n.pins.flatMap((q) => from.pins.filter((p) => p.net && !p.net.supply && p.net === q.net && p.side === (down ? 'B' : 'T') && q.side === (down ? 'T' : 'B')).map((p) => [p, q] as const))[0];
+      if (!pair) continue;
+      const d = r6(snap(from.at[0] + pair[0].local[0] - pair[1].local[0]) - n.at[0]);
+      if (!d) continue;
+      n.at = [r6(n.at[0] + d), n.at[1]];
+      for (const [f, { anchor }] of parallel) if (anchor === n) f.at = [r6(f.at[0] + d), f.at[1]];
+    }
     for (const [r, { gate, at }] of riders) r.at = [r6(gate.at[0] + at[0]), r6(gate.at[1] + at[1])];
   }
 
@@ -569,6 +619,9 @@ class BlockPlacement {
    * column the other gates stacked down from the path gate (or, between two, from the lower of
    * them), and those nearer the supply above it, as a person hangs a stage off the signal line.
    */
+  /** In a signal row, the gate each stacked gate hangs from, and which way. */
+  private readonly hangs = new Map<Node, { from: Node; down: boolean }>();
+
   private stackRow(columns: Node[][], band: (n: Node) => number, level: (n: Node) => number): void {
     const onPath = (n: Node) => this.path!.has(n);
     const path = this.nodes.filter(onPath).sort((a, b) => a.col - b.col);
@@ -593,14 +646,20 @@ class BlockPlacement {
       const up = col.filter((n) => !onPath(n) && band(n) > 2).sort((a, b) => level(a) - level(b));
       const down = col.filter((n) => !onPath(n) && band(n) <= 2);
       let cursor = bottom - GAP_Y;
+      let from = p;
       for (const n of down) {
         n.at = [0, snapDown(cursor - n.above - n.box.y1)];
         cursor = n.at[1] + n.box.y0 - n.below - GAP_Y;
+        if (from) this.hangs.set(n, { from, down: true });
+        from = n;
       }
       cursor = top + GAP_Y;
+      from = p;
       for (const n of up) {
         n.at = [0, snapUp(cursor + n.below - n.box.y0)];
         cursor = n.at[1] + n.box.y1 + n.above + GAP_Y;
+        if (from) this.hangs.set(n, { from, down: false });
+        from = n;
       }
     });
   }
@@ -644,14 +703,6 @@ class BlockPlacement {
         if (ys.length) want.set(n, ys[Math.floor((ys.length - 1) / 2)]!);
       }
       stack(want);
-    }
-    // A column of power gates (and their capacitors) starts level with its IC's top.
-    for (const col of columns) {
-      if (!col.length || !col.every((n) => n.powerOnly)) continue;
-      const ic = col.map((n) => this.nodes.find((x) => x.part === n.part && !x.powerOnly)).find((x) => x);
-      if (!ic) continue;
-      const d = snap(ic.at[1] + ic.box.y1 + ic.above - (col[0]!.at[1] + col[0]!.box.y1 + col[0]!.above));
-      for (const n of col) n.at = [n.at[0], r6(n.at[1] + d)];
     }
   }
 
@@ -1248,7 +1299,11 @@ function signalRow(pl: BlockPlacement, rails: Set<string>): { cols: Map<Node, nu
   }
   const reached = [...parent.keys()];
   const ic = reached.filter((n) => sigPins(n) >= 4).sort((a, b) => sigPins(b) - sigPins(a) || a.order - b.order)[0];
-  const end = ic ?? [...reached].sort((a, b) => dist.get(b)! - dist.get(a)! || a.order - b.order)[0]!;
+  // Else the farthest part that isn't a shunt to a supply, an active one (with an output) first.
+  const shunt = (n: Node) => n.pins.length === 2 && n.pins.some((p) => p.net?.supply) && !isConnector(n.part.component);
+  const active = (n: Node) => (n.pins.some((p) => p.pin.direction === 'out') ? 0 : 1);
+  const ends = reached.filter((n) => !shunt(n));
+  const end = ic ?? [...(ends.length ? ends : reached)].sort((a, b) => dist.get(b)! - dist.get(a)! || active(a) - active(b) || a.order - b.order)[0]!;
   const spine: Node[] = [];
   for (let n: Node | undefined = end; n; n = parent.get(n)) spine.unshift(n);
   const at = new Map(spine.map((n, i) => [n, i]));
@@ -1285,6 +1340,23 @@ function signalRow(pl: BlockPlacement, rails: Set<string>): { cols: Map<Node, nu
     else unreached.push(n);
   }
   return { cols, unreached, spine };
+}
+
+/**
+ * A block laid out as a small signal row of its own (its path on one line, the rest hanging
+ * from it), the better of two ways; or in columns when it has no path (only power parts).
+ */
+function rowPlacement(parts: RPart[], nets: RNet[], supplies: Map<string, SupplySymbol>, potential: Map<string, number>, rails: Set<string>): BlockPlacement {
+  let best: { pl: BlockPlacement; score: number } | undefined;
+  for (const flip of [true, false]) {
+    const pl = new BlockPlacement(parts, nets, supplies, potential, rails);
+    const row = signalRow(pl, rails);
+    if (!row.spine.length || row.unreached.length) return bestPlacement(parts, nets, supplies, potential, rails);
+    pl.placeIn(row.cols, row.spine, flip);
+    const { score } = routeNodes(pl.nodes, nets, supplies, () => 'S');
+    if (!best || score < best.score) best = { pl, score };
+  }
+  return best!.pl;
 }
 
 /**
@@ -1327,7 +1399,7 @@ function layoutSheet(design: Resolved, supplies: Map<string, SupplySymbol>, pote
   const pinAt = new Map<string, Vec>();
   for (const n of rowNodes) for (const p of n.pins) pinAt.set(`${p.ref.part}.${p.ref.gate}.${p.ref.pin}`, [n.at[0] + p.local[0], n.at[1] + p.local[1]]);
   const groups = blocks.map((b) => {
-    const pl = bestPlacement(side.filter((p) => p.block === b), design.nets, supplies, potential, rails);
+    const pl = rowPlacement(side.filter((p) => p.block === b), design.nets, supplies, potential, rails);
     const box = boxOf(pl.nodes.flatMap(extentOf));
     // Where it would like to be: its pins under the row's pins they connect to.
     const dx: number[] = [];

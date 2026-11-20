@@ -27,6 +27,7 @@ const TRANSISTOR_PREFIX = /^(Q|T)$/i;
 /** Components that are connectors: by prefix, or by name. */
 const CONNECTOR_PREFIX = /^(J|P|CN|CON|X?CONN)$/i;
 const CONNECTOR_NAME = /BERG|HEADER|PINHD|CONN|JST|MOLEX|USB|TERMINAL|SCREW/i;
+export const isConnector = (component: O.Component) => CONNECTOR_PREFIX.test(component.prefix ?? '') || CONNECTOR_NAME.test(component.id);
 
 interface Node {
   part: string;
@@ -49,7 +50,7 @@ export function suggestBlocks(project: O.Project, index = new ProjectIndex(proje
     const component = index.components.get(part.component);
     const pads = new Set(Object.values(variant.pads).flat());
     const prefix = component?.prefix ?? '';
-    const connector = !!component && (CONNECTOR_PREFIX.test(prefix) || CONNECTOR_NAME.test(component.id));
+    const connector = !!component && isConnector(component);
     const transistor = !connector && TRANSISTOR_PREFIX.test(prefix);
     // Without a prefix to go by, a part with four or more pads counts as an IC.
     const ic = !connector && (IC_PREFIX.test(prefix) || (!prefix && pads.size >= 4));
