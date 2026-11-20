@@ -277,8 +277,9 @@ native model (see [docs/format.md](docs/format.md)). Eagle files are imported in
   supply), and the blocks off the path (power, an oscillator, an MCU's outputs) in a band below,
   each under what it connects to and laid out as a small row of its own. Parts hang from the
   pin or wire they join (an emitter resistor right under the emitter, a filter capacitor from its
-  junction); parts in parallel stand side by side; an output connector faces back; a rail such as VCCA is
-  fed from the left. A grid router wires the row and each block below as circuits: orthogonal
+  junction); parts in parallel stand side by side; an output connector faces back; a rail such as VCCA is a
+  straight line above the row, its feed resistor lying at its left end and its capacitor hanging
+  from it, the parts on it dropping straight up to it. A grid router wires the row and each block below as circuits: orthogonal
   wires around the symbols, T junctions only, a wire between any two pins, crossings straight
   through; each supply pin gets an upright supply symbol in the nearest free spot, and a net
   between the row and a block below gets net labels. `samples/blocks/wwvbfind2.blocks` generates

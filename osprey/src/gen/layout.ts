@@ -46,8 +46,9 @@ function rot(p: Vec, deg: number): Vec {
 }
 
 /** The side of the body a pin connects on: opposite to where its line points. */
-function sideOf(pin: O.Pin, gateRot: number): Side {
-  const a = (((pin.rot ?? 0) + gateRot) % 360 + 360) % 360;
+function sideOf(pin: O.Pin, gateRot: number, mirror = false): Side {
+  const r = (pin.rot ?? 0) + gateRot;
+  const a = (((mirror ? 180 - r : r) % 360) + 360) % 360;
   return a === 0 ? 'L' : a === 90 ? 'B' : a === 180 ? 'R' : 'T';
 }
 
@@ -125,6 +126,8 @@ interface Node {
   order: number;
   powerOnly: boolean;
   rot: number;
+  /** Mirrored (after rotating, x negated, as Eagle's MR). */
+  mirror: boolean;
   pins: PinInfo[];
   /** The drawing and pins; and with the texts. */
   body: Box;
@@ -171,20 +174,25 @@ class BlockPlacement {
           return { ref, pin, ...(net ? { net } : {}), local: [pin.at[0], pin.at[1]], side: sideOf(pin, 0) };
         });
         const powerOnly = pins.every((x) => !x.net || x.net.supply);
-        const node: Node = { part: p, gate: g, symbol, order: order++, powerOnly, rot: 0, pins, body: rotBox(bodyPoints(symbol), 0), box: { x0: 0, y0: 0, x1: 0, y1: 0 }, col: 0, above: 0, below: 0, at: [0, 0] };
+        const node: Node = { part: p, gate: g, symbol, order: order++, powerOnly, rot: 0, mirror: false, pins, body: rotBox(bodyPoints(symbol), 0), box: { x0: 0, y0: 0, x1: 0, y1: 0 }, col: 0, above: 0, below: 0, at: [0, 0] };
         this.setRot(node, 0);
         this.nodes.push(node);
       }
     }
   }
 
-  private setRot(n: Node, deg: number): void {
+  private setRot(n: Node, deg: number, mirror = false): void {
     n.rot = ((deg % 360) + 360) % 360;
-    n.body = rotBox(bodyPoints(n.symbol), n.rot);
-    n.box = rotBox([...bodyPoints(n.symbol), ...textBoxes(n.symbol).flat()], n.rot);
+    n.mirror = mirror;
+    const place = (q: Vec): Vec => {
+      const r = rot(q, n.rot);
+      return mirror ? [-r[0], r[1]] : r;
+    };
+    n.body = boxOf(bodyPoints(n.symbol).map(place));
+    n.box = boxOf([...bodyPoints(n.symbol), ...textBoxes(n.symbol).flat()].map(place));
     for (const p of n.pins) {
-      p.local = rot([p.pin.at[0], p.pin.at[1]], n.rot);
-      p.side = sideOf(p.pin, n.rot);
+      p.local = place([p.pin.at[0], p.pin.at[1]]);
+      p.side = sideOf(p.pin, n.rot, mirror);
     }
   }
 
@@ -495,7 +503,27 @@ class BlockPlacement {
     for (const n of signal) {
       if (!isConnector(n.part.component) || n.pins.length < 2 || !n.pins.every((p) => p.side === 'R')) continue;
       const cols = n.pins.filter((p) => p.net && !p.net.supply).flatMap((p) => p.net!.pins.map(nodeOf)).filter((x): x is Node => !!x && x !== n).map((x) => x.col);
-      if (cols.length && cols.every((c) => c < n.col)) this.setRot(n, 180);
+      if (cols.length && cols.every((c) => c < n.col)) this.setRot(n, n.rot, true);
+    }
+
+    // A part on a rail with other pins too (L1 in a tank) turned to put its rail pins on top,
+    // toward the rail.
+    for (const n of this.nodes) {
+      if (this.path?.has(n) || n.pins.length < 3 || n.part.component.gates.length !== 1) continue;
+      const railPins = n.pins.filter((p) => p.net && this.rails.has(p.net.name));
+      const others = n.pins.filter((p) => p.net && !p.net.supply && !this.rails.has(p.net.name));
+      if (!railPins.length || !others.length) continue;
+      const ways = [[0, false], [180, true], [180, false], [0, true]] as const;
+      const fits = ways.filter(([deg, m]) => {
+        this.setRot(n, deg, m);
+        return Math.min(...railPins.map((p) => p.local[1])) > Math.max(...others.map((p) => p.local[1]));
+      });
+      const left = fits.find(([deg, m]) => {
+        this.setRot(n, deg, m);
+        return others.every((p) => p.side === 'L');
+      });
+      const [deg, m] = left ?? fits[0] ?? ways[0];
+      this.setRot(n, deg, m);
     }
 
     const parallel = this.pairParallel();
@@ -612,6 +640,45 @@ class BlockPlacement {
       for (const [f, { anchor }] of parallel) if (anchor === n) f.at = [r6(f.at[0] + d), f.at[1]];
     }
     for (const [r, { gate, at }] of riders) r.at = [r6(gate.at[0] + at[0]), r6(gate.at[1] + at[1])];
+    if (this.path) this.placeRails();
+  }
+
+  /**
+   * A rail as a person draws it: a straight line above the row, its feed resistor lying at its
+   * left end with the supply on the left (R10), its capacitor hanging from it just after (C7),
+   * the parts on it below (the router drops each pin straight up to it).
+   */
+  private placeRails(): void {
+    const snapUp = (v: number) => r6(Math.ceil(v / G - 1e-6) * G);
+    const turn = (n: Node, net: string, side: Side) => {
+      for (const deg of [0, 90, 180, 270]) {
+        this.setRot(n, deg);
+        if (n.pins.find((p) => p.net?.name === net)!.side === side) break;
+      }
+      this.room(n);
+    };
+    for (const rail of this.rails) {
+      const onRail = (n: Node) => n.pins.some((p) => p.net?.name === rail);
+      const feeds = this.nodes.filter((n) => !this.path!.has(n) && onRail(n) && n.pins.every((p) => !p.net || p.net.supply || p.net.name === rail));
+      const fed = feeds.find((n) => n.pins.some((p) => p.net?.supply && !this.supplyDown(p.net)));
+      if (!fed) continue;
+      const others = this.nodes.filter((n) => !feeds.includes(n));
+      const xs = others.flatMap((n) => n.pins.filter((p) => p.net?.name === rail).map((p) => n.at[0] + p.local[0]));
+      if (!xs.length) continue;
+      const y = snapUp(Math.max(...others.map((n) => n.at[1] + n.box.y1 + n.above)) + 2 * G);
+      turn(fed, rail, 'R');
+      const fp = fed.pins.find((p) => p.net?.name === rail)!;
+      let x = snap(Math.min(...xs) - 6 * G);
+      fed.at = [r6(x - fp.local[0]), r6(y - fp.local[1])];
+      for (const c of feeds) {
+        if (c === fed) continue;
+        x += 2 * G;
+        turn(c, rail, 'T');
+        const cp = c.pins.find((p) => p.net?.name === rail)!;
+        c.at = [r6(x - cp.local[0]), r6(y - 2 * G - cp.local[1])];
+        x += G;
+      }
+    }
   }
 
   /**
@@ -966,6 +1033,23 @@ class Router {
     }
   }
 
+  /** A straight wire from a pin rightwards to column i1, if nothing is in the way. */
+  trunk(net: string, from: PinPoint, i1: number): boolean {
+    const path: Vec[] = [];
+    for (let i = from.i; i <= i1; i++) {
+      const k = pk(i, from.j);
+      if (i > from.i && (this.blocked.has(k) || this.pinAt.has(k) || [...this.nets.values()].some((n) => n.use.has(k) || n.labels.has(k)))) return false;
+      path.push([i, from.j]);
+    }
+    this.commit(net, path);
+    return true;
+  }
+
+  /** Is a pin already on its net's drawing? */
+  reaches(p: PinPoint): boolean {
+    return this.net(p.net).use.has(pk(p.i, p.j));
+  }
+
   /** Wire a pin to its net's drawing so far (or, the first time, to `first`); false if no way. */
   connect(p: PinPoint, first?: PinPoint, maxLength = Infinity): boolean {
     const own = this.net(p.net);
@@ -992,7 +1076,7 @@ class Router {
   }
 
   /** A net label on a short branch from the net's drawing (or from a lone pin). */
-  label(net: string, pins: PinPoint[], text: string): boolean {
+  label(net: string, pins: PinPoint[], text: string, fromPinsOnly = false): boolean {
     const len = Math.ceil(labelWidth(text) / G) + 1;
     const own = this.net(net);
     const target = (i: number, j: number, d: Dir) => {
@@ -1006,7 +1090,8 @@ class Router {
       }
       return true;
     };
-    const path = this.search(net, this.branchSources(net, pins), target, 60);
+    const sources = fromPinsOnly ? pins.map((p) => ({ i: p.i, j: p.j, dirs: [p.out] })) : this.branchSources(net, pins);
+    const path = this.search(net, sources, target, 60);
     if (!path) return false;
     this.commit(net, path);
     const end = path[path.length - 1]!;
@@ -1023,7 +1108,7 @@ class Router {
       const b = { x0: i * G + s.box.x0, y0: j * G + s.box.y0, x1: i * G + s.box.x1, y1: j * G + s.box.y1 };
       return this.cells(b).every((k) => k === pk(i, j) || this.free(k));
     };
-    const path = this.search(p.net, [{ i: p.i, j: p.j, dirs: [p.out] }], target, 40);
+    const path = this.search(p.net, [{ i: p.i, j: p.j, dirs: [p.out] }], target, 40) ?? this.search(p.net, [{ i: p.i, j: p.j, dirs: [p.out] }], target, 120);
     if (!path) return false;
     this.commit(p.net, path);
     const [i, j] = path[path.length - 1]!;
@@ -1130,7 +1215,7 @@ const extentOf = (n: Node): Vec[] => [[n.at[0] + n.box.x0, n.at[1] + n.box.y0 - 
  * The score adds wire length, bends, crossings, labels, pins left unwired and area: lower is
  * better.
  */
-function routeNodes(nodes: Node[], nets: RNet[], supplies: Map<string, SupplySymbol>, supplyName: (s: SupplySymbol) => string, groupOf?: (n: Node) => string): { router: Router; extent: Box; score: number } {
+function routeNodes(nodes: Node[], nets: RNet[], supplies: Map<string, SupplySymbol>, supplyName: (s: SupplySymbol) => string, groupOf?: (n: Node) => string, rails: Set<string> = new Set()): { router: Router; extent: Box; score: number } {
   const extent = boxOf(nodes.flatMap(extentOf));
   const router = new Router(extent);
   const blockOfPart = new Map(nodes.map((n) => [n.part.part.name, groupOf ? groupOf(n) : n.part.block]));
@@ -1148,7 +1233,7 @@ function routeNodes(nodes: Node[], nets: RNet[], supplies: Map<string, SupplySym
   for (const n of nodes) {
     router.addGate(
       { x0: n.at[0] + n.body.x0, y0: n.at[1] + n.body.y0, x1: n.at[0] + n.body.x1, y1: n.at[1] + n.body.y1 },
-      textBoxes(n.symbol).map((t) => rotBox(t, n.rot)).map((b) => ({ x0: n.at[0] + b.x0, y0: n.at[1] + b.y0, x1: n.at[0] + b.x1, y1: n.at[1] + b.y1 })),
+      textBoxes(n.symbol).map((t) => rotBox(t, n.rot)).map((b) => (n.mirror ? { x0: -b.x1, y0: b.y0, x1: -b.x0, y1: b.y1 } : b)).map((b) => ({ x0: n.at[0] + b.x0, y0: n.at[1] + b.y0, x1: n.at[0] + b.x1, y1: n.at[1] + b.y1 })),
     );
     for (const p of n.pins) {
       if (!p.net) continue;
@@ -1171,7 +1256,27 @@ function routeNodes(nodes: Node[], nets: RNet[], supplies: Map<string, SupplySym
   let labels = 0;
   const unrouted: PinPoint[] = [];
   const brokenKeys = new Set<string>();
+  // A rail whose leftmost pin faces right and is its highest (a feed resistor at its left end):
+  // a straight trunk from that pin to over its last pin, drawn first, for the rest to join.
+  const trunked = new Set<string>();
   for (const [key, ps] of signal) {
+    if (!rails.has(real(key).name)) continue;
+    const lead = [...ps].sort((a, b) => a.i - b.i)[0]!;
+    const end = Math.max(...ps.map((p) => p.i));
+    if (lead.out !== 0 || end <= lead.i || ps.some((p) => p !== lead && (p.i <= lead.i || p.j >= lead.j))) continue;
+    if (router.trunk(key, lead, end)) trunked.add(key);
+  }
+  for (const [key, ps] of signal) {
+    if (trunked.has(key)) {
+      for (const p of ps) {
+        if (router.reaches(p)) continue;
+        if (!router.connect(p)) {
+          unrouted.push(p);
+          brokenKeys.add(key);
+        }
+      }
+      continue;
+    }
     // A net between two blocks is wired only if the wire stays reasonably short.
     const blocks = new Set(ps.map((p) => blockOfPart.get(p.ref.part)));
     const limit = blocks.size > 1 ? 2 * span(ps) + 12 : Infinity;
@@ -1206,7 +1311,8 @@ function routeNodes(nodes: Node[], nets: RNet[], supplies: Map<string, SupplySym
     }
   }
   for (const p of unrouted) {
-    if (!router.label(p.net, [p], real(p.net).name)) router.stubLabel(p);
+    // (A supply pin with no room for its symbol: labelled right at the pin, not wherever the net is.)
+    if (!router.label(p.net, [p], real(p.net).name, real(p.net).supply)) router.stubLabel(p);
     labels++;
   }
   for (const p of offGrid) {
@@ -1558,7 +1664,7 @@ export function generateProject(design: Resolved): O.Project {
   {
     // The sheet laid out in one piece and wired as one circuit.
     const { nodes, groupOf } = layoutSheet(design, supplies, potential, rails);
-    const { router } = routeNodes(nodes, design.nets, supplies, (s) => `${s.component.prefix || 'SUPPLY'}${++supplyCount}`, groupOf);
+    const { router } = routeNodes(nodes, design.nets, supplies, (s) => `${s.component.prefix || 'SUPPLY'}${++supplyCount}`, groupOf, rails);
 
     // The drawing, moved so its top left is at the origin.
     const segments = router.segments();
@@ -1572,7 +1678,7 @@ export function generateProject(design: Resolved): O.Project {
     const dx = snap(-gb.x0);
     const dy = snap(-gb.y1);
     const move = (p: O.Pt): O.Pt => [r6(p[0] + dx), r6(p[1] + dy)];
-    for (const n of nodes) sheet.gates.push({ part: n.part.part.name, gate: n.gate.name, at: move(n.at), ...(n.rot ? { rot: n.rot } : {}) });
+    for (const n of nodes) sheet.gates.push({ part: n.part.part.name, gate: n.gate.name, at: move(n.at), ...(n.rot ? { rot: n.rot } : {}), ...(n.mirror ? { mirror: true } : {}) });
     for (const sg of router.supplyGates) {
       project.parts.push({ name: sg.name, component: sg.supply.component.id, variant: sg.supply.component.variants[0]?.name ?? '' });
       sheet.gates.push({ part: sg.name, gate: sg.supply.gate.name, at: move(sg.at) });
