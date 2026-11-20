@@ -26,7 +26,9 @@ const WIRE = 0.1524;
 const LABEL_SIZE = 1.778;
 /** Between parts stacked in a column, and around a column: room for wires and symbols. */
 const GAP_Y = 3 * G;
-const BLOCK_GAP = 8 * G;
+/** Between columns of parts at the same height: a base, and a grid step per net between them (up to a few). */
+const COL_GAP = 2;
+const COL_GAP_NETS = 2;
 const r6 = (v: number) => Math.round(v * 1e6) / 1e6;
 const snapDown = (v: number) => r6(Math.floor(v / G + 1e-6) * G);
 const snap = (v: number) => r6(Math.round(v / G) * G);
@@ -622,20 +624,40 @@ class BlockPlacement {
       follower.at = [follower.at[0], r6(anchor.at[1] + a.local[1] - f.local[1])];
     }
 
-    // Columns' x: the widest gate, and a gap that grows with the nets between the columns.
+    // Columns' x, left to right, each as far left as it can go: its parts clear (by a gap that
+    // grows with the nets between) of every part to their left at the same height, so a column
+    // of parts hanging low slides in under a tall one before it. The order is kept.
     const colWidth = columns.map((col) => Math.max(2 * G, ...col.map((n) => n.box.x1 - n.box.x0)));
-    let x = 0;
-    for (let c = 0; c < columns.length; c++) {
+    const gapAfter = columns.map((col, c) => {
+      const next = columns[c + 1] ?? [];
       const between = new Set<RNet>();
-      for (const n of [...columns[c]!, ...(columns[c + 1] ?? [])]) for (const p of n.pins) if (p.net && !p.net.supply) between.add(p.net);
-      for (const n of columns[c]!) n.at = [snap(x + (colWidth[c]! - (n.box.x1 - n.box.x0)) / 2 - n.box.x0), n.at[1]];
+      for (const n of [...col, ...next]) for (const p of n.pins) if (p.net && !p.net.supply) between.add(p.net);
       // Beside a part in parallel: just room for the wires joining their pins.
-      const pairedNext = (columns[c + 1] ?? []).length > 0 && [...columns[c + 1]!, ...columns[c]!].some((n) => {
+      const paired = next.length > 0 && [...next, ...col].some((n) => {
         const pa = parallel.get(n);
-        return !!pa && columns[c]!.concat(columns[c + 1]!).includes(pa.anchor);
-      }) && (columns[c + 1]!.every((n) => parallel.has(n)) || columns[c]!.every((n) => parallel.has(n)));
-      x += colWidth[c]! + (c + 1 < columns.length ? (pairedNext ? 3 : 4 + Math.min(8, between.size)) * G : 0);
+        return !!pa && col.concat(next).includes(pa.anchor);
+      }) && (next.every((n) => parallel.has(n)) || col.every((n) => parallel.has(n)));
+      return (paired ? 3 : COL_GAP + Math.min(COL_GAP_NETS, between.size)) * G;
+    });
+    const span = (n: Node) => [n.at[1] + n.box.y0 - n.below, n.at[1] + n.box.y1 + n.above] as const;
+    const placedX: Node[] = [];
+    const colX: number[] = [];
+    for (let c = 0; c < columns.length; c++) {
+      const offset = (n: Node) => (colWidth[c]! - (n.box.x1 - n.box.x0)) / 2 - n.box.x0;
+      let x = c ? colX[c - 1]! + G : 0;
+      for (const n of columns[c]!) {
+        const [lo, hi] = span(n);
+        for (const m of placedX) {
+          const [mlo, mhi] = span(m);
+          if (hi + G <= mlo || mhi + G <= lo) continue;
+          x = Math.max(x, m.at[0] + m.box.x1 + gapAfter[m.col]! - offset(n) - n.box.x0);
+        }
+      }
+      colX[c] = snap(x);
+      for (const n of columns[c]!) n.at = [snap(colX[c]! + offset(n)), n.at[1]];
+      placedX.push(...columns[c]!);
     }
+    const x = Math.max(0, ...this.nodes.filter((n) => !this.riding.has(n)).map((n) => n.at[0] + n.box.x1));
     this.width = x;
     // A gate hanging from another in its column moves sideways to put its pin right under (or
     // over) the pin it hangs from, so the wire between drops straight (an emitter resistor
@@ -698,7 +720,10 @@ class BlockPlacement {
       }));
       // As low as the parts on it allow; the feed parts moved left of what they would hit
       // before the rail is raised for them.
-      let y = snapUp(Math.max(...others.map((n) => n.at[1] + n.box.y1 + n.above)) + 2 * G);
+      // (Only parts under the rail's span count: a capacitor over an IC past its end doesn't.)
+      const x1 = Math.max(...xs);
+      const under = others.filter((n) => n.at[0] + n.box.x0 <= x1 + G);
+      let y = snapUp(Math.max(...under.map((n) => n.at[1] + n.box.y1 + n.above)) + 2 * G);
       let shift = 0;
       place(y);
       for (let k = 0; k < 30 && !clear(); k++) {
@@ -1625,51 +1650,41 @@ function layoutSheet(design: Resolved, supplies: Map<string, SupplySymbol>, pote
       }
     }
     const want = dx.length ? dx.reduce((a, b) => a + b, 0) / dx.length + box.x0 : rowBox.x0;
-    return { block: b, pl, box, want };
+    return { block: b, pl, box, want, linked: dx.length > 0 };
   }).filter((g) => g.pl.nodes.length).sort((a, b) => a.want - b.want);
 
-  // Left edges as near as can be to where each wants to be, in order, none overlapping: pool
-  // adjacent violators (isotonic regression on the left edges less the widths before).
-  const offsets: number[] = [];
-  let acc = 0;
-  for (const g of groups) {
-    offsets.push(acc);
-    acc += g.box.x1 - g.box.x0 + BLOCK_GAP;
-  }
-  const pools: { sum: number; n: number }[] = [];
-  const members: number[] = [];
-  groups.forEach((g, i) => {
-    pools.push({ sum: g.want - offsets[i]!, n: 1 });
-    members.push(1);
-    while (pools.length > 1 && pools[pools.length - 2]!.sum / pools[pools.length - 2]!.n > pools[pools.length - 1]!.sum / pools[pools.length - 1]!.n) {
-      const b = pools.pop()!;
-      const nb = members.pop()!;
-      pools[pools.length - 1]!.sum += b.sum;
-      pools[pools.length - 1]!.n += b.n;
-      members[members.length - 1]! += nb;
-    }
-  });
-  const lefts: number[] = [];
-  pools.forEach((p, k) => {
-    for (let m = 0; m < members[k]!; m++) lefts.push(p.sum / p.n + offsets[lefts.length]!);
-  });
-  // Each as high as the row above it allows (tucked under its short stretches).
-  const rowExtents = rowNodes.map((n) => boxOf(extentOf(n)));
+  // Each block where it sits highest under the row (in the room under its short stretches),
+  // not far from where it wants to be; the biggest first, each clear of those placed before.
+  // Blocks are joined to the row by labels, so being close matters less than fitting.
+  const obstacles = rowNodes.map((n) => boxOf(extentOf(n)));
   const nodes = [...rowNodes];
-  groups.forEach((g, i) => {
-    const x0 = lefts[i]!;
-    const x1 = x0 + g.box.x1 - g.box.x0;
-    const over = rowExtents.filter((b) => b.x1 + 2 * G > x0 && b.x0 - 2 * G < x1);
-    const gap = (b: Box) => Math.max(0, b.x0 - x1, x0 - b.x1);
-    const nearest = [...rowExtents].sort((a, b) => gap(a) - gap(b))[0];
-    const top = (over.length ? Math.min(...over.map((b) => b.y0)) : nearest ? nearest.y0 : 0) - 4 * G;
+  const lo = rowBox.x0 - Math.max(0, ...groups.map((g) => g.box.x1 - g.box.x0));
+  const hi = rowBox.x1;
+  for (const g of [...groups].sort((a, b) => (b.box.x1 - b.box.x0) * (b.box.y1 - b.box.y0) - (a.box.x1 - a.box.x0) * (a.box.y1 - a.box.y0))) {
+    const w = g.box.x1 - g.box.x0;
+    const h = g.box.y1 - g.box.y0;
+    let best: { x0: number; top: number; cost: number } | undefined;
+    // (A block joined to the row stays within the row's stretch: an output isn't drawn left of
+    // the input.)
+    for (let x0 = snap(g.linked ? rowBox.x0 : lo); x0 <= hi; x0 += 2 * G) {
+      const x1 = x0 + w;
+      // As high as everything above it in its stretch allows.
+      const over = obstacles.filter((b) => b.x1 + 2 * G > x0 && b.x0 - 2 * G < x1);
+      let top = (over.length ? Math.min(...over.map((b) => b.y0)) : rowBox.y0) - 4 * G;
+      // (Not above the row's bottom where it reaches past the row's ends.)
+      if (!over.length) top = Math.min(top, Math.max(...obstacles.map((b) => b.y0)) - 4 * G);
+      const cost = 0.3 * Math.abs(x0 - g.want) + (rowBox.y1 - top) + 0.1 * h;
+      if (!best || cost < best.cost) best = { x0, top, cost };
+    }
+    const { x0, top } = best!;
     const d: Vec = [snap(x0 - g.box.x0), snap(top - g.box.y1)];
     for (const n of g.pl.nodes) {
       n.at = [r6(n.at[0] + d[0]), r6(n.at[1] + d[1])];
       groupOf.set(n, g.block);
       nodes.push(n);
     }
-  });
+    obstacles.push({ x0: g.box.x0 + d[0], y0: g.box.y0 + d[1] - 2 * G, x1: g.box.x1 + d[0] + 2 * G, y1: g.box.y1 + d[1] });
+  }
   return { nodes, groupOf: (n) => groupOf.get(n) ?? n.part.block };
 }
 
