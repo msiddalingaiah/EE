@@ -665,19 +665,31 @@ class BlockPlacement {
       const others = this.nodes.filter((n) => !feeds.includes(n));
       const xs = others.flatMap((n) => n.pins.filter((p) => p.net?.name === rail).map((p) => n.at[0] + p.local[0]));
       if (!xs.length) continue;
-      const y = snapUp(Math.max(...others.map((n) => n.at[1] + n.box.y1 + n.above)) + 2 * G);
       turn(fed, rail, 'R');
+      for (const c of feeds) if (c !== fed) turn(c, rail, 'T');
       const fp = fed.pins.find((p) => p.net?.name === rail)!;
-      let x = snap(Math.min(...xs) - 6 * G);
-      fed.at = [r6(x - fp.local[0]), r6(y - fp.local[1])];
-      for (const c of feeds) {
-        if (c === fed) continue;
-        x += 2 * G;
-        turn(c, rail, 'T');
-        const cp = c.pins.find((p) => p.net?.name === rail)!;
-        c.at = [r6(x - cp.local[0]), r6(y - 2 * G - cp.local[1])];
-        x += G;
-      }
+      const x0 = snap(Math.min(...xs) - 6 * G);
+      // The rail as low as it can be with the parts hanging from it clear of the rest.
+      const place = (y: number) => {
+        let x = x0;
+        fed.at = [r6(x - fp.local[0]), r6(y - fp.local[1])];
+        for (const c of feeds) {
+          if (c === fed) continue;
+          x += 2 * G;
+          const cp = c.pins.find((p) => p.net?.name === rail)!;
+          c.at = [r6(x - cp.local[0]), r6(y - 2 * G - cp.local[1])];
+          x += G;
+        }
+      };
+      const ext = (n: Node) => boxOf(extentOf(n));
+      const clear = () => feeds.every((f) => others.every((o) => {
+        const a = ext(f);
+        const b = ext(o);
+        return a.x1 + G <= b.x0 || b.x1 + G <= a.x0 || a.y1 + G <= b.y0 || b.y1 + G <= a.y0;
+      }));
+      let y = snapUp(Math.max(...others.map((n) => n.at[1] + n.box.y1 + n.above)) + 2 * G);
+      place(y);
+      for (let k = 0; k < 40 && !clear(); k++) place((y += G));
     }
   }
 
@@ -722,6 +734,22 @@ class BlockPlacement {
       }
       cursor = top + GAP_Y;
       from = p;
+      // The first part above stands on the line from a row part's upward pin (a collector's
+      // load), its lower pin two grid steps above that pin, rather than above the whole row.
+      const standOn = (n: Node): number | undefined => {
+        for (const q of n.pins) {
+          if (!q.net || q.net.supply || q.local[1] > Math.min(...n.pins.map((x) => x.local[1]))) continue;
+          for (const ref of refs) {
+            const r = ref.pins.find((x) => x.net === q.net && x.side === 'T');
+            if (r) return r6(ref.at[1] + r.local[1] + 2 * G - q.local[1]);
+          }
+        }
+        return undefined;
+      };
+      if (up.length) {
+        const y = standOn(up[0]!);
+        if (y !== undefined) cursor = Math.min(cursor, y + up[0]!.box.y0 - up[0]!.below);
+      }
       for (const n of up) {
         n.at = [0, snapUp(cursor + n.below - n.box.y0)];
         cursor = n.at[1] + n.box.y1 + n.above + GAP_Y;
@@ -785,8 +813,12 @@ class BlockPlacement {
         const m = this.nodes.find((x) => x.part.part.name === r.part && x.gate.name === r.gate);
         const q = m?.pins.find((x) => x.ref.pin === r.pin);
         if (!m || !q || m === n || this.riding.has(m)) continue;
-        const facing = (p.side === 'L' && m.col < n.col && q.side === 'R') || (p.side === 'R' && m.col > n.col && q.side === 'L');
+        const toward = (p.side === 'L' && m.col < n.col) || (p.side === 'R' && m.col > n.col);
+        const facing = toward && ((p.side === 'L' && q.side === 'R') || (p.side === 'R' && q.side === 'L'));
         if (facing) out.push(snapDown(m.at[1] + q.local[1] - p.local[1]));
+        // A pin pointing up or down (a collector): one grid step past it, so the wire leaves
+        // it, turns once, and runs straight across.
+        else if (toward && (q.side === 'T' || q.side === 'B')) out.push(snapDown(m.at[1] + q.local[1] + (q.side === 'T' ? G : -G) - p.local[1]));
       }
     }
     return out;
