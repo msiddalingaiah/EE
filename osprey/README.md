@@ -272,14 +272,16 @@ native model (see [docs/format.md](docs/format.md)). Eagle files are imported in
   description, a short text of blocks, parts and nets that an agent writes from a person's
   words (see [Block descriptions](#block-descriptions)). It is checked first (components and
   packages in the libraries, pins, pins on two nets, pins left unconnected), with problems by
-  line; then each block gets its own area with its BLOCK attribute set, parts in columns by
-  signal flow. A grid router wires each top-level block and the blocks inside it as one circuit:
-  orthogonal wires around the symbols, T junctions only, a wire between any two pins, crossings
-  straight through; each supply pin gets an upright supply symbol in the nearest free spot, and
-  only a net that leaves the group gets a net label. `samples/blocks/wwvbfind2.blocks` generates
-  the same netlist as the hand-drawn `wwvbfind2` (`wwvbfind2-gen.osprey`). Not yet: placement
-  that keeps wires short (a rail like VCCA, or an MCU's pins to its sub-blocks, still loops
-  around the parts).
+  line; then the sheet is laid out as a person would: the signal path from the input to the
+  main IC along one row, each stage's other parts hanging below it (or above, nearer the
+  supply), and the blocks off the path (power, an oscillator, an MCU's outputs) in a band below,
+  each under what it connects to. Parts in parallel stand side by side; a rail such as VCCA is
+  fed from the left. A grid router wires the row and each block below as circuits: orthogonal
+  wires around the symbols, T junctions only, a wire between any two pins, crossings straight
+  through; each supply pin gets an upright supply symbol in the nearest free spot, and a net
+  between the row and a block below gets net labels. `samples/blocks/wwvbfind2.blocks` generates
+  the same netlist as the hand-drawn `wwvbfind2` (`wwvbfind2-gen.osprey`). Not yet: feedback
+  loops (an oscillator) drawn as a person would.
 - **Command line** (`npm run osprey -- …`, or `node scripts/osprey.mjs`): runs the design flow on
   `.osprey` files with no browser, for agents and scripts: `osprey x.osprey place route labels
   lcsc check cam assembly` runs the steps in order and saves the project in place (or `-o`).

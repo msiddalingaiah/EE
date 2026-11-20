@@ -1,11 +1,13 @@
 // Drawing a schematic from a resolved block description (description.ts).
 //
-// Placement: each block gets its own area. Inside it, gates stand in columns by signal flow:
-// breadth first from the block's first part, so the description's order is the left-to-right
-// order, rows lined up with what they connect to in the column before. Two-pin parts on a
-// supply stand upright. A top-level block and the blocks inside it sit side by side: a group.
+// Placement, as a person lays out a sheet (layoutSheet): the signal row across the top, the path
+// from the input to the main IC on one line, each stage's other parts hanging below it (or above,
+// nearer the supply); the blocks off the path (power, an oscillator, an MCU's outputs) in a band
+// below, each under what it connects to. Within a block, gates stand in columns by signal flow,
+// in the description's order. Parts in parallel stand side by side; two-pin parts on a supply
+// stand upright; a series part lies across.
 //
-// Wiring: a grid router (Router, below) draws each group as one connected circuit: orthogonal
+// Wiring: a grid router (Router, below) draws the sheet as one connected circuit: orthogonal
 // wires around the symbols, joining a net's tree only in T's (never four ways, never pin to
 // pin), crossing other nets only straight through. Every supply pin gets its own supply symbol,
 // upright, in the nearest free spot. Only a net that leaves the group gets a net label, one per
@@ -24,9 +26,6 @@ const LABEL_SIZE = 1.778;
 /** Between parts stacked in a column, and around a column: room for wires and symbols. */
 const GAP_Y = 3 * G;
 const BLOCK_GAP = 8 * G;
-/** Between blocks of one group (a block and the blocks inside it). */
-const INNER_GAP = 5 * G;
-const SHEET_WIDTH = 300;
 const r6 = (v: number) => Math.round(v * 1e6) / 1e6;
 const snapDown = (v: number) => r6(Math.floor(v / G + 1e-6) * G);
 const snap = (v: number) => r6(Math.round(v / G) * G);
@@ -146,6 +145,8 @@ const labelWidth = (name: string) => name.length * LABEL_SIZE * 0.85 + G / 2;
 class BlockPlacement {
   readonly nodes: Node[] = [];
   width = 0;
+  /** In a signal row: the path's gates, all at one height; the rest hang above or below. */
+  private path?: Set<Node>;
 
   constructor(
     parts: RPart[],
@@ -153,6 +154,8 @@ class BlockPlacement {
     private readonly supplies: Map<string, SupplySymbol>,
     /** Each net's height in the circuit: 1 on the supply drawn above (VCC), 0 on ground. */
     private readonly potential: Map<string, number> = new Map(),
+    /** Nets drawn as rails (VCCA): like a supply, they don't make parts neighbours. */
+    private readonly rails: Set<string> = new Set(),
   ) {
     const pinNet = new Map<string, RNet>();
     for (const n of nets) for (const r of n.pins) pinNet.set(`${r.part}.${r.gate}.${r.pin}`, n);
@@ -190,10 +193,11 @@ class BlockPlacement {
     return !s || s.body[1] < 0;
   }
 
-  private neighbours(n: Node): Node[] {
+  /** Gates sharing a signal net with n (not a supply or a rail). */
+  neighbours(n: Node): Node[] {
     const out = new Set<Node>();
     for (const p of n.pins) {
-      if (!p.net || p.net.supply) continue;
+      if (!p.net || p.net.supply || this.rails.has(p.net.name)) continue;
       for (const r of p.net.pins) {
         const m = this.nodes.find((x) => x !== n && x.part.part.name === r.part && x.gate.name === r.gate);
         if (m) out.add(m);
@@ -213,17 +217,7 @@ class BlockPlacement {
    * parts so their pin toward the earlier column is on the left.
    */
   place(start = 0, flip = true): void {
-    // Two-pin parts on a supply (a pin on each side: a resistor, a capacitor) stand upright,
-    // the supply pin down (ground) or up.
-    for (const n of this.nodes) {
-      if (n.pins.length !== 2 || new Set(n.pins.map((p) => p.side)).size !== 2 || n.pins.some((p) => p.side === 'T' || p.side === 'B')) continue;
-      const sup = n.pins.filter((p) => p.net?.supply);
-      if (!sup.length) continue;
-      const s = sup.find((p) => this.supplyDown(p.net!)) ?? sup[0]!;
-      const want: Side = this.supplyDown(s.net!) || sup.length === 2 ? 'B' : 'T';
-      for (const deg of [90, 270]) if (sideOf(s.pin, deg) === want) this.setRot(n, deg);
-    }
-
+    this.orient();
     // Columns: breadth first through signal nets, from the first part listed.
     const signal = this.nodes.filter((n) => !n.powerOnly);
     const seen = new Set<Node>();
@@ -243,33 +237,129 @@ class BlockPlacement {
         }
       }
     }
+    this.layout(flip);
+  }
+
+  /** Place the gates in the columns given (any numbers: only their order counts). */
+  placeIn(cols: Map<Node, number>, path: Node[], flip = true): void {
+    this.path = new Set(path);
+    this.orient();
+    const values = [...new Set(cols.values())].sort((a, b) => a - b);
+    for (const n of this.nodes) n.col = Math.max(0, values.indexOf(cols.get(n) ?? values[0] ?? 0));
+    this.layout(flip);
+  }
+
+  /** Two-pin parts on a supply (a pin on each side: a resistor, a capacitor) stand upright, the supply pin down (ground) or up. */
+  private orient(): void {
+    for (const n of this.nodes) {
+      if (n.pins.length !== 2 || new Set(n.pins.map((p) => p.side)).size !== 2 || n.pins.some((p) => p.side === 'T' || p.side === 'B')) continue;
+      const sup = n.pins.filter((p) => p.net?.supply);
+      if (!sup.length) continue;
+      const s = sup.find((p) => this.supplyDown(p.net!)) ?? sup[0]!;
+      const want: Side = this.supplyDown(s.net!) || sup.length === 2 ? 'B' : 'T';
+      for (const deg of [90, 270]) if (sideOf(s.pin, deg) === want) this.setRot(n, deg);
+    }
+  }
+
+  /**
+   * Parts in parallel (on the same two nets, not both supplies: L1 and C4 across a tank, a
+   * bypass capacitor across an emitter resistor) stand side by side: each follower in a column
+   * of its own just beside its anchor (the part with more pins, else the one listed first),
+   * turned the same way. Returns each follower's anchor and the net to line up.
+   */
+  private pairParallel(): Map<Node, { anchor: Node; net: string }> {
+    const out = new Map<Node, { anchor: Node; net: string }>();
+    const netsOf = (n: Node) => [...new Set(n.pins.filter((p) => p.net).map((p) => p.net!))];
+    const key = (n: Node) => netsOf(n).map((x) => x.name).sort().join(KEY);
+    const groups = new Map<string, Node[]>();
+    for (const n of this.nodes) {
+      const nets = netsOf(n);
+      if (nets.length !== 2 || nets.every((x) => x.supply)) continue;
+      groups.set(key(n), [...(groups.get(key(n)) ?? []), n]);
+    }
+    for (const group of groups.values()) {
+      if (group.length < 2) continue;
+      const anchor = [...group].sort((a, b) => b.pins.length - a.pins.length || a.order - b.order)[0]!;
+      // The net to line up: the one on the anchor's upper pin.
+      const top = [...anchor.pins.filter((p) => p.net)].sort((a, b) => b.local[1] - a.local[1])[0]!;
+      const net = top.net!.name;
+      const followers = group.filter((n) => n !== anchor);
+      followers.forEach((f, k) => {
+        // Turned so its two pins lie the way the anchor's do (net above net, or left of it).
+        if (f.pins.length === 2) {
+          const mean = (ps: PinInfo[]): Vec => [ps.reduce((a, p) => a + p.local[0], 0) / ps.length, ps.reduce((a, p) => a + p.local[1], 0) / ps.length];
+          const a = mean(anchor.pins.filter((p) => p.net?.name === net));
+          const b = mean(anchor.pins.filter((p) => p.net && p.net.name !== net));
+          const want: Side = Math.abs(a[1] - b[1]) >= Math.abs(a[0] - b[0]) ? (a[1] > b[1] ? "T" : "B") : a[0] > b[0] ? "R" : "L";
+          for (const deg of [f.rot, 90, 270, 0, 180]) {
+            this.setRot(f, deg);
+            if (f.pins.find((p) => p.net?.name === net)!.side === want) break;
+          }
+        }
+        const step = 0.5 * (k + 1) / followers.length;
+        f.col = anchor.col + (f.order < anchor.order ? -step : step);
+        out.set(f, { anchor, net });
+      });
+    }
+    if (out.size) {
+      const values = [...new Set(this.nodes.map((n) => n.col))].sort((a, b) => a - b);
+      for (const n of this.nodes) n.col = values.indexOf(n.col);
+    }
+    return out;
+  }
+
+  /** Rows, bands and x, once each gate has its column. */
+  private layout(flip: boolean): void {
+    const signal = this.nodes.filter((n) => !n.powerOnly);
     // A gate with only supply pins: a power gate goes with the part's other gates; a decoupling
     // capacitor (a part of its own) with the IC whose supply it is on, right after it.
+    // A separate power gate (a logic IC's VCC and GND) stands in a column of its own after
+    // the rest, its decoupling capacitor with it.
     const anchors = new Map<Node, Node>();
+    const powerCol = Math.max(0, ...signal.map((x) => x.col)) + 1;
     for (const n of this.nodes) {
       if (!n.powerOnly) continue;
       const sibling = signal.find((x) => x.part === n.part);
       if (sibling) {
-        n.col = sibling.col;
+        n.col = this.path ? sibling.col : powerCol;
         continue;
       }
       const supplies = new Set(n.pins.filter((p) => p.net?.supply).map((p) => p.net!.name));
       const anchor = signal.find((m) => (m.part.component.gates.length > 1 || m.pins.length >= 3)
         && this.nodes.some((g) => g.part === m.part && g.pins.some((p) => p.net && supplies.has(p.net.name))));
-      n.col = anchor?.col ?? 0;
-      if (anchor) anchors.set(n, anchor);
+      const gate = anchor && this.nodes.find((g) => g.part === anchor.part && g.powerOnly);
+      n.col = gate ? gate.col : anchor?.col ?? 0;
+      if (gate) anchors.set(n, gate);
+      else if (anchor) anchors.set(n, anchor);
     }
 
-    // Two-pin parts lying across: the pin toward the earlier column on the left.
+    // Two-pin parts off the supplies: lying across when they join parts in other columns (a
+    // coupling capacitor, a series resistor), the pin toward the earlier column on the left;
+    // standing upright when they hang in their column (an emitter resistor under its
+    // transistor), the pin toward the part listed first on top.
     for (const n of flip ? signal : []) {
-      if (n.pins.length !== 2 || n.rot !== 0) continue;
-      const left = n.pins.find((p) => p.side === 'L');
-      const right = n.pins.find((p) => p.side === 'R');
-      if (!left || !right) continue;
-      const cols = (p: PinInfo) => (p.net?.pins ?? []).map((r) => this.nodes.find((x) => x.part.part.name === r.part && x.gate.name === r.gate)).filter((x): x is Node => !!x && x !== n).map((x) => x.col);
-      const avg = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : n.col);
-      if (avg(cols(left)) > avg(cols(right))) this.setRot(n, 180);
+      if (n.pins.length !== 2 || n.part.component.gates.length !== 1 || n.pins.some((p) => !p.net || p.net.supply || p.pin.direction === 'in' || p.pin.direction === 'out') || n.pins[0]!.net === n.pins[1]!.net) continue;
+      const others = (p: PinInfo) => (p.net?.pins ?? []).map((r) => this.nodes.find((x) => x.part.part.name === r.part && x.gate.name === r.gate)).filter((x): x is Node => !!x && x !== n);
+      const [p, q] = n.pins as [PinInfo, PinInfo];
+      const a = others(p).map((x) => x.col);
+      const b = others(q).map((x) => x.col);
+      const avg = (xs: number[]) => (xs.length ? xs.reduce((s, v) => s + v, 0) / xs.length : n.col);
+      const apart = (xs: number[]) => xs.length > 0 && xs.every((c) => c !== n.col);
+      const across = (apart(a) || apart(b)) && avg(a) !== avg(b);
+      const turn = (pin: PinInfo, side: Side) => {
+        for (const deg of [0, 90, 180, 270]) {
+          this.setRot(n, deg);
+          if (pin.side === side) return;
+        }
+      };
+      if (across) turn(avg(a) <= avg(b) ? p : q, 'L');
+      else {
+        const first = (xs: Node[]) => Math.min(Infinity, ...xs.map((x) => x.order));
+        turn(first(others(p)) <= first(others(q)) ? p : q, 'T');
+      }
     }
+
+    const parallel = this.pairParallel();
 
     const columns: Node[][] = [];
     for (const n of [...this.nodes].sort((a, b) => a.order - b.order)) (columns[n.col] ??= []).push(n);
@@ -315,14 +405,87 @@ class BlockPlacement {
     // than its band's top in any column, so parts near VCC are above parts near GND throughout.
     const band = (n: Node): number => {
       const ic = anchors.get(n) ?? (n.powerOnly ? signal.find((x) => x.part === n.part) : undefined);
-      return Math.round(level(ic ?? n) * 4);
+      const m = ic ?? n;
+      if (this.path) return this.path.has(m) ? 2 : level(m) > 0.6 || m.pins.some((p) => p.net && this.rails.has(p.net.name)) ? 4 : 0;
+      return Math.round(level(m) * 4);
     };
+    if (this.path) this.stackRow(columns, band, level);
+    else this.stackBands(columns, band);
+    // Parts in parallel level with each other: the pins on their shared net in line.
+    for (const [follower, { anchor, net }] of parallel) {
+      const a = anchor.pins.find((p) => p.net?.name === net)!;
+      const f = follower.pins.find((p) => p.net?.name === net)!;
+      follower.at = [follower.at[0], r6(anchor.at[1] + a.local[1] - f.local[1])];
+    }
+
+    // Columns' x: the widest gate, and a gap that grows with the nets between the columns.
+    const colWidth = columns.map((col) => Math.max(2 * G, ...col.map((n) => n.box.x1 - n.box.x0)));
+    let x = 0;
+    for (let c = 0; c < columns.length; c++) {
+      const between = new Set<RNet>();
+      for (const n of [...columns[c]!, ...(columns[c + 1] ?? [])]) for (const p of n.pins) if (p.net && !p.net.supply) between.add(p.net);
+      for (const n of columns[c]!) n.at = [snap(x + (colWidth[c]! - (n.box.x1 - n.box.x0)) / 2 - n.box.x0), n.at[1]];
+      // Beside a part in parallel: just room for the wires joining their pins.
+      const pairedNext = (columns[c + 1] ?? []).length > 0 && [...columns[c + 1]!, ...columns[c]!].some((n) => {
+        const pa = parallel.get(n);
+        return !!pa && columns[c]!.concat(columns[c + 1]!).includes(pa.anchor);
+      }) && (columns[c + 1]!.every((n) => parallel.has(n)) || columns[c]!.every((n) => parallel.has(n)));
+      x += colWidth[c]! + (c + 1 < columns.length ? (pairedNext ? 3 : 4 + Math.min(8, between.size)) * G : 0);
+    }
+    this.width = x;
+  }
+
+  /**
+   * A signal row: the path's gates at heights that line their pins up with each other; in each
+   * column the other gates stacked down from the path gate (or, between two, from the lower of
+   * them), and those nearer the supply above it, as a person hangs a stage off the signal line.
+   */
+  private stackRow(columns: Node[][], band: (n: Node) => number, level: (n: Node) => number): void {
+    const onPath = (n: Node) => this.path!.has(n);
+    const path = this.nodes.filter(onPath).sort((a, b) => a.col - b.col);
+    for (const n of path) n.at = [0, snapDown(-n.above - n.box.y1)];
+    for (let pass = 0; pass < 6; pass++) {
+      for (const n of path.slice(1)) {
+        const ys = this.levelWith(n).sort((a, b) => a - b);
+        if (ys.length) n.at = [0, ys[Math.floor((ys.length - 1) / 2)]!];
+      }
+    }
+    const pathIn = (c: number) => columns[c]?.find(onPath);
+    const near = (c: number, d: number) => {
+      for (let k = c + d; k >= 0 && k < columns.length; k += d) if (pathIn(k)) return pathIn(k);
+      return undefined;
+    };
+    const snapUp = (v: number) => r6(Math.ceil(v / G - 1e-6) * G);
+    columns.forEach((col, c) => {
+      const p = pathIn(c);
+      const refs = p ? [p] : [near(c, -1), near(c, 1)].filter((x): x is Node => !!x);
+      const bottom = refs.length ? Math.min(...refs.map((n) => n.at[1] + n.box.y0 - n.below)) : 0;
+      const top = refs.length ? Math.max(...refs.map((n) => n.at[1] + n.box.y1 + n.above)) : 0;
+      const up = col.filter((n) => !onPath(n) && band(n) > 2).sort((a, b) => level(a) - level(b));
+      const down = col.filter((n) => !onPath(n) && band(n) <= 2);
+      let cursor = bottom - GAP_Y;
+      for (const n of down) {
+        n.at = [0, snapDown(cursor - n.above - n.box.y1)];
+        cursor = n.at[1] + n.box.y0 - n.below - GAP_Y;
+      }
+      cursor = top + GAP_Y;
+      for (const n of up) {
+        n.at = [0, snapUp(cursor + n.below - n.box.y0)];
+        cursor = n.at[1] + n.box.y1 + n.above + GAP_Y;
+      }
+    });
+  }
+
+  /** Bands across the whole block, from the supply down to ground, and rows lined up within them. */
+  private stackBands(columns: Node[][], band: (n: Node) => number): void {
     const bandTop = new Map<number, number>();
     let top = 0;
     for (let b = 4; b >= 0; b--) {
       bandTop.set(b, top);
       let deepest = 0;
       for (const col of columns) {
+        // (A column of power gates is placed level with its IC afterwards.)
+        if (col.every((n) => n.powerOnly)) continue;
         const h = col.filter((n) => band(n) === b).reduce((s, n) => s + n.above + (n.box.y1 - n.box.y0) + n.below + GAP_Y, 0);
         deepest = Math.max(deepest, h);
       }
@@ -353,17 +516,14 @@ class BlockPlacement {
       }
       stack(want);
     }
-
-    // Columns' x: the widest gate, and a gap that grows with the nets between the columns.
-    const colWidth = columns.map((col) => Math.max(2 * G, ...col.map((n) => n.box.x1 - n.box.x0)));
-    let x = 0;
-    for (let c = 0; c < columns.length; c++) {
-      const between = new Set<RNet>();
-      for (const n of [...columns[c]!, ...(columns[c + 1] ?? [])]) for (const p of n.pins) if (p.net && !p.net.supply) between.add(p.net);
-      for (const n of columns[c]!) n.at = [snap(x + (colWidth[c]! - (n.box.x1 - n.box.x0)) / 2 - n.box.x0), n.at[1]];
-      x += colWidth[c]! + (c + 1 < columns.length ? (4 + Math.min(8, between.size)) * G : 0);
+    // A column of power gates (and their capacitors) starts level with its IC's top.
+    for (const col of columns) {
+      if (!col.length || !col.every((n) => n.powerOnly)) continue;
+      const ic = col.map((n) => this.nodes.find((x) => x.part === n.part && !x.powerOnly)).find((x) => x);
+      if (!ic) continue;
+      const d = snap(ic.at[1] + ic.box.y1 + ic.above - (col[0]!.at[1] + col[0]!.box.y1 + col[0]!.above));
+      for (const n of col) n.at = [n.at[0], r6(n.at[1] + d)];
     }
-    this.width = x;
   }
 
   /**
@@ -373,7 +533,7 @@ class BlockPlacement {
   private levelWith(n: Node): number[] {
     const out: number[] = [];
     for (const p of n.pins) {
-      if (!p.net || p.net.supply || (p.side !== 'L' && p.side !== 'R')) continue;
+      if (!p.net || p.net.supply || this.rails.has(p.net.name) || (p.side !== 'L' && p.side !== 'R')) continue;
       for (const r of p.net.pins) {
         const m = this.nodes.find((x) => x.part.part.name === r.part && x.gate.name === r.gate);
         const q = m?.pins.find((x) => x.ref.pin === r.pin);
@@ -790,16 +950,16 @@ const extentOf = (n: Node): Vec[] => [[n.at[0] + n.box.x0, n.at[1] + n.box.y0 - 
  * The score adds wire length, bends, crossings, labels, pins left unwired and area: lower is
  * better.
  */
-function routeNodes(nodes: Node[], nets: RNet[], supplies: Map<string, SupplySymbol>, supplyName: (s: SupplySymbol) => string): { router: Router; extent: Box; score: number } {
+function routeNodes(nodes: Node[], nets: RNet[], supplies: Map<string, SupplySymbol>, supplyName: (s: SupplySymbol) => string, groupOf?: (n: Node) => string): { router: Router; extent: Box; score: number } {
   const extent = boxOf(nodes.flatMap(extentOf));
   const router = new Router(extent);
-  const blockOfPart = new Map(nodes.map((n) => [n.part.part.name, n.part.block]));
+  const blockOfPart = new Map(nodes.map((n) => [n.part.part.name, groupOf ? groupOf(n) : n.part.block]));
   const policy = new Map<string, { whole: boolean }>();
   for (const net of nets) {
     if (net.supply) continue;
     const here = new Set(net.pins.filter((r) => blockOfPart.has(r.part)).map((r) => blockOfPart.get(r.part)!));
     const elsewhere = net.pins.some((r) => !blockOfPart.has(r.part));
-    policy.set(net.name, { whole: !elsewhere && here.size <= 2 });
+    policy.set(net.name, { whole: !elsewhere && here.size <= (groupOf ? 1 : 2) });
   }
   const keyOf = (net: RNet, block: string) => (net.supply || policy.get(net.name)!.whole ? net.name : `${net.name}${KEY}${block}`);
 
@@ -814,7 +974,7 @@ function routeNodes(nodes: Node[], nets: RNet[], supplies: Map<string, SupplySym
       if (!p.net) continue;
       const x = n.at[0] + p.local[0];
       const y = n.at[1] + p.local[1];
-      const pp: PinPoint = { ref: p.ref, net: keyOf(p.net, n.part.block), out: dirOf(OUT[p.side]), i: Math.round(x / G), j: Math.round(y / G) };
+      const pp: PinPoint = { ref: p.ref, net: keyOf(p.net, blockOfPart.get(n.part.part.name)!), out: dirOf(OUT[p.side]), i: Math.round(x / G), j: Math.round(y / G) };
       if (onGrid(x) && onGrid(y)) {
         router.addPin(pp);
         pins.push(pp);
@@ -888,12 +1048,12 @@ function routeNodes(nodes: Node[], nets: RNet[], supplies: Map<string, SupplySym
 }
 
 /** A block laid out the best of several ways: each signal gate as the start, flipped or not. */
-function bestPlacement(parts: RPart[], nets: RNet[], supplies: Map<string, SupplySymbol>, potential: Map<string, number>): BlockPlacement {
+function bestPlacement(parts: RPart[], nets: RNet[], supplies: Map<string, SupplySymbol>, potential: Map<string, number>, rails: Set<string>): BlockPlacement {
   let best: { placement: BlockPlacement; score: number } | undefined;
-  const starts = Math.min(8, new BlockPlacement(parts, nets, supplies, potential).starts);
+  const starts = 1; // the description lists parts in signal order: start from the first
   for (let start = 0; start < starts; start++) {
     for (const flip of [true, false]) {
-      const placement = new BlockPlacement(parts, nets, supplies, potential);
+      const placement = new BlockPlacement(parts, nets, supplies, potential, rails);
       placement.place(start, flip);
       if (!placement.nodes.length) return placement;
       const { score } = routeNodes(placement.nodes, nets, supplies, () => 'S');
@@ -904,82 +1064,200 @@ function bestPlacement(parts: RPart[], nets: RNet[], supplies: Map<string, Suppl
 }
 
 /**
- * Arrange a group's blocks: the first where it is; each next one beside the block it connects
- * to most (by nets between just the two), on the side and at the height that brings the pins
- * closest, slid along that side until it is clear of the others. A block with no such link
- * goes to the right of the rest.
+ * Rails: nets that carry power to several parts without being a supply, such as VCCA, fed from
+ * a supply drawn above (VCC) through a resistor or inductor and decoupled by a capacitor to a supply.
  */
-function arrange(placements: { block: string; placement: BlockPlacement }[], netBlocks: Map<string, Set<string>>): void {
-  const placed: { block: string; box: Box }[] = [];
-  const pinsAt = new Map<string, { at: Vec; side: Side }>();
-  const local = (n: Node, p: PinInfo): Vec => [n.at[0] + p.local[0], n.at[1] + p.local[1]];
-  const clear = (b: Box) => placed.every(({ box }) => b.x1 + INNER_GAP <= box.x0 || box.x1 + INNER_GAP <= b.x0 || b.y1 + INNER_GAP <= box.y0 || box.y1 + INNER_GAP <= b.y0);
-  const shift = (b: Box, d: Vec): Box => ({ x0: b.x0 + d[0], y0: b.y0 + d[1], x1: b.x1 + d[0], y1: b.y1 + d[1] });
-  for (const { block, placement } of placements) {
-    const nodes = placement.nodes;
-    if (!nodes.length) continue;
-    const box = boxOf(nodes.flatMap(extentOf));
-    // Links: this block's pins on a net shared with exactly one block placed before it.
-    const links: { from: Vec; to: Vec; side: Side; block: string }[] = [];
-    for (const n of nodes) {
+function findRails(design: Resolved, supplies: Map<string, SupplySymbol>): Set<string> {
+  const up = (n: RNet) => n.supply && (supplies.get(n.name)?.body[1] ?? 0) > 0;
+  const capacitor = (part: string) => (design.parts.find((p) => p.part.name === part)?.component.prefix ?? '').toUpperCase() === 'C';
+  const netsOf = new Map<string, Set<RNet>>();
+  for (const n of design.nets) for (const r of n.pins) netsOf.set(r.part, (netsOf.get(r.part) ?? new Set()).add(n));
+  const rails = new Set<string>();
+  for (const n of design.nets) {
+    if (n.supply || n.pins.length < 3) continue;
+    let fed = false;
+    let decoupled = false;
+    for (const r of n.pins) {
+      const nets = [...(netsOf.get(r.part) ?? [])];
+      if (nets.length !== 2 || !nets.some((m) => m !== n && m.supply)) continue;
+      if (capacitor(r.part)) decoupled = true;
+      else if (nets.some((m) => m !== n && up(m))) fed = true;
+    }
+    if (fed && decoupled) rails.add(n.name);
+  }
+  return rails;
+}
+
+/**
+ * The signal row: the path from the first signal part (an input) to the IC with the most signal
+ * pins (or the farthest part), each gate on it two columns after the one before. Other gates
+ * go between the two path gates they connect, or under the one they hang from (an emitter
+ * resistor under its transistor); a connector on the last gate's right side after it; parts
+ * only on a rail (its feed resistor and capacitor) just before the rail's first pin. Returns
+ * the columns and the gates the path doesn't reach.
+ */
+function signalRow(pl: BlockPlacement, rails: Set<string>): { cols: Map<Node, number>; unreached: Node[]; spine: Node[] } {
+  const cols = new Map<Node, number>();
+  const signal = pl.nodes.filter((n) => !n.powerOnly);
+  const sigPins = (n: Node) => n.pins.filter((p) => p.net && !p.net.supply && !rails.has(p.net.name)).length;
+  const start = signal.find((n) => pl.neighbours(n).length);
+  if (!start) {
+    signal.forEach((n, i) => cols.set(n, i));
+    return { cols, unreached: [], spine: [] };
+  }
+  const parent = new Map<Node, Node | undefined>([[start, undefined]]);
+  const dist = new Map<Node, number>([[start, 0]]);
+  const queue = [start];
+  while (queue.length) {
+    const n = queue.shift()!;
+    for (const m of pl.neighbours(n).sort((a, b) => a.order - b.order)) {
+      if (parent.has(m) || m.powerOnly) continue;
+      parent.set(m, n);
+      dist.set(m, dist.get(n)! + 1);
+      queue.push(m);
+    }
+  }
+  const reached = [...parent.keys()];
+  const ic = reached.filter((n) => sigPins(n) >= 4).sort((a, b) => sigPins(b) - sigPins(a) || a.order - b.order)[0];
+  const end = ic ?? [...reached].sort((a, b) => dist.get(b)! - dist.get(a)! || a.order - b.order)[0]!;
+  const spine: Node[] = [];
+  for (let n: Node | undefined = end; n; n = parent.get(n)) spine.unshift(n);
+  const at = new Map(spine.map((n, i) => [n, i]));
+  spine.forEach((n, i) => cols.set(n, 2 * i));
+
+  // Out from the path, breadth first.
+  const last = spine.length - 1;
+  const q2 = [...spine];
+  while (q2.length) {
+    const n = q2.shift()!;
+    for (const m of pl.neighbours(n).sort((a, b) => a.order - b.order)) {
+      if (cols.has(m) || m.powerOnly) continue;
+      if (at.has(n)) {
+        const touching = pl.neighbours(m).filter((x) => at.has(x)).map((x) => at.get(x)!);
+        const lo = Math.min(...touching);
+        const hi = Math.max(...touching);
+        if (lo !== hi) cols.set(m, lo + hi);
+        else {
+          const sides = n.pins.filter((p) => p.net && m.pins.some((x) => x.net === p.net)).map((p) => p.side);
+          cols.set(m, lo === last && sides.includes('R') ? 2 * lo + 1 : lo === 0 && sides.includes('L') ? -1 : 2 * lo);
+        }
+      } else cols.set(m, cols.get(n)!);
+      q2.push(m);
+    }
+  }
+  // Parts only on rails (and supplies): before the rail's first pin in the row.
+  const unreached: Node[] = [];
+  const placed = new Set(cols.keys());
+  for (const n of signal) {
+    if (placed.has(n)) continue;
+    const railPins = n.pins.filter((p) => p.net && rails.has(p.net.name));
+    const firsts = railPins.flatMap((p) => p.net!.pins).map((r) => pl.nodes.find((x) => x.part.part.name === r.part && x.gate.name === r.gate)).filter((x): x is Node => !!x && placed.has(x)).map((x) => cols.get(x)!);
+    if (railPins.length && railPins.length + n.pins.filter((p) => p.net?.supply).length === n.pins.filter((p) => p.net).length && firsts.length) cols.set(n, Math.min(...firsts) - 1);
+    else unreached.push(n);
+  }
+  return { cols, unreached, spine };
+}
+
+/**
+ * Lay out the whole sheet as a person would: the signal row across the top (the blocks the main
+ * signal path runs through), and the other blocks (power, an oscillator, an MCU's outputs) in a
+ * band below it, each under what it connects to.
+ */
+function layoutSheet(design: Resolved, supplies: Map<string, SupplySymbol>, potential: Map<string, number>, rails: Set<string>): { nodes: Node[]; groupOf: (n: Node) => string } {
+  const ancestors = (b: string) => b.split('/').map((_, i, a) => a.slice(0, i + 1).join('/'));
+  // Find the row's blocks from the path through all the parts.
+  const all = new BlockPlacement(design.parts, design.nets, supplies, potential, rails);
+  const first = signalRow(all, rails);
+  const pathBlocks = new Set<string>();
+  for (const n of first.spine) for (const a of ancestors(n.part.block)) pathBlocks.add(a);
+  const inRow = (p: RPart) => pathBlocks.has(p.block) || pathBlocks.size === 0;
+  let rowParts = design.parts.filter(inRow);
+  let side = design.parts.filter((p) => !inRow(p));
+
+  let best: { pl: BlockPlacement; score: number } | undefined;
+  for (const flip of [true, false]) {
+    let pl = new BlockPlacement(rowParts, design.nets, supplies, potential, rails);
+    let row = signalRow(pl, rails);
+    if (row.unreached.length) {
+      const away = new Set(row.unreached.map((n) => n.part));
+      rowParts = rowParts.filter((p) => !away.has(p));
+      side = [...side, ...away];
+      pl = new BlockPlacement(rowParts, design.nets, supplies, potential, rails);
+      row = signalRow(pl, rails);
+    }
+    pl.placeIn(row.cols, row.spine, flip);
+    const { score } = routeNodes(pl.nodes, design.nets, supplies, () => 'S', () => 'row');
+    if (!best || score < best.score) best = { pl, score };
+  }
+  const rowNodes = best?.pl.nodes ?? [];
+  const groupOf = new Map<Node, string>(rowNodes.map((n) => [n, '']));
+
+  // The other blocks, each laid out on its own, in a band below the row.
+  const blocks = [...new Set(side.map((p) => p.block))];
+  const rowBox = rowNodes.length ? boxOf(rowNodes.flatMap(extentOf)) : { x0: 0, y0: 0, x1: 0, y1: 0 };
+  const pinAt = new Map<string, Vec>();
+  for (const n of rowNodes) for (const p of n.pins) pinAt.set(`${p.ref.part}.${p.ref.gate}.${p.ref.pin}`, [n.at[0] + p.local[0], n.at[1] + p.local[1]]);
+  const groups = blocks.map((b) => {
+    const pl = bestPlacement(side.filter((p) => p.block === b), design.nets, supplies, potential, rails);
+    const box = boxOf(pl.nodes.flatMap(extentOf));
+    // Where it would like to be: its pins under the row's pins they connect to.
+    const dx: number[] = [];
+    for (const n of pl.nodes) {
       for (const p of n.pins) {
         if (!p.net || p.net.supply) continue;
-        const bs = netBlocks.get(p.net.name)!;
-        if (bs.size !== 2) continue;
         for (const r of p.net.pins) {
-          const to = pinsAt.get(`${r.part}.${r.gate}.${r.pin}`);
-          const other = placed.find((x) => x.block !== block && bs.has(x.block));
-          if (to && other) links.push({ from: local(n, p), to: to.at, side: to.side, block: other.block });
+          const to = pinAt.get(`${r.part}.${r.gate}.${r.pin}`);
+          if (to) dx.push(to[0] - (n.at[0] + p.local[0]));
         }
       }
     }
-    let offset: Vec = [0, 0];
-    if (placed.length && !links.length) {
-      const all = boxOf(placed.flatMap(({ box: b }) => [[b.x0, b.y0], [b.x1, b.y1]] as Vec[]));
-      offset = [all.x1 + INNER_GAP - box.x0, all.y1 - box.y1];
-    } else if (links.length) {
-      const counts = new Map<string, number>();
-      for (const l of links) counts.set(l.block, (counts.get(l.block) ?? 0) + 1);
-      const target = [...counts].sort((a, b) => b[1] - a[1])[0]![0];
-      const tb = placed.find((x) => x.block === target)!.box;
-      const mean = (vs: Vec[]): Vec => [vs.reduce((s, v) => s + v[0], 0) / vs.length, vs.reduce((s, v) => s + v[1], 0) / vs.length];
-      const [px, py] = mean(links.map((l) => l.from));
-      const [tx, ty] = mean(links.map((l) => l.to));
-      // The side the linked pins face is best; else right (signal flows on), left, below, above.
-      const facing = new Map<Side, number>();
-      // (A pin on top or bottom, a transistor's collector, says little: such a link counts for right.)
-      for (const l of links) {
-        const side: Side = l.side === 'L' ? 'L' : 'R';
-        facing.set(side, (facing.get(side) ?? 0) + 1);
-      }
-      const face = [...facing].sort((a, b) => b[1] - a[1])[0]![0];
-      const bias = (side: Side, fallback: number) => (side === face ? 0 : fallback);
-      const sides: { d: Vec; along: Vec; bias: number }[] = [
-        { d: [tb.x1 + INNER_GAP - box.x0, ty - py], along: [0, 1], bias: bias('R', 10) },
-        { d: [tb.x0 - INNER_GAP - box.x1, ty - py], along: [0, 1], bias: bias('L', 15) },
-        { d: [tx - px, tb.y0 - INNER_GAP - box.y1], along: [1, 0], bias: bias('B', 25) },
-        { d: [tx - px, tb.y1 + INNER_GAP - box.y0], along: [1, 0], bias: bias('T', 35) },
-      ];
-      let best: { d: Vec; cost: number } | undefined;
-      for (const side of sides) {
-        for (let k = 0; k < 120; k++) {
-          const slide = (k % 2 ? 1 : -1) * Math.ceil(k / 2) * G;
-          const d: Vec = [snap(side.d[0] + side.along[0] * slide), snap(side.d[1] + side.along[1] * slide)];
-          if (!clear(shift(box, d))) continue;
-          const cost = links.reduce((s, l) => s + Math.abs(l.from[0] + d[0] - l.to[0]) + Math.abs(l.from[1] + d[1] - l.to[1]), 0) / G / links.length + side.bias;
-          if (!best || cost < best.cost) best = { d, cost };
-          break;
-        }
-      }
-      if (best) offset = best.d;
-    }
-    offset = [snap(offset[0]), snap(offset[1])];
-    for (const n of nodes) {
-      n.at = [r6(n.at[0] + offset[0]), r6(n.at[1] + offset[1])];
-      for (const p of n.pins) pinsAt.set(`${p.ref.part}.${p.ref.gate}.${p.ref.pin}`, { at: local(n, p), side: p.side });
-    }
-    placed.push({ block, box: shift(box, offset) });
+    const want = dx.length ? dx.reduce((a, b) => a + b, 0) / dx.length + box.x0 : rowBox.x0;
+    return { block: b, pl, box, want };
+  }).filter((g) => g.pl.nodes.length).sort((a, b) => a.want - b.want);
+
+  // Left edges as near as can be to where each wants to be, in order, none overlapping: pool
+  // adjacent violators (isotonic regression on the left edges less the widths before).
+  const offsets: number[] = [];
+  let acc = 0;
+  for (const g of groups) {
+    offsets.push(acc);
+    acc += g.box.x1 - g.box.x0 + BLOCK_GAP;
   }
+  const pools: { sum: number; n: number }[] = [];
+  const members: number[] = [];
+  groups.forEach((g, i) => {
+    pools.push({ sum: g.want - offsets[i]!, n: 1 });
+    members.push(1);
+    while (pools.length > 1 && pools[pools.length - 2]!.sum / pools[pools.length - 2]!.n > pools[pools.length - 1]!.sum / pools[pools.length - 1]!.n) {
+      const b = pools.pop()!;
+      const nb = members.pop()!;
+      pools[pools.length - 1]!.sum += b.sum;
+      pools[pools.length - 1]!.n += b.n;
+      members[members.length - 1]! += nb;
+    }
+  });
+  const lefts: number[] = [];
+  pools.forEach((p, k) => {
+    for (let m = 0; m < members[k]!; m++) lefts.push(p.sum / p.n + offsets[lefts.length]!);
+  });
+  // Each as high as the row above it allows (tucked under its short stretches).
+  const rowExtents = rowNodes.map((n) => boxOf(extentOf(n)));
+  const nodes = [...rowNodes];
+  groups.forEach((g, i) => {
+    const x0 = lefts[i]!;
+    const x1 = x0 + g.box.x1 - g.box.x0;
+    const over = rowExtents.filter((b) => b.x1 + 2 * G > x0 && b.x0 - 2 * G < x1);
+    const gap = (b: Box) => Math.max(0, b.x0 - x1, x0 - b.x1);
+    const nearest = [...rowExtents].sort((a, b) => gap(a) - gap(b))[0];
+    const top = (over.length ? Math.min(...over.map((b) => b.y0)) : nearest ? nearest.y0 : 0) - 4 * G;
+    const d: Vec = [snap(x0 - g.box.x0), snap(top - g.box.y1)];
+    for (const n of g.pl.nodes) {
+      n.at = [r6(n.at[0] + d[0]), r6(n.at[1] + d[1])];
+      groupOf.set(n, g.block);
+      nodes.push(n);
+    }
+  });
+  return { nodes, groupOf: (n) => groupOf.get(n) ?? n.part.block };
 }
 
 /**
@@ -1063,12 +1341,6 @@ export function generateProject(design: Resolved): O.Project {
   }
   for (const [id, source] of supplySource) addToLibrary(project, source, id, tx);
 
-  // Groups: a top-level block and the blocks inside it (its own parts first), side by side.
-  const blocks = [...design.blocks, ...(design.parts.some((p) => !p.block) ? [''] : [])];
-  const top = (b: string) => b.split('/')[0]!;
-  const groups: string[][] = [];
-  for (const t of [...new Set(blocks.map(top))]) groups.push([...blocks.filter((b) => b === t), ...blocks.filter((b) => b !== t && top(b) === t)]);
-
   let supplyCount = 0;
   const sheet = project.schematic!.sheets[0]!;
   const nets = new Map<string, O.Net>();
@@ -1079,38 +1351,25 @@ export function generateProject(design: Resolved): O.Project {
   };
   for (const n of design.nets) netOf(n.name);
 
-  let sheetX = 0;
-  let rowTop = 0;
-  let rowBottom = 0;
   const potential = netPotential(design, supplies);
-  // How many blocks each net has pins in (a rail through three or more is labelled per block).
-  const partBlock = new Map(design.parts.map((p) => [p.part.name, p.block]));
-  const netBlocks = new Map(design.nets.map((n) => [n.name, new Set(n.pins.map((r) => partBlock.get(r.part)).filter((b): b is string => b !== undefined))]));
+  const rails = findRails(design, supplies);
+  let rowBottom = 0;
+  {
+    // The sheet laid out in one piece and wired as one circuit.
+    const { nodes, groupOf } = layoutSheet(design, supplies, potential, rails);
+    const { router } = routeNodes(nodes, design.nets, supplies, (s) => `${s.component.prefix || 'SUPPLY'}${++supplyCount}`, groupOf);
 
-  groups.forEach((group) => {
-    // Each block laid out the best of several ways; then the group's blocks arranged, each
-    // beside what it connects to.
-    const placements = group.map((b) => ({ block: b, placement: bestPlacement(design.parts.filter((p) => p.block === b), design.nets, supplies, potential) }));
-    arrange(placements, netBlocks);
-    const nodes = placements.flatMap((x) => x.placement.nodes);
-    const { router, extent } = routeNodes(nodes, design.nets, supplies, (s) => `${s.component.prefix || 'SUPPLY'}${++supplyCount}`);
-
-    // The group's drawing, moved to its place on the sheet.
+    // The drawing, moved so its top left is at the origin.
     const segments = router.segments();
-    const pts: Vec[] = [[extent.x0, extent.y0], [extent.x1, extent.y1]];
+    const pts: Vec[] = nodes.flatMap(extentOf);
     for (const { segment } of segments) {
       for (const wr of segment.wires) pts.push(wr.line[0], wr.line[1]);
       for (const l of segment.labels ?? []) pts.push([l.at[0] + (l.align === 'bottom-right' ? -1 : 1) * labelWidth(''), l.at[1] + G]);
     }
     for (const sg of router.supplyGates) pts.push([sg.at[0] + sg.supply.box.x0 + sg.supply.pin.at[0], sg.at[1] + sg.supply.box.y0 + sg.supply.pin.at[1]]);
     const gb = boxOf(pts);
-    const gw = gb.x1 - gb.x0;
-    if (sheetX > 0 && sheetX + gw > SHEET_WIDTH) {
-      sheetX = 0;
-      rowTop = rowBottom - BLOCK_GAP;
-    }
-    const dx = snap(sheetX - gb.x0);
-    const dy = snap(rowTop - gb.y1);
+    const dx = snap(-gb.x0);
+    const dy = snap(-gb.y1);
     const move = (p: O.Pt): O.Pt => [r6(p[0] + dx), r6(p[1] + dy)];
     for (const n of nodes) sheet.gates.push({ part: n.part.part.name, gate: n.gate.name, at: move(n.at), ...(n.rot ? { rot: n.rot } : {}) });
     for (const sg of router.supplyGates) {
@@ -1126,9 +1385,8 @@ export function generateProject(design: Resolved): O.Project {
         ...(segment.labels ? { labels: segment.labels.map((l) => ({ ...l, at: move(l.at) })) } : {}),
       });
     }
-    sheetX = snap(sheetX + gw + BLOCK_GAP);
-    rowBottom = Math.min(rowBottom, dy + gb.y0);
-  });
+    rowBottom = dy + gb.y0;
+  }
 
   // Sheet coordinates from the origin up, as Eagle's are.
   const lift = snap(-rowBottom + 2 * G);
