@@ -308,6 +308,114 @@ class BlockPlacement {
     return out;
   }
 
+  /** Room above and below a gate for stubs and upright supply symbols. */
+  private room(n: Node): void {
+    n.above = 0;
+    n.below = 0;
+    for (const p of n.pins) {
+      if (p.side !== 'T' && p.side !== 'B') continue;
+      const s = p.net?.supply ? this.supplies.get(p.net.name) : undefined;
+      const need = 2 * G + (s ? Math.max(s.box.y1 - s.box.y0, s.box.x1 - s.box.x0) : 0);
+      const edge = p.side === 'T' ? n.box.y1 - p.local[1] : p.local[1] - n.box.y0;
+      if (p.side === 'T') n.above = Math.max(n.above, need - edge);
+      else n.below = Math.max(n.below, need - edge);
+    }
+  }
+
+  /** Gates placed with a feedback loop rather than in a column. */
+  private readonly riding = new Set<Node>();
+
+  /**
+   * Feedback loops, drawn as a person draws an oscillator: for a gate with one input and one
+   * output (an inverter), the parts across them (R11) above it from input to output; the
+   * return path from its output back to its input through two-pin parts (R12, X1) in a row
+   * below it, right to left; and the parts from that path to a supply (C9, C10) hanging from
+   * it. Returns each such part with its gate and its place relative to the gate.
+   */
+  private loops(): Map<Node, { gate: Node; at: Vec }> {
+    const out = new Map<Node, { gate: Node; at: Vec }>();
+    const nodeOf = (r: O.PinRef) => this.nodes.find((x) => x.part.part.name === r.part && x.gate.name === r.gate);
+    const on = (net: RNet) => net.pins.map(nodeOf).filter((x): x is Node => !!x);
+    const twoPin = (n: Node) => n.pins.length === 2 && n.part.component.gates.length === 1 && n.pins.every((p) => p.net) && n.pins[0]!.net !== n.pins[1]!.net;
+    const pinOn = (n: Node, net: RNet) => n.pins.find((p) => p.net === net)!;
+    const turn = (n: Node, net: RNet, side: Side) => {
+      for (const deg of [0, 90, 180, 270]) {
+        this.setRot(n, deg);
+        if (pinOn(n, net).side === side) break;
+      }
+      this.room(n);
+    };
+    const snapUp = (v: number) => r6(Math.ceil(v / G - 1e-6) * G);
+    for (const g of this.nodes) {
+      if (out.has(g) || g.rot !== 0) continue;
+      const ins = g.pins.filter((p) => p.pin.direction === 'in' && p.net && !p.net.supply);
+      const outs = g.pins.filter((p) => p.pin.direction === 'out' && p.net && !p.net.supply);
+      if (ins.length !== 1 || outs.length !== 1 || ins[0]!.side !== 'L' || outs[0]!.side !== 'R') continue;
+      const pi = ins[0]!;
+      const po = outs[0]!;
+      const A = pi.net!;
+      const B = po.net!;
+      const free = (n: Node) => n !== g && !out.has(n) && twoPin(n) && !this.path?.has(n);
+      const feedback = on(A).filter((n) => free(n) && n.pins.some((p) => p.net === B));
+      // The return path: breadth first from the output's net to the input's.
+      const prev = new Map<RNet, { part: Node; from: RNet }>();
+      const queue = [B];
+      const seen = new Set<RNet>([B]);
+      while (queue.length && !prev.has(A)) {
+        const net = queue.shift()!;
+        for (const n of on(net)) {
+          if (!free(n) || feedback.includes(n)) continue;
+          const other = n.pins.find((p) => p.net !== net)!.net!;
+          if (other.supply || seen.has(other)) continue;
+          seen.add(other);
+          prev.set(other, { part: n, from: net });
+          queue.push(other);
+        }
+      }
+      const chain: { part: Node; from: RNet; to: RNet }[] = [];
+      if (prev.has(A)) for (let net = A; net !== B; net = prev.get(net)!.from) chain.unshift({ part: prev.get(net)!.part, from: prev.get(net)!.from, to: net });
+      if (!feedback.length && !chain.length) continue;
+
+      // Above: the feedback parts, the input's pin on the left, stacked up.
+      let top = g.box.y1 + G;
+      for (const f of feedback) {
+        turn(f, A, 'L');
+        const a = pinOn(f, A).local;
+        const b = pinOn(f, B).local;
+        const y = snapUp(top + f.below - f.box.y0);
+        out.set(f, { gate: g, at: [snap((pi.local[0] + po.local[0]) / 2 - (a[0] + b[0]) / 2), y] });
+        top = y + f.box.y1 + f.above;
+      }
+      if (!chain.length) continue;
+      // Below: the return path in a row, from the output side leftwards, pins in line.
+      for (const c of chain) turn(c.part, c.from, 'R');
+      const row = Math.min(...chain.map((c) => snapDown(g.box.y0 - 2 * G - (c.part.box.y1 - pinOn(c.part, c.from).local[1]))));
+      let x = po.local[0] + 2 * G;
+      const shuntAt = new Map<RNet, number>();
+      for (const c of chain) {
+        const r = pinOn(c.part, c.from).local;
+        const at: Vec = [snap(x - r[0]), r6(row - r[1])];
+        out.set(c.part, { gate: g, at });
+        const left = at[0] + pinOn(c.part, c.to).local[0];
+        shuntAt.set(c.to, left - 2 * G);
+        x = left - 4 * G;
+      }
+      // Hanging from the path: parts from its nets to a supply.
+      for (const [net, sx] of shuntAt) {
+        let at = sx;
+        for (const n of on(net)) {
+          if (!free(n) || out.has(n) || !n.pins.some((p) => p.net !== net && p.net!.supply)) continue;
+          turn(n, net, 'T');
+          const t = pinOn(n, net).local;
+          out.set(n, { gate: g, at: [snap(at - t[0]), r6(row - 2 * G - t[1])] });
+          at -= 3 * G;
+        }
+      }
+    }
+    for (const n of out.keys()) this.riding.add(n);
+    return out;
+  }
+
   /** Rows, bands and x, once each gate has its column. */
   private layout(flip: boolean): void {
     const signal = this.nodes.filter((n) => !n.powerOnly);
@@ -360,6 +468,20 @@ class BlockPlacement {
     }
 
     const parallel = this.pairParallel();
+    // A power gate's decoupling capacitor stands beside it, level with it.
+    let besides = false;
+    for (const [cap, gate] of anchors) {
+      if (!gate.powerOnly) continue;
+      const shared = gate.pins.filter((p) => p.net && cap.pins.some((q) => q.net === p.net)).sort((a, b) => b.local[1] - a.local[1])[0];
+      if (!shared) continue;
+      cap.col = gate.col + 0.5;
+      parallel.set(cap, { anchor: gate, net: shared.net!.name });
+      besides = true;
+    }
+    if (besides) {
+      const values = [...new Set(this.nodes.map((n) => n.col))].sort((a, b) => a - b);
+      for (const n of this.nodes) n.col = values.indexOf(n.col);
+    }
 
     const columns: Node[][] = [];
     for (const n of [...this.nodes].sort((a, b) => a.order - b.order)) (columns[n.col] ??= []).push(n);
@@ -389,16 +511,22 @@ class BlockPlacement {
       }
     }
 
-    // Room above and below for stubs and upright supply symbols.
-    for (const n of this.nodes) {
-      for (const p of n.pins) {
-        if (p.side !== 'T' && p.side !== 'B') continue;
-        const s = p.net?.supply ? this.supplies.get(p.net.name) : undefined;
-        const need = 2 * G + (s ? Math.max(s.box.y1 - s.box.y0, s.box.x1 - s.box.x0) : 0);
-        const edge = p.side === 'T' ? n.box.y1 - p.local[1] : p.local[1] - n.box.y0;
-        if (p.side === 'T') n.above = Math.max(n.above, need - edge);
-        else n.below = Math.max(n.below, need - edge);
+    for (const n of this.nodes) this.room(n);
+
+    // Feedback loops ride with their gate, out of the columns.
+    const riders = this.loops();
+    if (riders.size) {
+      for (const [r, { gate, at }] of riders) {
+        const b = gate.box;
+        gate.box = {
+          x0: Math.min(b.x0, at[0] + r.box.x0), x1: Math.max(b.x1, at[0] + r.box.x1),
+          y0: Math.min(b.y0, at[1] + r.box.y0 - r.below), y1: Math.max(b.y1, at[1] + r.box.y1 + r.above),
+        };
       }
+      const kept = columns.map((col) => col.filter((n) => !riders.has(n))).filter((col) => col.length);
+      columns.length = 0;
+      columns.push(...kept);
+      columns.forEach((col, c) => col.forEach((n) => (n.col = c)));
     }
 
     // Bands across the whole block, from the supply down to ground: a gate stands no higher
@@ -433,6 +561,7 @@ class BlockPlacement {
       x += colWidth[c]! + (c + 1 < columns.length ? (pairedNext ? 3 : 4 + Math.min(8, between.size)) * G : 0);
     }
     this.width = x;
+    for (const [r, { gate, at }] of riders) r.at = [r6(gate.at[0] + at[0]), r6(gate.at[1] + at[1])];
   }
 
   /**
@@ -537,7 +666,7 @@ class BlockPlacement {
       for (const r of p.net.pins) {
         const m = this.nodes.find((x) => x.part.part.name === r.part && x.gate.name === r.gate);
         const q = m?.pins.find((x) => x.ref.pin === r.pin);
-        if (!m || !q || m === n) continue;
+        if (!m || !q || m === n || this.riding.has(m)) continue;
         const facing = (p.side === 'L' && m.col < n.col && q.side === 'R') || (p.side === 'R' && m.col > n.col && q.side === 'L');
         if (facing) out.push(snapDown(m.at[1] + q.local[1] - p.local[1]));
       }

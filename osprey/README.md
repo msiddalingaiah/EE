@@ -280,8 +280,9 @@ native model (see [docs/format.md](docs/format.md)). Eagle files are imported in
   wires around the symbols, T junctions only, a wire between any two pins, crossings straight
   through; each supply pin gets an upright supply symbol in the nearest free spot, and a net
   between the row and a block below gets net labels. `samples/blocks/wwvbfind2.blocks` generates
-  the same netlist as the hand-drawn `wwvbfind2` (`wwvbfind2-gen.osprey`). Not yet: feedback
-  loops (an oscillator) drawn as a person would.
+  the same netlist as the hand-drawn `wwvbfind2` (`wwvbfind2-gen.osprey`). A feedback
+  loop is drawn as a person would: an inverter's feedback resistor above it, the return path
+  (crystal, resistor) below with its capacitors hanging from it.
 - **Command line** (`npm run osprey -- …`, or `node scripts/osprey.mjs`): runs the design flow on
   `.osprey` files with no browser, for agents and scripts: `osprey x.osprey place route labels
   lcsc check cam assembly` runs the steps in order and saves the project in place (or `-o`).
@@ -352,8 +353,7 @@ Then, to take a board through manufacturing and assembly:
 - **Extended part notice:** the JLCPCB parts panel counts and names the Extended parts a board
   uses (each distinct one adds a setup fee; Basic parts don't), so one can be swapped for a
   Basic part before ordering, and shows how many distinct parts the BOM has.
-- **Schematic generation, next:** feedback loops drawn as a person would (an oscillator's
-  feedback resistor above its inverter); design rules named in the description; updating an
+- **Schematic generation, next:** design rules named in the description; updating an
   edited schematic from a changed description (adding and removing parts, keeping what was
   moved); each block on its own sheet; ERC warnings for hand-drawn sheets that break the
   drafting rules (pin touching pin, four-way junctions).
