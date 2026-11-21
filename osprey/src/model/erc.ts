@@ -1,14 +1,16 @@
 // Electrical rule check (ERC) on the schematic: what the board's DRC can't see. Pins left
 // unconnected, nets with a single pin, outputs driving each other or a supply, nets that only
 // inputs listen to, supplies joined together, pins a net lists that no wire reaches, pins
-// touching a wire they aren't connected to, and parts missing from the board.
+// touching a wire they aren't connected to, and parts missing from the board. Drafting rules
+// too, as warnings: a pin joined straight onto another pin (no wire between), and four or more
+// wires meeting at one point (offset one branch to make two T's).
 
 import type { Point } from '../geom/transform';
 import { componentName, ProjectIndex } from './derive';
 import { pinPosition } from './geometry';
 import type * as O from './types';
 
-export type ErcKind = 'unconnected' | 'single' | 'conflict' | 'undriven' | 'nc' | 'supply' | 'unwired' | 'touching' | 'board' | 'library';
+export type ErcKind = 'unconnected' | 'single' | 'conflict' | 'undriven' | 'nc' | 'supply' | 'unwired' | 'touching' | 'board' | 'library' | 'drafting';
 
 export interface ErcProblem {
   kind: ErcKind;
@@ -186,6 +188,51 @@ export function erc(project: O.Project, index = new ProjectIndex(project)): ErcR
         problems.push({
           kind: 'unwired', severity: 'warning', message: `${describe(p)} is on ${net.name}, but no wire reaches it`,
           ...at(p), objects: [p.placement!, ...seg.wires], nets: [net.name], parts: [p.part],
+        });
+      }
+    }
+  }
+
+  // Drafting: pin on pin, and four ways at one point (a pin counts as one way).
+  for (const net of project.nets) {
+    for (const seg of net.segments ?? []) {
+      const segPins = seg.pins.map((pr) => pins.get(pinKey(pr.part, pr.gate, pr.pin))).filter((p): p is PinInfo => !!p?.pos);
+      const reported = new Set<PinInfo>();
+      for (const p of segPins) {
+        const q = segPins.find((x) => x !== p && x.part !== p.part && !reported.has(x) && near(x.pos!, p.pos!));
+        if (!q || reported.has(p)) continue;
+        reported.add(p);
+        problems.push({
+          kind: 'drafting', severity: 'warning', message: `${describe(p)} joins ${describe(q)} pin on pin, with no wire between`,
+          ...at(p), objects: [p.placement!, q.placement!], nets: [net.name], parts: [p.part, q.part],
+        });
+      }
+      // Each point where wires end or pins sit, with the directions wires leave it in.
+      const points = new Map<string, { p: Point; ways: Set<string>; pins: PinInfo[] }>();
+      const pointAt = (p: Point) => {
+        const k = `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
+        return points.get(k) ?? points.set(k, { p, ways: new Set(), pins: [] }).get(k)!;
+      };
+      for (const w of seg.wires) for (const e of w.line) pointAt(pt(e));
+      for (const p of segPins) pointAt(p.pos!).pins.push(p);
+      const way = (from: Point, to: Point) => String(Math.round((Math.atan2(to.y - from.y, to.x - from.x) * 180) / Math.PI) % 360);
+      for (const pnt of points.values()) {
+        for (const w of seg.wires) {
+          const [a, b] = [pt(w.line[0]), pt(w.line[1])];
+          if (near(a, b)) continue;
+          if (near(pnt.p, a)) pnt.ways.add(way(a, b));
+          else if (near(pnt.p, b)) pnt.ways.add(way(b, a));
+          else if (onLine(pnt.p, a, b)) {
+            pnt.ways.add(way(pnt.p, a));
+            pnt.ways.add(way(pnt.p, b));
+          }
+        }
+        const count = pnt.ways.size + (pnt.pins.length ? 1 : 0);
+        if (count < 4) continue;
+        problems.push({
+          kind: 'drafting', severity: 'warning',
+          message: `${count} wires meet at one point on ${net.name} (${toPt(pnt.p).join(', ')}): offset one to make two T junctions`,
+          ...(seg.sheet ? { sheet: seg.sheet } : {}), at: toPt(pnt.p), objects: [...seg.wires, ...objectsOf(pnt.pins)], nets: [net.name], parts: [...new Set(pnt.pins.map((x) => x.part))],
         });
       }
     }

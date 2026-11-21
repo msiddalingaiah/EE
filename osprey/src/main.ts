@@ -3226,7 +3226,7 @@ async function loadRulesFrom(key: string): Promise<void> {
 
 const ERC_KIND: Record<ErcProblem['kind'], string> = {
   unconnected: 'Unconnected', single: 'One pin', conflict: 'Conflict', undriven: 'Undriven', nc: 'Not-connect',
-  supply: 'Supply', unwired: 'Unwired', touching: 'Touching', board: 'Board', library: 'Library',
+  supply: 'Supply', unwired: 'Unwired', touching: 'Touching', board: 'Board', library: 'Library', drafting: 'Drafting',
 };
 
 function renderErcPanel(): void {

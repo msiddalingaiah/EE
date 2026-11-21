@@ -59,7 +59,8 @@ describe('osprey steps', () => {
     const { env, saves } = memEnv();
     const r = runSteps(p, ['check'], env);
     expect(r.ok).toBe(true); // warnings only
-    expect(r.steps[0]!.problems.map((x) => `${x.severity} ${x.kind}`)).toEqual(['warning lcsc-missing', 'warning lcsc-missing']);
+    // (The oscillator's four-way junction at U2A's output: a drafting warning.)
+    expect(r.steps[0]!.problems.map((x) => `${x.severity} ${x.kind}`)).toEqual(['warning erc-drafting', 'warning lcsc-missing', 'warning lcsc-missing']);
     expect(JSON.stringify(p)).toBe(before);
     expect(saves).toEqual([]);
     // --strict: warnings fail it.

@@ -160,7 +160,9 @@ native model (see [docs/format.md](docs/format.md)). Eagle files are imported in
   a supply, different supplies joined, a pin on two nets. Warnings: unconnected pins, nets with
   a single pin (or wires and no pins), nets that only inputs listen to, wired not-connect pins,
   power pins that nothing supplies, pins a net lists that no wire reaches, pins touching a wire
-  they aren't connected to, and parts missing from the board. Clicking a problem shows its
+  they aren't connected to, and parts missing from the board. Drafting warnings: a pin joined
+  straight onto another pin with no wire between, and four or more wires meeting at one point
+  (a pin counts as one; offset a branch to make two T junctions). Clicking a problem shows its
   sheet, marks it and selects what's involved; the list updates as you edit. **Approve**
   accepts a problem as it is (an unused pin, say): it is saved with the project, moves to the
   Approved list (where Unapprove brings it back) and no longer counts.
@@ -363,8 +365,7 @@ Then, to take a board through manufacturing and assembly:
   Basic part before ordering, and shows how many distinct parts the BOM has.
 - **Schematic generation, next:** design rules named in the description; updating an
   edited schematic from a changed description (adding and removing parts, keeping what was
-  moved); each block on its own sheet; ERC warnings for hand-drawn sheets that break the
-  drafting rules (pin touching pin, four-way junctions).
+  moved); each block on its own sheet.
 - **Board text in placement:** Place moves board text (titles, dates) clear of the parts.
 - **Label sizes:** an option to bring names up to a printable minimum (1 mm, say).
 - **Multilayer boards** (4 and 6 layers, through vias). The model already handles any copper

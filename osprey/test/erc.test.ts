@@ -4,7 +4,9 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { Editor } from '../src/app/editor';
+import { ProjectIndex } from '../src/model/derive';
 import { erc, ercKey } from '../src/model/erc';
+import { pinPosition } from '../src/model/geometry';
 import { readProject, writeProject } from '../src/model/file';
 import type * as O from '../src/model/types';
 
@@ -12,10 +14,13 @@ const load = (name: string) => readProject(readFileSync(join(__dirname, '..', 's
 const messages = (p: O.Project) => erc(p).problems.map((x) => x.message);
 
 describe('ERC', () => {
-  it('passes TA7358A, and finds the one unused pin of wwvbfind', () => {
+  it('passes TA7358A, and finds the one unused pin of wwvbfind and its one four-way junction', () => {
     expect(messages(load('TA7358A.osprey'))).toEqual([]);
     const r = erc(load('wwvbfind.osprey'));
-    expect(r.problems.map((x) => [x.kind, x.message])).toEqual([['unconnected', 'U1 pin PA2 is unconnected']]);
+    expect(r.problems.map((x) => [x.kind, x.message])).toEqual([
+      ['unconnected', 'U1 pin PA2 is unconnected'],
+      ['drafting', '4 wires meet at one point on N$9 (50.8, 30.48): offset one to make two T junctions'],
+    ]);
     expect(r.problems[0]!.sheet).toBe('1');
     expect(r.pins).toBeGreaterThan(100);
   });
@@ -87,7 +92,7 @@ describe('ERC', () => {
     p.schematic!.approved = [ercKey({ kind: 'unconnected', message: 'U1 pin PA2 is unconnected' })];
     const again = readProject(writeProject(p));
     expect(again.schematic!.approved).toEqual(['unconnected: U1 pin PA2 is unconnected']);
-    expect(erc(again).problems.map((x) => [x.message, x.approved])).toEqual([['U1 pin PA2 is unconnected', true]]);
+    expect(erc(again).problems.filter((x) => x.kind === 'unconnected').map((x) => [x.message, x.approved])).toEqual([['U1 pin PA2 is unconnected', true]]);
     again.parts.find((x) => x.name === 'U1')!.name = 'IC1';
     for (const s of again.schematic!.sheets) for (const g of s.gates) if (g.part === 'U1') g.part = 'IC1';
     expect(erc(again).problems.find((x) => x.message === 'IC1 pin PA2 is unconnected')?.approved).toBeUndefined();
@@ -103,6 +108,29 @@ describe('ERC', () => {
     ed.redo();
     ed.approve(['unconnected: U1 pin PA2 is unconnected'], false);
     expect(p.schematic!.approved).toBeUndefined();
+  });
+
+  it('keeps generated sheets to the drafting rules', () => {
+    for (const f of [['osprey', 'wwvbfind2-gen.osprey'], ['schematics', 'subcircuits-gen.osprey']]) {
+      const q = readProject(readFileSync(join(__dirname, '..', 'samples', ...f), 'utf8'));
+      expect(erc(q).problems.filter((x) => x.kind === 'drafting')).toEqual([]);
+    }
+  });
+
+  it('finds a pin joined pin on pin, with no wire between', () => {
+    // R6's ground symbol moved onto R6's pin, its wire gone.
+    const seg = net('GND').segments!.find((s) => s.pins.length === 2 && s.pins.some((x) => x.part === 'R6'))!;
+    const [a, b] = seg.pins.map((r) => {
+      const g = p.schematic!.sheets[0]!.gates.find((x) => x.part === r.part && x.gate === r.gate)!;
+      return { g, at: pinPosition(new ProjectIndex(p), g, r.pin)! };
+    }) as [{ g: O.GatePlacement; at: { x: number; y: number } }, { g: O.GatePlacement; at: { x: number; y: number } }];
+    const sup = seg.pins[0]!.part === 'R6' ? b : a;
+    const r6 = sup === a ? b : a;
+    sup.g.at = [sup.g.at[0] + r6.at.x - sup.at.x, sup.g.at[1] + r6.at.y - sup.at.y];
+    seg.wires = [];
+    const ms = messages(p);
+    expect(ms.some((m) => m.includes('R6 pin 1') && m.endsWith('pin on pin, with no wire between'))).toBe(true);
+    expect(ms.some((m) => m.includes('R6 pin 1') && m.includes('no wire reaches'))).toBe(false);
   });
 
   it('finds a part missing from the board', () => {
