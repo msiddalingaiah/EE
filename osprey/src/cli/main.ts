@@ -3,6 +3,7 @@
 //   osprey <file.osprey> <step>... [options]
 //   osprey import <x.sch> <x.brd> [-o x.osprey] [<step>...]
 //   osprey generate <x.blocks> [-o x.osprey] [<step>...]
+//   osprey compare <generated.osprey> <reference.osprey>
 //   osprey commands
 //
 // Run through scripts/osprey.mjs, which bundles this for Node. The steps are in steps.ts.
@@ -12,6 +13,7 @@ import { basename, dirname, join, resolve } from 'node:path';
 import { parseEagle } from '../eagle/parse';
 import { parseDescription, resolveDescription, type Source } from '../gen/description';
 import { generateProject } from '../gen/layout';
+import { compareSheets } from '../gen/score';
 import { readLibrary, readProject, writeProject } from '../model/file';
 import { importEagle, importLibrary } from '../model/import-eagle';
 import type * as O from '../model/types';
@@ -21,11 +23,16 @@ const USAGE = `Usage:
   osprey <file.osprey> <step>... [options]
   osprey import <x.sch> <x.brd> [-o x.osprey] [<step>...] [options]
   osprey generate <x.blocks> [-o x.osprey] [<step>...] [options]
+  osprey compare <generated.osprey> <reference.osprey>
   osprey commands
 
 generate draws a schematic from a block description (README "Schematic generation"), after
 checking it; with errors it writes nothing. Components come from the description's "use"
 files, then the user directory's libraries.
+
+compare measures two drawings of the same netlist block by block (wire length, bends, size,
+and how far parts are from where the reference has them): a generated sheet against one drawn
+by hand.
 
 Steps run in order on the project, which is saved (in place, or to -o) if one changed it.
 The run stops at the first step that finds an error.
@@ -116,6 +123,12 @@ async function main(argv: string[]): Promise<number> {
   }
   if (argv[0] === 'commands') {
     console.log(`Steps (and the menu commands they match):\n${listCommands()}`);
+    return 0;
+  }
+  if (argv[0] === 'compare') {
+    if (argv.length !== 3) throw new UsageError('compare needs two projects: the generated one, then the reference');
+    const [a, b] = argv.slice(1).map((f) => readProject(readFileSync(f, 'utf8')));
+    console.log(compareSheets(a!, b!));
     return 0;
   }
   const importing = argv[0] === 'import';

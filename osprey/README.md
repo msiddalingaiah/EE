@@ -286,7 +286,11 @@ native model (see [docs/format.md](docs/format.md)). Eagle files are imported in
   between the row and a block below gets net labels. `samples/blocks/wwvbfind2.blocks` generates
   the same netlist as the hand-drawn `wwvbfind2` (`wwvbfind2-gen.osprey`). A feedback
   loop is drawn as a person would: an inverter's feedback resistor above it, the return path
-  (crystal, resistor) below with its capacitors hanging from it.
+  (crystal, resistor) below with its capacitors hanging from it. Parts sit as close as a
+  person's sheet has them (labels nearly touching, more room only where a supply symbol or
+  net label goes between), sized by the names and values they actually show; supply symbols
+  keep clear of parts' texts. `samples/schematics` holds common subcircuits generated and then
+  redrawn by hand, and `osprey compare` scores a generated sheet against such a drawing.
 - **Command line** (`npm run osprey -- …`, or `node scripts/osprey.mjs`): runs the design flow on
   `.osprey` files with no browser, for agents and scripts: `osprey x.osprey place route labels
   lcsc check cam assembly` runs the steps in order and saves the project in place (or `-o`).
@@ -451,6 +455,12 @@ first step that finds an error.
 and saves the project (a board outline with the footprints parked beside it); the steps follow,
 so `osprey generate x.blocks rules=oshpark-2layer.dru place route labels lcsc check` goes from
 a description to a checked board. With errors in the description it writes nothing.
+
+`osprey compare generated.osprey reference.osprey` measures two drawings of the same netlist
+block by block: wire length, bends, overlaps (a text over another part or text, a net label
+included), size, and how far parts are from where the reference has them (after moving the
+whole block to fit). It is how the generator is checked against hand drawings
+(`samples/schematics/subcircuits-hand.osprey`, `samples/osprey/wwvbfind2.osprey`).
 
 #### Block descriptions
 

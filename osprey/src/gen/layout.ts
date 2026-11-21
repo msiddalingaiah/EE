@@ -25,10 +25,11 @@ const G = 2.54;
 const WIRE = 0.1524;
 const LABEL_SIZE = 1.778;
 /** Between parts stacked in a column, and around a column: room for wires and symbols. */
-const GAP_Y = 3 * G;
-/** Between columns of parts at the same height: a base, and a grid step per net between them (up to a few). */
-const COL_GAP = 2;
-const COL_GAP_NETS = 2;
+const GAP_Y = 2 * G;
+/** Between columns of parts at the same height, in grid steps (a person's sheets keep labels nearly touching). */
+const COL_GAP = 1;
+/** More, in grid steps, where a supply symbol or a net label is drawn between the columns. */
+const FACING_GAP = 1;
 const r6 = (v: number) => Math.round(v * 1e6) / 1e6;
 const snapDown = (v: number) => r6(Math.floor(v / G + 1e-6) * G);
 const snap = (v: number) => r6(Math.round(v / G) * G);
@@ -66,21 +67,33 @@ function bodyPoints(s: O.Symbol): Vec[] {
   return pts;
 }
 
-/** The boxes of a symbol's texts (>NAME, >VALUE), at a guessed width. */
-function textBoxes(s: O.Symbol): [Vec, Vec][] {
-  const out: [Vec, Vec][] = [];
-  for (const g of s.graphics) {
-    if (!('text' in g)) continue;
-    const w = g.size * 0.8 * Math.max(4, g.text.replace(/^>/, '').length);
-    const h = g.size;
-    const vertical = (g.rot ?? 0) % 180 === 90;
-    const [dx, dy] = vertical ? [h, w] : [w, h];
-    const align = g.align ?? 'bottom-left';
-    const x0 = align.endsWith('right') ? -dx : align.endsWith('center') ? -dx / 2 : 0;
-    const y0 = align.startsWith('top') ? -dy : align.startsWith('center') ? -dy / 2 : 0;
-    out.push([[g.at[0] + x0, g.at[1] + y0], [g.at[0] + x0 + dx, g.at[1] + y0 + dy]]);
-  }
-  return out;
+/** Width of a character of schematic text (sans-serif at 1.2 em per size), per unit of size. */
+const CHAR_W = 0.7;
+
+/** What a part's >NAME and >VALUE show: its name, and its value or (none given) its component's name and variant. */
+function partTexts(part: RPart): Record<string, string> {
+  const name = part.component.id.split('/').pop() ?? '';
+  return { '>NAME': part.part.name, '>VALUE': part.part.value ?? name.replace('*', '') + part.part.variant };
+}
+
+/**
+ * A text's box in its symbol: `shown` (what it shows) or, not given, a guess from the
+ * placeholder. Laid out along the text, aligned at its anchor, then turned with the text: a
+ * vertical name (R90) reads upward with its letters to the left of the anchor.
+ */
+export function textBox(g: O.TextShape, shown?: string): [Vec, Vec] {
+  const w = shown !== undefined ? g.size * CHAR_W * Math.max(1, shown.length) : g.size * 0.8 * Math.max(4, g.text.replace(/^>/, '').length);
+  const h = g.size;
+  const align = g.align ?? 'bottom-left';
+  const x0 = align.endsWith('right') ? -w : align.endsWith('center') ? -w / 2 : 0;
+  const y0 = align.startsWith('top') ? -h : align.startsWith('center') ? -h / 2 : 0;
+  const b = rotBox([[x0, y0], [x0 + w, y0 + h]], g.rot ?? 0);
+  return [[g.at[0] + b.x0, g.at[1] + b.y0], [g.at[0] + b.x1, g.at[1] + b.y1]];
+}
+
+/** The boxes of a symbol's texts (>NAME, >VALUE): sized for what they show when `texts` gives it, else guessed. */
+function textBoxes(s: O.Symbol, texts?: Record<string, string>): [Vec, Vec][] {
+  return s.graphics.flatMap((g) => ('text' in g ? [textBox(g, texts?.[g.text.toUpperCase()])] : []));
 }
 
 interface Box { x0: number; y0: number; x1: number; y1: number }
@@ -191,7 +204,7 @@ class BlockPlacement {
       return mirror ? [-r[0], r[1]] : r;
     };
     n.body = boxOf(bodyPoints(n.symbol).map(place));
-    n.box = boxOf([...bodyPoints(n.symbol), ...textBoxes(n.symbol).flat()].map(place));
+    n.box = boxOf([...bodyPoints(n.symbol), ...textBoxes(n.symbol, partTexts(n.part)).flat()].map(place));
     for (const p of n.pins) {
       p.local = place([p.pin.at[0], p.pin.at[1]]);
       p.side = sideOf(p.pin, n.rot, mirror);
@@ -627,20 +640,23 @@ class BlockPlacement {
       follower.at = [follower.at[0], r6(anchor.at[1] + a.local[1] - f.local[1])];
     }
 
-    // Columns' x, left to right, each as far left as it can go: its parts clear (by a gap that
-    // grows with the nets between) of every part to their left at the same height, so a column
+    // Columns' x, left to right, each as far left as it can go: its parts clear (by a gap) of
+    // every part to their left at the same height, so a column
     // of parts hanging low slides in under a tall one before it. The order is kept.
     const colWidth = columns.map((col) => Math.max(2 * G, ...col.map((n) => n.box.x1 - n.box.x0)));
     const gapAfter = columns.map((col, c) => {
       const next = columns[c + 1] ?? [];
-      const between = new Set<RNet>();
-      for (const n of [...col, ...next]) for (const p of n.pins) if (p.net && !p.net.supply) between.add(p.net);
       // Beside a part in parallel: just room for the wires joining their pins.
       const paired = next.length > 0 && [...next, ...col].some((n) => {
         const pa = parallel.get(n);
         return !!pa && col.concat(next).includes(pa.anchor);
       }) && (next.every((n) => parallel.has(n)) || col.every((n) => parallel.has(n)));
-      return (paired ? 3 : COL_GAP + Math.min(COL_GAP_NETS, between.size)) * G;
+      if (paired) return 3 * G;
+      // Room for what is drawn between: a supply symbol or a net label (a net leaving the
+      // block) on a pin facing across the gap.
+      const drawn = (n: Node, side: Side) => n.pins.some((p) => p.side === side && p.net && (p.net.supply || p.net.blocks.size > 1));
+      const between = col.some((n) => drawn(n, 'R')) || next.some((n) => drawn(n, 'L'));
+      return (COL_GAP + (between ? FACING_GAP : 0)) * G;
     });
     const span = (n: Node) => [n.at[1] + n.box.y0 - n.below, n.at[1] + n.box.y1 + n.above] as const;
     const placedX: Node[] = [];
@@ -997,6 +1013,8 @@ class Router {
   /** Symbol bodies: no wire passes; texts: a wire may, at a cost. */
   private readonly blocked = new Set<string>();
   private readonly soft = new Set<string>();
+  /** The texts' boxes themselves: a supply symbol keeps off them (a narrow text can fall between grid points). */
+  private readonly texts: Box[] = [];
   /** Pins by point (any net). */
   private readonly pinAt = new Map<string, PinPoint>();
   /** Which net uses each edge ("i,j,h" from (i,j) to (i+1,j); "i,j,v" to (i,j+1)). */
@@ -1033,6 +1051,13 @@ class Router {
   addGate(body: Box, text: Box[]): void {
     for (const c of this.cells(body)) this.blocked.add(c);
     for (const t of text) for (const c of this.cells(t)) this.soft.add(c);
+    this.texts.push(...text);
+  }
+
+  /** Does a box overlap a part's text? */
+  private onText(b: Box): boolean {
+    const E = 0.2;
+    return this.texts.some((t) => b.x0 < t.x1 - E && t.x0 < b.x1 - E && b.y0 < t.y1 - E && t.y0 < b.y1 - E);
   }
 
   addPin(p: PinPoint): void {
@@ -1237,12 +1262,14 @@ class Router {
   /** A supply symbol for a pin: upright, in the nearest free spot, wired to it. */
   supply(p: PinPoint, s: SupplySymbol, name: string): boolean {
     const arrive = dirOf(s.body);
-    const target = (i: number, j: number, d: Dir) => {
+    // Clear of parts' texts if there's room near, else over one if it must.
+    const target = (clear: boolean) => (i: number, j: number, d: Dir) => {
       if (d !== arrive || !this.free(pk(i, j))) return false;
       const b = { x0: i * G + s.box.x0, y0: j * G + s.box.y0, x1: i * G + s.box.x1, y1: j * G + s.box.y1 };
-      return this.cells(b).every((k) => k === pk(i, j) || this.free(k));
+      return this.cells(b).every((k) => k === pk(i, j) || this.free(k)) && !(clear && this.onText(b));
     };
-    const path = this.search(p.net, [{ i: p.i, j: p.j, dirs: [p.out] }], target, 40) ?? this.search(p.net, [{ i: p.i, j: p.j, dirs: [p.out] }], target, 120);
+    const from = [{ i: p.i, j: p.j, dirs: [p.out] }];
+    const path = this.search(p.net, from, target(true), 40) ?? this.search(p.net, from, target(false), 40) ?? this.search(p.net, from, target(false), 120);
     if (!path) return false;
     this.commit(p.net, path);
     const [i, j] = path[path.length - 1]!;
@@ -1367,7 +1394,7 @@ function routeNodes(nodes: Node[], nets: RNet[], supplies: Map<string, SupplySym
   for (const n of nodes) {
     router.addGate(
       { x0: n.at[0] + n.body.x0, y0: n.at[1] + n.body.y0, x1: n.at[0] + n.body.x1, y1: n.at[1] + n.body.y1 },
-      textBoxes(n.symbol).map((t) => rotBox(t, n.rot)).map((b) => (n.mirror ? { x0: -b.x1, y0: b.y0, x1: -b.x0, y1: b.y1 } : b)).map((b) => ({ x0: n.at[0] + b.x0, y0: n.at[1] + b.y0, x1: n.at[0] + b.x1, y1: n.at[1] + b.y1 })),
+      textBoxes(n.symbol, partTexts(n.part)).map((t) => rotBox(t, n.rot)).map((b) => (n.mirror ? { x0: -b.x1, y0: b.y0, x1: -b.x0, y1: b.y1 } : b)).map((b) => ({ x0: n.at[0] + b.x0, y0: n.at[1] + b.y0, x1: n.at[0] + b.x1, y1: n.at[1] + b.y1 })),
     );
     for (const p of n.pins) {
       if (!p.net) continue;
