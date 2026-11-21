@@ -302,16 +302,19 @@ class BlockPlacement {
       const anchor = [...group].sort((a, b) => b.pins.length - a.pins.length || a.order - b.order)[0]!;
       // A connector isn't drawn beside the part across it: that part hangs from the wire.
       if (isConnector(anchor.part.component)) continue;
-      // The net to line up: the one on the anchor's upper pin.
-      const top = [...anchor.pins.filter((p) => p.net)].sort((a, b) => b.local[1] - a.local[1])[0]!;
+      // The net to line up: the one on the anchor's upper pin, of the two nets the group shares
+      // (an op-amp across its feedback resistor has supply pins too).
+      const shared = new Set(netsOf(group.find((n) => n.pins.length === 2) ?? anchor));
+      const across = anchor.pins.filter((p) => p.net && shared.has(p.net));
+      const top = [...across].sort((a, b) => b.local[1] - a.local[1])[0]!;
       const net = top.net!.name;
       const followers = group.filter((n) => n !== anchor);
       followers.forEach((f, k) => {
         // Turned so its two pins lie the way the anchor's do (net above net, or left of it).
         if (f.pins.length === 2) {
           const mean = (ps: PinInfo[]): Vec => [ps.reduce((a, p) => a + p.local[0], 0) / ps.length, ps.reduce((a, p) => a + p.local[1], 0) / ps.length];
-          const a = mean(anchor.pins.filter((p) => p.net?.name === net));
-          const b = mean(anchor.pins.filter((p) => p.net && p.net.name !== net));
+          const a = mean(across.filter((p) => p.net!.name === net));
+          const b = mean(across.filter((p) => p.net!.name !== net));
           const want: Side = Math.abs(a[1] - b[1]) >= Math.abs(a[0] - b[0]) ? (a[1] > b[1] ? "T" : "B") : a[0] > b[0] ? "R" : "L";
           for (const deg of [f.rot, 90, 270, 0, 180]) {
             this.setRot(f, deg);

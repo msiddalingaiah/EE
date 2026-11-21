@@ -7,7 +7,7 @@ import { runSteps, type StepEnv } from '../src/cli/steps';
 import { parseDescription, resolveDescription, type Source } from '../src/gen/description';
 import { generateProject } from '../src/gen/layout';
 import { ProjectIndex } from '../src/model/derive';
-import { readProject, writeProject } from '../src/model/file';
+import { readLibrary, readProject, writeProject } from '../src/model/file';
 import { pinPosition } from '../src/model/geometry';
 import type * as O from '../src/model/types';
 
@@ -42,6 +42,20 @@ describe('schematic generation', { timeout: 30000 }, () => {
     // Every part has its block, and the project is valid as a file.
     expect(project!.parts.filter((p) => !/SUPPLY/.test(p.name)).every((p) => p.attributes?.BLOCK)).toBe(true);
     expect(writeProject(readProject(writeProject(project!)))).toBe(writeProject(project!));
+  });
+
+  it('draws the subcircuits test set, whose hand drawing keeps the same netlist', () => {
+    const dir = join(ROOT, 'samples', 'schematics');
+    const subSources: Source[] = [
+      { name: 'madhu.ospreylib', library: readLibrary(readFileSync(join(ROOT, 'samples', 'osprey', 'madhu.ospreylib'), 'utf8')).library },
+      ...sources,
+    ];
+    const parsed = parseDescription(readFileSync(join(dir, 'subcircuits.blocks'), 'utf8'));
+    const r = resolveDescription(parsed.description, subSources);
+    expect([...parsed.problems, ...r.problems]).toEqual([]);
+    const project = generateProject(r.resolved!);
+    const hand = readProject(readFileSync(join(dir, 'subcircuits-hand.osprey'), 'utf8'));
+    expect(netlist(hand)).toEqual(netlist(project));
   });
 
   it('follows the drafting rules: a wire between any two pins, only T junctions, square wires', () => {

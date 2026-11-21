@@ -1,0 +1,102 @@
+# Common subcircuits, each one block, for learning how a person draws them.
+# Generate my layout with:
+#   npm run osprey -- generate samples/schematics/subcircuits.blocks -o samples/schematics/subcircuits-gen.osprey
+# subcircuits-hand.osprey starts as a copy of -gen and is redrawn by hand; it is never regenerated.
+# Blocks share only VCC and GND; every other net stays inside its block.
+
+design subcircuits
+use ../osprey/madhu.ospreylib
+use ../osprey/wwvbfind2.osprey          # for the supply2 symbols
+
+supply VCC supply2/VCC
+supply GND supply2/GND
+
+# Voltage divider: halves VCC, with a filter capacitor on the output, to a connector.
+block Divider
+R1     madhu/RESISTOR       10k   0805-RES
+R2     madhu/RESISTOR       10k   0805-RES
+C1     madhu/CAPACITOR-NP   100n  0805
+J1     madhu/BERG-2
+VCC: R1.2
+net: R1.1 R2.2 C1.1 J1.2
+GND: R2.1 C1.2 J1.1
+
+# RC low-pass: input connector, series R, shunt C, output connector.
+block RC-lowpass
+IN1    madhu/BERG-2
+R3     madhu/RESISTOR       1k    0805-RES
+C2     madhu/CAPACITOR-NP   100n  0805
+OUT1   madhu/BERG-2
+net: IN1.2 R3.1
+net: R3.2 C2.1 OUT1.2
+GND: IN1.1 C2.2 OUT1.1
+
+# LED on the supply: series resistor from VCC, LED to ground.
+block LED
+R4     madhu/RESISTOR       1k    0805-RES
+D1     madhu/LED            0805
+VCC: R4.2
+net: R4.1 D1.A
+GND: D1.C
+
+# Common-emitter amplifier: input coupling cap, divider bias, collector and emitter
+# resistors, emitter bypass cap, output coupling cap.
+block CE-amp
+IN2    madhu/BERG-2
+C3     madhu/CAPACITOR-NP   1u    0805
+R5     madhu/RESISTOR       47k   0805-RES
+R6     madhu/RESISTOR       10k   0805-RES
+Q1     madhu/MMBT3904
+R7     madhu/RESISTOR       4.7k  0805-RES
+R8     madhu/RESISTOR       1k    0805-RES
+C4     madhu/CAPACITOR-NP   10u   0805
+C5     madhu/CAPACITOR-NP   1u    0805
+OUT2   madhu/BERG-2
+net: IN2.2 C3.1
+net: C3.2 R5.1 R6.2 Q1.B
+VCC: R5.2 R7.2
+net: Q1.C R7.1 C5.1
+net: Q1.E R8.2 C4.1
+GND: IN2.1 R6.1 R8.1 C4.2 OUT2.1
+net: C5.2 OUT2.2
+
+# Inverting op-amp amplifier on a single supply: input resistor to -IN, feedback resistor
+# from OUT to -IN, +IN biased at half supply by a divider with a capacitor, a bypass cap.
+block Inverting-amp
+IN3    madhu/BERG-2
+R9     madhu/RESISTOR       10k   0805-RES
+U1     madhu/MCP6001
+R10    madhu/RESISTOR       100k  0805-RES
+R11    madhu/RESISTOR       100k  0805-RES
+R12    madhu/RESISTOR       100k  0805-RES
+C6     madhu/CAPACITOR-NP   1u    0805
+C7     madhu/CAPACITOR-NP   100n  0805
+OUT3   madhu/BERG-2
+net: IN3.2 R9.1
+net: R9.2 U1.-IN R10.1
+net: U1.OUT R10.2 OUT3.2
+net: U1.+IN R11.1 R12.2 C6.1
+VCC: U1.V+ R11.2 C7.1
+GND: U1.V- R12.1 C6.2 C7.2 IN3.1 OUT3.1
+
+# Tuned amplifier: a transistor stage with an LC tank in the collector, fed from VCC,
+# divider bias on the base, bypassed emitter resistor, output coupled from the collector.
+block LC-tank
+IN4    madhu/BERG-2
+C8     madhu/CAPACITOR-NP   10n   0805
+R13    madhu/RESISTOR       47k   0805-RES
+R14    madhu/RESISTOR       10k   0805-RES
+Q2     madhu/MMBT3904
+L1     madhu/INDUCTOR-VAR2
+C9     madhu/CAPACITOR-NP   1.5n  0805
+R15    madhu/RESISTOR       1k    0805-RES
+C10    madhu/CAPACITOR-NP   10u   0805
+C11    madhu/CAPACITOR-NP   10n   0805
+OUT4   madhu/BERG-2
+net: IN4.2 C8.1
+net: C8.2 R13.1 R14.2 Q2.B
+VCC: R13.2 L1.E L1.E1 C9.1
+net: Q2.C L1.A C9.2 C11.1
+net: Q2.E R15.2 C10.1
+GND: IN4.1 R14.1 R15.1 C10.2 OUT4.1
+net: C11.2 OUT4.2
