@@ -372,7 +372,9 @@ class BlockPlacement {
    * output (an inverter), the parts across them (R11) above it from input to output; the
    * return path from its output back to its input through two-pin parts (R12, X1) in a row
    * below it, right to left; and the parts from that path to a supply (C9, C10) hanging from
-   * it. Returns each such part with its gate and its place relative to the gate.
+   * it. An op-amp (two inputs) likewise: its feedback (R10) above from -IN to OUT, and the
+   * other input's bias network hanging below. Returns each such part with its gate and its
+   * place relative to the gate.
    */
   private loops(): Map<Node, { gate: Node; at: Vec }> {
     const out = new Map<Node, { gate: Node; at: Vec }>();
@@ -392,13 +394,19 @@ class BlockPlacement {
       if (out.has(g) || g.rot !== 0) continue;
       const ins = g.pins.filter((p) => p.pin.direction === 'in' && p.net && !p.net.supply);
       const outs = g.pins.filter((p) => p.pin.direction === 'out' && p.net && !p.net.supply);
-      if (ins.length !== 1 || outs.length !== 1 || ins[0]!.side !== 'L' || outs[0]!.side !== 'R') continue;
-      const pi = ins[0]!;
+      if (ins.length < 1 || ins.length > 2 || outs.length !== 1 || ins.some((p) => p.side !== 'L') || outs[0]!.side !== 'R') continue;
       const po = outs[0]!;
-      const A = pi.net!;
       const B = po.net!;
       const free = (n: Node) => n !== g && !out.has(n) && twoPin(n) && !this.path?.has(n);
-      const feedback = on(A).filter((n) => free(n) && n.pins.some((p) => p.net === B));
+      const across = (p: PinInfo) => on(p.net!).filter((n) => free(n) && n.pins.some((q) => q.net === B));
+      // An op-amp (two inputs): the loop is on the input with parts across to the output (-IN).
+      const pi = ins.find((p) => across(p).length) ?? ins[0]!;
+      const A = pi.net!;
+      const feedback = across(pi);
+      // The other input's bias network (R11 from VCC, R12 and C6 to ground at +IN) hangs below.
+      const bias = ins.length === 2 ? this.biasBelow(ins.find((p) => p !== pi)!, free, on, turn) : [];
+      for (const [n, at] of bias) out.set(n, { gate: g, at });
+      if (ins.length === 2 && !feedback.length) continue;
       // The return path: breadth first from the output's net to the input's.
       const prev = new Map<RNet, { part: Node; from: RNet }>();
       const queue = [B];
@@ -425,7 +433,9 @@ class BlockPlacement {
         const a = pinOn(f, A).local;
         const b = pinOn(f, B).local;
         const y = snapUp(top + f.below - f.box.y0);
-        out.set(f, { gate: g, at: [snap((pi.local[0] + po.local[0]) / 2 - (a[0] + b[0]) / 2), y] });
+        // Centred, or right of a supply pin on top (an op-amp's V+), its symbol straight above it.
+        const tops = g.pins.filter((p) => p.side === 'T' && p.net?.supply).map((p) => p.local[0] + G - a[0]);
+        out.set(f, { gate: g, at: [snap(Math.max((pi.local[0] + po.local[0]) / 2 - (a[0] + b[0]) / 2, ...tops)), y] });
         top = y + f.box.y1 + f.above;
       }
       if (!chain.length) continue;
@@ -455,6 +465,37 @@ class BlockPlacement {
       }
     }
     for (const n of out.keys()) this.riding.add(n);
+    return out;
+  }
+
+  /**
+   * An input's bias network as a person draws it under an op-amp: the parts from the input's
+   * net to the supplies in one column left of the pin, the one from VCC on top, the one to
+   * ground under it, more to ground beside that (C6 beside R12). Places relative to the gate.
+   */
+  private biasBelow(pin: PinInfo, free: (n: Node) => boolean, on: (net: RNet) => Node[], turn: (n: Node, net: RNet, side: Side) => void): [Node, Vec][] {
+    const net = pin.net!;
+    const parts = on(net).filter((n) => free(n) && n.pins.some((p) => p.net !== net && p.net!.supply));
+    const up = parts.filter((n) => n.pins.some((p) => p.net !== net && !this.supplyDown(p.net!)));
+    const down = parts.filter((n) => !up.includes(n));
+    if (!parts.length) return [];
+    const pinOf = (n: Node) => n.pins.find((p) => p.net === net)!;
+    for (const n of up) turn(n, net, 'B');
+    for (const n of down) turn(n, net, 'T');
+    const out: [Node, Vec][] = [];
+    const x = pin.local[0] - 3 * G;
+    // Below the pin, left of what hangs from the gate's lower pins (the V- supply symbol).
+    let y = pin.local[1] - 2 * G;
+    up.forEach((n, k) => {
+      const at: Vec = [snap(x + 3 * G * k - pinOf(n).local[0]), snapDown(y - n.above - n.box.y1)];
+      out.push([n, at]);
+    });
+    if (up.length) y = Math.min(...out.map(([n, at]) => at[1] + pinOf(n).local[1])) - 2 * G;
+    else y = snapDown(y - 2 * G);
+    down.forEach((n, k) => {
+      const t = pinOf(n).local;
+      out.push([n, [snap(x + 3 * G * k - t[0]), r6(y - t[1])]]);
+    });
     return out;
   }
 
@@ -620,6 +661,22 @@ class BlockPlacement {
       columns.push(...kept);
       columns.forEach((col, c) => col.forEach((n) => (n.col = c)));
     }
+    // The decoupling capacitor of an IC with a loop over it (an op-amp's feedback) can't stand
+    // above it: it stands at the right end, level with it (C7 after OUT3).
+    const beside = new Map<Node, Node>();
+    for (const [cap, ic] of anchors) {
+      if (ic.powerOnly || ![...riders.values()].some((r) => r.gate === ic)) continue;
+      const col = columns[cap.col]!;
+      col.splice(col.indexOf(cap), 1);
+      beside.set(cap, ic);
+    }
+    if (beside.size) {
+      columns.push([...beside.keys()]);
+      const kept = columns.filter((col) => col.length);
+      columns.length = 0;
+      columns.push(...kept);
+      columns.forEach((col, c) => col.forEach((n) => (n.col = c)));
+    }
 
     // Bands across the whole block, from the supply down to ground: a gate stands no higher
     // than its band's top in any column, so parts near VCC are above parts near GND throughout.
@@ -645,6 +702,7 @@ class BlockPlacement {
       const d = snap(ic.at[1] + ic.box.y1 + ic.above - (col[0]!.at[1] + col[0]!.box.y1 + col[0]!.above));
       for (const n of col) n.at = [n.at[0], r6(n.at[1] + d)];
     }
+    for (const [cap, ic] of beside) cap.at = [cap.at[0], snap(ic.at[1] + (ic.body.y0 + ic.body.y1) / 2 - (cap.body.y0 + cap.body.y1) / 2)];
     // Parts in parallel level with each other: the pins on their shared net in line.
     for (const [follower, { anchor, net }] of parallel) {
       const a = anchor.pins.find((p) => p.net?.name === net)!;
@@ -701,8 +759,7 @@ class BlockPlacement {
       n.at = [r6(n.at[0] + d), n.at[1]];
       for (const [f, { anchor }] of parallel) if (anchor === n) f.at = [r6(f.at[0] + d), f.at[1]];
     }
-    for (const [r, { gate, at }] of riders) r.at = [r6(gate.at[0] + at[0]), r6(gate.at[1] + at[1])];
-    if (this.path) this.placeRails();
+    for (const [r, { gate, at }] of riders) r.at = [r6(gate.at[0] + at[0]), r6(gate.at[1] + at[1])];    if (this.path) this.placeRails();
   }
 
   /**
@@ -1544,6 +1601,7 @@ function findRails(design: Resolved, supplies: Map<string, SupplySymbol>): Set<s
     if (n.supply || n.pins.length < 3) continue;
     let fed = false;
     let decoupled = false;
+    let divided = false;
     for (const r of n.pins) {
       const nets = [...(netsOf.get(r.part) ?? [])];
       if (nets.length !== 2 || !nets.some((m) => m !== n && m.supply)) continue;
@@ -1551,8 +1609,12 @@ function findRails(design: Resolved, supplies: Map<string, SupplySymbol>): Set<s
       // it is across the feed, as in a tank, and the net isn't a rail.)
       if (capacitor(r.part)) decoupled ||= nets.some((m) => m !== n && m.supply && !up(m));
       else if (nets.some((m) => m !== n && up(m))) fed = true;
+      else divided = true;
     }
-    if (fed && decoupled) rails.add(n.name);
+    // (A divider, a resistor on to ground too, into an IC's or a transistor's pin is its bias,
+    // an op-amp's +IN: not a rail. A divider on its own is still drawn as one.)
+    const biases = divided && n.pins.some((r) => (netsOf.get(r.part)?.size ?? 0) >= 3);
+    if (fed && decoupled && !biases) rails.add(n.name);
   }
   return rails;
 }
