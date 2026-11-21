@@ -76,6 +76,63 @@ export function nativeDir(path: string, invoke: Invoke = tauriInvoke): DirHandle
   };
 }
 
+/** The folder a path is in. */
+export const dirName = (path: string) => path.replace(/[\\/][^\\/]*$/, '');
+
+/** The folder the last file was opened from or saved to: where the next dialog starts. */
+const LASTDIR_KEY = 'osprey.native.lastdir';
+function lastDir(): string | undefined {
+  try {
+    return localStorage.getItem(LASTDIR_KEY) ?? undefined;
+  } catch {
+    return undefined;
+  }
+}
+function rememberDir(path: string): void {
+  try {
+    localStorage.setItem(LASTDIR_KEY, dirName(path));
+  } catch {
+    /* not remembered */
+  }
+}
+
+/** What a file dialog shows: a description and extensions (".osprey"). */
+export interface FileType { description: string; extensions: string[] }
+
+/** The open dialog: the files chosen (none if cancelled). */
+export async function nativePickFiles(title: string, type: FileType, multiple: boolean, invoke: Invoke = tauriInvoke): Promise<(FileHandle & { path: string })[]> {
+  const paths = (await invoke('pick_files', {
+    title, filter: type.description, extensions: type.extensions.map((x) => x.replace(/^\./, '')), multiple, directory: lastDir() ?? null,
+  })) as string[];
+  if (paths[0]) rememberDir(paths[0]);
+  return paths.map((p) => nativeFile(p, invoke));
+}
+
+/** The save dialog: the file to write (undefined if cancelled). `near`: a file whose folder it starts in. */
+export async function nativePickSave(title: string, name: string, type: FileType, near?: string, invoke: Invoke = tauriInvoke): Promise<(FileHandle & { path: string }) | undefined> {
+  const path = (await invoke('pick_save', {
+    title, name, filter: type.description, extensions: type.extensions.map((x) => x.replace(/^\./, '')), directory: (near ? dirName(near) : lastDir()) ?? null,
+  })) as string | null;
+  if (!path) return undefined;
+  rememberDir(path);
+  return nativeFile(path, invoke);
+}
+
+/** The folder dialog (undefined if cancelled). */
+export async function nativePickFolder(title: string, invoke: Invoke = tauriInvoke): Promise<(DirHandle & { path: string }) | undefined> {
+  const path = (await invoke('pick_folder', { title })) as string | null;
+  return path ? nativeDir(path, invoke) : undefined;
+}
+
+/** The file the app was started with (a project double-clicked in Explorer), if any. */
+export async function startupFile(invoke: Invoke = tauriInvoke): Promise<(FileHandle & { path: string }) | undefined> {
+  const path = (await invoke('startup_file')) as string | null;
+  return path ? nativeFile(path, invoke) : undefined;
+}
+
+/** A path, if the handle is a native one. */
+export const pathOf = (h: unknown): string | undefined => (h && typeof (h as { path?: unknown }).path === 'string' ? (h as { path: string }).path : undefined);
+
 /** Where the native app remembers its user directory's path (its own browser storage). */
 const USERDIR_KEY = 'osprey.native.userdir';
 

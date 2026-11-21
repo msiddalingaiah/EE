@@ -81,11 +81,40 @@ async fn pick_folder(app: tauri::AppHandle, title: String) -> Option<String> {
   app.dialog().file().set_title(title).blocking_pick_folder().map(|p| p.to_string())
 }
 
+/// Ask for files to open (one, or several), showing only the extensions given (no dots).
+#[tauri::command]
+async fn pick_files(app: tauri::AppHandle, title: String, filter: String, extensions: Vec<String>, multiple: bool, directory: Option<String>) -> Vec<String> {
+  let exts: Vec<&str> = extensions.iter().map(String::as_str).collect();
+  let mut d = app.dialog().file().set_title(title).add_filter(filter, &exts);
+  if let Some(dir) = directory {
+    d = d.set_directory(dir);
+  }
+  let picked = if multiple { d.blocking_pick_files().unwrap_or_default() } else { d.blocking_pick_file().into_iter().collect() };
+  picked.into_iter().map(|p| p.to_string()).collect()
+}
+
+/// Ask where to save a file; None if cancelled.
+#[tauri::command]
+async fn pick_save(app: tauri::AppHandle, title: String, name: String, filter: String, extensions: Vec<String>, directory: Option<String>) -> Option<String> {
+  let exts: Vec<&str> = extensions.iter().map(String::as_str).collect();
+  let mut d = app.dialog().file().set_title(title).set_file_name(name).add_filter(filter, &exts);
+  if let Some(dir) = directory {
+    d = d.set_directory(dir);
+  }
+  d.blocking_save_file().map(|p| p.to_string())
+}
+
+/// The file the app was started with (double-clicking a project, or `osprey.exe x.osprey`).
+#[tauri::command]
+fn startup_file() -> Option<String> {
+  std::env::args().skip(1).find(|a| !a.starts_with('-') && std::path::Path::new(a).is_file())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
   tauri::Builder::default()
     .plugin(tauri_plugin_dialog::init())
-    .invoke_handler(tauri::generate_handler![fs_list, fs_mkdir, fs_is_file, fs_read, fs_write, pick_folder])
+    .invoke_handler(tauri::generate_handler![fs_list, fs_mkdir, fs_is_file, fs_read, fs_write, pick_folder, pick_files, pick_save, startup_file])
     .setup(|app| {
       if cfg!(debug_assertions) {
         app.handle().plugin(

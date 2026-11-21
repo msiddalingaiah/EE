@@ -549,8 +549,13 @@ In the native app the user directory is a folder chosen with the Windows folder 
 as a path: it is ready on every start, with nothing to reconnect (the browser asks for
 permission again after each reload). The app reaches it through a few commands of its own in
 `src-tauri/src/lib.rs` (list, read, write, make a folder, pick a folder), used by
-`src/app/native.ts` behind the same handles as the browser's. Opening and saving projects still
-use the browser's file dialogs, which WebView2 has too.
+`src/app/native.ts` behind the same handles as the browser's.
+
+Opening and saving use Windows' own dialogs too, with real paths: the title bar shows the
+project's folder, Save as and Eagle export start beside the project, Open recent keeps paths,
+and a saved project's CAM and assembly files go into its folder with no dialog (as the command
+line puts them). The installer registers `.osprey` files: double-clicking one opens it in
+Osprey (`osprey.exe x.osprey` does the same).
 
 The app opens the sample last opened, or the `TA7358A` Osprey project, by default; open your
 own files from the File menu (or drop them on the canvas). Any file in `samples/` can be opened by URL,

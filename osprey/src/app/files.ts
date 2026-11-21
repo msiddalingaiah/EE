@@ -1,5 +1,8 @@
 // Opening and saving files. Uses the File System Access API where available (Chromium),
-// so Save writes back to the file that was opened; elsewhere it falls back to download.
+// so Save writes back to the file that was opened; elsewhere it falls back to download. In the
+// native app (src/app/native.ts) the dialogs are Windows' own and files are plain paths.
+
+import { isNative, nativePickFiles, nativePickFolder, nativePickSave, pathOf, type FileType } from './native';
 
 interface FileHandle {
   name: string;
@@ -32,6 +35,12 @@ const SAVE_TYPES = {
 };
 const MIME = { osprey: 'application/json', ospreylib: 'application/json', eagle: 'application/xml', zip: 'application/zip' };
 
+/** A picker type as the native dialogs take it: its description and extensions. */
+const typeOf = (types: object[]): FileType => {
+  const t = types[0] as { description: string; accept: Record<string, string[]> };
+  return { description: t.description, extensions: Object.values(t.accept).flat() };
+};
+
 export interface OpenedFile {
   name: string;
   text: string;
@@ -41,7 +50,7 @@ export interface OpenedFile {
 export type { FileHandle };
 
 export function canPickFiles(): boolean {
-  return typeof (window as FsWindow).showOpenFilePicker === 'function';
+  return isNative() || typeof (window as FsWindow).showOpenFilePicker === 'function';
 }
 
 /**
@@ -51,7 +60,9 @@ export function canPickFiles(): boolean {
 export async function pickFiles(kind: OpenKind): Promise<OpenedFile[]> {
   const w = window as FsWindow;
   try {
-    const handles = await w.showOpenFilePicker!({ id: `osprey-${kind}`, types: PICKER_TYPES[kind], multiple: kind === 'eagle' });
+    const handles = isNative()
+      ? await nativePickFiles(kind === 'eagle' ? 'Import Eagle files' : `Open ${kind}`, typeOf(PICKER_TYPES[kind]), kind === 'eagle')
+      : await w.showOpenFilePicker!({ id: `osprey-${kind}`, types: PICKER_TYPES[kind], multiple: kind === 'eagle' });
     return await Promise.all(
       handles.map(async (handle) => {
         const f = await handle.getFile();
@@ -69,11 +80,14 @@ export async function pickFiles(kind: OpenKind): Promise<OpenedFile[]> {
  * (Chromium) or downloads the file. Returns the handle used, if any, or undefined if cancelled.
  */
 export async function saveFile(
-  text: string | Uint8Array, name: string, handle: FileHandle | undefined, kind: keyof typeof SAVE_TYPES = 'osprey',
+  text: string | Uint8Array, name: string, handle: FileHandle | undefined, kind: keyof typeof SAVE_TYPES = 'osprey', near?: FileHandle,
 ): Promise<{ handle?: FileHandle; method: 'written' | 'downloaded' } | undefined> {
   const w = window as FsWindow;
   try {
-    if (!handle && typeof w.showSaveFilePicker === 'function') {
+    if (!handle && isNative()) {
+      handle = await nativePickSave(`Save ${name}`, name, typeOf(SAVE_TYPES[kind]), pathOf(near));
+      if (!handle) return undefined;
+    } else if (!handle && typeof w.showSaveFilePicker === 'function') {
       handle = await w.showSaveFilePicker({ suggestedName: name, types: SAVE_TYPES[kind] });
     }
     if (handle) {
@@ -148,7 +162,10 @@ export async function saveToFolder(
     if (folder && folder.queryPermission && (await folder.queryPermission({ mode: 'readwrite' })) !== 'granted') {
       if ((await folder.requestPermission?.({ mode: 'readwrite' })) !== 'granted') folder = undefined;
     }
-    if (!folder && typeof w.showDirectoryPicker === 'function') {
+    if (!folder && isNative()) {
+      folder = await nativePickFolder('Choose a folder for the manufacturing files');
+      if (!folder) return undefined;
+    } else if (!folder && typeof w.showDirectoryPicker === 'function') {
       folder = await w.showDirectoryPicker({ id: 'osprey-output', mode: 'readwrite' });
     }
     if (folder) {

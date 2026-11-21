@@ -8,7 +8,7 @@ import { Commands, type Command } from './app/commands';
 import { MenuBar } from './app/menus';
 import { openPalette, showDialog, showShortcuts } from './app/palette';
 import { browserUserDir, idbGet, idbSet, type Sub } from './app/userdir';
-import { isNative, nativeUserDir } from './app/native';
+import { dirName, isNative, nativeDir, nativeFile, nativeUserDir, pathOf, startupFile } from './app/native';
 import { Selection, type SelectMode } from './app/selection';
 import { parseEagle } from './eagle/parse';
 import { parseClip, type Clip, type Pasted } from './edit/clipboard';
@@ -455,7 +455,7 @@ async function save(as = false): Promise<void> {
   if (!editor || !project) return;
   if (move) commitMove();
   try {
-    const result = await saveFile(editor.serialize(), saveName, as ? undefined : saveHandle);
+    const result = await saveFile(editor.serialize(), saveName, as ? undefined : saveHandle, 'osprey', saveHandle);
     if (!result) return; // cancelled
     if (result.handle) {
       saveHandle = result.handle;
@@ -489,7 +489,7 @@ async function saveLibrary(file: O.LibraryFile, as = false): Promise<void> {
       updateChrome();
       return;
     }
-    const result = await saveFile(text, saveName, as ? undefined : saveHandle, 'ospreylib');
+    const result = await saveFile(text, saveName, as ? undefined : saveHandle, 'ospreylib', saveHandle);
     if (!result) return; // cancelled
     if (result.handle) {
       saveHandle = result.handle;
@@ -511,7 +511,7 @@ async function exportToEagle(): Promise<void> {
   if (library) {
     const name = `${library.file.name}.lbr`;
     try {
-      const result = await saveFile(exportEagleLibrary(library.file), name, undefined, 'eagle');
+      const result = await saveFile(exportEagleLibrary(library.file), name, undefined, 'eagle', saveHandle);
       if (result) flash(`Exported ${result.handle?.name ?? name}`);
     } catch (e) {
       showError(`Could not export: ${e instanceof Error ? e.message : String(e)}`);
@@ -524,7 +524,7 @@ async function exportToEagle(): Promise<void> {
     const { files } = exportEagle(project);
     const done: string[] = [];
     for (const [name, text] of files) {
-      const result = await saveFile(text, name, undefined, 'eagle');
+      const result = await saveFile(text, name, undefined, 'eagle', saveHandle);
       if (!result) break; // cancelled
       done.push(result.handle?.name ?? name);
     }
@@ -576,6 +576,10 @@ let outputFolder: FolderHandle | undefined;
 
 /** Save manufacturing files into the output folder (or download each); undefined if cancelled. */
 async function saveOutputs(files: Map<string, string | Uint8Array>): Promise<string | undefined> {
+  // (In the native app, a saved project's manufacturing files go beside it, as the command
+  // line puts them: no folder to choose.)
+  const path = pathOf(saveHandle);
+  if (!outputFolder && path && project) outputFolder = nativeDir(dirName(path));
   let result;
   try {
     result = await saveToFolder(files, outputFolder);
@@ -587,7 +591,7 @@ async function saveOutputs(files: Map<string, string | Uint8Array>): Promise<str
   if (!result) return undefined;
   if (result.folder) outputFolder = result.folder;
   const names = [...files.keys()].join(' and ');
-  return result.folder ? `Saved ${names} in ${result.folder.name}` : `Downloaded ${names}`;
+  return result.folder ? `Saved ${names} in ${pathOf(result.folder) ?? result.folder.name}` : `Downloaded ${names}`;
 }
 
 /** Save the bill of materials and pick-and-place list (JLCPCB's format), as two files beside the CAM zip. */
@@ -700,8 +704,9 @@ function updateChrome(): void {
   const name = library ? library.name : project?.project.name ?? '';
   const kinds = library ? 'Library' : views().map((v) => v[0]!.toUpperCase() + v.slice(1)).join(' + ');
   docTitle.textContent = `${dirty ? '● ' : ''}${name} — ${kinds}`;
-  docTitle.title = project || library ? `Saves to ${saveName}` : '';
-  document.title = `${dirty ? '• ' : ''}${name} · Osprey`;
+  const path = pathOf(saveHandle);
+  docTitle.title = project || library ? `Saves to ${path ?? saveName}` : '';
+  document.title = `${dirty ? '• ' : ''}${name} · Osprey${path ? ` — ${dirName(path)}` : ''}`;
   renderProjectPanel();
   const h = editor?.history;
   undoBtn.disabled = !h?.canUndo;
@@ -4480,13 +4485,17 @@ async function openFromUserDir(name: string): Promise<void> {
 }
 
 /** Projects and libraries opened or saved lately (Chromium: their file handles), newest first. */
-interface Recent { name: string; handle: FileHandle }
+interface Recent { name: string; handle: FileHandle; path?: string }
 let recent: Recent[] = [];
 const RECENT_MAX = 8;
+/** Kept as stored: a handle in the browser, a path (and no handle) in the native app. */
+const RECENT_KEY = isNative() ? 'recent-native' : 'recent';
+const storedRecent = () => recent.map((r) => (r.path ? { name: r.name, path: r.path } : r));
 
 async function loadRecent(): Promise<void> {
   try {
-    recent = (await idbGet<Recent[]>('recent')) ?? [];
+    const stored = (await idbGet<(Recent | { name: string; path: string })[]>(RECENT_KEY)) ?? [];
+    recent = stored.map((r) => ('path' in r && r.path ? { name: r.name, path: r.path, handle: nativeFile(r.path) } : (r as Recent)));
   } catch {
     recent = [];
   }
@@ -4494,8 +4503,10 @@ async function loadRecent(): Promise<void> {
 
 function addRecent(name: string, handle: FileHandle | undefined): void {
   if (!handle || !/\.(osprey|ospreylib)$/i.test(name)) return;
-  recent = [{ name, handle }, ...recent.filter((r) => r.name !== name)].slice(0, RECENT_MAX);
-  void idbSet('recent', recent).catch(() => { /* not remembered */ });
+  const path = pathOf(handle);
+  const same = (r: Recent) => (path ? r.path === path : r.name === name);
+  recent = [{ name, handle, ...(path ? { path } : {}) }, ...recent.filter((r) => !same(r))].slice(0, RECENT_MAX);
+  void idbSet(RECENT_KEY, storedRecent()).catch(() => { /* not remembered */ });
 }
 
 async function openRecent(r: Recent): Promise<void> {
@@ -4509,7 +4520,7 @@ async function openRecent(r: Recent): Promise<void> {
     addRecent(file.name, r.handle);
   } catch (e) {
     recent = recent.filter((x) => x !== r);
-    void idbSet('recent', recent).catch(() => { /* not remembered */ });
+    void idbSet(RECENT_KEY, storedRecent()).catch(() => { /* not remembered */ });
     showError(`Could not open ${r.name} (moved or deleted?): ${e instanceof Error ? e.message : String(e)}`);
   }
 }
@@ -4948,10 +4959,27 @@ resize();
 // The user directory comes first, so the project opened next is updated from its libraries.
 void userDir.init()
   .catch((e: unknown) => console.warn('User directory not available:', e))
-  .finally(() => {
+  .finally(async () => {
     renderUserDirPanel();
-    initSamples();
+    if (!(await openStartupFile())) initSamples();
   });
+
+/** In the native app, open the file it was started with (a project double-clicked in Explorer). */
+async function openStartupFile(): Promise<boolean> {
+  if (!isNative()) return false;
+  try {
+    const handle = await startupFile();
+    if (!handle) return false;
+    const file = await handle.getFile();
+    openSources([{ name: file.name, text: await file.text(), handle }]);
+    clearSampleLink();
+    addRecent(file.name, handle);
+    return true;
+  } catch (e) {
+    showError(`Could not open the file Osprey was started with: ${e instanceof Error ? e.message : String(e)}`);
+    return false;
+  }
+}
 void loadRecent();
 
 // Installed as an app (a PWA), the service worker keeps every file cached so it runs with no
