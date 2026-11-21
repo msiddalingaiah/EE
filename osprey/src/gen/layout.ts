@@ -334,6 +334,9 @@ class BlockPlacement {
             if (f.pins.find((p) => p.net?.name === net)!.side === want) break;
           }
         }
+        // A connector so turned with its pins all on top is flipped about the x axis: pins
+        // down, toward the line it hangs from and the ground below (OUT1 beside C2).
+        if (isConnector(f.part.component) && f.pins.every((p) => p.side === 'T')) this.setRot(f, f.rot + 180, !f.mirror);
         const step = 0.5 * (k + 1) / followers.length;
         // On the side the anchor's pins face when they all point one way (L1's pins on the
         // left: C9 left of it, its texts out of the way); else in the order listed.
