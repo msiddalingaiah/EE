@@ -519,7 +519,11 @@ of the build. To install:
 
 To update an installed app, run `npm run app` again (same port: the app is tied to
 `localhost:4173`), and reopen it once it has loaded; the new build takes over the next time it
-starts. The icons are drawn by `npm run icons` (`scripts/build-icons.mjs`, into `public/`).
+starts. The icons (an osprey in flight, dark on yellow) are drawn by `npm run icons`
+(`scripts/build-icons.mjs`, into `public/`); the native app's are made from them with
+`npx tauri icon public/icon-512.png` (then delete the `android/`, `ios/` and `Square*`/`StoreLogo`
+files it adds). Touch `src-tauri/build.rs` before the next native build, or Cargo keeps the old
+icon in the executable.
 
 Opening `dist/index.html` straight from disk doesn't work: browsers don't run module scripts
 from `file://`.

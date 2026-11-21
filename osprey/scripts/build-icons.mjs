@@ -1,6 +1,8 @@
-// Draws the app icons (public/icon-192.png, icon-512.png, icon.svg): two round pads joined by
-// a 45° trace, in the toolbar's accent yellow, on a dark rounded square. No dependencies: the
-// PNGs are rasterised here (4×4 supersampling) and written with zlib.
+// Draws the app icons (public/icon-192.png, icon-512.png, icon.svg): an osprey's silhouette in
+// flight, seen from below (long wings bent at the wrist, fingered primaries), dark on a rounded
+// square in the toolbar's accent yellow. No dependencies: the PNGs are rasterised here (4×4
+// supersampling) and written with zlib. The native app's icons (src-tauri/icons) are made from
+// icon-512.png with `npx tauri icon public/icon-512.png`.
 //
 //   node scripts/build-icons.mjs
 
@@ -9,16 +11,18 @@ import { deflateSync } from 'node:zlib';
 import { join } from 'node:path';
 
 const OUT = join(import.meta.dirname, '..', 'public');
-const BG = [0x15, 0x18, 0x1d];
-const FG = [0xff, 0xd8, 0x4d];
+const BG = [0xff, 0xd8, 0x4d];
+const FG = [0x15, 0x18, 0x1d];
 
 // The design on a 100 × 100 canvas.
 const CORNER = 18; // background corner radius
-const PADS = [[30, 70], [70, 30]];
-const PAD_R = 13;
-const HOLE_R = 5.5;
-const TRACE = [[30, 70], [30, 50], [50, 30], [70, 30]];
-const TRACE_W = 8;
+// The bird's right half, from the top of the head round the wing to the tail's tip; mirrored
+// about x = 50 for the left. The outline is drawn with a thin stroke (EDGE) to round it off.
+const HALF = [[50, 25], [53, 26.5], [54, 30], [54.5, 38], [62, 35], [72, 32.5], [82, 37], [94, 44],
+  [91, 45.5], [94, 47.5], [89.5, 48.5], [92, 51], [86.5, 51], [87.5, 53.5], [82, 52], [74, 48.5],
+  [64, 50], [56, 54], [55.5, 62], [60, 71], [55, 72.5], [50, 74]];
+const BIRD = [...HALF, ...[...HALF].reverse().slice(1, -1).map(([x, y]) => [100 - x, y])];
+const EDGE = 1.2;
 
 function segDist(px, py, [ax, ay], [bx, by]) {
   const dx = bx - ax, dy = by - ay;
@@ -26,17 +30,22 @@ function segDist(px, py, [ax, ay], [bx, by]) {
   return Math.hypot(px - ax - t * dx, py - ay - t * dy);
 }
 
-/** 0 outside the icon, 1 background, 2 copper. */
+function inside(x, y, poly) {
+  let c = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const [xi, yi] = poly[i], [xj, yj] = poly[j];
+    if (yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) c = !c;
+  }
+  return c;
+}
+
+/** 0 outside the icon, 1 background, 2 the bird. */
 function sample(x, y) {
   const cx = Math.max(CORNER, Math.min(100 - CORNER, x));
   const cy = Math.max(CORNER, Math.min(100 - CORNER, y));
   if (Math.hypot(x - cx, y - cy) > CORNER) return 0;
-  for (const [px, py] of PADS) {
-    const d = Math.hypot(x - px, y - py);
-    if (d <= HOLE_R) return 1;
-    if (d <= PAD_R) return 2;
-  }
-  for (let i = 1; i < TRACE.length; i++) if (segDist(x, y, TRACE[i - 1], TRACE[i]) <= TRACE_W / 2) return 2;
+  if (inside(x, y, BIRD)) return 2;
+  for (let i = 0; i < BIRD.length; i++) if (segDist(x, y, BIRD[i], BIRD[(i + 1) % BIRD.length]) <= EDGE / 2) return 2;
   return 1;
 }
 
@@ -95,8 +104,7 @@ function crc32(buf) {
 const hex = (rgb) => `#${rgb.map((v) => v.toString(16).padStart(2, '0')).join('')}`;
 const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
   <rect width="100" height="100" rx="${CORNER}" fill="${hex(BG)}"/>
-  <polyline points="${TRACE.map((p) => p.join(',')).join(' ')}" fill="none" stroke="${hex(FG)}" stroke-width="${TRACE_W}" stroke-linecap="round" stroke-linejoin="round"/>
-${PADS.map(([x, y]) => `  <circle cx="${x}" cy="${y}" r="${(PAD_R + HOLE_R) / 2}" fill="none" stroke="${hex(FG)}" stroke-width="${PAD_R - HOLE_R}"/>`).join('\n')}
+  <path d="M${BIRD.map((p) => p.join(',')).join(' L')} Z" fill="${hex(FG)}" stroke="${hex(FG)}" stroke-width="${EDGE}" stroke-linejoin="round"/>
 </svg>
 `;
 
