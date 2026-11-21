@@ -335,7 +335,11 @@ class BlockPlacement {
           }
         }
         const step = 0.5 * (k + 1) / followers.length;
-        f.col = anchor.col + (f.order < anchor.order ? -step : step);
+        // On the side the anchor's pins face when they all point one way (L1's pins on the
+        // left: C9 left of it, its texts out of the way); else in the order listed.
+        const facing = new Set(across.map((p) => p.side));
+        const left = facing.size === 1 && facing.has('L') ? true : facing.size === 1 && facing.has('R') ? false : f.order < anchor.order;
+        f.col = anchor.col + (left ? -step : step);
         out.set(f, { anchor, net });
       });
     }
@@ -534,10 +538,12 @@ class BlockPlacement {
     }
 
     // A part on a rail with other pins too (L1 in a tank) turned to put its rail pins on top,
-    // toward the rail.
+    // toward the rail; so too a passive one (an inductor with a tap) on a supply drawn above.
+    const upSupply = (p: PinInfo) => !!p.net?.supply && !this.supplyDown(p.net);
     for (const n of this.nodes) {
       if (this.path?.has(n) || n.pins.length < 3 || n.part.component.gates.length !== 1) continue;
-      const railPins = n.pins.filter((p) => p.net && this.rails.has(p.net.name));
+      const passive = n.pins.every((p) => p.pin.direction === 'passive') && !isConnector(n.part.component);
+      const railPins = n.pins.filter((p) => p.net && (this.rails.has(p.net.name) || (passive && upSupply(p))));
       const others = n.pins.filter((p) => p.net && !p.net.supply && !this.rails.has(p.net.name));
       if (!railPins.length || !others.length) continue;
       const ways = [[0, false], [180, true], [180, false], [0, true]] as const;
@@ -623,8 +629,14 @@ class BlockPlacement {
       if (this.path) return this.path.has(m) ? 2 : level(m) > 0.6 || m.pins.some((p) => p.net && this.rails.has(p.net.name)) ? 4 : 0;
       return Math.round(level(m) * 4);
     };
-    if (this.path) this.flowRow(columns, parallel);
-    else this.stackBands(columns, band);
+    if (this.path) {
+      this.flowRow(columns, parallel);
+      // (Columns emptied by parts moved under what they hang from.)
+      const kept = columns.filter((col) => col.length);
+      columns.length = 0;
+      columns.push(...kept);
+      columns.forEach((col, c) => col.forEach((n) => (n.col = c)));
+    } else this.stackBands(columns, band);
     // A column of power gates (and their capacitors) starts level with its IC's top.
     for (const col of columns) {
       if (!col.length || !col.every((n) => n.powerOnly)) continue;
@@ -776,7 +788,7 @@ class BlockPlacement {
     const queue: Node[] = [];
     for (const n of nodes) {
       if (feeds.has(n) || n.powerOnly) continue;
-      if (n.pins.some(onRail) || n.pins.some((p) => p.side === 'T' && upSupply(p))) {
+      if (n.pins.some(onRail) || n.pins.some((p) => upSupply(p) && p.side === 'T')) {
         depth.set(n, 0);
         queue.push(n);
       }
@@ -825,6 +837,13 @@ class BlockPlacement {
         }
         if (best) {
           y = best.y;
+          // Hanging straight under a pin that points down: in that part's column, on one
+          // vertical line with it (D1 under R4), if nothing else stands in its own column.
+          if (best.down && best.m.col !== n.col && columns[n.col]!.length === 1 && !parallel.has(n) && ![...parallel.values()].some((v) => v.anchor === n)) {
+            columns[n.col] = [];
+            n.col = best.m.col;
+            columns[n.col]!.push(n);
+          }
           if (best.down && best.m.col === n.col) from = best.m;
         } else {
           // Nothing above: in line with the pins it joins sideways.
@@ -1512,7 +1531,8 @@ function bestPlacement(parts: RPart[], nets: RNet[], supplies: Map<string, Suppl
 
 /**
  * Rails: nets that carry power to several parts without being a supply, such as VCCA, fed from
- * a supply drawn above (VCC) through a resistor or inductor and decoupled by a capacitor to a supply.
+ * a supply drawn above (VCC) through a resistor or inductor and decoupled by a capacitor to
+ * ground (a supply drawn below).
  */
 function findRails(design: Resolved, supplies: Map<string, SupplySymbol>): Set<string> {
   const up = (n: RNet) => n.supply && (supplies.get(n.name)?.body[1] ?? 0) > 0;
@@ -1527,7 +1547,9 @@ function findRails(design: Resolved, supplies: Map<string, SupplySymbol>): Set<s
     for (const r of n.pins) {
       const nets = [...(netsOf.get(r.part) ?? [])];
       if (nets.length !== 2 || !nets.some((m) => m !== n && m.supply)) continue;
-      if (capacitor(r.part)) decoupled = true;
+      // (Decoupled to a supply drawn below, ground: a capacitor back to the supply that feeds
+      // it is across the feed, as in a tank, and the net isn't a rail.)
+      if (capacitor(r.part)) decoupled ||= nets.some((m) => m !== n && m.supply && !up(m));
       else if (nets.some((m) => m !== n && up(m))) fed = true;
     }
     if (fed && decoupled) rails.add(n.name);
