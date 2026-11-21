@@ -366,6 +366,8 @@ class BlockPlacement {
 
   /** Gates placed with a feedback loop rather than in a column. */
   private readonly riding = new Set<Node>();
+  /** Riders that don't widen their gate: the columns after it may slide in under them (C11 under L1). */
+  private readonly loose = new Set<Node>();
 
   /**
    * Feedback loops, drawn as a person draws an oscillator: for a gate with one input and one
@@ -390,6 +392,36 @@ class BlockPlacement {
       this.room(n);
     };
     const snapUp = (v: number) => r6(Math.ceil(v / G - 1e-6) * G);
+    // A collector load as a person draws it: the parts from a transistor's upper pin to the
+    // supply above (C9 and L1, a tank; R7) stand over that pin, the first two-pin one on one
+    // vertical line with it, the rest beside it on the right; what else is on the net (C11)
+    // taps off that line.
+    const upSupply = (p: PinInfo) => !!p.net?.supply && !this.supplyDown(p.net);
+    for (const g of this.nodes) {
+      if (out.has(g) || g.pins.length < 3 || g.part.component.gates.length !== 1 || isConnector(g.part.component)) continue;
+      const pc = g.pins.find((p) => p.side === 'T' && p.net && !p.net.supply && !this.rails.has(p.net.name));
+      if (!pc) continue;
+      const N = pc.net!;
+      const loads = on(N).filter((n) => n !== g && !out.has(n) && !this.path?.has(n) && n.part.component.gates.length === 1
+        && n.pins.every((p) => !p.net || p.net === N || upSupply(p)) && n.pins.some(upSupply));
+      const inline = loads.find((n) => n.pins.length === 2);
+      if (!inline) continue;
+      turn(inline, N, 'B');
+      const ip = pinOn(inline, N).local;
+      const y = snapUp(Math.max(pc.local[1] + 4 * G - ip[1], g.box.y1 + G + inline.below - inline.box.y0));
+      const at: Vec = [r6(pc.local[0] - ip[0]), y];
+      out.set(inline, { gate: g, at });
+      for (const n of loads) this.loose.add(n);
+      let x = at[0] + inline.box.x1;
+      for (const n of loads) {
+        if (n === inline) continue;
+        if (n.pins.length === 2) turn(n, N, 'B');
+        const np = pinOn(n, N).local;
+        const nx = snap(x + G - n.box.x0);
+        out.set(n, { gate: g, at: [nx, r6(at[1] + ip[1] - np[1])] });
+        x = nx + n.box.x1;
+      }
+    }
     for (const g of this.nodes) {
       if (out.has(g) || g.rot !== 0) continue;
       const ins = g.pins.filter((p) => p.pin.direction === 'in' && p.net && !p.net.supply);
@@ -651,8 +683,9 @@ class BlockPlacement {
     if (riders.size) {
       for (const [r, { gate, at }] of riders) {
         const b = gate.box;
+        const wide = !this.loose.has(r);
         gate.box = {
-          x0: Math.min(b.x0, at[0] + r.box.x0), x1: Math.max(b.x1, at[0] + r.box.x1),
+          x0: wide ? Math.min(b.x0, at[0] + r.box.x0) : b.x0, x1: wide ? Math.max(b.x1, at[0] + r.box.x1) : b.x1,
           y0: Math.min(b.y0, at[1] + r.box.y0 - r.below), y1: Math.max(b.y1, at[1] + r.box.y1 + r.above),
         };
       }
@@ -740,6 +773,13 @@ class BlockPlacement {
           const [mlo, mhi] = span(m);
           if (hi + G <= mlo || mhi + G <= lo) continue;
           x = Math.max(x, m.at[0] + m.box.x1 + gapAfter[m.col]! - offset(n) - n.box.x0);
+        }
+        // (Clear of the loose riders over the gates placed: L1 over Q2.)
+        for (const [r, { gate, at }] of riders) {
+          if (!this.loose.has(r) || !placedX.includes(gate)) continue;
+          const ry = gate.at[1] + at[1];
+          if (hi + G <= ry + r.box.y0 - r.below || ry + r.box.y1 + r.above + G <= lo) continue;
+          x = Math.max(x, gate.at[0] + at[0] + r.box.x1 + G - offset(n) - n.box.x0);
         }
       }
       colX[c] = snap(x);
