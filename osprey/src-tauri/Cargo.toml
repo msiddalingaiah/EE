@@ -1,0 +1,23 @@
+[package]
+name = "osprey"
+version = "0.1.0"
+description = "Osprey, electronic CAD: the web app in a native window"
+authors = ["Madhu Siddalingaiah"]
+license = ""
+repository = ""
+edition = "2024"
+rust-version = "1.90"
+
+[lib]
+name = "osprey_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2.7.6", features = [] }
+
+[dependencies]
+serde_json = "1.0"
+serde = { version = "1.0", features = ["derive"] }
+log = "0.4"
+tauri = { version = "2.12.7", features = [] }
+tauri-plugin-log = "2"

@@ -524,6 +524,23 @@ starts. The icons are drawn by `npm run icons` (`scripts/build-icons.mjs`, into 
 Opening `dist/index.html` straight from disk doesn't work: browsers don't run module scripts
 from `file://`.
 
+### As a native Windows app
+
+The same build runs in a native window through [Tauri](https://tauri.app) (`src-tauri/`), as
+one executable of about 9 MB that uses Windows' own WebView2. The PWA stays as it is for other
+machines; inside the native app the service worker isn't used. It needs the Rust toolchain
+(rustup, MSVC) and the Visual Studio Build Tools' C++ workload:
+
+```sh
+winget install --id Microsoft.VisualStudio.2022.BuildTools -e --override "--quiet --wait --norestart --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended"
+winget install --id Rustlang.Rustup -e
+```
+
+Then `npm run native` builds `src-tauri/target/release/osprey.exe` and its installers (NSIS and
+MSI, in `src-tauri/target/release/bundle/`); `npm run native -- --no-bundle` builds only the
+executable. `npm run native:dev` opens the native window on the dev server, reloading on
+changes. The first build compiles Tauri (a few minutes); later ones are quick.
+
 The app opens the sample last opened, or the `TA7358A` Osprey project, by default; open your
 own files from the File menu (or drop them on the canvas). Any file in `samples/` can be opened by URL,
 e.g. `http://localhost:5173/#TA7358A.osprey`, or `#TA7358A.osprey/board` for the board view.

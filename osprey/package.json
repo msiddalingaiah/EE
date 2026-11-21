@@ -19,9 +19,13 @@
     "osprey": "node scripts/osprey.mjs",
     "samples": "vitest run test/samples.test.ts -u",
     "app": "npm run build && vite preview --port 4173 --strictPort --open",
-    "icons": "node scripts/build-icons.mjs"
+    "icons": "node scripts/build-icons.mjs",
+    "tauri": "tauri",
+    "native": "tauri build",
+    "native:dev": "tauri dev"
   },
   "devDependencies": {
+    "@tauri-apps/cli": "2.12.6",
     "@types/jsdom": "^30.0.0",
     "jsdom": "^31.0.0",
     "typescript": "^7.0.2",

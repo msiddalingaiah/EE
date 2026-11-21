@@ -4953,8 +4953,9 @@ void userDir.init()
 void loadRecent();
 
 // Installed as an app (a PWA), the service worker keeps every file cached so it runs with no
-// server; see vite.config.ts. Only in builds: the dev server serves fresh files.
-if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+// server; see vite.config.ts. Only in builds: the dev server serves fresh files. Not in the
+// native app (Tauri), whose files are in the executable: a cache would only keep stale copies.
+if (import.meta.env.PROD && 'serviceWorker' in navigator && !('__TAURI_INTERNALS__' in window)) {
   navigator.serviceWorker.register('./sw.js').catch((e: unknown) => console.warn('Service worker not registered:', e));
 }
 
