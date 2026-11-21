@@ -2,6 +2,7 @@
 // setting its properties. (The poured copper itself is computed: model/pour.ts.)
 
 import type * as O from '../model/types';
+import { netByName } from '../model/derive';
 import { insert, remove, set, type Transaction } from './ops';
 import { nextNetName } from './wire';
 
@@ -26,7 +27,7 @@ export function defaultPourNet(project: O.Project): string | undefined {
 /** Add a pour to a net (created, as an automatic N$n, when `netName` is undefined or new). */
 export function addPour(project: O.Project, netName: string | undefined, polygon: O.PolyPt[], layer: string, tx: Transaction): { net: O.Net; pour: O.PolygonShape } {
   const name = netName ?? nextNetName(project);
-  let net = project.nets.find((n) => n.name === name);
+  let net = netByName(project, name);
   if (!net) {
     net = { name };
     tx.run(insert(project.nets, net));
@@ -46,7 +47,7 @@ export function setPourNet(project: O.Project, pour: O.PolygonShape, toName: str
   const from = project.nets.find((n) => n.pours?.includes(pour));
   if (!from) return 'This pour is not on a net';
   if (from.name === name) return undefined;
-  let to = project.nets.find((n) => n.name === name);
+  let to = netByName(project, name);
   if (!to) {
     to = { name };
     tx.run(insert(project.nets, to));

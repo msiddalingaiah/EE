@@ -17,6 +17,9 @@ export interface ExportResult {
 
 const EAGLE_VERSION = '9.6.2';
 
+/** Eagle's net names are upper case (as its NAME command makes them); Osprey keeps the case given. */
+const eagleNetName = (name: string) => name.toUpperCase();
+
 /** Export a project to Eagle. Writes a .sch if it has a schematic and a .brd if it has a board. */
 export function exportEagle(project: O.Project): ExportResult {
   const files = new Map<string, string>();
@@ -297,7 +300,7 @@ class ExportContext {
     for (const net of this.project.nets) {
       const netPadsOf = [...(pads.get(net.name) ?? [])];
       if (!netPadsOf.length && !net.traces && !net.vias && !net.pours) continue;
-      const s = x.el('signal', [['name', net.name], ['class', net.class || undefined]], net.eagle);
+      const s = x.el('signal', [['name', eagleNetName(net.name)], ['class', net.class || undefined]], net.eagle);
       for (const p of net.pours ?? []) x.add(s, this.polygon(x, p));
       for (const key of netPadsOf) {
         const [element, pad] = key.split('\u0000') as [string, string];
@@ -565,7 +568,7 @@ class ExportContext {
     for (const net of this.project.nets) {
       const segs = (net.segments ?? []).filter((s) => s.sheet === sheet.id);
       if (!segs.length) continue;
-      const n = x.add(nets, x.el('net', [['name', net.name], ['class', net.class ?? 0]]))!;
+      const n = x.add(nets, x.el('net', [['name', eagleNetName(net.name)], ['class', net.class ?? 0]]))!;
       for (const s of segs) x.add(n, this.segment(x, s, 91));
     }
     x.order(e, DTD.sheet);

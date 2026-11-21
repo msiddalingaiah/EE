@@ -257,9 +257,11 @@ export function resolveDescription(d: Description, sources: Source[], fallbackNa
   const used = new Map<string, { net: string; line: number }>();
   let unnamed = 0;
   for (const n of d.nets) {
+    // (Named nets match without regard to case, the first spelling kept: Sense and SENSE are one.)
     const name = n.name ?? `\0${++unnamed}`;
-    let net = nets.get(name);
-    if (!net) nets.set(name, (net = { name, supply: n.supply || supplies.has(name), named: !!n.name, pins: [], blocks: new Set() }));
+    const id = name.toUpperCase();
+    let net = nets.get(id);
+    if (!net) nets.set(id, (net ={ name, supply: n.supply || supplies.has(name), named: !!n.name, pins: [], blocks: new Set() }));
     for (const { ref, line } of n.pins) {
       const r = pinRef(ref);
       if (typeof r === 'string') {
@@ -268,12 +270,12 @@ export function resolveDescription(d: Description, sources: Source[], fallbackNa
       }
       const k = key(r);
       const before = used.get(k);
-      if (before && before.net !== name) {
+      if (before && before.net !== id) {
         error('pin', `${ref} is on two nets (lines ${before.line} and ${line})`, line);
         continue;
       }
       if (before) continue;
-      used.set(k, { net: name, line });
+      used.set(k, { net: id, line });
       net.pins.push(r);
       net.blocks.add(byName.get(r.part)!.block);
     }
@@ -292,11 +294,11 @@ export function resolveDescription(d: Description, sources: Source[], fallbackNa
       for (const pin of symbolOf(p.source, g)?.pins ?? []) {
         const r = { part: p.part.name, gate: g.name, pin: pin.name };
         if (used.has(key(r)) || nc.has(key(r)) || !isSupplyDirection(pin.direction) || !supplies.has(pin.name)) continue;
-        let net = nets.get(pin.name);
-        if (!net) nets.set(pin.name, (net = { name: pin.name, supply: true, named: true, pins: [], blocks: new Set() }));
+        let net = nets.get(pin.name.toUpperCase());
+        if (!net) nets.set(pin.name.toUpperCase(), (net = { name: pin.name, supply: true, named: true, pins: [], blocks: new Set() }));
         net.pins.push(r);
         net.blocks.add(p.block);
-        used.set(key(r), { net: pin.name, line: p.line });
+        used.set(key(r), { net: pin.name.toUpperCase(), line: p.line });
       }
     }
   }

@@ -7,7 +7,7 @@
 // a new N$n, and named nets a suffix (IN → IN_2). Supply nets (GND, VCC) are the exception: a
 // pasted supply net joins the existing one, as a copied supply symbol should.
 
-import { ProjectIndex } from '../model/derive';
+import { netByName, ProjectIndex } from '../model/derive';
 import { pinPosition } from '../model/geometry';
 import type * as O from '../model/types';
 import type { Target } from '../scene/types';
@@ -192,7 +192,7 @@ export function pasteClip(project: O.Project, clip: Clip, sheet: O.Sheet, tx: Tr
 
   // Wiring, each net under a free name (supply nets join theirs).
   for (const cn of clip.nets) {
-    const existing = project.nets.find((n) => n.name === cn.name);
+    const existing = netByName(project, cn.name);
     let net: O.Net;
     if (!existing) {
       net = { name: cn.name, segments: [] };

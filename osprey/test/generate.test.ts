@@ -95,6 +95,22 @@ describe('schematic generation', { timeout: 30000 }, () => {
     expect(r.steps[0]!.summary).toMatch(/^Placed 36 parts/);
   });
 
+  it('keeps a net name\'s case, and joins names that differ only in case', () => {
+    const { problems, project } = generate(`supply GND supply2/GND
+block A
+R1 madhu/RESISTOR 10k 0805-RES
+R2 madhu/RESISTOR 10k 0805-RES
+net Sense: R1.1 R2.1
+net SENSE: R1.2
+GND: R2.2`);
+    expect(problems.filter((p) => p.severity === 'error')).toEqual([]);
+    const names = project!.nets.map((n) => n.name);
+    expect(names).toContain('Sense');
+    expect(names).not.toContain('SENSE');
+    const sense = project!.nets.find((n) => n.name === 'Sense')!;
+    expect((sense.segments ?? []).flatMap((s) => s.pins).map((r) => `${r.part}.${r.pin}`).sort()).toEqual(['R1.1', 'R1.2', 'R2.1']);
+  });
+
   it('reports what is wrong with a description, by line, and draws nothing', () => {
     const { problems, project } = generate(`supply GND supply2/GND
 block A

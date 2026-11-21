@@ -4,7 +4,7 @@
 // a message instead of changing anything when the edit isn't allowed.
 
 import { composeRotation } from '../geom/transform';
-import { componentName, ProjectIndex, supplySource } from '../model/derive';
+import { componentName, ProjectIndex, sameNetName, supplySource } from '../model/derive';
 import { footprintTransform, gateTransform, mirrorLayer, rotation } from '../model/geometry';
 import type * as O from '../model/types';
 import { apply } from '../geom/transform';
@@ -12,9 +12,14 @@ import { dropIfEmpty, insert, remove, set, type Transaction } from './ops';
 import { labelSegments } from './netlabels';
 import { joinNet } from './wire';
 
-/** Eagle stores part and net names in upper case and doesn't allow white space in them. */
+/** Part names are upper case, as Eagle stores them; neither part nor net names have white space. */
 export function normalizeName(raw: string): string {
   return raw.trim().toUpperCase();
+}
+
+/** Net names keep their case (Sense stays Sense); they still match without regard to it. */
+export function normalizeNetName(raw: string): string {
+  return raw.trim();
 }
 
 function nameProblem(name: string, what: string): string | undefined {
@@ -61,7 +66,7 @@ export function setPartValue(project: O.Project, partName: string, value: string
  * Refused when the net's name comes from a supply symbol or implicit power pins.
  */
 export function renameNet(project: O.Project, oldName: string, raw: string, tx: Transaction, index = new ProjectIndex(project)): string | undefined {
-  const name = normalizeName(raw);
+  const name = normalizeNetName(raw);
   const problem = nameProblem(name, 'net');
   if (problem) return problem;
   if (name === oldName) return undefined;
@@ -69,13 +74,14 @@ export function renameNet(project: O.Project, oldName: string, raw: string, tx: 
   if (!net) return `No net named ${oldName}`;
   const supply = supplyReason(project, net, index);
   if (supply) return supply;
-  // A name another net has already: the two become one net (connected by name), everything of
-  // this one (wires, labels, traces, vias, pours) joining the other.
-  const into = project.nets.find((n) => n.name === name);
+  // A name another net has already, in any case: the two become one net (connected by name),
+  // everything of this one (wires, labels, traces, vias, pours) joining the other, whose
+  // spelling stays. The same name in another case only changes the case.
+  const into = project.nets.find((n) => n !== net && sameNetName(n.name, name));
   // Each piece of the renamed net's wiring shows its new name (automatic N$n names don't).
   const segments = [...(net.segments ?? [])];
   if (into) {
-    tx.label = `Join net ${oldName} into ${name}`;
+    tx.label = `Join net ${oldName} into ${into.name}`;
     joinNet(project, net, into, tx);
   } else {
     tx.run(set(net, { name }));

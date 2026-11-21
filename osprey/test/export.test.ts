@@ -31,6 +31,17 @@ describe('Eagle export', () => {
     expect(writeProject(project)).toBe(writeProject(p));
   });
 
+  it('writes net names upper case, as Eagle has them, though Osprey keeps their case', () => {
+    const p = load();
+    const n = p.nets.find((x) => x.name.startsWith('N$') && x.segments?.length && x.traces?.length)!;
+    n.name = 'Sense';
+    const { project, files } = roundTrip(p);
+    expect(files.get('TA7358A.sch')).toContain('<net name="SENSE"');
+    expect(files.get('TA7358A.brd')).toContain('<signal name="SENSE"');
+    expect(files.get('TA7358A.sch')).not.toContain('"Sense"');
+    expect(project.nets.some((x) => x.name === 'SENSE')).toBe(true);
+  });
+
   it('writes Eagle-style files: declaration, DOCTYPE, CRLF, one element per line', () => {
     const { files } = exportEagle(load());
     const brd = files.get('TA7358A.brd')!;

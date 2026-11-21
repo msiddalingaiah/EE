@@ -102,6 +102,9 @@ export function supplySource(project: Project, net: Net, index = new ProjectInde
   return undefined;
 }
 
+/** Net names match without regard to case (Sense is SENSE); a net keeps the spelling it was given. */
+export const sameNetName = (a: string, b: string) => a.toUpperCase() === b.toUpperCase();
+
 export function netByName(project: Project, name: string): Net | undefined {
-  return project.nets.find((n) => n.name === name);
+  return project.nets.find((n) => n.name === name) ?? project.nets.find((n) => sameNetName(n.name, name));
 }

@@ -99,7 +99,10 @@ native model (see [docs/format.md](docs/format.md)). Eagle files are imported in
 - **Connecting by name**: renaming a net (N on a wire) to a name another net has joins the two,
   wherever their pieces are drawn: wires, labels, traces, vias and pours become one net, in one
   undo step. Joining into a supply net (GND, say) works the same; a supply net itself keeps its
-  name.
+  name. Net names keep the case you type (`Sense` stays `Sense`; part names are upper case) but
+  match without regard to it: `sense` joins `Sense`, whose spelling stays, so no two nets
+  differ only in case. Block descriptions match net names the same way. The Eagle export
+  writes net names upper case, as Eagle has them.
 - **Net labels** (schematic): renaming a net shows its new name: each piece of its wiring
   without a label gets one at a loose wire end (text running away from the wire), else in the
   middle of a wire, in the same undo step. An automatic N$n name gets none. A selected wire's
@@ -397,10 +400,6 @@ Smaller:
   column, and line up only with pads the route isn't connected to yet.
 - **Open `.osprey` files from Explorer:** the installed app registers for them (file
   handlers), so double-clicking a project opens it in Osprey.
-- **Net names keep their case:** `Sense` stays `Sense` instead of becoming `SENSE` (Eagle's
-  convention). Names still match without regard to case, so connecting by name can't make
-  two nets that differ only in case; the first spelling stays. Part names stay upper case.
-  Check what Eagle does with lower-case names on export.
 
 ## Running
 

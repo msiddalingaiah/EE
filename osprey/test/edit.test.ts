@@ -259,10 +259,27 @@ describe('properties', () => {
   it('renames nets; refuses supply nets', () => {
     const n = p.nets.find((x) => x.name.startsWith('N$'))!;
     expect(editor.renameNet(n.name, 'rf_in2')).toBeUndefined();
-    expect(n.name).toBe('RF_IN2');
+    expect(n.name).toBe('rf_in2');
     editor.undo();
     unchanged();
     expect(editor.renameNet('GND', 'GROUND')).toMatch(/supply/);
+  });
+
+  it('keeps a net name\'s case; another case of the name is the same net', () => {
+    const [a, b] = p.nets.filter((x) => x.name.startsWith('N$') && x.segments?.length);
+    const count = p.nets.length;
+    expect(editor.renameNet(a!.name, ' Sense ')).toBeUndefined();
+    expect(a!.name).toBe('Sense');
+    // Only the case changes: still one net.
+    expect(editor.renameNet('Sense', 'SENSE')).toBeUndefined();
+    expect(a!.name).toBe('SENSE');
+    expect(p.nets).toHaveLength(count);
+    // Another net named sense joins it, and the first spelling stays.
+    expect(editor.renameNet(b!.name, 'sense')).toBeUndefined();
+    expect(p.nets).toHaveLength(count - 1);
+    expect(p.nets).not.toContain(b);
+    expect(a!.name).toBe('SENSE');
+    expect(editor.history.undoLabel).toBe(`Join net ${b!.name} into SENSE`);
   });
 
   it('joins a net renamed to a name in use, in one undo step', () => {
