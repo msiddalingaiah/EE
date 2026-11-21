@@ -743,6 +743,28 @@ class BlockPlacement {
       follower.at = [follower.at[0], r6(anchor.at[1] + a.local[1] - f.local[1])];
     }
 
+    // A bias column (R13 over R14) feeding a path gate's input (the base) on a straight line:
+    // what comes in from the left (C8, IN4) joins the column lower down, never four wires at
+    // one point, so the path before the column moves down two steps.
+    const path = this.path;
+    if (path) {
+      const pinY = (n: Node, p: PinInfo) => n.at[1] + p.local[1];
+      for (const g of path) {
+        for (const pb of g.pins) {
+          if (pb.side !== 'L' || !pb.net || pb.net.supply || this.rails.has(pb.net.name)) continue;
+          const on = this.nodes.filter((n) => n !== g && !this.riding.has(n)).flatMap((n) => n.pins.filter((p) => p.net === pb.net).map((p) => ({ n, p })));
+          const y = pinY(g, pb);
+          const up = on.find(({ n, p }) => p.side === 'B' && pinY(n, p) > y && !path.has(n));
+          const down = on.find(({ n, p }) => p.side === 'T' && pinY(n, p) < y && !path.has(n) && up && n.col === up.n.col);
+          const left = on.find(({ n, p }) => p.side === 'R' && path.has(n) && Math.abs(pinY(n, p) - y) < 1e-6);
+          if (!up || !down || !left || left.n.col >= up.n.col || up.n.col >= g.col) continue;
+          // (Room below the line: the lower part's pin at least two steps under it.)
+          if (pinY(down.n, down.p) > y - 2 * G) continue;
+          for (const n of this.nodes) if (n.col < up.n.col && !this.riding.has(n)) n.at = [n.at[0], r6(n.at[1] - 2 * G)];
+        }
+      }
+    }
+
     // Columns' x, left to right, each as far left as it can go: its parts clear (by a gap) of
     // every part to their left at the same height, so a column
     // of parts hanging low slides in under a tall one before it. The order is kept.

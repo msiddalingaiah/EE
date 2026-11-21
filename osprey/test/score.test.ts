@@ -47,7 +47,7 @@ describe('schematic score', { timeout: 60000 }, () => {
   it('draws the subcircuits compactly', () => {
     const t = total(generate(read('samples', 'schematics', 'subcircuits.blocks')));
     expect(t.wire).toBeLessThan(620);
-    expect(t.bends).toBeLessThanOrEqual(31);
+    expect(t.bends).toBeLessThanOrEqual(27);
     expect(t.overlaps).toBeLessThanOrEqual(1);
   });
 });
