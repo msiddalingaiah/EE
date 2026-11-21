@@ -545,6 +545,13 @@ MSI, in `src-tauri/target/release/bundle/`); `npm run native -- --no-bundle` bui
 executable. `npm run native:dev` opens the native window on the dev server, reloading on
 changes. The first build compiles Tauri (a few minutes); later ones are quick.
 
+In the native app the user directory is a folder chosen with the Windows folder dialog and kept
+as a path: it is ready on every start, with nothing to reconnect (the browser asks for
+permission again after each reload). The app reaches it through a few commands of its own in
+`src-tauri/src/lib.rs` (list, read, write, make a folder, pick a folder), used by
+`src/app/native.ts` behind the same handles as the browser's. Opening and saving projects still
+use the browser's file dialogs, which WebView2 has too.
+
 The app opens the sample last opened, or the `TA7358A` Osprey project, by default; open your
 own files from the File menu (or drop them on the canvas). Any file in `samples/` can be opened by URL,
 e.g. `http://localhost:5173/#TA7358A.osprey`, or `#TA7358A.osprey/board` for the board view.

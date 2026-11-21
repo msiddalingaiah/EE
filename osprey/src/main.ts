@@ -8,6 +8,7 @@ import { Commands, type Command } from './app/commands';
 import { MenuBar } from './app/menus';
 import { openPalette, showDialog, showShortcuts } from './app/palette';
 import { browserUserDir, idbGet, idbSet, type Sub } from './app/userdir';
+import { isNative, nativeUserDir } from './app/native';
 import { Selection, type SelectMode } from './app/selection';
 import { parseEagle } from './eagle/parse';
 import { parseClip, type Clip, type Pasted } from './edit/clipboard';
@@ -161,7 +162,8 @@ let placing: PlaceSession | undefined;
 /** Libraries loaded for adding parts (Eagle .lbr files), by file name. */
 const loadedLibraries = new Map<string, O.Library>();
 /** The user directory: libraries/, rules/ and cam/ (src/app/userdir.ts). */
-const userDir = browserUserDir();
+// (In the native app a folder on disk, through its own commands: no permission asked on each start.)
+const userDir = isNative() ? nativeUserDir() : browserUserDir();
 /** The component chosen in the Add part panel. */
 let chosen: { source: string; id: string } | undefined;
 
