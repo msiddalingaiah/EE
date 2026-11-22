@@ -37,7 +37,7 @@ import { libraryProject } from './edit/library';
 import { FORMAT_VERSION } from './model/types';
 import { buildSchematicScene } from './scene/schematic';
 import { fmtIn, fmtXY, parsePt } from './scene/text';
-import { describePassive, lcscStatus, type LcscStatus } from './model/lcsc';
+import { describePassive, lcscStatus, readLcscTable, setLcscParts, type LcscPart, type LcscStatus } from './model/lcsc';
 import { blockColors, blockShapes, type BlockShape } from './scene/blocks';
 import { blockOf, blockPaths, inBlock, normalizeBlockPath } from './model/blocks';
 import type { Bounds, Owner, Scene, Target } from './scene/types';
@@ -161,7 +161,7 @@ let cursor: Point = { x: 0, y: 0 };
 let placing: PlaceSession | undefined;
 /** Libraries loaded for adding parts (Eagle .lbr files), by file name. */
 const loadedLibraries = new Map<string, O.Library>();
-/** The user directory: libraries/, rules/ and cam/ (src/app/userdir.ts). */
+/** The user directory: libraries/, rules/, cam/ and parts/ (src/app/userdir.ts). */
 // (In the native app a folder on disk, through its own commands: no permission asked on each start.)
 const userDir = isNative() ? nativeUserDir() : browserUserDir();
 /** The component chosen in the Add part panel. */
@@ -4526,7 +4526,7 @@ async function openRecent(r: Recent): Promise<void> {
 }
 
 /**
- * The sample libraries, design rules and CAM job: not built into the app (the user directory
+ * The sample libraries, design rules, CAM job and JLCPCB parts table: not built into the app (the user directory
  * holds what is used), only copied into it by Preferences ▸ Add the samples. Each loads on
  * demand, as its own chunk.
  */
@@ -4538,9 +4538,10 @@ const sampleUserFiles: [Sub, Glob][] = [
   }],
   ['rules', import.meta.glob('../samples/eagle/*.dru', { query: '?raw', import: 'default' })],
   ['cam', import.meta.glob('../samples/eagle/*.cam', { query: '?raw', import: 'default' })],
+  ['parts', import.meta.glob('../samples/parts/*.json', { query: '?raw', import: 'default' })],
 ];
 
-/** Copy the sample libraries, design rules and CAM job into the user directory (those not there). */
+/** Copy the sample libraries, design rules, CAM job and parts table into the user directory (those not there). */
 async function addSamplesToUserDir(): Promise<number> {
   let n = 0;
   const sets = sampleUserFiles;
@@ -4625,6 +4626,7 @@ function renderPreferences(): void {
     count(userDir.list('libraries').length, 'library', 'libraries'),
     count(userDir.list('rules').length, 'design rules file', 'design rules files'),
     count(userDir.list('cam').length, 'CAM job', 'CAM jobs'),
+    count(userDir.list('parts').length, 'parts table', 'parts tables'),
   ].join(', ');
   const status = userDir.status === 'ready'
     ? `${userDir.where === 'browser' ? 'Kept in this browser' : `The folder ${userDir.label}`}: ${counts()}.`
@@ -4693,7 +4695,30 @@ function renderPreferences(): void {
   );
 }
 
+/**
+ * The JLCPCB parts tables in the user directory's parts/ folder, read again whenever it changes
+ * (Assign and the JLCPCB parts panel use them; none without a user directory).
+ */
+let partsLoad = 0;
+async function loadPartsTables(): Promise<void> {
+  const load = ++partsLoad;
+  const parts: LcscPart[] = [];
+  if (userDir.status === 'ready') {
+    for (const name of userDir.list('parts')) {
+      try {
+        parts.push(...readLcscTable(await userDir.read('parts', name), `parts/${name}`));
+      } catch (e) {
+        showError(`Could not read the parts table ${name}: ${e instanceof Error ? e.message : String(e)}`);
+      }
+    }
+  }
+  if (load !== partsLoad) return;
+  setLcscParts(parts);
+  renderLcscPanel();
+}
+
 userDir.onChange(() => {
+  void loadPartsTables();
   dirLibraries.clear();
   renderPartsSources();
   if (!partsPanel.hidden) void renderPartsPanel();
@@ -5010,6 +5035,8 @@ if (import.meta.env.DEV) {
       /** The user directory, and filling it with the samples (for tests: browser storage). */
       userDir,
       addSamplesToUserDir,
+      /** Read the parts tables again (they load after each user directory change). */
+      loadPartsTables,
       /** A world point (mm) in page CSS pixels, for clicking it. */
       toPage(x: number, y: number): Point {
         const r = canvas.getBoundingClientRect();

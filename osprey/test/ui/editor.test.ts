@@ -641,7 +641,8 @@ describe.skipIf(!findChrome())('the user directory', () => {
     expect(await d.evaluate('[...document.getElementById("parts-source").options].map((o) => o.value)')).toEqual(['project', 'open']);
     expect((await d.state()).dirty).toBe(false); // no library to update the project from
     await d.evaluate('__osprey.userDir.useBrowser()');
-    expect(await d.evaluate('__osprey.addSamplesToUserDir()')).toBe(4);
+    expect(await d.evaluate('__osprey.addSamplesToUserDir()')).toBe(5);
+    expect(await listed('parts')).toEqual(['lcsc-passives.json']);
     expect(await listed('libraries')).toEqual(['madhu.lbr', 'madhu.ospreylib']);
     expect(await listed('rules')).toEqual(['oshpark-2layer.dru']);
     expect(await listed('cam')).toEqual(['jlcpcb_2_layer_v9.cam']);

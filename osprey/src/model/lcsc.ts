@@ -1,6 +1,7 @@
 // LCSC part numbers for chip resistors and ceramic capacitors, from JLCPCB's Basic and preferred
-// Extended parts (lcsc-passives.json, cut down by scripts/build-lcsc.mjs from the CSV of
-// https://github.com/CDFER/jlcpcb-parts-database), by value and package.
+// Extended parts, by value and package. The table isn't built into the app: it is read from the
+// user directory's parts/ folder (lcsc-passives.json there, cut down by scripts/build-lcsc.mjs
+// from the CSV of https://github.com/CDFER/jlcpcb-parts-database) and set with setLcscParts.
 //
 // A resistor matches on its resistance; Basic parts come first, then the tightest tolerance,
 // then the most in stock. A capacitor matches on its capacitance: C0G/NP0 or X7R first, then X5R,
@@ -9,7 +10,6 @@
 
 import { attribute, mounting } from '../cam/assembly';
 import { componentName, ProjectIndex } from './derive';
-import TABLE from './lcsc-passives.json';
 import type * as O from './types';
 
 export interface LcscPart {
@@ -28,14 +28,47 @@ export interface LcscPart {
   volts?: number;
 }
 
-const PASSIVES = TABLE as LcscPart[];
-const BY_LCSC = new Map(PASSIVES.map((p) => [p.lcsc, p]));
+let PASSIVES: LcscPart[] = [];
+let BY_LCSC = new Map<string, LcscPart>();
+/** The packages the table covers. */
+let PACKAGES = new Set<string>();
+
+/** The user directory's folder for parts tables. */
+export const PARTS_FOLDER = 'parts';
+
+/**
+ * Use these parts (every table in the user directory's parts/ folder, together); none until
+ * set. A part number in more than one table is taken from the first.
+ */
+export function setLcscParts(parts: readonly LcscPart[]): void {
+  BY_LCSC = new Map();
+  for (const p of parts) if (!BY_LCSC.has(p.lcsc)) BY_LCSC.set(p.lcsc, p);
+  PASSIVES = [...BY_LCSC.values()];
+  PACKAGES = new Set(PASSIVES.map((p) => p.package));
+}
+
+/** The parts in use (setLcscParts). */
+export function lcscParts(): readonly LcscPart[] {
+  return PASSIVES;
+}
+
+/** A parts table file (a JSON list, as scripts/build-lcsc.mjs writes); entries it can't use are skipped. */
+export function readLcscTable(text: string, name = 'parts table'): LcscPart[] {
+  let data: unknown;
+  try {
+    data = JSON.parse(text);
+  } catch (e) {
+    throw new Error(`${name}: not JSON (${e instanceof Error ? e.message : String(e)})`);
+  }
+  if (!Array.isArray(data)) throw new Error(`${name}: expected a list of parts`);
+  return (data as Partial<LcscPart>[])
+    .filter((p) => !!p && typeof p === 'object' && (p.kind === 'R' || p.kind === 'C') && typeof p.value === 'number'
+      && typeof p.lcsc === 'string' && /^C\d+$/.test(p.lcsc) && typeof p.package === 'string')
+    .map((p) => ({ ...p, basic: !!p.basic, stock: Number(p.stock) || 0, mpn: String(p.mpn ?? ''), tolerance: String(p.tolerance ?? '') }) as LcscPart);
+}
 
 /** The lowest capacitor voltage chosen when the value doesn't say. */
 export const MIN_VOLTS = 25;
-
-/** The packages the table covers. */
-const PACKAGES = new Set(PASSIVES.map((p) => p.package));
 
 const PREFIX: Record<string, number> = { p: 1e-12, n: 1e-9, u: 1e-6, µ: 1e-6, μ: 1e-6, m: 1e-3, k: 1e3, K: 1e3, M: 1e6, G: 1e9, R: 1, r: 1 };
 
@@ -163,6 +196,7 @@ function wanted(part: O.Part, variant: O.Variant, index: ProjectIndex): { kind: 
   const pkg = chipPackage(componentName(variant.footprint ?? ''), variant.name);
   if (!kind) return { missing: `${componentName(part.component)}: not a resistor or capacitor; set its LCSC number` };
   if (!pkg) return { missing: `footprint ${componentName(variant.footprint ?? '')} isn't a chip package (0603, 0805); set its LCSC number` };
+  if (!PACKAGES.size) return { missing: `no JLCPCB parts table: put one (lcsc-passives.json) in the user directory's ${PARTS_FOLDER}/ folder` };
   if (!PACKAGES.has(pkg)) return { missing: `${pkg}: the parts table has only ${[...PACKAGES].sort().join(' and ')}` };
   const value = index.valueOf(part);
   const spec = parseValue(value, kind);

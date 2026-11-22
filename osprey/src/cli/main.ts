@@ -17,7 +17,7 @@ import { compareSheets } from '../gen/score';
 import { readLibrary, readProject, writeProject } from '../model/file';
 import { importEagle, importLibrary } from '../model/import-eagle';
 import type * as O from '../model/types';
-import { parseStep, runSteps, STEPS, UsageError, type RunResult, type StepEnv, type StepResult, type UserDirSub } from './steps';
+import { loadLcscParts, parseStep, runSteps, STEPS, UsageError, type RunResult, type StepEnv, type StepResult, type UserDirSub } from './steps';
 
 const USAGE = `Usage:
   osprey <file.osprey> <step>... [options]
@@ -40,7 +40,7 @@ The run stops at the first step that finds an error.
 Options:
   -o <file>          save the project here instead
   --out <dir>        where CAM, assembly and Eagle files go (default: the project's folder)
-  --userdir <dir>    the user directory, with libraries/, rules/, cam/ (default: $OSPREY_USERDIR)
+  --userdir <dir>    the user directory, with libraries/, rules/, cam/, parts/ (default: $OSPREY_USERDIR)
   --json             print the results as one JSON object
   --strict           warnings fail a step too
   --dry-run          don't save the project (output files are still written)
@@ -195,6 +195,12 @@ async function main(argv: string[]): Promise<number> {
   };
 
   // An import or a generated schematic is a new file: saved even when no step changes it.
+  try {
+    loadLcscParts(env);
+  } catch (e) {
+    throw new UsageError(e instanceof Error ? e.message : String(e));
+  }
+
   const fresh = importing || generating;
   if (fresh && !args.dryRun) writeFileSync(target, writeProject(project));
   const result = runSteps(project, args.steps, env, { strict: args.strict });

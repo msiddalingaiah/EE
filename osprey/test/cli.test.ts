@@ -1,7 +1,7 @@
 // The command line: its steps on the samples (runSteps), and the osprey script end to end.
 
 import { spawnSync } from 'node:child_process';
-import { copyFileSync, mkdtempSync, readFileSync, rmSync, statSync } from 'node:fs';
+import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
@@ -125,7 +125,9 @@ describe('osprey steps', () => {
 describe('the osprey script', () => {
   const dir = mkdtempSync(join(tmpdir(), 'osprey-cli-'));
   afterAll(() => rmSync(dir, { recursive: true, force: true }));
-  const osprey = (...args: string[]) => spawnSync(process.execPath, [join(ROOT, 'scripts', 'osprey.mjs'), ...args], { encoding: 'utf8', timeout: 120000 });
+  // Without $OSPREY_USERDIR, so only --userdir gives one.
+  const env = Object.fromEntries(Object.entries(process.env).filter(([k]) => k !== 'OSPREY_USERDIR'));
+  const osprey = (...args: string[]) => spawnSync(process.execPath, [join(ROOT, 'scripts', 'osprey.mjs'), ...args], { encoding: 'utf8', timeout: 120000, env });
 
   it('runs steps on a file in place, reports JSON, and fails a check with problems', () => {
     const file = join(dir, 'board.osprey');
@@ -143,5 +145,26 @@ describe('the osprey script', () => {
     expect(check.status).toBe(1);
     expect(check.stdout).toMatch(/^FAIL check: 1 error/m);
     expect(osprey(file, 'teleport').status).toBe(2);
+  }, 120000);
+
+  it('assigns LCSC numbers from the user directory parts tables, and none without one', () => {
+    const file = join(dir, 'lcsc.osprey');
+    copyFileSync(join(ROOT, 'samples', 'osprey', 'wwvbfind2.osprey'), file);
+    const bare = osprey(file, 'lcsc', '--dry-run', '--json');
+    const none = JSON.parse(bare.stdout) as { steps: { summary: string; problems: { message: string }[] }[] };
+    expect(none.steps[0]!.summary).toMatch(/^Assigned 0 LCSC numbers/);
+    expect(none.steps[0]!.problems.some((x) => /no JLCPCB parts table/.test(x.message))).toBe(true);
+
+    const user = join(dir, 'user');
+    mkdirSync(join(user, 'parts'), { recursive: true });
+    copyFileSync(join(ROOT, 'samples', 'parts', 'lcsc-passives.json'), join(user, 'parts', 'lcsc-passives.json'));
+    const run = osprey(file, 'lcsc', '--userdir', user);
+    expect(run.status).toBe(0);
+    expect(run.stdout).toMatch(/^ok {3}lcsc: Assigned \d{2} LCSC numbers/m);
+
+    writeFileSync(join(user, 'parts', 'broken.json'), '{');
+    const broken = osprey(file, 'info', '--userdir', user);
+    expect(broken.status).toBe(2);
+    expect(broken.stderr).toMatch('parts/broken.json: not JSON');
   }, 120000);
 });

@@ -2,6 +2,7 @@
 //   libraries/  .ospreylib and .lbr files (Add part, update on open, Copy from…)
 //   rules/      .dru files (Load design rules)
 //   cam/        .cam jobs (File ▸ CAM)
+//   parts/      .json parts tables (JLCPCB parts: LCSC numbers for Assign)
 // In Chromium it is a folder on disk, picked once (its handle kept in IndexedDB; after a reload
 // the browser asks again, from a click, before it can be used). Elsewhere it lives in the
 // browser's origin private file system, with export and import as a zip. Both are directory
@@ -11,11 +12,12 @@ import { zip } from '../cam/zip';
 import { unzip } from '../cam/unzip';
 import { writeInFolder, type FileHandle } from './files';
 
-export type Sub = 'libraries' | 'rules' | 'cam';
+export type Sub = 'libraries' | 'rules' | 'cam' | 'parts';
 export const SUBS: Record<Sub, string[]> = {
   libraries: ['.ospreylib', '.lbr'],
   rules: ['.dru'],
   cam: ['.cam'],
+  parts: ['.json'],
 };
 
 /** A directory handle (FileSystemDirectoryHandle), as much of it as is used here. */
@@ -160,7 +162,7 @@ export class UserDir {
     this.changed();
   }
 
-  /** Every file, as one zip (libraries/…, rules/…, cam/…). */
+  /** Every file, as one zip (libraries/…, rules/…, cam/…, parts/…). */
   async exportZip(): Promise<Uint8Array> {
     const files = new Map<string, string>();
     for (const sub of Object.keys(SUBS) as Sub[]) {

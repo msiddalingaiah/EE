@@ -13,14 +13,14 @@ import { drc } from '../model/drc';
 import { erc } from '../model/erc';
 import { exportEagle } from '../model/export-eagle';
 import { readLibrary, readProject, writeProject } from '../model/file';
-import { lcscStatus, type LcscStatus } from '../model/lcsc';
+import { lcscStatus, readLcscTable, setLcscParts, type LcscPart, type LcscStatus } from '../model/lcsc';
 import { parseDru } from '../model/rules';
 import type * as O from '../model/types';
 
-export type UserDirSub = 'libraries' | 'rules' | 'cam';
+export type UserDirSub = 'libraries' | 'rules' | 'cam' | 'parts';
 
 export interface StepEnv {
-  /** File names in the user directory's libraries/, rules/ or cam/ (none without one). */
+  /** File names in the user directory's libraries/, rules/, cam/ or parts/ (none without one). */
   listUserDir(sub: UserDirSub): string[];
   readUserDir(sub: UserDirSub, name: string): string;
   /** A file given by path (rules=x.dru, cam=x.cam); undefined if there is none. */
@@ -29,6 +29,19 @@ export interface StepEnv {
   writeOutput(name: string, data: string | Uint8Array): string;
   /** Save the project's text; returns where it went. */
   save(text: string): string;
+}
+
+/**
+ * Use the JLCPCB parts tables in the user directory's parts/ folder (for lcsc, info and check);
+ * returns how many parts they hold. A table that can't be read is an error.
+ */
+export function loadLcscParts(env: StepEnv): number {
+  const parts: LcscPart[] = [];
+  for (const name of env.listUserDir('parts').filter((n) => n.toLowerCase().endsWith('.json'))) {
+    parts.push(...readLcscTable(env.readUserDir('parts', name), `parts/${name}`));
+  }
+  setLcscParts(parts);
+  return parts.length;
 }
 
 export interface Problem {

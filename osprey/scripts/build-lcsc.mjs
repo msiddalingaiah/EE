@@ -1,6 +1,8 @@
 // Extracts the chip resistors and ceramic capacitors (0603, 0805) from a JLCPCB parts export
-// (CSV, one row per part, its parametric attributes as JSON) into src/model/lcsc-passives.json,
-// the table Osprey assigns LCSC part numbers from by value and package.
+// (CSV, one row per part, its parametric attributes as JSON) into lcsc-passives.json, the table
+// Osprey assigns LCSC part numbers from by value and package. Osprey reads it from the user
+// directory's parts/ folder; by default it is written to samples/parts/ (which Preferences ▸ Add
+// the samples copies in), or give where it goes, such as the user directory's parts/ folder.
 //
 // The export is jlcpcb-components-basic-preferred.csv from CDFER/jlcpcb-parts-database
 // (https://github.com/CDFER/jlcpcb-parts-database, MIT license): JLCPCB's Basic and preferred
@@ -8,17 +10,18 @@
 //
 //   node scripts/build-lcsc.mjs https://cdfer.github.io/jlcpcb-parts-database/jlcpcb-components-basic-preferred.csv
 //   node scripts/build-lcsc.mjs data/jlcpcb-components-basic-preferred.csv
+//   node scripts/build-lcsc.mjs data/jlcpcb-components-basic-preferred.csv <user directory>/parts/lcsc-passives.json
 //
 // Kept: Basic parts ("base") and JLCPCB's preferred Extended parts, in stock.
 
-import { readFileSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const src = process.argv[2];
 if (!src) {
-  console.error('Usage: node scripts/build-lcsc.mjs <jlcpcb-components-basic-preferred.csv: a file, or its URL>');
+  console.error('Usage: node scripts/build-lcsc.mjs <jlcpcb-components-basic-preferred.csv: a file, or its URL> [output .json]');
   process.exit(1);
 }
 
@@ -82,6 +85,7 @@ for (const r of rows) {
   }
 }
 out.sort((a, b) => a.kind.localeCompare(b.kind) || a.package.localeCompare(b.package) || a.value - b.value || a.lcsc.localeCompare(b.lcsc, undefined, { numeric: true }));
-const file = join(ROOT, 'src', 'model', 'lcsc-passives.json');
+const file = process.argv[3] ? resolve(process.argv[3]) : join(ROOT, 'samples', 'parts', 'lcsc-passives.json');
+mkdirSync(dirname(file), { recursive: true });
 writeFileSync(file, `${JSON.stringify(out, null, 0).replace(/\},\{/g, '},\n{')}\n`);
 console.log(`${out.length} parts (${out.filter((x) => x.kind === 'R').length} resistors, ${out.filter((x) => x.kind === 'C').length} capacitors) → ${file}`);

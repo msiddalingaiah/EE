@@ -3,10 +3,10 @@
 
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { Editor } from '../src/app/editor';
 import { readProject, writeProject } from '../src/model/file';
-import { chipPackage, findPassive, lcscStatus, parseValue } from '../src/model/lcsc';
+import { chipPackage, findPassive, lcscParts, lcscStatus, parseValue, readLcscTable, setLcscParts } from '../src/model/lcsc';
 
 describe('reading values', () => {
   it('reads resistances', () => {
@@ -37,6 +37,8 @@ describe('reading values', () => {
   });
 });
 
+const TEXT = readFileSync(join(__dirname, '..', 'samples', 'osprey', 'wwvbfind2.osprey'), 'utf8');
+
 describe('choosing a part', () => {
   it('takes a Basic resistor, tightest tolerance first', () => {
     const r = findPassive('R', '0805', { value: 10e3 })!;
@@ -58,9 +60,7 @@ describe('choosing a part', () => {
     expect(findPassive('R', '0805', { value: 3.3e6 })).toBeUndefined();
   });
 });
-
 describe('assigning LCSC numbers', () => {
-  const TEXT = readFileSync(join(__dirname, '..', 'samples', 'osprey', 'wwvbfind2.osprey'), 'utf8');
 
   it('gives chip resistors and capacitors theirs, says why the rest have none, in one undo step', () => {
     const p = readProject(TEXT);
@@ -122,5 +122,38 @@ describe('assigning LCSC numbers', () => {
     expect(lcscStatus(p).find((x) => x.part === 'R15')).toMatchObject({ wrong: 'C17513', why: expect.stringMatching(/no Basic or preferred 1.234k resistor/) });
     expect(new Editor(p, () => {}).assignLcsc()).toContainEqual({ part: 'R15', lcsc: '', was: 'C17513' });
     expect(r15.attributes?.LCSC).toBeUndefined();
+  });
+});
+
+describe('the parts table', () => {
+  // test/setup.ts loads the sample table; put it back after each change.
+  const sample = [...lcscParts()];
+  afterEach(() => setLcscParts(sample));
+
+  it('reads a table file, skipping entries it cannot use', () => {
+    const t = readLcscTable(JSON.stringify([
+      { kind: 'R', value: 1000, lcsc: 'C17513', package: '0805', basic: true, stock: 5, mpn: 'X', tolerance: '±1%' },
+      { kind: 'L', value: 1e-6, lcsc: 'C1', package: '0805' },
+      { kind: 'R', value: 1000, lcsc: 'nope', package: '0805' },
+      null,
+    ]));
+    expect(t.map((x) => x.lcsc)).toEqual(['C17513']);
+    expect(() => readLcscTable('{"a":1}', 'parts/x.json')).toThrow('parts/x.json: expected a list');
+    expect(() => readLcscTable('nope', 'parts/x.json')).toThrow('parts/x.json: not JSON');
+  });
+
+  it('has nothing to assign without a table, and says where one goes', () => {
+    setLcscParts([]);
+    const p = readProject(TEXT);
+    expect(findPassive('R', '0805', { value: 10e3 })).toBeUndefined();
+    const r15 = lcscStatus(p).find((x) => x.part === 'R15')!;
+    expect(r15).toMatchObject({ missing: expect.stringMatching(/no JLCPCB parts table.*parts\/ folder/) });
+    expect(new Editor(p, () => {}).assignLcsc()).toEqual([]);
+  });
+
+  it('takes a part number found in two tables from the first', () => {
+    const a = { kind: 'R' as const, value: 1000, lcsc: 'C1', package: '0805', basic: true, stock: 1, mpn: 'A', tolerance: '' };
+    setLcscParts([a, { ...a, mpn: 'B' }, { ...a, lcsc: 'C2' }]);
+    expect(lcscParts().map((x) => `${x.lcsc} ${x.mpn}`)).toEqual(['C1 A', 'C2 A']);
   });
 });

@@ -22,15 +22,15 @@ native model (see [docs/format.md](docs/format.md)). Eagle files are imported in
   assembly zips (`x_CAM.zip`, `x_assembly.zip`) and Eagle export follow it. **Open recent**
   (Chromium) lists the last 8 projects and libraries opened or saved.
 - **User directory** (File ▸ Preferences…): one place for the libraries (`libraries/`:
-  `.ospreylib`, `.lbr`), design rules (`rules/`: `.dru`) and CAM jobs (`cam/`: `.cam`) you
-  keep. In Chrome and Edge it's a folder on disk, chosen once (after a reload the browser asks
+  `.ospreylib`, `.lbr`), design rules (`rules/`: `.dru`), CAM jobs (`cam/`: `.cam`) and
+  JLCPCB parts tables (`parts/`: `.json`) you keep. In Chrome and Edge it's a folder on disk, chosen once (after a reload the browser asks
   for permission again: **Reconnect**, in the left panel or the File menu); in any browser it can
   be kept in the browser's own storage, moved with **Export zip** and **Import zip…**. Add part,
-  Copy from…, the update on opening a project, Load design rules and File ▸ CAM list its files
-  (none are built into the app); **File ▸ Open from user directory** opens a library there, and Save
+  Copy from…, the update on opening a project, Load design rules, File ▸ CAM and the JLCPCB
+  parts panel use its files (none are built into the app); **File ▸ Open from user directory** opens a library there, and Save
   writes it back; a new or imported library saves into `libraries/`. A `.dru` or `.cam` file
   opened from elsewhere is kept there too. **Add the samples** copies in the sample libraries,
-  rules and CAM job. Until one is set up, a note at the top of the left panel offers it.
+  rules, CAM job and parts table. Until one is set up, a note at the top of the left panel offers it.
   Preferences also holds the view settings (block outlines, poured copper) and the JLCPCB
   through-hole choice.
 - **Libraries:** open an Osprey library (File ▸ Open library…), or import an Eagle library (`.lbr`);
@@ -229,11 +229,11 @@ native model (see [docs/format.md](docs/format.md)). Eagle files are imported in
   with the reason (another package has the value, not a chip part…); click one to select it.
   Through-hole parts are left out, as in the assembly files, unless **Include through-hole
   parts** is checked.
-  The table (`src/model/lcsc-passives.json`, 295 parts) is cut down from
+  The table is read from the user directory's `parts/` folder (every `.json` there, together;
+  without one Assign has nothing to give, and the panel says so). The sample
+  (`samples/parts/lcsc-passives.json`, 295 parts, copied in by **Add the samples**) is cut down from
   `jlcpcb-components-basic-preferred.csv` of [CDFER/jlcpcb-parts-database](https://github.com/CDFER/jlcpcb-parts-database)
-  (MIT license; JLCPCB's Basic and preferred parts in stock, rebuilt daily); see "Updating the JLCPCB parts table" below. To refresh it:
-  `node scripts/build-lcsc.mjs https://cdfer.github.io/jlcpcb-parts-database/jlcpcb-components-basic-preferred.csv`
-  (or a downloaded copy of that file). Parts without a footprint (supply symbols)
+  (MIT license; JLCPCB's Basic and preferred parts in stock, rebuilt daily); see "Updating the JLCPCB parts table" below. Parts without a footprint (supply symbols)
   are left out. JLCPCB's zero rotation for some packages (SOT-23, diodes) differs from the
   library's, which their assembly preview shows: set the footprint's **JLCPCB rotation** (in the
   library, degrees counter-clockwise, e.g. -90 for madhu/SOT23-3) and the pick-and-place file
@@ -444,7 +444,7 @@ first step that finds an error.
 | `info` | parts, nets, blocks, board size, unrouted connections, LCSC coverage |
 | `update` | update from the user directory's Osprey libraries (as opening in the app does) |
 | `rules=<name.dru>` | load design rules from the user directory's `rules/`, or a file |
-| `suggest`, `place`, `route`, `labels`, `lcsc` | Suggest blocks, Place, Autoroute, Arrange labels, LCSC Assign |
+| `suggest`, `place`, `route`, `labels`, `lcsc` | Suggest blocks, Place, Autoroute, Arrange labels, LCSC Assign (from the user directory's `parts/`) |
 | `erc`, `drc` | the checks (DRC includes unrouted connections) |
 | `check` | ready to order: ERC, DRC, LCSC numbers, labels on copper or each other; changes nothing |
 | `cam[=<job.cam>]` | `x_CAM.zip`: the built-in job, or one from the user directory's `cam/` or a file |
@@ -487,7 +487,7 @@ it unless listed elsewhere. Parts are drawn left to right in the order listed.
 
 Options: `--out <dir>` for CAM, assembly and Eagle files (default: beside the project);
 `--userdir <dir>` (or `OSPREY_USERDIR`) for the user directory, a folder with `libraries/`,
-`rules/` and `cam/` as the app keeps; `--json` prints one object with each step's summary and
+`rules/`, `cam/` and `parts/` as the app keeps (without one, `lcsc` has no parts table); `--json` prints one object with each step's summary and
 problems (severity, kind, message, place); `--strict` makes warnings fail; `--dry-run` doesn't
 save. Exit status: 0 all steps OK, 1 a step found problems, 2 bad usage or an unreadable file.
 
@@ -570,23 +570,29 @@ OSPREY_CORPUS=~/designs npx vitest run -t corpus
 
 ### Updating the JLCPCB parts table
 
-The JLCPCB parts panel assigns LCSC numbers from `src/model/lcsc-passives.json`, a cut-down
-table of the 0603 and 0805 chip resistors and MLCCs that are JLCPCB Basic or preferred parts in
-stock. It comes from `jlcpcb-components-basic-preferred.csv` of
+The JLCPCB parts panel and the command line's `lcsc` step assign LCSC numbers from the
+parts tables in the user directory's `parts/` folder; nothing is built into the app. The sample
+table, `samples/parts/lcsc-passives.json` (what **Add the samples** copies in), holds the 0603
+and 0805 chip resistors and MLCCs that are JLCPCB Basic or preferred parts in stock. It comes
+from `jlcpcb-components-basic-preferred.csv` of
 [CDFER/jlcpcb-parts-database](https://github.com/CDFER/jlcpcb-parts-database) (MIT license),
 which is rebuilt daily from JLCPCB's stock. The CSV itself isn't kept in the repo: the table is
-all the app needs. To bring the table up to date:
+all the app needs.
 
-1. Rebuild it from the published CSV:
-   ```sh
-   node scripts/build-lcsc.mjs https://cdfer.github.io/jlcpcb-parts-database/jlcpcb-components-basic-preferred.csv
-   ```
-   or from a downloaded copy (keep downloads in `data/`, which git ignores):
-   `node scripts/build-lcsc.mjs data/jlcpcb-components-basic-preferred.csv`.
-   It prints how many resistors and capacitors it kept.
-2. Run `npm test` (the LCSC tests check choices such as the Basic 10k 0805, C17414) and look
-   over `git diff src/model/lcsc-passives.json`: stock counts change every day, part numbers
-   rarely.
+To bring your own table up to date, write it straight into the user directory (the app reads it
+again when the folder changes, or on the next start):
+```sh
+node scripts/build-lcsc.mjs https://cdfer.github.io/jlcpcb-parts-database/jlcpcb-components-basic-preferred.csv <user directory>/parts/lcsc-passives.json
+```
+It prints how many resistors and capacitors it kept. A downloaded copy of the CSV works too (keep
+downloads in `data/`, which git ignores).
+
+To update the sample in the repo:
+
+1. Run the script without an output path; it writes `samples/parts/lcsc-passives.json`.
+2. Run `npm test` (the tests use the sample: the LCSC tests check choices such as the Basic 10k
+   0805, C17414) and look over `git diff samples/parts/lcsc-passives.json`: stock counts change
+   every day, part numbers rarely.
 3. Commit the table.
 
 To cover more (other packages, inductors, ferrite beads), change the filters in
