@@ -115,7 +115,7 @@ describe.skipIf(!findChrome())('editor in the browser', () => {
     })()`);
     await d.click(w.mid[0], w.mid[1]);
     await d.type('net', 'sense');
-    const labels = `(__osprey.project.nets.find((n) => n.name === 'SENSE').segments[0].labels ?? []).length`;
+    const labels = `(__osprey.project.nets.find((n) => n.name === 'sense').segments[0].labels ?? []).length`;
     expect(await d.evaluate(labels)).toBe(1);
     await d.click(w.mid[0], w.mid[1]);
     expect(await d.evaluate(`document.querySelector('#inspector input[data-field="show-label"]').checked`)).toBe(true);
@@ -125,17 +125,20 @@ describe.skipIf(!findChrome())('editor in the browser', () => {
     expect(d.problems).toEqual([]);
   });
 
+  // The sample's own drafting problem: four wires meeting at one point.
+  const drafting = 'drafting: 4 wires meet at one point on N$9 (50.8, 30.48): offset one to make two T junctions';
+
   it('checks the electrical rules, selects what a problem involves, and keeps the list up to date', async () => {
     await d.view('schematic');
     await d.button('#erc-run');
-    expect((await d.state()).erc).toEqual(['unconnected: U1 pin PA2 is unconnected']);
+    expect((await d.state()).erc).toEqual(['unconnected: U1 pin PA2 is unconnected', drafting]);
     await d.button('#erc-list button');
     expect((await d.state()).selection).toEqual([{ kind: 'gate', label: 'U1' }]);
     // Deleting U1 leaves nets it was on with a single pin.
     await d.key('Delete');
     expect((await d.state()).erc).toContain('single: AUDIO connects only R13 pin 1');
     await d.key('Ctrl+z');
-    expect((await d.state()).erc).toEqual(['unconnected: U1 pin PA2 is unconnected']);
+    expect((await d.state()).erc).toEqual(['unconnected: U1 pin PA2 is unconnected', drafting]);
     expect(d.problems).toEqual([]);
   });
 
@@ -144,13 +147,13 @@ describe.skipIf(!findChrome())('editor in the browser', () => {
     await d.button('#erc-run');
     await d.button('#erc-list .erc-approve');
     let s = await d.state();
-    expect(s.erc).toEqual([]);
+    expect(s.erc).toEqual([drafting]);
     expect(s.ercApproved).toEqual(['unconnected: U1 pin PA2 is unconnected']);
     expect(s.undo).toBe('Approve ERC problem');
-    expect(await d.evaluate('document.getElementById("erc-summary").textContent')).toBe('✓ No problems (1 approved)');
+    expect(await d.evaluate('document.getElementById("erc-summary").textContent')).toBe('1 warning');
     await d.key('Ctrl+z');
     s = await d.state();
-    expect(s.erc).toEqual(['unconnected: U1 pin PA2 is unconnected']);
+    expect(s.erc).toEqual(['unconnected: U1 pin PA2 is unconnected', drafting]);
     expect(s.ercApproved).toBeUndefined();
     expect(d.problems).toEqual([]);
   });
