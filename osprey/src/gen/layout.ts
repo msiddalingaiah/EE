@@ -256,12 +256,30 @@ class BlockPlacement {
         for (const m of this.neighbours(n).sort((x, y) => x.order - y.order)) {
           if (seen.has(m) || m.powerOnly) continue;
           seen.add(m);
-          m.col = n.col + 1;
+          m.col = n.col + this.towards(n, m);
           queue.push(m);
         }
       }
     }
+    // (Columns from 0, in order.)
+    const values = [...new Set(this.nodes.map((n) => n.col))].sort((a, b) => a - b);
+    for (const n of this.nodes) n.col = values.indexOf(n.col);
     this.layout(flip);
+  }
+
+  /**
+   * Which column a neighbour goes in, from a gate with three pins or more (an IC, a
+   * transistor): the way the pin it is wired to points, as a person draws it (what joins an
+   * IC's left pins stands left of it: -1; right: +1; above or below: 0). From a two-pin part
+   * or to a gate as big, the next column on: +1.
+   */
+  private towards(n: Node, m: Node): number {
+    if (n.pins.length < 3 || m.pins.length >= 3) return 1;
+    const sides = n.pins.filter((p) => p.net && !p.net.supply && m.pins.some((q) => q.net === p.net)).map((p) => p.side);
+    if (!sides.length) return 1;
+    if (sides.every((s) => s === 'L')) return -1;
+    if (sides.every((s) => s === 'T' || s === 'B')) return 0;
+    return 1;
   }
 
   /** Place the gates in the columns given (any numbers: only their order counts). */
@@ -1804,8 +1822,14 @@ function signalRow(pl: BlockPlacement, rails: Set<string>): { cols: Map<Node, nu
         const hi = Math.max(...touching);
         if (lo !== hi) cols.set(m, lo + hi);
         else {
-          const sides = n.pins.filter((p) => p.net && m.pins.some((x) => x.net === p.net)).map((p) => p.side);
-          cols.set(m, lo === last && sides.includes('R') ? 2 * lo + 1 : lo === 0 && sides.includes('L') ? -1 : 2 * lo);
+          const sides = n.pins.filter((p) => p.net && !p.net.supply && m.pins.some((x) => x.net === p.net)).map((p) => p.side);
+          // From an IC or a transistor: on the side its pins point (what joins the left pins
+          // just before it, the right pins just after); from a two-pin part, under it, except
+          // past the row's ends.
+          const big = n.pins.length >= 3 && m.pins.length < 3;
+          const left = sides.length > 0 && sides.every((s) => s === 'L');
+          const right = sides.length > 0 && sides.every((s) => s === 'R');
+          cols.set(m, (big && right) || (lo === last && sides.includes('R')) ? 2 * lo + 1 : (big && left) || (lo === 0 && sides.includes('L')) ? 2 * lo - 1 : 2 * lo);
         }
       } else cols.set(m, cols.get(n)!);
       q2.push(m);
