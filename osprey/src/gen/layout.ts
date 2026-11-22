@@ -824,7 +824,73 @@ class BlockPlacement {
       n.at = [r6(n.at[0] + d), n.at[1]];
       for (const [f, { anchor }] of parallel) if (anchor === n) f.at = [r6(f.at[0] + d), f.at[1]];
     }
-    for (const [r, { gate, at }] of riders) r.at = [r6(gate.at[0] + at[0]), r6(gate.at[1] + at[1])];    if (this.path) this.placeRails();
+    for (const [r, { gate, at }] of riders) r.at = [r6(gate.at[0] + at[0]), r6(gate.at[1] + at[1])];
+    this.turnToward(parallel, riders);
+    if (this.path) this.placeRails();
+  }
+
+  /**
+   * Two-pin parts turned so their pins point at the pins they are wired to, as a person turns a
+   * resistor to face what it joins: each part, where it stands, in the turn whose pins need the
+   * fewest bends to their nearest partners (pins facing in line: none; at right angles, both
+   * toward each other: one; facing but offset: two; each pin pointing away: two more), if it
+   * stays clear of the other gates. Parts in parallel and riders keep their turn.
+   */
+  private turnToward(parallel: Map<Node, { anchor: Node; net: string }>, riders: Map<Node, unknown>): void {
+    const ext = (n: Node): Box => ({ x0: n.at[0] + n.box.x0, y0: n.at[1] + n.box.y0 - n.below, x1: n.at[0] + n.box.x1, y1: n.at[1] + n.box.y1 + n.above });
+    const apart = (a: Box, b: Box) => a.x1 + G <= b.x0 + 1e-6 || b.x1 + G <= a.x0 + 1e-6 || a.y1 <= b.y0 + 1e-6 || b.y1 <= a.y0 + 1e-6;
+    const anchors = new Set([...parallel.values()].map((v) => v.anchor));
+    const at = (n: Node, p: PinInfo): Vec => [n.at[0] + p.local[0], n.at[1] + p.local[1]];
+    /** Bends a wire from pin p of n to pin q of m needs, at least. */
+    const bends = (n: Node, p: PinInfo, m: Node, q: PinInfo): number => {
+      const a = at(n, p);
+      const b = at(m, q);
+      const d: Vec = [b[0] - a[0], b[1] - a[1]];
+      const u = OUT[p.side];
+      const v = OUT[q.side];
+      const away = (u[0] * d[0] + u[1] * d[1] <= 1e-6 ? 1 : 0) + (v[0] * -d[0] + v[1] * -d[1] <= 1e-6 ? 1 : 0);
+      if (away) return 2 + 2 * away;
+      if (u[0] * v[0] + u[1] * v[1] === 0) return 1;
+      return Math.abs(u[0] ? d[1] : d[0]) < 1e-6 ? 0 : 2;
+    };
+    const cost = (n: Node): number => {
+      let c = 0;
+      for (const p of n.pins) {
+        if (!p.net || p.net.supply || this.rails.has(p.net.name)) continue;
+        let best = Infinity;
+        let near = Infinity;
+        for (const m of this.nodes) {
+          if (m === n || riders.has(m)) continue;
+          for (const q of m.pins) {
+            if (q.net !== p.net) continue;
+            const a = at(n, p);
+            const b = at(m, q);
+            const dist = Math.abs(a[0] - b[0]) + Math.abs(a[1] - b[1]);
+            if (dist < near - 1e-6) {
+              near = dist;
+              best = bends(n, p, m, q);
+            }
+          }
+        }
+        if (best < Infinity) c += best;
+      }
+      return c;
+    };
+    for (const n of this.nodes) {
+      if (n.pins.length !== 2 || n.part.component.gates.length !== 1 || riders.has(n) || parallel.has(n) || anchors.has(n) || this.path?.has(n)) continue;
+      if (n.pins.every((p) => !p.net || p.net.supply)) continue;
+      const was = { rot: n.rot, mirror: n.mirror };
+      let best = { rot: n.rot, cost: cost(n) };
+      for (const deg of [90, 180, 270].map((d) => (was.rot + d) % 360)) {
+        this.setRot(n, deg, was.mirror);
+        this.room(n);
+        if (!this.nodes.every((o) => o === n || riders.has(o) || apart(ext(n), ext(o)))) continue;
+        const c = cost(n);
+        if (c < best.cost) best = { rot: deg, cost: c };
+      }
+      this.setRot(n, best.rot, was.mirror);
+      this.room(n);
+    }
   }
 
   /**
