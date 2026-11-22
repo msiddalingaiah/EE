@@ -212,6 +212,46 @@ class BlockPlacement {
   }
 
   /** Which way a supply's symbol hangs: ground below (pin at the bottom), others above. */
+  /**
+   * Strings: two-pin parts in series down to a supply (D1 then R1 to ground), each joined to the
+   * next by a net of just their two pins, walked up from the part on the supply while the part
+   * before is a two-pin part (not a connector) whose other pin isn't on a supply. For each part
+   * in a string of two or more: the string, its place counting from the end it hangs from (0),
+   * and its pin toward the supply.
+   */
+  get strings(): Map<Node, { id: number; idx: number; toSupply: PinInfo; down: boolean }> {
+    if (this.strung) return this.strung;
+    const out = new Map<Node, { id: number; idx: number; toSupply: PinInfo; down: boolean }>();
+    const twoPin = (n: Node) => n.pins.length === 2 && n.part.component.gates.length === 1 && !isConnector(n.part.component);
+    const nodeOf = (r: O.PinRef) => this.nodes.find((x) => x.part.part.name === r.part && x.gate.name === r.gate);
+    let id = 0;
+    for (const s of this.nodes) {
+      if (!twoPin(s) || s.pins.filter((p) => p.net?.supply).length !== 1) continue;
+      const supplyPin = s.pins.find((p) => p.net?.supply)!;
+      const chain: { n: Node; toSupply: PinInfo }[] = [{ n: s, toSupply: supplyPin }];
+      let cur = s;
+      let net = s.pins.find((p) => p.net && !p.net.supply)?.net;
+      while (net && net.pins.length === 2) {
+        const r = net.pins.find((x) => x.part !== cur.part.part.name);
+        const m = r && nodeOf(r);
+        if (!m || !twoPin(m) || chain.some((c) => c.n === m)) break;
+        const here = m.pins.find((p) => p.net === net)!;
+        const other = m.pins.find((p) => p !== here)?.net;
+        if (!other || other.supply) break;
+        chain.push({ n: m, toSupply: here });
+        cur = m;
+        net = other;
+      }
+      if (chain.length < 2) continue;
+      const down = this.supplyDown(supplyPin.net!);
+      chain.forEach((c, i) => out.set(c.n, { id, idx: chain.length - 1 - i, toSupply: c.toSupply, down }));
+      id++;
+    }
+    this.strung = out;
+    return out;
+  }
+  private strung?: Map<Node, { id: number; idx: number; toSupply: PinInfo; down: boolean }>;
+
   private supplyDown(net: RNet): boolean {
     const s = this.supplies.get(net.name);
     return !s || s.body[1] < 0;
@@ -599,7 +639,9 @@ class BlockPlacement {
       if (across) turn(avg(a) <= avg(b) ? p : q, 'L');
       else {
         const first = (xs: Node[]) => Math.min(Infinity, ...xs.map((x) => x.order));
-        turn(first(others(p)) <= first(others(q)) ? p : q, 'T');
+        const st = this.strings.get(n);
+        if (st) turn(st.toSupply, st.down ? 'B' : 'T');
+        else turn(first(others(p)) <= first(others(q)) ? p : q, 'T');
       }
     }
 
@@ -1012,7 +1054,8 @@ class BlockPlacement {
         }
       }
     }
-    const order = nodes.filter((n) => !feeds.has(n)).sort((a, b) => (depth.get(a) ?? 99) - (depth.get(b) ?? 99) || a.col - b.col || a.order - b.order);
+    const idx = (n: Node) => this.strings.get(n)?.idx ?? 0;
+    const order = nodes.filter((n) => !feeds.has(n)).sort((a, b) => (depth.get(a) ?? 99) - (depth.get(b) ?? 99) || a.col - b.col || idx(a) - idx(b) || a.order - b.order);
     const placed = new Set<Node>();
     const pinY = (m: Node, r: PinInfo) => m.at[1] + r.local[1];
     for (const n of order) {
@@ -1780,7 +1823,12 @@ function signalRow(pl: BlockPlacement, rails: Set<string>): { cols: Map<Node, nu
   const cols = new Map<Node, number>();
   const signal = pl.nodes.filter((n) => !n.powerOnly);
   const sigPins = (n: Node) => n.pins.filter((p) => p.net && !p.net.supply && !rails.has(p.net.name)).length;
-  const start = signal.find((n) => pl.neighbours(n).length);
+  // From the first part listed, not counting shunts to a supply or strings down to one (an LED
+  // over its resistor hangs from what feeds it): they end branches, not start the signal.
+  const shunt = (n: Node) => n.pins.length === 2 && n.pins.some((p) => p.net?.supply) && !isConnector(n.part.component);
+  const strung = pl.strings;
+  const linked = signal.filter((n) => pl.neighbours(n).length);
+  const start = linked.find((n) => !shunt(n) && !strung.has(n)) ?? linked[0];
   if (!start) {
     signal.forEach((n, i) => cols.set(n, i));
     return { cols, unreached: [], spine: [] };
@@ -1800,9 +1848,10 @@ function signalRow(pl: BlockPlacement, rails: Set<string>): { cols: Map<Node, nu
   const reached = [...parent.keys()];
   const ic = reached.filter((n) => sigPins(n) >= 4).sort((a, b) => sigPins(b) - sigPins(a) || a.order - b.order)[0];
   // Else the farthest part that isn't a shunt to a supply, an active one (with an output) first.
-  const shunt = (n: Node) => n.pins.length === 2 && n.pins.some((p) => p.net?.supply) && !isConnector(n.part.component);
   const active = (n: Node) => (n.pins.some((p) => p.pin.direction === 'out') ? 0 : 1);
-  const ends = reached.filter((n) => !shunt(n));
+  // (Nor a part in a string of two-pin parts down to a supply: an LED over its resistor to
+  // ground hangs from what feeds it, standing in one column.)
+  const ends = reached.filter((n) => !shunt(n) && !strung.has(n));
   const end = ic ?? [...(ends.length ? ends : reached)].sort((a, b) => dist.get(b)! - dist.get(a)! || active(a) - active(b) || a.order - b.order)[0]!;
   const spine: Node[] = [];
   for (let n: Node | undefined = end; n; n = parent.get(n)) spine.unshift(n);
@@ -1834,6 +1883,16 @@ function signalRow(pl: BlockPlacement, rails: Set<string>): { cols: Map<Node, nu
       } else cols.set(m, cols.get(n)!);
       q2.push(m);
     }
+  }
+  // Strings hanging in one column stand side by side, each in a column of its own.
+  const base = new Map<number, number>();
+  for (const [n, st] of strung) if (cols.has(n) && !spine.includes(n)) base.set(st.id, Math.min(base.get(st.id) ?? Infinity, cols.get(n)!));
+  const byCol = new Map<number, number[]>();
+  for (const [id, c] of base) byCol.set(c, [...(byCol.get(c) ?? []), id]);
+  for (const ids of byCol.values()) {
+    ids.forEach((id, k) => {
+      for (const [n, st] of strung) if (st.id === id && cols.has(n) && !spine.includes(n)) cols.set(n, base.get(id)! + 0.01 * k);
+    });
   }
   // Parts only on rails (and supplies): before the rail's first pin in the row.
   const unreached: Node[] = [];
