@@ -333,15 +333,23 @@ export const SCORE_WEIGHTS = {
   /** Per mm from a decoupling capacitor to its IC power pin. */
   decoupling: 2,
   /** Per mm² of the box around all the parts: the board they need, which is what it costs. */
-  area: 0.1,
+  area: 0.2,
   /** Per mm a part is off the nearest row or column line of a neighbour (see `misalignment`). */
   misalignment: 5,
+  /** Per mm a connector is in from the board edge, beyond the edge clearance. */
+  connectorEdge: 10,
 };
 
 /** Neighbours a part lines up with are within this distance (centre to centre, mm). */
 const ALIGN_RADIUS = 8;
 /** A part this far (mm) or more off every neighbour's lines counts as not lined up at all. */
 const ALIGN_CAP = 1;
+
+/** Components that are connectors: by prefix, or by name. Test points aren't. */
+const CONNECTOR_PREFIX = /^(J|P|CN|CON|X?CONN)$/i;
+const CONNECTOR_NAME = /BERG|HEADER|PINHD|CONN|JST|MOLEX|USB|TERMINAL|SCREW/i;
+const TEST_POINT = /(^|\/)(TP|TEST)[-_ ]?(POINT|\d)|PAD-1/i;
+export const isConnector = (component: O.Component) => CONNECTOR_PREFIX.test(component.prefix ?? '') || CONNECTOR_NAME.test(component.id);
 
 export interface PlacementScore {
   signalLength: number;
@@ -352,15 +360,18 @@ export interface PlacementScore {
   area: number;
   /** Sum over parts of how far each is off lining up with a neighbour (mm, see `misalignment`). */
   misalignment: number;
+  /** Sum over connectors of how far each is in from the board edge, beyond the edge clearance (mm). */
+  connectorEdge: number;
   /** All of it, weighted (SCORE_WEIGHTS): lower is better. */
   total: number;
 }
 
 /**
  * How good a placement is, as one number (lower is better) and its parts: short, untangled
- * signal airwires, decoupling caps at their pins, a small board, and parts in rows and columns.
+ * signal airwires, decoupling caps at their pins, a small board, parts in rows and columns, and
+ * connectors on the edge.
  */
-export function placementScore(project: O.Project, infos = footprintInfos(project)): PlacementScore {
+export function placementScore(project: O.Project, infos = footprintInfos(project), rules = DEFAULT_PLACEMENT_RULES): PlacementScore {
   const area = project.board && boardArea(project.board);
   const on = area ? infos.filter((f) => onBoard(f.box, area.outline)) : infos;
   const m = placementMetrics(project, infos);
@@ -374,25 +385,56 @@ export function placementScore(project: O.Project, infos = footprintInfos(projec
     signalCrossings: m.signalCrossings,
     decoupling: m.decoupling.reduce((t, d) => t + d.distance, 0),
     area: on.length ? rectWidth(box) * rectHeight(box) : 0,
-    misalignment: misalignment(on.map((f) => rectCenter(f.box))),
+    misalignment: misalignment(on.map(alignPoints)),
+    connectorEdge: area ? connectorEdge(project, on, area.outline, rules) : 0,
   };
   const w = SCORE_WEIGHTS;
-  const total = s.signalLength + w.crossing * s.signalCrossings + w.decoupling * s.decoupling + w.area * s.area + w.misalignment * s.misalignment;
+  const total = s.signalLength + w.crossing * s.signalCrossings + w.decoupling * s.decoupling + w.area * s.area
+    + w.misalignment * s.misalignment + w.connectorEdge * s.connectorEdge;
   return { ...s, total };
+}
+
+/** Connectors (not test points) on the board, and how far each is in from its nearest edge beyond the edge clearance, summed. */
+function connectorEdge(project: O.Project, on: FootprintInfo[], outline: Rect, rules: PlacementRules): number {
+  const index = new ProjectIndex(project);
+  let sum = 0;
+  for (const f of on) {
+    const part = index.parts.get(f.part);
+    const c = part && index.components.get(part.component);
+    if (!c || !isConnector(c) || TEST_POINT.test(c.id)) continue;
+    const gap = Math.min(f.box.minX - outline.minX, f.box.minY - outline.minY, outline.maxX - f.box.maxX, outline.maxY - f.box.maxY);
+    sum += Math.max(0, gap - rules.edge);
+  }
+  return sum;
+}
+
+/** What a part lines up by: its centre and its pads. */
+export const alignPoints = (f: { box: Rect; pads: { at: Point }[] }): AlignPart => ({ center: rectCenter(f.box), points: [rectCenter(f.box), ...f.pads.map((q) => q.at)] });
+
+export interface AlignPart {
+  center: Point;
+  /** Points that line up with a neighbour's: its centre and pads. */
+  points: Point[];
 }
 
 /**
  * How far parts are from rows and columns: for each part, the smallest offset in x or y between
- * its centre and a neighbour's (within ALIGN_RADIUS), capped at ALIGN_CAP, summed. Zero when
- * every part shares a centre line with some neighbour.
+ * one of its points (centre or pads) and one of a neighbour's (centres within ALIGN_RADIUS),
+ * capped at ALIGN_CAP, summed. Zero when every part has a pad or centre on a line with some
+ * neighbour's: parts lined up by their pads count, as a designer lines them up.
  */
-export function misalignment(centers: Point[]): number {
+export function misalignment(parts: AlignPart[]): number {
   let sum = 0;
-  centers.forEach((a, i) => {
+  parts.forEach((a, i) => {
     let best = ALIGN_CAP;
-    centers.forEach((b, j) => {
-      if (i === j || Math.hypot(a.x - b.x, a.y - b.y) > ALIGN_RADIUS) return;
-      best = Math.min(best, Math.abs(a.x - b.x), Math.abs(a.y - b.y));
+    parts.forEach((b, j) => {
+      if (i === j || best === 0 || Math.hypot(a.center.x - b.center.x, a.center.y - b.center.y) > ALIGN_RADIUS) return;
+      for (const p of a.points) {
+        for (const q of b.points) {
+          const d = Math.min(Math.abs(p.x - q.x), Math.abs(p.y - q.y));
+          if (d < best) best = d;
+        }
+      }
     });
     sum += best;
   });
@@ -400,7 +442,7 @@ export function misalignment(centers: Point[]): number {
 }
 
 /** Do segments ab and cd cross at a point that isn't an end of either? */
-function cross(a: O.Pt, b: O.Pt, c: O.Pt, d: O.Pt): boolean {
+export function cross(a: O.Pt, b: O.Pt, c: O.Pt, d: O.Pt): boolean {
   const o = (p: O.Pt, q: O.Pt, r: O.Pt) => (q[0] - p[0]) * (r[1] - p[1]) - (q[1] - p[1]) * (r[0] - p[0]);
   const d1 = o(a, b, c);
   const d2 = o(a, b, d);

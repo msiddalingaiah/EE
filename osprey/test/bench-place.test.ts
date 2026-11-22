@@ -29,6 +29,7 @@ interface Summary {
   crossings: number;
   area: number;
   misalignment: number;
+  connectorEdge: number;
   outline: number;
   /** Parts not touching the outline. */
   off: number;
@@ -39,7 +40,7 @@ function summary(p: O.Project): Summary {
   const a = p.board && boardArea(p.board);
   const outline = a ? (a.outline.maxX - a.outline.minX) * (a.outline.maxY - a.outline.minY) : 0;
   const off = a ? footprintInfos(p).filter((f) => !onBoard(f.box, a.outline)).length : 0;
-  return { total: s.total, length: s.signalLength, crossings: s.signalCrossings, area: s.area, misalignment: s.misalignment, outline, off };
+  return { total: s.total, length: s.signalLength, crossings: s.signalCrossings, area: s.area, misalignment: s.misalignment, connectorEdge: s.connectorEdge, outline, off };
 }
 
 function unrouted(p: O.Project) {

@@ -140,10 +140,16 @@ describe('the osprey script', () => {
     expect(out.ok).toBe(true);
     expect(out.steps.map((s) => s.id)).toEqual(['tools.place', 'tools.autoroute']);
     expect(statSync(file).size).not.toBe(before);
-    // One connection is left unrouted (the sample's CLK): not ready to order.
+    // Placed and routed in full: no errors left, only warnings (labels on copper and the like).
     const check = osprey(file, 'check');
-    expect(check.status).toBe(1);
-    expect(check.stdout).toMatch(/^FAIL check: 1 error/m);
+    expect(check.status).toBe(0);
+    expect(check.stdout).toMatch(/^ok {3}check: 0 errors/m);
+    // The sample as it is, unrouted, isn't ready to order.
+    const raw = join(dir, 'raw.osprey');
+    copyFileSync(join(ROOT, 'samples', 'osprey', 'wwvbfind2.osprey'), raw);
+    const fail = osprey(raw, 'check');
+    expect(fail.status).toBe(1);
+    expect(fail.stdout).toMatch(/^FAIL check: \d+ errors/m);
     expect(osprey(file, 'teleport').status).toBe(2);
   }, 120000);
 

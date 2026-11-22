@@ -24,7 +24,7 @@
 import type { Point } from '../geom/transform';
 import { blockOf, comparePaths } from '../model/blocks';
 import type { Rect } from '../model/placement';
-import { footprintInfo, misalignment, partClearance, rectCenter, rectGap, SCORE_WEIGHTS, supplyNets, TOLERANCE } from '../model/placement';
+import { cross, footprintInfo, misalignment, partClearance, rectCenter, rectGap, SCORE_WEIGHTS, supplyNets, TOLERANCE } from '../model/placement';
 import type * as O from '../model/types';
 import type { Arrange } from './arrange';
 import { improve } from './improve';
@@ -395,32 +395,74 @@ export function autoplace(arr: Arrange): AutoplaceResult {
     return wire + AREA_WEIGHT * (all.maxX - all.minX) * (all.maxY - all.minY);
   };
 
+  /** Crossings of signal airwires in a layout: each net's pads joined by the shortest tree. */
+  const crossings = (u: Layout): number => {
+    const byNet = new Map<string, Pad[]>();
+    for (const q of signalPads(u)) {
+      const l = byNet.get(q.net!);
+      if (l) l.push(q);
+      else byNet.set(q.net!, [q]);
+    }
+    const wires: [O.Pt, O.Pt][] = [];
+    for (const pads of byNet.values()) {
+      // Prim's algorithm: few pads per net.
+      const inTree = [pads[0]!];
+      const rest = pads.slice(1);
+      while (rest.length) {
+        let best = { i: 0, from: inTree[0]!, d: Infinity };
+        rest.forEach((r, i) => {
+          for (const t of inTree) {
+            const d = Math.hypot(r.x - t.x, r.y - t.y);
+            if (d < best.d) best = { i, from: t, d };
+          }
+        });
+        const [r] = rest.splice(best.i, 1);
+        wires.push([[best.from.x, best.from.y], [r!.x, r!.y]]);
+        inTree.push(r!);
+      }
+    }
+    let n = 0;
+    for (let i = 0; i < wires.length; i++) for (let j = i + 1; j < wires.length; j++) if (cross(wires[i]![0], wires[i]![1], wires[j]![0], wires[j]![1])) n++;
+    return n;
+  };
+
   // ---- rows and columns ----------------------------------------------------------------
   /**
    * Nudge parts onto a neighbour's row or column: each part, in turn, moved (up to ALIGN_MOVE) so
-   * its centre lines up with a nearby part's, where it fits and the whole gets better (wiring,
-   * area and misalignment, weighted as in the placement score). A few passes, until none helps.
+   * its centre or one of its pads lines up with a nearby part's, where it fits and the whole gets
+   * better (wiring, area and misalignment, weighted as in the placement score). A few passes,
+   * until none helps.
    */
-  const alignRows = (u: Layout): void => {
+  const alignRows = (u: Layout, byPads: boolean): void => {
     const parts = [...u.keys()].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
     const centre = (p: string) => rectCenter(boxAt(p, u.get(p)!));
-    const score = () => blockScore(u) + SCORE_WEIGHTS.misalignment * misalignment(parts.map(centre));
+    const points = (p: string) => [centre(p), ...padsAt(p, u.get(p)!)];
+    const score = () => blockScore(u) + SCORE_WEIGHTS.misalignment * misalignment(parts.map((p) => ({ center: centre(p), points: points(p) })))
+      + SCORE_WEIGHTS.crossing * crossings(u);
     let current = score();
     for (let pass = 0; pass < 4; pass++) {
       let moved = false;
       for (const p of parts) {
         const pose = u.get(p)!;
         const c = centre(p);
-        const shifts: Point[] = [];
+        // Moves that put its centre or a pad on a nearby part's centre or pad line.
+        const shifts = new Map<string, Point>();
+        const own = points(p);
         for (const q of parts) {
           if (q === p) continue;
           const d = centre(q);
           if (Math.hypot(d.x - c.x, d.y - c.y) > ALIGN_REACH) continue;
-          if (Math.abs(d.x - c.x) > 1e-6 && Math.abs(d.x - c.x) <= ALIGN_MOVE) shifts.push({ x: d.x - c.x, y: 0 });
-          if (Math.abs(d.y - c.y) > 1e-6 && Math.abs(d.y - c.y) <= ALIGN_MOVE) shifts.push({ x: 0, y: d.y - c.y });
+          for (const a of byPads ? own : [c]) {
+            for (const b of byPads ? points(q) : [d]) {
+              const dx = r2(b.x - a.x);
+              const dy = r2(b.y - a.y);
+              if (Math.abs(dx) > 1e-6 && Math.abs(dx) <= ALIGN_MOVE) shifts.set(`x${dx}`, { x: dx, y: 0 });
+              if (Math.abs(dy) > 1e-6 && Math.abs(dy) <= ALIGN_MOVE) shifts.set(`y${dy}`, { x: 0, y: dy });
+            }
+          }
         }
         let best: { pose: Pose; score: number } | undefined;
-        for (const s of shifts) {
+        for (const s of shifts.values()) {
           const next = { x: r2(pose.x + s.x), y: r2(pose.y + s.y), rot: pose.rot };
           if (!fits(p, next, u)) continue;
           u.set(p, next);
@@ -488,7 +530,9 @@ export function autoplace(arr: Arrange): AutoplaceResult {
   };
 
   const layout = layoutBlock('');
-  alignRows(layout);
+  // Centres first (the bigger moves), then pads.
+  alignRows(layout, false);
+  alignRows(layout, true);
   const o = outlineOf(layout);
   // Round the size up to the grid (1.27 mm / 50 mil), and put the outline's corner at 0, 0.
   const G = 0.127;
@@ -518,7 +562,7 @@ export function autoplace(arr: Arrange): AutoplaceResult {
 /** How much a mm² of the cluster's box counts against a mm of wiring when arranging blocks. */
 const AREA_WEIGHT = 0.1;
 /** The same, when choosing a block's own layout. */
-const BLOCK_AREA_WEIGHT = SCORE_WEIGHTS.area;
+const BLOCK_AREA_WEIGHT = 0.1;
 /** Lining parts up: the furthest a part moves, and how near the part it lines up with must be (mm). */
 const ALIGN_MOVE = 2;
 const ALIGN_REACH = 8;

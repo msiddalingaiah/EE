@@ -18,16 +18,14 @@
 
 import { netPads, ProjectIndex } from './derive';
 import { blockOf } from './blocks';
-import { supplyNets } from './placement';
+import { isConnector, supplyNets } from './placement';
 import type * as O from './types';
 
 /** Active parts, by prefix: ICs and transistors (Q, T), regulators, relays. */
 const IC_PREFIX = /^(U|IC|N|VR|K)$/i;
 const TRANSISTOR_PREFIX = /^(Q|T)$/i;
-/** Components that are connectors: by prefix, or by name. */
-const CONNECTOR_PREFIX = /^(J|P|CN|CON|X?CONN)$/i;
-const CONNECTOR_NAME = /BERG|HEADER|PINHD|CONN|JST|MOLEX|USB|TERMINAL|SCREW/i;
-export const isConnector = (component: O.Component) => CONNECTOR_PREFIX.test(component.prefix ?? '') || CONNECTOR_NAME.test(component.id);
+/** Components that are connectors (defined with the placement score, which wants them on the edge). */
+export { isConnector };
 
 interface Node {
   part: string;

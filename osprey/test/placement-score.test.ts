@@ -6,7 +6,7 @@
 import { describe, expect, it } from 'vitest';
 import { readProject } from '../src/model/file';
 import {
-  DEFAULT_PLACEMENT_RULES, misalignment, partClearance, placementIssues, placementScore, supplyNets,
+  boardArea, DEFAULT_PLACEMENT_RULES, misalignment, partClearance, placementIssues, placementScore, supplyNets,
 } from '../src/model/placement';
 import type * as O from '../src/model/types';
 import { unroutedSample } from './unrouted';
@@ -58,13 +58,25 @@ describe('the placement score', () => {
     expect(supplies.has('CLK')).toBe(false);
   });
 
-  it('counts a part on a neighbour\'s row or column as lined up', () => {
+  it('counts a part on a neighbour\'s row or column as lined up, by centre or by pad', () => {
+    const at = (x: number, y: number, ...pads: [number, number][]) => ({ center: { x, y }, points: [{ x, y }, ...pads.map(([px, py]) => ({ x: px, y: py }))] });
     // Three in a row: lined up.
-    expect(misalignment([{ x: 0, y: 0 }, { x: 2, y: 0 }, { x: 4, y: 0 }])).toBe(0);
+    expect(misalignment([at(0, 0), at(2, 0), at(4, 0)])).toBe(0);
     // One 0.3 mm off: it and its nearest neighbour are both 0.3 off.
-    expect(misalignment([{ x: 0, y: 0 }, { x: 2, y: 0.3 }])).toBeCloseTo(0.6);
+    expect(misalignment([at(0, 0), at(2, 0.3)])).toBeCloseTo(0.6);
     // Far apart: nothing to line up with, so each counts in full.
-    expect(misalignment([{ x: 0, y: 0 }, { x: 20, y: 7 }])).toBe(2);
+    expect(misalignment([at(0, 0), at(20, 7)])).toBe(2);
+    // Centres off, but a pad of each on one line (a resistor beside an IC's pin): lined up.
+    expect(misalignment([at(0, 0, [1.27, 3.81]), at(5, 3.3, [5, 3.81])])).toBe(0);
+  });
+
+  it('wants connectors on the board edge, test points anywhere', () => {
+    const p = readProject(SAMPLE);
+    const edge = placementScore(p).connectorEdge;
+    const vout = p.board!.footprints.find((f) => f.part === 'VOUT')!;
+    const o = boardArea(p.board!)!.outline;
+    vout.at = [(o.minX + o.maxX) / 2, (o.minY + o.maxY) / 2];
+    expect(placementScore(p).connectorEdge).toBeGreaterThan(edge + 5);
   });
 });
 
