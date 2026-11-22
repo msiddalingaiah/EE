@@ -4981,13 +4981,39 @@ function storeSet(key: string, value: string): void {
 }
 
 resize();
+const recentLoaded = loadRecent();
 // The user directory comes first, so the project opened next is updated from its libraries.
 void userDir.init()
   .catch((e: unknown) => console.warn('User directory not available:', e))
   .finally(async () => {
     renderUserDirPanel();
-    if (!(await openStartupFile())) initSamples();
+    if (await openStartupFile()) return;
+    // A link to a sample wins; otherwise the project open last time, else a sample.
+    if (!parseSampleLink(location.hash, sampleList()).key && (await openLastProject())) return;
+    initSamples();
   });
+
+/**
+ * Open the newest project in the recent files, as at the end of the last session. In the native
+ * app it's a path, read again; the browser reopens it only while the file's permission still
+ * holds (a new permission needs a click). False if there's none or it can't be read.
+ */
+async function openLastProject(): Promise<boolean> {
+  await recentLoaded;
+  const r = recent.find((x) => /.osprey$/i.test(x.name));
+  if (!r) return false;
+  const h = r.handle as FileHandle & { queryPermission?(o: { mode: 'read' }): Promise<PermissionState> };
+  try {
+    if (h.queryPermission && (await h.queryPermission({ mode: 'read' })) !== 'granted') return false;
+    const file = await h.getFile();
+    openSources([{ name: file.name, text: await file.text(), handle: r.handle }]);
+    clearSampleLink();
+    return true;
+  } catch (e) {
+    console.warn(`Could not reopen ${r.name}:`, e);
+    return false;
+  }
+}
 
 /** In the native app, open the file it was started with (a project double-clicked in Explorer). */
 async function openStartupFile(): Promise<boolean> {
@@ -5005,7 +5031,6 @@ async function openStartupFile(): Promise<boolean> {
     return false;
   }
 }
-void loadRecent();
 
 // Installed as an app (a PWA), the service worker keeps every file cached so it runs with no
 // server; see vite.config.ts. Only in builds: the dev server serves fresh files. Not in the
