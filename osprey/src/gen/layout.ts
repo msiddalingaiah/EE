@@ -937,18 +937,24 @@ class BlockPlacement {
       return c;
     };
     for (const n of this.nodes) {
-      if (n.pins.length !== 2 || n.part.component.gates.length !== 1 || riders.has(n) || parallel.has(n) || anchors.has(n) || this.path?.has(n)) continue;
+      if (n.part.component.gates.length !== 1 || riders.has(n) || parallel.has(n) || anchors.has(n)) continue;
+      // A connector with its pins all one way (a header) turns or mirrors, even on the path; a
+      // two-pin part off the path turns.
+      const header = isConnector(n.part.component) && new Set(n.pins.map((p) => p.side)).size === 1;
+      if (!header && (n.pins.length !== 2 || this.path?.has(n))) continue;
       if (n.pins.every((p) => !p.net || p.net.supply)) continue;
       const was = { rot: n.rot, mirror: n.mirror };
-      let best = { rot: n.rot, cost: cost(n) };
-      for (const deg of [90, 180, 270].map((d) => (was.rot + d) % 360)) {
-        this.setRot(n, deg, was.mirror);
+      let best = { ...was, cost: cost(n) };
+      const ways: [number, boolean][] = [90, 180, 270].map((d) => [(was.rot + d) % 360, was.mirror]);
+      if (header) ways.push(...[0, 90, 180, 270].map((d): [number, boolean] => [(was.rot + d) % 360, !was.mirror]));
+      for (const [deg, m] of ways) {
+        this.setRot(n, deg, m);
         this.room(n);
         if (!this.nodes.every((o) => o === n || riders.has(o) || apart(ext(n), ext(o)))) continue;
         const c = cost(n);
-        if (c < best.cost) best = { rot: deg, cost: c };
+        if (c < best.cost) best = { rot: deg, mirror: m, cost: c };
       }
-      this.setRot(n, best.rot, was.mirror);
+      this.setRot(n, best.rot, best.mirror);
       this.room(n);
     }
   }
