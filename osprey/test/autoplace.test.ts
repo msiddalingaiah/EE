@@ -7,7 +7,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { Editor } from '../src/app/editor';
 import { readProject, writeProject } from '../src/model/file';
-import { boardArea, placementIssues, placementScore } from '../src/model/placement';
+import { boardArea, footprintInfos, onBoard, placementIssues, placementScore } from '../src/model/placement';
 import { unroutedSample } from './unrouted';
 
 const SAMPLE = unroutedSample('wwvbfind');
@@ -42,6 +42,21 @@ describe('autoplace', () => {
     const res = new Editor(p, () => {}).autoplace();
     expect(res.parts).toBe(p.board!.footprints.length);
     expect(placementIssues(p)).toEqual([]);
+  });
+
+  // Found by placing old Eagle boards (test/bench-place.test.ts): parts at 45°, SMD parts on the
+  // bottom in a block that gets turned, and every part on the board, none left where it was.
+  it('places parts at 45° and on the bottom with their clearances, all on the board', () => {
+    const p = readProject(SAMPLE);
+    for (const f of p.board!.footprints) {
+      if (f.part === 'R1' || f.part === 'R11') f.rot = 45;
+      if (/^(C9|C10|C11|R12|R13|C12|C13|R14|D1)$/.test(f.part)) f.side = 'bottom';
+    }
+    new Editor(p, () => {}).autoplace();
+    expect(placementIssues(p)).toEqual([]);
+    for (const f of p.board!.footprints) expect((f.rot ?? 0) % 90, f.part).toBe(0);
+    const area = boardArea(p.board!)!;
+    for (const i of footprintInfos(p)) expect(onBoard(i.box, area.outline), i.part).toBe(true);
   });
 
   it('is one undo step, and gives the same placement every time', () => {

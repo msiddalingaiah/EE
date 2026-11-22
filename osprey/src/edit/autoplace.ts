@@ -107,6 +107,7 @@ export function autoplace(arr: Arrange): AutoplaceResult {
 
   // ---- the parts to place, by block ---------------------------------------------
   const onBoard = new Set(board.footprints.filter((f) => !f.locked).map((f) => f.part));
+  const bottom = new Set(board.footprints.filter((f) => f.side === 'bottom').map((f) => f.part));
   const blockOfPart = new Map<string, string>();
   for (const p of project.parts) if (onBoard.has(p.name)) blockOfPart.set(p.name, blockOf(p) ?? '');
 
@@ -216,7 +217,38 @@ export function autoplace(arr: Arrange): AutoplaceResult {
         break;
       }
     }
-    return best?.pose ?? { x: r2(at.x), y: r2(at.y), rot: 0 };
+    return best?.pose ?? outsideSpot(x, at, side, own, layout);
+  };
+
+  /**
+   * Where part X goes when the search around its anchor is full (a big IC ringed by parts): past
+   * everything placed on that side, lined up with `at`, then slid back in while it fits.
+   */
+  const outsideSpot = (x: string, at: Point, side: Side, own: string | undefined, layout: Layout): Pose => {
+    const all = unitBox(layout);
+    const out = OUT[side];
+    let best: { pose: Pose; score: number } | undefined;
+    for (const rot of ROTS) {
+      const sh = shapeOf(x, rot);
+      const pad = own ? sh.pads.find((q) => q.name === own) : undefined;
+      const ref = pad ?? { x: (sh.box.minX + sh.box.maxX) / 2, y: (sh.box.minY + sh.box.maxY) / 2 };
+      const gap = Math.max(rules.clearance, rules.smdClearance) + 0.01;
+      let px = at.x - ref.x;
+      let py = at.y - ref.y;
+      if (side === 'right') px = all.maxX + gap - sh.box.minX;
+      if (side === 'left') px = all.minX - gap - sh.box.maxX;
+      if (side === 'above') py = all.maxY + gap - sh.box.minY;
+      if (side === 'below') py = all.minY - gap - sh.box.maxY;
+      let pose = { x: r2(px), y: r2(py), rot };
+      for (let k = 0; k < 400; k++) {
+        const next = { x: r2(pose.x - out.x * 0.25), y: r2(pose.y - out.y * 0.25), rot };
+        if (!fits(x, next, layout)) break;
+        pose = next;
+      }
+      const score = Math.hypot(ref.x + pose.x - at.x, ref.y + pose.y - at.y);
+      if (!best || score < best.score - 1e-9) best = { pose, score };
+    }
+    return best!.pose;
   };
 
   // ---- blocks of blocks ------------------------------------------------------------
@@ -257,7 +289,9 @@ export function autoplace(arr: Arrange): AutoplaceResult {
     for (const [p, pose] of u) {
       let { x, y } = pose;
       for (let k = 0; k < quarter; k++) [x, y] = [-y, x];
-      out.set(p, { x: r2(x + dx), y: r2(y + dy), rot: (pose.rot + 90 * quarter) % 360 });
+      // A bottom-side part's rotation counts the other way (it is seen through the board).
+      const turn = bottom.has(p) ? -90 * quarter : 90 * quarter;
+      out.set(p, { x: r2(x + dx), y: r2(y + dy), rot: (((pose.rot + turn) % 360) + 360) % 360 });
     }
     return out;
   };
@@ -299,39 +333,44 @@ export function autoplace(arr: Arrange): AutoplaceResult {
       let best: { layout: Layout; score: number } | undefined;
       const cluster = unitBox(placed);
       const placedPads = signalPads(placed);
-      for (let quarter = 0; quarter < 4; quarter++) {
-        const turned = place(u, quarter, 0, 0);
-        const ub = unitBox(turned);
-        const w = ub.maxX - ub.minX;
-        const h = ub.maxY - ub.minY;
-        // Beside the cluster on each side, ends or centre lined up with its edges.
-        const spots: Point[] = [];
-        for (const t of [cluster.minX, (cluster.minX + cluster.maxX - w) / 2, cluster.maxX - w]) {
-          spots.push({ x: t, y: cluster.maxY + BLOCK_GAP }, { x: t, y: cluster.minY - BLOCK_GAP - h });
-        }
-        for (const t of [cluster.minY, (cluster.minY + cluster.maxY - h) / 2, cluster.maxY - h]) {
-          spots.push({ x: cluster.maxX + BLOCK_GAP, y: t }, { x: cluster.minX - BLOCK_GAP - w, y: t });
-        }
-        for (const s of spots) {
-          // Slide in toward the cluster while it fits (blocks nest into each other's gaps).
-          const dir = { x: s.x > cluster.maxX - 1e-9 ? -1 : s.x + w < cluster.minX + 1e-9 ? 1 : 0, y: s.y > cluster.maxY - 1e-9 ? -1 : s.y + h < cluster.minY + 1e-9 ? 1 : 0 };
-          let at = s;
-          const fitsAt = (q: Point) => {
-            const cand = place(u, quarter, r2(q.x - ub.minX), r2(q.y - ub.minY));
-            for (const [p, pose] of cand) if (!fits(p, pose, placed, BLOCK_GAP)) return undefined;
-            return cand;
-          };
-          let cand = fitsAt(at);
-          if (!cand) continue;
-          for (let k = 0; k < 200; k++) {
-            const next = { x: at.x + dir.x * 0.25, y: at.y + dir.y * 0.25 };
-            const c = fitsAt(next);
-            if (!c) break;
-            at = next;
-            cand = c;
+      // Spots the block gap off the cluster's box fit where its edge is ragged. Where none of
+      // them fits, spots a part clearance further out always do, so no block is left out.
+      for (const off of [BLOCK_GAP, BLOCK_GAP + Math.max(rules.clearance, rules.smdClearance) + 0.01]) {
+        if (best) break;
+        for (let quarter = 0; quarter < 4; quarter++) {
+          const turned = place(u, quarter, 0, 0);
+          const ub = unitBox(turned);
+          const w = ub.maxX - ub.minX;
+          const h = ub.maxY - ub.minY;
+          // Beside the cluster on each side, ends or centre lined up with its edges.
+          const spots: Point[] = [];
+          for (const t of [cluster.minX, (cluster.minX + cluster.maxX - w) / 2, cluster.maxX - w]) {
+            spots.push({ x: t, y: cluster.maxY + off }, { x: t, y: cluster.minY - off - h });
           }
-          const score = joinScore(cand, placed, placedPads);
-          if (!best || score < best.score - 1e-9) best = { layout: cand, score };
+          for (const t of [cluster.minY, (cluster.minY + cluster.maxY - h) / 2, cluster.maxY - h]) {
+            spots.push({ x: cluster.maxX + off, y: t }, { x: cluster.minX - off - w, y: t });
+          }
+          for (const s of spots) {
+            // Slide in toward the cluster while it fits (blocks nest into each other's gaps).
+            const dir = { x: s.x > cluster.maxX - 1e-9 ? -1 : s.x + w < cluster.minX + 1e-9 ? 1 : 0, y: s.y > cluster.maxY - 1e-9 ? -1 : s.y + h < cluster.minY + 1e-9 ? 1 : 0 };
+            let at = s;
+            const fitsAt = (q: Point) => {
+              const cand = place(u, quarter, r2(q.x - ub.minX), r2(q.y - ub.minY));
+              for (const [p, pose] of cand) if (!fits(p, pose, placed, BLOCK_GAP)) return undefined;
+              return cand;
+            };
+            let cand = fitsAt(at);
+            if (!cand) continue;
+            for (let k = 0; k < 200; k++) {
+              const next = { x: at.x + dir.x * 0.25, y: at.y + dir.y * 0.25 };
+              const c = fitsAt(next);
+              if (!c) break;
+              at = next;
+              cand = c;
+            }
+            const score = joinScore(cand, placed, placedPads);
+            if (!best || score < best.score - 1e-9) best = { layout: cand, score };
+          }
         }
       }
       if (best) for (const [p, pose] of best.layout) placed.set(p, pose);

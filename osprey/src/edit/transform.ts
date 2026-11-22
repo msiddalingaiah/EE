@@ -25,6 +25,12 @@ export function rotationAbout(p: Point, quarterTurns: number): Transform {
   return compose(translation(p.x, p.y), compose(t, translation(-p.x, -p.y)));
 }
 
+/** Rotate by `degrees` counter-clockwise about `p` (any angle, as Eagle allows parts at 45°). */
+export function turnAbout(p: Point, degrees: number): Transform {
+  const t = placement(0, 0, { angle: degrees, mirror: false, spin: false });
+  return compose(translation(p.x, p.y), compose(t, translation(-p.x, -p.y)));
+}
+
 /** Mirror left-right about the vertical line x = `x`. */
 export function mirrorAbout(x: number): Transform {
   return { a: -1, b: 0, c: 0, d: 1, e: 2 * x, f: 0 };

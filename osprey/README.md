@@ -259,7 +259,10 @@ native model (see [docs/format.md](docs/format.md)). Eagle files are imported in
   block inside it. Parts already in a block keep it and pull their neighbours in, so naming one
   IC's block and suggesting again fills it in. One undo step.
   A part's block is its BLOCK attribute, so it is kept through Eagle export. Placement is to work
-  block by block.
+  block by block. `test/bench-place.test.ts` measures Place against hand layouts: set
+  `OSPREY_BENCH_DIR` to a folder of imported, hand-placed boards and it scores each one placed
+  by hand and by Place (wiring, crossings, board size, rows and columns) and writes the table to
+  `bench-place.json` there. It is skipped without the folder, so the boards can stay private.
 - **CAM output** (board): the **File ▸ CAM** submenu makes the manufacturing files as one zip (`x_CAM.zip`;
   in Chrome and Edge it asks for a folder once, and CAM and assembly files go there while the
   project is open; other browsers download them): Gerber

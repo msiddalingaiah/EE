@@ -15,7 +15,7 @@ import {
 import type * as O from '../model/types';
 import { improve, type ImproveOptions, type ImproveResult } from './improve';
 import type { Transaction } from './ops';
-import { rotationAbout, transformTargets, translation } from './transform';
+import { rotationAbout, transformTargets, translation, turnAbout } from './transform';
 
 export type Side = 'left' | 'right' | 'above' | 'below';
 export type Edge = 'left' | 'right' | 'top' | 'bottom';
@@ -90,6 +90,9 @@ export class Arrange {
     // Quarter turns about the origin until the rotation is right (a bottom-side part turns the
     // other way in its own terms).
     const norm = (v: number) => (((Math.round(v) % 360) + 360) % 360);
+    // A part at an angle that isn't a quarter turn off (45°, from Eagle) is first turned onto one.
+    const off = rot === undefined ? 0 : (norm(rot) - norm(f.rot ?? 0) + 360) % 90;
+    if (off) transformTargets(this.project, [target], turnAbout({ x: f.at[0], y: f.at[1] }, f.side === 'bottom' ? -off : off), this.tx, this.index);
     for (let k = 0; rot !== undefined && norm(f.rot ?? 0) !== norm(rot) && k < 4; k++) {
       transformTargets(this.project, [target], rotationAbout({ x: f.at[0], y: f.at[1] }, 1), this.tx, this.index);
     }
