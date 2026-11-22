@@ -300,6 +300,9 @@ native model (see [docs/format.md](docs/format.md)). Eagle files are imported in
   net label goes between), sized by the names and values they actually show; supply symbols
   keep clear of parts' texts. `samples/schematics` holds common subcircuits generated and then
   redrawn by hand, and `osprey compare` scores a generated sheet against such a drawing.
+  `test/bench-schematic.test.ts` does it for a folder of imported designs (`OSPREY_BENCH_DIR`,
+  skipped without it): each one's netlist and blocks go to the generator, and the result is
+  measured against the hand drawing (wire, bends, overlaps, block area, net labels).
 - **Command line** (`npm run osprey -- …`, or `node scripts/osprey.mjs`): runs the design flow on
   `.osprey` files with no browser, for agents and scripts: `osprey x.osprey place route labels
   lcsc check cam assembly` runs the steps in order and saves the project in place (or `-o`).
