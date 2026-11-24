@@ -13,6 +13,7 @@ import { drc } from '../model/drc';
 import { erc } from '../model/erc';
 import { exportEagle } from '../model/export-eagle';
 import { readLibrary, readProject, writeProject } from '../model/file';
+import { subcircuitBlocks } from '../edit/subcircuit';
 import { lcscStatus, readLcscTable, setLcscParts, type LcscPart, type LcscStatus } from '../model/lcsc';
 import { parseDru } from '../model/rules';
 import type * as O from '../model/types';
@@ -194,6 +195,53 @@ export const STEPS: Record<string, Step> = {
       const err = c.editor.loadRules(name.replace(/\.dru$/i, ''), parseDru(text));
       if (err) throw new UsageError(err);
       return { summary: `Loaded design rules ${name}` };
+    },
+  },
+  copy: {
+    arg: '<Block>[,<PORT>=<net>…][,<part>.value=<v>…][,from=<file>][,at=<x>:<y>][,as=<name>]',
+    argRequired: true,
+    help: "Copy a subcircuit (a block of a project in the user directory's subcircuits/, or from=) into the schematic; ports join the nets named",
+    run: (c) => {
+      const [block, ...opts] = (c.arg ?? '').split(',').map((x) => x.trim()).filter(Boolean);
+      if (!block) throw new UsageError('copy needs a block: copy=<Block>[,PORT=net…]');
+      const ports: Record<string, string> = {};
+      const values: Record<string, string> = {};
+      let from: string | undefined;
+      let at: O.Pt | undefined;
+      let name: string | undefined;
+      for (const o of opts) {
+        const i = o.indexOf('=');
+        if (i < 1) throw new UsageError(`copy: "${o}" isn't key=value`);
+        const [k, v] = [o.slice(0, i), o.slice(i + 1)];
+        if (k === 'from') from = v;
+        else if (k === 'as') name = v;
+        else if (k === 'at') {
+          const xy = v.split(':').map(Number);
+          if (xy.length !== 2 || xy.some((n) => !Number.isFinite(n))) throw new UsageError(`copy: at=${v}: give at=<x>:<y> in mm`);
+          at = [xy[0]!, xy[1]!];
+        } else if (k.toLowerCase().endsWith('.value')) values[k.slice(0, -6)] = v;
+        else ports[k] = v;
+      }
+      // The project holding it: from=, else whichever in subcircuits/ has a block of that name.
+      let source: { name: string; project: O.Project } | undefined;
+      if (from) {
+        const f = named({ ...c, arg: from }, 'subcircuits', '.osprey');
+        source = { name: f.name, project: readProject(f.text) };
+      } else {
+        const found = c.env.listUserDir('subcircuits').filter((n) => n.toLowerCase().endsWith('.osprey'))
+          .map((n) => ({ name: n, project: readProject(c.env.readUserDir('subcircuits', n)) }))
+          .filter((x) => subcircuitBlocks(x.project).some((b) => b.name.toLowerCase() === block.toLowerCase()));
+        if (!found.length) throw new UsageError(`No subcircuit ${block} in the user directory's subcircuits/ (osprey subcircuits lists them; or give from=<file>)`);
+        if (found.length > 1) throw new UsageError(`${block} is in ${found.map((x) => x.name).join(' and ')}: say which with from=`);
+        source = found[0]!;
+      }
+      const r = c.editor.copyBlock(source.project, block, { ports, values, ...(at ? { at } : {}), ...(name ? { name } : {}) });
+      if (typeof r === 'string') throw new UsageError(r);
+      const renamed = [...r.parts].filter(([a, b]) => a !== b).map(([a, b]) => `${a}→${b}`);
+      return {
+        summary: `Copied ${r.block} from ${source.name}: ${plural(r.parts.size, 'part')}${renamed.length ? ` (${renamed.join(' ')})` : ''}${r.ports.size ? `; ports ${[...r.ports].map(([p, n]) => (p === n ? p : `${p}→${n}`)).join(' ')}` : ''}`,
+        problems: r.notes.map((message) => ({ severity: 'warning' as const, kind: 'library', message })),
+      };
     },
   },
   suggest: {

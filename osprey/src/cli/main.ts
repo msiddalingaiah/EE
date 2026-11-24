@@ -4,6 +4,7 @@
 //   osprey import <x.sch> <x.brd> [-o x.osprey] [<step>...]
 //   osprey generate <x.blocks> [-o x.osprey] [<step>...]
 //   osprey compare <generated.osprey> <reference.osprey>
+//   osprey subcircuits [x.osprey]
 //   osprey commands
 //
 // Run through scripts/osprey.mjs, which bundles this for Node. The steps are in steps.ts.
@@ -14,6 +15,7 @@ import { parseEagle } from '../eagle/parse';
 import { parseDescription, resolveDescription, type Source } from '../gen/description';
 import { generateProject } from '../gen/layout';
 import { compareSheets } from '../gen/score';
+import { subcircuitBlocks } from '../edit/subcircuit';
 import { readLibrary, readProject, writeProject } from '../model/file';
 import { importEagle, importLibrary } from '../model/import-eagle';
 import type * as O from '../model/types';
@@ -24,6 +26,7 @@ const USAGE = `Usage:
   osprey import <x.sch> <x.brd> [-o x.osprey] [<step>...] [options]
   osprey generate <x.blocks> [-o x.osprey] [<step>...] [options]
   osprey compare <generated.osprey> <reference.osprey>
+  osprey subcircuits [x.osprey] [--json]
   osprey commands
 
 generate draws a schematic from a block description (README "Schematic generation"), after
@@ -33,6 +36,9 @@ files, then the user directory's libraries.
 compare measures two drawings of the same netlist block by block (wire length, bends, size,
 and how far parts are from where the reference has them): a generated sheet against one drawn
 by hand.
+
+subcircuits lists the blocks of the user directory's subcircuits/ projects (or of one project):
+each block's ports, supplies and parts, for the copy step.
 
 Steps run in order on the project, which is saved (in place, or to -o) if one changed it.
 The run stops at the first step that finds an error.
@@ -123,6 +129,30 @@ async function main(argv: string[]): Promise<number> {
   }
   if (argv[0] === 'commands') {
     console.log(`Steps (and the menu commands they match):\n${listCommands()}`);
+    return 0;
+  }
+  if (argv[0] === 'subcircuits') {
+    const args = parseArgs(argv.slice(1));
+    const userdir = args.userdir ?? process.env.OSPREY_USERDIR;
+    const dir = userdir ? join(userdir, 'subcircuits') : undefined;
+    const files = args.files.length ? args.files
+      : dir && existsSync(dir) ? readdirSync(dir).filter((n) => n.toLowerCase().endsWith('.osprey')).sort().map((n) => join(dir, n)) : [];
+    if (!files.length) throw new UsageError("No subcircuits: give a project, or a user directory (--userdir, OSPREY_USERDIR) with subcircuits/");
+    const out = files.map((file) => ({
+      file: basename(file),
+      blocks: subcircuitBlocks(readProject(readText(file))).map((b) => ({
+        name: b.name, ports: b.ports, supplies: b.supplies,
+        parts: b.parts.map((p) => ({ name: p.name, component: p.component.split('/').pop(), ...(p.value ? { value: p.value } : {}), ...(p.variant ? { variant: p.variant } : {}) })),
+      })),
+    }));
+    if (args.json) console.log(JSON.stringify(out, null, 2));
+    else for (const f of out) {
+      console.log(f.file);
+      for (const b of f.blocks) {
+        console.log(`  ${b.name}: ports ${b.ports.join(' ') || '(none)'}; supplies ${b.supplies.join(' ') || '(none)'}`);
+        console.log(`    ${b.parts.map((p) => `${p.name} ${p.value ?? p.component}`).join(', ')}`);
+      }
+    }
     return 0;
   }
   if (argv[0] === 'compare') {

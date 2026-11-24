@@ -344,8 +344,9 @@ description, checked, turned into a schematic, placed, routed and given JLCPCB p
    subcircuits project changes no design that used it. A block's ports are its labelled nets
    (VIN, OUT, RESET …) besides VCC and GND. The sample, `samples/subcircuits/subcircuits.osprey`,
    holds Regulator, PMOS-polarity, Reset-button, LED, Divider, ATtiny412 and a 20 MHz
-   Oscillator (SMT parts). Next: a
-   step that copies a block into a design and connects its ports to the design's nets; then
+   Oscillator (SMT parts). The command line's `copy` step copies one into a design and joins
+   its ports to the design's nets (`osprey subcircuits` lists them). Next: wiring a port to a
+   bare pin (an MCU's), a menu command in the app; then
    generation that places a stored block whole when a description names it; later, each
    block's tuned placement and routing, kept as one rigid piece by autoplace.
 2. **Library parts from a datasheet, a description or an existing library,** run by an
@@ -457,6 +458,7 @@ first step that finds an error.
 | `info` | parts, nets, blocks, board size, unrouted connections, LCSC coverage |
 | `update` | update from the user directory's Osprey libraries (as opening in the app does) |
 | `rules=<name.dru>` | load design rules from the user directory's `rules/`, or a file |
+| `copy=<Block>[,<PORT>=<net>…][,<part>.value=<v>…][,from=<file>][,at=<x>:<y>][,as=<name>]` | copy a subcircuit into the schematic (below) |
 | `suggest`, `place`, `route`, `labels`, `lcsc` | Suggest blocks, Place, Autoroute, Arrange labels, LCSC Assign (from the user directory's `parts/`) |
 | `erc`, `drc` | the checks (DRC includes unrouted connections) |
 | `check` | ready to order: ERC, DRC, LCSC numbers, labels on copper or each other; changes nothing |
@@ -474,6 +476,15 @@ block by block: wire length, bends, overlaps (a text over another part or text, 
 included), size, and how far parts are from where the reference has them (after moving the
 whole block to fit). It is how the generator is checked against hand drawings
 (`samples/schematics/subcircuits-hand.osprey`, `samples/osprey/wwvbfind2.osprey`).
+
+`osprey subcircuits [x.osprey] [--json]` lists the blocks of the user directory's
+`subcircuits/` projects (or of one project): each one's ports, supplies and parts. The `copy`
+step copies one into a design, as drawn, with its supply symbols: parts keep their names where
+the design doesn't use them and take the next free number where it does; the block is renamed
+the same way (LED, LED2). Each port given as `PORT=net` joins that net (or takes that name);
+`C2.value=10u` sets a value (parts as the subcircuits project names them); `at=x:y` puts
+the block's top-left corner there, else it goes right of what the sheet holds. For example
+`osprey board.osprey copy=PMOS-polarity,VIN=VBAT copy=Regulator,VIN=VBAT,C2.value=10u`.
 
 #### Block descriptions
 

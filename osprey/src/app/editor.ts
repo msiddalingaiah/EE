@@ -13,6 +13,7 @@ import type { Grid, Project } from '../model/types';
 import { deleteTargets } from '../edit/delete';
 import { History, insert, remove, set, Transaction } from '../edit/ops';
 import { copyTargets, pasteClip, type Clip, type Pasted } from '../edit/clipboard';
+import { copyBlock, type CopyBlockOptions, type CopyBlockResult } from '../edit/subcircuit';
 import { addToLibrary, createPart, gatesToPlace, updateFromLibrary } from '../edit/place';
 import { addPour, defaultPourNet, setOutline, setPourNet, setPourProps, withCornerAdded, withCornerMoved, withCornerRemoved, type PourPatch } from '../edit/pours';
 import { applyDru } from '../edit/rules';
@@ -442,6 +443,19 @@ export class Editor {
       setVariantAttribute(v, technology, 'LCSC', value, tx);
       return undefined;
     });
+  }
+
+  /** Copy a block of a subcircuits project into this one (one undo step); an error message when it can't. */
+  copyBlock(source: Project, block: string, opts: CopyBlockOptions = {}): CopyBlockResult | string {
+    const tx = new Transaction(`Copy subcircuit ${block}`);
+    const r = copyBlock(this.project, source, block, opts, tx);
+    if (typeof r === 'string') {
+      tx.revert();
+      return r;
+    }
+    tx.label = `Copy subcircuit ${r.block}`;
+    this.push(tx);
+    return r;
   }
 
   renameNet(oldName: string, newName: string): string | undefined {

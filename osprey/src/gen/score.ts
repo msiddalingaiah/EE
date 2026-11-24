@@ -27,7 +27,7 @@ export interface BlockScore {
 interface Box { x0: number; y0: number; x1: number; y1: number }
 
 /** Each gate's drawing (lines and shapes, not its pins) and each of its texts (name and value as shown), as boxes on the sheet. */
-function gateBoxes(index: ProjectIndex, sheet: O.Sheet): { part: string; box: Box; text: boolean }[] {
+export function gateBoxes(index: ProjectIndex, sheet: O.Sheet): { part: string; box: Box; text: boolean }[] {
   return sheet.gates.flatMap((g) => {
     const part = index.parts.get(g.part);
     const c = part && index.components.get(part.component);
