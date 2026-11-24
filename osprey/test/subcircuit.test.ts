@@ -118,4 +118,26 @@ describe('subcircuits', () => {
     expect(Math.min(...p.schematic!.sheets[0]!.gates.filter((g) => div.has(g.part)).map((g) => g.at[0]))).toBeGreaterThanOrEqual(100);
     expect(writeProject(p)).toContain('"VREF"');
   });
+
+  it('wires bare pins to nets with a labelled stub (connect step)', () => {
+    const p = empty();
+    const ed = new Editor(p, () => {});
+    for (const b of ['ATtiny412', 'Oscillator']) if (typeof ed.copyBlock(source(), b, b === 'Oscillator' ? { ports: { CLK: 'CLKIN' } } : {}) === 'string') throw new Error(b);
+    const r = ed.connectPins(['U2.PA3', 'U2.PA6'], 'CLKIN');
+    expect(r).toEqual([{ pin: 'U2.PA3/EXTCLK', net: 'CLKIN' }, { pin: 'U2.PA6', net: 'CLKIN' }]);
+    expect(netlist(p).get('CLKIN')).toEqual(['U2.PA3/EXTCLK', 'U2.PA6', 'U3.O']);
+    // Each stub leaves its pin away from the body: PA6 (left side) to the left, PA3 (right side) to the right.
+    const seg = (pin: string) => p.nets.find((n) => n.name === 'CLKIN')!.segments!.find((s) => s.pins.some((x) => x.pin === pin))!;
+    const u2 = p.schematic!.sheets[0]!.gates.find((g) => g.part === 'U2')!;
+    expect(Math.min(...seg('PA6').wires[0]!.line.map((q) => q[0]))).toBeLessThan(u2.at[0] - 17.78);
+    expect(Math.max(...seg('PA3/EXTCLK').wires[0]!.line.map((q) => q[0]))).toBeGreaterThan(u2.at[0] + 17.78);
+    expect(seg('PA6').labels).toHaveLength(1);
+    expect(erc(p).problems.filter((x) => /no wire|crosses|overlap/.test(x.message))).toEqual([]);
+    expect(ed.connectPins(['U2.PA3'], 'X')).toBe('U2.PA3/EXTCLK is on CLKIN already');
+    expect(ed.connectPins(['U2.ZZ'], 'X')).toBe('U2 has no pin ZZ');
+    expect(ed.connectPins(['U3.O'], 'X')).toBe('U3.O is ambiguous: U3.A.O, U3.B.O');
+    // A failure takes back the pins before it.
+    expect(ed.connectPins(['U2.PA7', 'U2.ZZ'], 'X')).toBe('U2 has no pin ZZ');
+    expect(netlist(p).has('X')).toBe(false);
+  });
 });

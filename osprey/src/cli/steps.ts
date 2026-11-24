@@ -244,6 +244,19 @@ export const STEPS: Record<string, Step> = {
       };
     },
   },
+  connect: {
+    arg: '<part>.<pin>[,<part>.<pin>…],<net>',
+    argRequired: true,
+    help: 'Wire pins to a net by name: a short labelled wire out of each pin (PA3 finds PA3/EXTCLK)',
+    run: (c) => {
+      const items = (c.arg ?? '').split(',').map((x) => x.trim()).filter(Boolean);
+      if (items.length < 2) throw new UsageError('connect needs pins and a net: connect=U2.PA3,CLKIN');
+      const net = items.pop()!;
+      const r = c.editor.connectPins(items, net);
+      if (typeof r === 'string') throw new UsageError(r);
+      return { summary: `Connected ${r.map((x) => x.pin).join(', ')} to ${r[0]!.net}` };
+    },
+  },
   suggest: {
     id: 'tools.suggest-blocks',
     help: 'Suggest blocks for the parts that have none',

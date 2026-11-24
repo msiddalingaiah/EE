@@ -14,6 +14,7 @@ import { deleteTargets } from '../edit/delete';
 import { History, insert, remove, set, Transaction } from '../edit/ops';
 import { copyTargets, pasteClip, type Clip, type Pasted } from '../edit/clipboard';
 import { copyBlock, type CopyBlockOptions, type CopyBlockResult } from '../edit/subcircuit';
+import { wirePinToNet } from '../edit/connect';
 import { addToLibrary, createPart, gatesToPlace, updateFromLibrary } from '../edit/place';
 import { addPour, defaultPourNet, setOutline, setPourNet, setPourProps, withCornerAdded, withCornerMoved, withCornerRemoved, type PourPatch } from '../edit/pours';
 import { applyDru } from '../edit/rules';
@@ -456,6 +457,22 @@ export class Editor {
     tx.label = `Copy subcircuit ${r.block}`;
     this.push(tx);
     return r;
+  }
+
+  /** Wire pins to a net by name, each with a labelled stub (one undo step); an error message when one can't be. */
+  connectPins(refs: string[], net: string): { pin: string; net: string }[] | string {
+    const tx = new Transaction(`Connect to ${net}`);
+    const done: { pin: string; net: string }[] = [];
+    for (const ref of refs) {
+      const r = wirePinToNet(this.project, ref, net, tx);
+      if (typeof r === 'string') {
+        tx.revert();
+        return r;
+      }
+      done.push(r);
+    }
+    this.push(tx);
+    return done;
   }
 
   renameNet(oldName: string, newName: string): string | undefined {
