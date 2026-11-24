@@ -7,7 +7,8 @@ so the generator's rules can be compared with (and scored against) how a person 
   what it is. Blocks share only VCC and GND.
 - `subcircuits-gen.osprey`: the generator's layout. Regenerate it freely:
   `npm run osprey -- generate samples/schematics/subcircuits.blocks -o samples/schematics/subcircuits-gen.osprey`
-- `subcircuits-hand.osprey`: the hand drawing. It started as a copy of `-gen`. It is never
+- `subcircuits-hand.osprey`: the hand drawing. The first six blocks started as a copy of `-gen`
+  and were redrawn; the rest are copied, as drawn, from old Eagle designs (below). It is never
   regenerated, only read.
 
 ## Redrawing
@@ -29,6 +30,28 @@ into `-hand`.
 - [ ] CE-amp: divider bias, bypassed emitter, coupling caps
 - [ ] Inverting-amp: single supply, +IN biased at half supply
 - [ ] LC-tank: tuned collector load
+
+### From old designs
+
+Copied with their wires and supply symbols from the old Eagle designs (private-ee/designs), picked
+from a count of subcircuit types across them. Parts are renamed to be unique here, positive
+supplies become VCC, and wires that ran to parts left behind are trimmed (their pins are `nc:`).
+
+- ATtiny412: decoupling cap, UPDI header, trimmer on an ADC pin, LED (panels/ATTiny412)
+- Crystal with two load caps (ustem/atmega8u2)
+- Reset-button: pull-up and push button (ustem/atmega8u2)
+- Regulator: 78L05 with a series input diode (ustem/tiny24X)
+- Boost: MAX17225 (IoT/nano-boost_rev_C)
+- PMOS-polarity: reverse-polarity P-MOSFET (ustem/Polarity)
+- MOSFET-switch: low-side switch with a flyback diode (BeamSensor)
+- 555-astable (ustem/555-astable)
+- Current-mirror (ustem/n-mirror)
+- Diff-pair with mirror tail and load (ustem/mixer)
+- Colpitts, common collector (ustem/3904Colpitts4)
+- Colpitts-CB, common base with emitter follower and detector (ustem/3904Colpitts1)
+- Multivibrator (ustem/t2)
+- Power-latch: NPN-driven PNP high-side switch (IoT/RTC_latch)
+- Detector-buffer: diode detector and op-amp follower (ustem/PNP-Dipper; 1N4148 drawn as 1N914)
 
 Later: RC high-pass, pull-up/pull-down, decoupling around an IC, emitter follower,
 transistor switch with a relay and flyback diode, differential pair, non-inverting amp,

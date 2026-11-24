@@ -44,10 +44,23 @@ describe('schematic score', { timeout: 60000 }, () => {
     expect(t.overlaps).toBe(0);
   });
 
+  // The first six subcircuits were redrawn by hand from generated ones; the rest are copied
+  // from the corpus of old designs as drawn (by hand: 4291 mm, 125 bends).
+  const SIX = new Set(['CE-amp', 'Divider', 'Inverting-amp', 'LC-tank', 'LED', 'RC-lowpass']);
+  const sub = generate(read('samples', 'schematics', 'subcircuits.blocks'));
+  const only = (keep: (b: string) => boolean) => new Map([...blocksOf(sub)].filter(([, b]) => b && keep(b)));
+
   it('draws the subcircuits compactly', () => {
-    const t = total(generate(read('samples', 'schematics', 'subcircuits.blocks')));
+    const t = total(sub, only((b) => SIX.has(b)));
     expect(t.wire).toBeLessThan(620);
     expect(t.bends).toBeLessThanOrEqual(27);
     expect(t.overlaps).toBeLessThanOrEqual(1);
+  });
+
+  it('draws the subcircuits from old designs compactly', () => {
+    const t = total(sub, only((b) => !SIX.has(b)));
+    expect(t.wire).toBeLessThan(5000);
+    expect(t.bends).toBeLessThanOrEqual(225);
+    expect(t.overlaps).toBeLessThanOrEqual(8);
   });
 });
