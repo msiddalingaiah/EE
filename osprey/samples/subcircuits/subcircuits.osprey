@@ -165,6 +165,45 @@
           { "name": "C", "at": [0, -5.08], "rot": 90, "length": "short", "direction": "passive", "visible": "none" },
           { "name": "A", "at": [0, 2.54], "rot": 270, "length": "short", "direction": "passive", "visible": "none" }
         ]
+      },
+      { "id": "madhu/ATTINY412", "description": "Atmel ATtiny412 8 pin AVR 1 series microcontroller",
+        "graphics": [
+          { "line": [[-15.24, 7.62], [-15.24, -5.08]], "width": 0.254, "layer": "symbols" },
+          { "line": [[-15.24, -5.08], [15.24, -5.08]], "width": 0.254, "layer": "symbols" },
+          { "line": [[15.24, -5.08], [15.24, 7.62]], "width": 0.254, "layer": "symbols" },
+          { "line": [[15.24, 7.62], [-15.24, 7.62]], "width": 0.254, "layer": "symbols" },
+          { "text": ">NAME", "at": [-12.7, 10.16], "size": 1.778, "layer": "names", "align": "top-left" },
+          { "text": ">VALUE", "at": [-12.7, -7.62], "size": 1.778, "layer": "values" }
+        ],
+        "pins": [
+          { "name": "VDD", "at": [-17.78, 5.08], "length": "short", "direction": "power" },
+          { "name": "PA6", "at": [-17.78, 2.54], "length": "short" },
+          { "name": "PA7", "at": [-17.78, 0], "length": "short" },
+          { "name": "PA1", "at": [-17.78, -2.54], "length": "short" },
+          { "name": "PA2", "at": [17.78, -2.54], "rot": 180, "length": "short" },
+          { "name": "PA0/!RESET!/UPDI", "at": [17.78, 0], "rot": 180, "length": "short" },
+          { "name": "PA3/EXTCLK", "at": [17.78, 2.54], "rot": 180, "length": "short" },
+          { "name": "GND", "at": [17.78, 5.08], "rot": 180, "length": "short", "direction": "power" }
+        ]
+      },
+      { "id": "madhu/BERG-3", "description": "3-pin header connector",
+        "graphics": [
+          { "line": [[-1.27, -3.81], [1.905, -3.81]], "width": 0.254, "layer": "symbols" },
+          { "line": [[1.905, 3.81], [1.905, -3.81]], "width": 0.254, "layer": "symbols" },
+          { "line": [[1.905, 3.81], [-1.27, 3.81]], "width": 0.254, "layer": "symbols" },
+          { "line": [[-1.27, -3.81], [-1.27, 3.81]], "width": 0.254, "layer": "symbols" },
+          { "circle": [0, 0], "radius": 0.635, "width": 0.254, "layer": "symbols" },
+          { "circle": [0, 2.54], "radius": 0.635, "width": 0.254, "layer": "symbols" },
+          { "text": ">NAME", "at": [3.556, 6.604], "rot": 180, "size": 1.778, "layer": "names" },
+          { "text": ">VALUE", "at": [5.334, -4.572], "rot": 180, "size": 1.778, "layer": "values" },
+          { "text": "1", "at": [1.27, -2.54], "rot": 90, "size": 1.27, "layer": "names" },
+          { "circle": [0, -2.54], "radius": 0.635, "width": 0.254, "layer": "symbols" }
+        ],
+        "pins": [
+          { "name": "1", "at": [2.54, -2.54], "rot": 180, "length": "short", "direction": "passive", "visible": "none" },
+          { "name": "2", "at": [2.54, 0], "rot": 180, "length": "short", "direction": "passive", "visible": "none" },
+          { "name": "3", "at": [2.54, 2.54], "rot": 180, "length": "short", "direction": "passive", "visible": "none" }
+        ]
       }
     ],
     "footprints": [
@@ -592,6 +631,49 @@
           { "name": "A", "smd": [0.889, 0.889], "at": [-1.778, 0], "roundness": 75 },
           { "name": "K", "smd": [0.889, 0.889], "at": [1.778, 0] }
         ]
+      },
+      { "id": "madhu/SOIC-8", "description": "<b>Small Outline Package</b> Fits JEDEC packages (narrow SOIC-8)",
+        "graphics": [
+          { "line": [[-2.362, -1.803], [2.362, -1.803]], "width": 0.1524, "layer": "fab.top" },
+          { "line": [[2.362, -1.803], [2.362, 1.803]], "width": 0.1524, "layer": "silk.top" },
+          { "line": [[2.362, 1.803], [-2.362, 1.803]], "width": 0.1524, "layer": "fab.top" },
+          { "line": [[-2.362, 1.803], [-2.362, -1.803]], "width": 0.1524, "layer": "silk.top" },
+          { "circle": [-1.8034, -0.9906], "radius": 0.1436, "width": 0.2032, "layer": "silk.top" },
+          { "text": ">NAME", "at": [-2.032, -0.254], "size": 0.8128, "layer": "names.top" },
+          { "rect": [[-2.0828, -2.8702], [-1.7272, -1.8542]], "layer": "fab.top" },
+          { "rect": [[-0.8128, -2.8702], [-0.4572, -1.8542]], "layer": "fab.top" },
+          { "rect": [[0.4572, -2.8702], [0.8128, -1.8542]], "layer": "fab.top" },
+          { "rect": [[1.7272, -2.8702], [2.0828, -1.8542]], "layer": "fab.top" },
+          { "rect": [[-2.0828, 1.8542], [-1.7272, 2.8702]], "layer": "fab.top" },
+          { "rect": [[-0.8128, 1.8542], [-0.4572, 2.8702]], "layer": "fab.top" },
+          { "rect": [[0.4572, 1.8542], [0.8128, 2.8702]], "layer": "fab.top" },
+          { "rect": [[1.7272, 1.8542], [2.0828, 2.8702]], "layer": "fab.top" },
+          { "text": ">VALUE", "at": [-2.794, -2.159], "rot": 90, "size": 0.8128, "layer": "names.top" }
+        ],
+        "pads": [
+          { "name": "1", "smd": [0.6096, 2.2098], "at": [-1.905, -2.6162] },
+          { "name": "2", "smd": [0.6096, 2.2098], "at": [-0.635, -2.6162] },
+          { "name": "3", "smd": [0.6096, 2.2098], "at": [0.635, -2.6162] },
+          { "name": "4", "smd": [0.6096, 2.2098], "at": [1.905, -2.6162] },
+          { "name": "5", "smd": [0.6096, 2.2098], "at": [1.905, 2.6162] },
+          { "name": "6", "smd": [0.6096, 2.2098], "at": [0.635, 2.6162] },
+          { "name": "7", "smd": [0.6096, 2.2098], "at": [-0.635, 2.6162] },
+          { "name": "8", "smd": [0.6096, 2.2098], "at": [-1.905, 2.6162] }
+        ]
+      },
+      { "id": "madhu/BERG-3", "description": "<b>Three pin Berg connector</b><p>\ngrid 2.5 mm, outline 2.4 x 4.4 mm",
+        "graphics": [
+          { "line": [[3.81, 1.27], [3.81, -1.27]], "width": 0.1524, "layer": "silk.top" },
+          { "line": [[3.81, -1.27], [-3.81, -1.27]], "width": 0.1524, "layer": "silk.top" },
+          { "line": [[-3.81, -1.27], [-3.81, 1.27]], "width": 0.1524, "layer": "silk.top" },
+          { "line": [[-3.81, 1.27], [3.81, 1.27]], "width": 0.1524, "layer": "silk.top" },
+          { "text": ">NAME", "at": [-3.683, 1.397], "size": 0.8128, "layer": "names.top", "ratio": 10 }
+        ],
+        "pads": [
+          { "name": "1", "at": [-2.54, 0], "drill": 1.016, "shape": "square" },
+          { "name": "2", "at": [0, 0], "drill": 1.016 },
+          { "name": "3", "at": [2.54, 0], "drill": 1.016 }
+        ]
       }
     ],
     "components": [
@@ -686,6 +768,22 @@
           { "name": "5MM", "footprint": "madhu/LED5MM", "pads": { "A.A": ["A"], "A.C": ["K"] } },
           { "name": "AV11", "footprint": "madhu/AVO2-11", "pads": { "A.A": ["A"], "A.C": ["K"] } }
         ]
+      },
+      { "id": "madhu/ATTINY412", "prefix": "U", "description": "AVR ATtiny412 1 series microcontroller",
+        "gates": [
+          { "name": "A", "at": [0, -2.54], "symbol": "madhu/ATTINY412" }
+        ],
+        "variants": [
+          { "name": "", "footprint": "madhu/SOIC-8", "pads": { "A.GND": ["8"], "A.PA0/!RESET!/UPDI": ["6"], "A.PA1": ["4"], "A.PA2": ["5"], "A.PA3/EXTCLK": ["7"], "A.PA6": ["2"], "A.PA7": ["3"], "A.VDD": ["1"] } }
+        ]
+      },
+      { "id": "madhu/BERG-3", "prefix": "P", "description": "Three pin Berg connector",
+        "gates": [
+          { "name": "A", "at": [0, 0], "symbol": "madhu/BERG-3" }
+        ],
+        "variants": [
+          { "name": "", "footprint": "madhu/BERG-3", "pads": { "A.1": ["1"], "A.2": ["2"], "A.3": ["3"] } }
+        ]
       }
     ]
   },
@@ -716,7 +814,15 @@
     { "name": "C7", "component": "madhu/CAPACITOR-NP", "variant": "0805", "value": "100n", "attributes": { "BLOCK": "Divider" } },
     { "name": "SUPPLY11", "component": "supply2/GND", "variant": "" },
     { "name": "SUPPLY12", "component": "supply2/GND", "variant": "" },
-    { "name": "SUPPLY13", "component": "supply2/VCC", "variant": "" }
+    { "name": "SUPPLY13", "component": "supply2/VCC", "variant": "" },
+    { "name": "U2", "component": "madhu/ATTINY412", "variant": "", "attributes": { "BLOCK": "ATtiny412" } },
+    { "name": "C8", "component": "madhu/CAPACITOR-NP", "variant": "0805", "value": "100n", "attributes": { "BLOCK": "ATtiny412" } },
+    { "name": "P1", "component": "madhu/BERG-3", "variant": "", "attributes": { "BLOCK": "ATtiny412" } },
+    { "name": "SUPPLY14", "component": "supply2/VCC", "variant": "" },
+    { "name": "SUPPLY15", "component": "supply2/VCC", "variant": "" },
+    { "name": "SUPPLY16", "component": "supply2/GND", "variant": "" },
+    { "name": "SUPPLY17", "component": "supply2/VCC", "variant": "" },
+    { "name": "SUPPLY18", "component": "supply2/GND", "variant": "" }
   ],
   "nets": [
     { "name": "VIN",
@@ -814,6 +920,23 @@
           "wires": [
             { "line": [[304.8, 33.02], [304.8, 35.56]], "width": 0.1524 }
           ]
+        },
+        { "sheet": "1",
+          "pins": [
+            { "part": "U2", "gate": "A", "pin": "VDD" },
+            { "part": "SUPPLY14", "gate": "G$1", "pin": "VCC" },
+            { "part": "C8", "gate": "A", "pin": "1" },
+            { "part": "SUPPLY15", "gate": "G$1", "pin": "VCC" },
+            { "part": "P1", "gate": "A", "pin": "3" },
+            { "part": "SUPPLY17", "gate": "G$1", "pin": "VCC" }
+          ],
+          "wires": [
+            { "line": [[373.38, 25.4], [370.84, 25.4]], "width": 0.1524 },
+            { "line": [[370.84, 25.4], [370.84, 30.48]], "width": 0.1524 },
+            { "line": [[416.56, 35.56], [416.56, 38.1]], "width": 0.1524 },
+            { "line": [[452.12, 25.4], [449.58, 25.4]], "width": 0.1524 },
+            { "line": [[449.58, 25.4], [449.58, 30.48]], "width": 0.1524 }
+          ]
         }
       ]
     },
@@ -883,6 +1006,23 @@
             { "line": [[304.8, 7.62], [304.8, 5.08]], "width": 0.1524 },
             { "line": [[317.5, 10.16], [317.5, 7.62]], "width": 0.1524 }
           ]
+        },
+        { "sheet": "1", "junctions": [[416.56, 25.4]],
+          "pins": [
+            { "part": "U2", "gate": "A", "pin": "GND" },
+            { "part": "SUPPLY16", "gate": "GND", "pin": "GND" },
+            { "part": "C8", "gate": "A", "pin": "2" },
+            { "part": "P1", "gate": "A", "pin": "2" },
+            { "part": "SUPPLY18", "gate": "GND", "pin": "GND" }
+          ],
+          "wires": [
+            { "line": [[408.94, 25.4], [416.56, 25.4]], "width": 0.1524 },
+            { "line": [[416.56, 25.4], [429.26, 25.4]], "width": 0.1524 },
+            { "line": [[429.26, 25.4], [429.26, 22.86]], "width": 0.1524 },
+            { "line": [[416.56, 27.94], [416.56, 25.4]], "width": 0.1524 },
+            { "line": [[452.12, 22.86], [449.58, 22.86]], "width": 0.1524 },
+            { "line": [[449.58, 22.86], [449.58, 10.16]], "width": 0.1524 }
+          ]
         }
       ]
     },
@@ -941,6 +1081,24 @@
           ]
         }
       ]
+    },
+    { "name": "UPDI",
+      "segments": [
+        { "sheet": "1",
+          "pins": [
+            { "part": "U2", "gate": "A", "pin": "PA0/!RESET!/UPDI" },
+            { "part": "P1", "gate": "A", "pin": "1" }
+          ],
+          "labels": [
+            { "at": [416.56, 20.32], "size": 1.778, "layer": "names", "xref": true },
+            { "at": [441.96, 20.32], "rot": 180, "size": 1.778, "layer": "names", "xref": true }
+          ],
+          "wires": [
+            { "line": [[408.94, 20.32], [416.56, 20.32]], "width": 0.1524 },
+            { "line": [[452.12, 20.32], [441.96, 20.32]], "width": 0.1524 }
+          ]
+        }
+      ]
     }
   ],
   "schematic": { "grid": { "step": 2.54, "fine": 0.254, "unit": "inch" },
@@ -978,7 +1136,15 @@
           { "part": "C7", "gate": "A", "at": [317.5, 12.7] },
           { "part": "SUPPLY11", "gate": "GND", "at": [304.8, 2.54] },
           { "part": "SUPPLY12", "gate": "GND", "at": [317.5, 5.08] },
-          { "part": "SUPPLY13", "gate": "G$1", "at": [304.8, 38.1] }
+          { "part": "SUPPLY13", "gate": "G$1", "at": [304.8, 38.1] },
+          { "part": "U2", "gate": "A", "at": [391.16, 20.32] },
+          { "part": "C8", "gate": "A", "at": [416.56, 30.48] },
+          { "part": "P1", "gate": "A", "at": [454.66, 22.86], "mirror": true },
+          { "part": "SUPPLY14", "gate": "G$1", "at": [370.84, 33.02] },
+          { "part": "SUPPLY15", "gate": "G$1", "at": [416.56, 40.64] },
+          { "part": "SUPPLY16", "gate": "GND", "at": [429.26, 20.32] },
+          { "part": "SUPPLY17", "gate": "G$1", "at": [449.58, 33.02] },
+          { "part": "SUPPLY18", "gate": "GND", "at": [449.58, 7.62] }
         ]
       }
     ]
@@ -998,7 +1164,10 @@
       { "part": "D2", "at": [50.8, -20] },
       { "part": "R3", "at": [55.88, -20] },
       { "part": "R4", "at": [60.96, -20] },
-      { "part": "C7", "at": [66.04, -20] }
+      { "part": "C7", "at": [66.04, -20] },
+      { "part": "U2", "at": [71.12, -20] },
+      { "part": "C8", "at": [76.2, -20] },
+      { "part": "P1", "at": [81.28, -20] }
     ]
   }
 }

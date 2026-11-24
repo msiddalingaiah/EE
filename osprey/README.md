@@ -343,7 +343,7 @@ description, checked, turned into a schematic, placed, routed and given JLCPCB p
    a component library: a block is copied into a design, never linked, so editing the
    subcircuits project changes no design that used it. A block's ports are its labelled nets
    (VIN, OUT, RESET …) besides VCC and GND. The sample, `samples/subcircuits/subcircuits.osprey`,
-   holds Regulator, PMOS-polarity, Reset-button, LED and Divider (SMT parts). Next: a
+   holds Regulator, PMOS-polarity, Reset-button, LED, Divider and ATtiny412 (SMT parts). Next: a
    step that copies a block into a design and connects its ports to the design's nets; then
    generation that places a stored block whole when a description names it; later, each
    block's tuned placement and routing, kept as one rigid piece by autoplace.
