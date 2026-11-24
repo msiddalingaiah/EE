@@ -3,6 +3,7 @@
 //   rules/      .dru files (Load design rules)
 //   cam/        .cam jobs (File ▸ CAM)
 //   parts/      .json parts tables (JLCPCB parts: LCSC numbers for Assign)
+//   subcircuits/ .osprey projects whose blocks are copied into designs (copied, never linked)
 // In Chromium it is a folder on disk, picked once (its handle kept in IndexedDB; after a reload
 // the browser asks again, from a click, before it can be used). Elsewhere it lives in the
 // browser's origin private file system, with export and import as a zip. Both are directory
@@ -12,12 +13,13 @@ import { zip } from '../cam/zip';
 import { unzip } from '../cam/unzip';
 import { writeInFolder, type FileHandle } from './files';
 
-export type Sub = 'libraries' | 'rules' | 'cam' | 'parts';
+export type Sub = 'libraries' | 'rules' | 'cam' | 'parts' | 'subcircuits';
 export const SUBS: Record<Sub, string[]> = {
   libraries: ['.ospreylib', '.lbr'],
   rules: ['.dru'],
   cam: ['.cam'],
   parts: ['.json'],
+  subcircuits: ['.osprey'],
 };
 
 /** A directory handle (FileSystemDirectoryHandle), as much of it as is used here. */
@@ -162,7 +164,7 @@ export class UserDir {
     this.changed();
   }
 
-  /** Every file, as one zip (libraries/…, rules/…, cam/…, parts/…). */
+  /** Every file, as one zip (libraries/…, rules/…, cam/…, parts/…, subcircuits/…). */
   async exportZip(): Promise<Uint8Array> {
     const files = new Map<string, string>();
     for (const sub of Object.keys(SUBS) as Sub[]) {

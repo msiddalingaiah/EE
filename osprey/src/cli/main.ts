@@ -40,7 +40,7 @@ The run stops at the first step that finds an error.
 Options:
   -o <file>          save the project here instead
   --out <dir>        where CAM, assembly and Eagle files go (default: the project's folder)
-  --userdir <dir>    the user directory, with libraries/, rules/, cam/, parts/ (default: $OSPREY_USERDIR)
+  --userdir <dir>    the user directory, with libraries/, rules/, cam/, parts/, subcircuits/ (default: $OSPREY_USERDIR)
   --json             print the results as one JSON object
   --strict           warnings fail a step too
   --dry-run          don't save the project (output files are still written)

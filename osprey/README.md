@@ -23,7 +23,7 @@ native model (see [docs/format.md](docs/format.md)). Eagle files are imported in
   (Chromium) lists the last 8 projects and libraries opened or saved.
 - **User directory** (File ▸ Preferences…): one place for the libraries (`libraries/`:
   `.ospreylib`, `.lbr`), design rules (`rules/`: `.dru`), CAM jobs (`cam/`: `.cam`) and
-  JLCPCB parts tables (`parts/`: `.json`) you keep. In Chrome and Edge it's a folder on disk, chosen once (after a reload the browser asks
+  JLCPCB parts tables (`parts/`: `.json`) and subcircuits (`subcircuits/`: `.osprey`, see Next) you keep. In Chrome and Edge it's a folder on disk, chosen once (after a reload the browser asks
   for permission again: **Reconnect**, in the left panel or the File menu); in any browser it can
   be kept in the browser's own storage, moved with **Export zip** and **Import zip…**. Add part,
   Copy from…, the update on opening a project, Load design rules, File ▸ CAM and the JLCPCB
@@ -337,11 +337,16 @@ text on copper.
 The goal is concept to orderable CAM and assembly files in under an hour: a block-by-block
 description, checked, turned into a schematic, placed, routed and given JLCPCB parts.
 
-1. **Subcircuits,** like standard cells: proven oscillators, buffers, preamps, power supplies
-   and conditioning, each with its schematic, its tuned placement and routing, ports (the nets
-   it connects by) and parameters (values that change per use). Captured from a block of a
-   working design, kept in a library, reused by generation; autoplace keeps an instance's
-   layout as one rigid block and autoroute connects only its ports.
+1. **Subcircuits,** like standard cells: proven regulators, oscillators, buffers, preamps and
+   conditioning, each drawn once by hand and reused. They are blocks (parts with one BLOCK
+   attribute) in ordinary `.osprey` projects in the user directory's `subcircuits/`, not in
+   a component library: a block is copied into a design, never linked, so editing the
+   subcircuits project changes no design that used it. A block's ports are its labelled nets
+   (VIN, OUT, XTAL1 …) besides VCC and GND. The sample, `samples/subcircuits/subcircuits.osprey`,
+   holds Regulator, PMOS-polarity, Crystal, Reset-button, LED and Divider (SMT parts). Next: a
+   step that copies a block into a design and connects its ports to the design's nets; then
+   generation that places a stored block whole when a description names it; later, each
+   block's tuned placement and routing, kept as one rigid piece by autoplace.
 2. **Library parts from a datasheet, a description or an existing library,** run by an
    agent through the command line (`osprey lib …`), written into the user directory:
    - **Existing libraries first:** Eagle libraries are plentiful (SparkFun, Adafruit, and the

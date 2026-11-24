@@ -4526,7 +4526,7 @@ async function openRecent(r: Recent): Promise<void> {
 }
 
 /**
- * The sample libraries, design rules, CAM job and JLCPCB parts table: not built into the app (the user directory
+ * The sample libraries, design rules, CAM job, JLCPCB parts table and subcircuits: not built into the app (the user directory
  * holds what is used), only copied into it by Preferences ▸ Add the samples. Each loads on
  * demand, as its own chunk.
  */
@@ -4539,9 +4539,10 @@ const sampleUserFiles: [Sub, Glob][] = [
   ['rules', import.meta.glob('../samples/eagle/*.dru', { query: '?raw', import: 'default' })],
   ['cam', import.meta.glob('../samples/eagle/*.cam', { query: '?raw', import: 'default' })],
   ['parts', import.meta.glob('../samples/parts/*.json', { query: '?raw', import: 'default' })],
+  ['subcircuits', import.meta.glob('../samples/subcircuits/*.osprey', { query: '?raw', import: 'default' })],
 ];
 
-/** Copy the sample libraries, design rules, CAM job and parts table into the user directory (those not there). */
+/** Copy the sample libraries, design rules, CAM job, parts table and subcircuits into the user directory (those not there). */
 async function addSamplesToUserDir(): Promise<number> {
   let n = 0;
   const sets = sampleUserFiles;
@@ -4627,6 +4628,7 @@ function renderPreferences(): void {
     count(userDir.list('rules').length, 'design rules file', 'design rules files'),
     count(userDir.list('cam').length, 'CAM job', 'CAM jobs'),
     count(userDir.list('parts').length, 'parts table', 'parts tables'),
+    count(userDir.list('subcircuits').length, 'subcircuit project', 'subcircuit projects'),
   ].join(', ');
   const status = userDir.status === 'ready'
     ? `${userDir.where === 'browser' ? 'Kept in this browser' : `The folder ${userDir.label}`}: ${counts()}.`

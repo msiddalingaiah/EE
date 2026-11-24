@@ -17,7 +17,7 @@ import { lcscStatus, readLcscTable, setLcscParts, type LcscPart, type LcscStatus
 import { parseDru } from '../model/rules';
 import type * as O from '../model/types';
 
-export type UserDirSub = 'libraries' | 'rules' | 'cam' | 'parts';
+export type UserDirSub = 'libraries' | 'rules' | 'cam' | 'parts' | 'subcircuits';
 
 export interface StepEnv {
   /** File names in the user directory's libraries/, rules/, cam/ or parts/ (none without one). */
