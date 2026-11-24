@@ -346,8 +346,9 @@ description, checked, turned into a schematic, placed, routed and given JLCPCB p
    holds Regulator, PMOS-polarity, Reset-button, LED, Divider, ATtiny412 and a 20 MHz
    Oscillator (SMT parts). The command line's `copy` step copies one into a design and joins
    its ports to the design's nets (`osprey subcircuits` lists them). `connect` wires bare
-   pins (an MCU's) to nets by name. Next:
-   generation that places a stored block whole when a description names it; later, each
+   pins (an MCU's) to nets by name. Descriptions place one whole
+   with `subcircuit Regulator VIN=VBAT`. Next: placing stored blocks among the generated ones
+   rather than to their right; later, each
    block's tuned placement and routing, kept as one rigid piece by autoplace.
 2. **Library parts from a datasheet, a description or an existing library,** run by an
    agent through the command line (`osprey lib …`), written into the user directory:
@@ -506,6 +507,7 @@ net: U2.A.I R11.1 X1.1               # a net, unnamed (N$…) or named (net CLK:
 net CLK: U2.B.O U1.PA3               # a named net in two blocks connects them
 GND: C9.2 C10.2                      # pins on a supply
 nc: U1.PA2                           # pins left unconnected on purpose
+subcircuit Regulator VIN=VBAT C2.value=10u   # a stored block, copied as drawn (below)
 ```
 
 Components come from the `use` files, then the user directory's libraries, by id
@@ -513,6 +515,14 @@ Components come from the `use` files, then the user directory's libraries, by id
 a component with several needs one (the check lists them). Pins are `part.pin` or
 `part.gate.pin`; `PA3` finds `PA3/EXTCLK`. Power pins named like a supply (`GND`, `VCC`) join
 it unless listed elsewhere. Parts are drawn left to right in the order listed.
+
+`subcircuit <Block> [PORT=net …] [part.value=v …] [from=<file>]` puts a stored block (a
+subcircuit, from the user directory's `subcircuits/`, or a `use`d project named by `from=`)
+in the current block, as it was drawn by hand; the rest is generated, then the stored blocks are
+copied in to the right. Each port joins the net it names (a one-pin net in the description, such
+as `net CLKIN: U1.PA3`, is drawn as a labelled stub that the port's label joins). Alone in its
+block, the copy takes the block's name; beside parts or other subcircuits, a sub-block
+(`Power/Regulator`). Unknown blocks, ports and parts are errors.
 
 Options: `--out <dir>` for CAM, assembly and Eagle files (default: beside the project);
 `--userdir <dir>` (or `OSPREY_USERDIR`) for the user directory, a folder with `libraries/`,

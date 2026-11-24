@@ -13,10 +13,14 @@
 //                                     part.pin, or part.gate.pin when the part has gates
 //   GND: R1.1 IN.1                    pins on a supply net
 //   nc: U1.PA2                        pins left unconnected on purpose
+//   subcircuit Regulator VIN=VBAT C2.value=10u [from=x.osprey]
+//                                     a stored block (the user directory's subcircuits/), copied as
+//                                     drawn; its ports join the nets named, values as given
 //
 // A net named in two blocks connects them. Nets of the same name are one net.
 
 import type * as O from '../model/types';
+import { subcircuitBlocks } from '../edit/subcircuit';
 
 export interface Problem {
   severity: 'error' | 'warning';
@@ -47,6 +51,15 @@ export interface DNet {
   line: number;
 }
 
+export interface DSub {
+  name: string;
+  ports: Record<string, string>;
+  values: Record<string, string>;
+  from?: string;
+  block: string;
+  line: number;
+}
+
 export interface Description {
   name?: string;
   uses: { path: string; line: number }[];
@@ -55,10 +68,11 @@ export interface Description {
   parts: DPart[];
   nets: DNet[];
   nc: { ref: string; line: number }[];
+  subcircuits: DSub[];
 }
 
 export function parseDescription(text: string): { description: Description; problems: Problem[] } {
-  const d: Description = { uses: [], supplies: [], blocks: [], parts: [], nets: [], nc: [] };
+  const d: Description = { uses: [], supplies: [], blocks: [], parts: [], nets: [], nc: [], subcircuits: [] };
   const problems: Problem[] = [];
   const err = (line: number, message: string) => problems.push({ severity: 'error', kind: 'syntax', message, line });
   let block = '';
@@ -81,6 +95,21 @@ export function parseDescription(text: string): { description: Description; prob
       block = words.slice(1).join(' ').split('/').map((x) => x.trim()).filter(Boolean).join('/');
       if (!block) err(line, 'block needs a name');
       else if (!d.blocks.includes(block)) d.blocks.push(block);
+    } else if (kw === 'subcircuit') {
+      if (!words[1]) err(line, 'subcircuit needs a block: subcircuit Regulator VIN=VBAT');
+      else if (!block) err(line, `subcircuit ${words[1]} comes before any block`);
+      else {
+        const sub: DSub = { name: words[1], ports: {}, values: {}, block, line };
+        for (const w of words.slice(2)) {
+          const eq = w.indexOf('=');
+          if (eq < 1) err(line, `subcircuit ${sub.name}: "${w}" isn't PORT=net, part.value=v or from=file`);
+          else if (w.slice(0, eq) === 'from') sub.from = w.slice(eq + 1);
+          else if (w.slice(0, eq).toLowerCase().endsWith('.value')) sub.values[w.slice(0, eq - 6)] = w.slice(eq + 1);
+          else sub.ports[w.slice(0, eq)] = w.slice(eq + 1);
+        }
+        d.subcircuits.push(sub);
+        if (!d.blocks.includes(block)) d.blocks.push(block);
+      }
     } else if (colon) {
       const [, first, second, rest] = colon;
       const pins = rest!.trim().split(/\s+/).filter(Boolean).map((ref) => ({ ref, line }));
@@ -142,8 +171,20 @@ export interface RNet {
   blocks: Set<string>;
 }
 
+export interface RSub {
+  /** The stored block's name, and the block name its copy takes. */
+  name: string;
+  as: string;
+  ports: Record<string, string>;
+  values: Record<string, string>;
+  project: O.Project;
+  line: number;
+}
+
 export interface Resolved {
   name: string;
+  /** Stored blocks, copied in after the rest is drawn. */
+  subcircuits?: RSub[];
   blocks: string[];
   parts: RPart[];
   nets: RNet[];
@@ -172,7 +213,7 @@ function symbolOf(source: O.Library, gate: O.Gate): O.Symbol | undefined {
 const isSupplyDirection = (d: O.PinDirection | undefined) => d === 'power' || d === 'supply';
 
 /** Check a description against libraries; the resolved design, if there are no errors. */
-export function resolveDescription(d: Description, sources: Source[], fallbackName = 'untitled'): { resolved?: Resolved; problems: Problem[] } {
+export function resolveDescription(d: Description, sources: Source[], fallbackName = 'untitled', stored: { name: string; project: O.Project; used?: true }[] = []): { resolved?: Resolved; problems: Problem[] } {
   const problems: Problem[] = [];
   const error = (kind: string, message: string, line?: number) => problems.push({ severity: 'error', kind, message, ...(line ? { line } : {}) });
   const warn = (kind: string, message: string, line?: number) => problems.push({ severity: 'warning', kind, message, ...(line ? { line } : {}) });
@@ -313,7 +354,49 @@ export function resolveDescription(d: Description, sources: Source[], fallbackNa
       }
     }
   }
+  // Stored blocks: found, with the ports and parts named.
+  const subs: RSub[] = [];
+  const portNets = new Set<string>();
+  const blocksIn = (x: { project: O.Project }) => subcircuitBlocks(x.project);
+  for (const s of d.subcircuits ?? []) {
+    const has = (x: { project: O.Project }) => blocksIn(x).some((b) => b.name.toLowerCase() === s.name.toLowerCase());
+    const from = s.from?.toLowerCase();
+    // By name with from= (a project the description uses, or one in subcircuits/); else the subcircuits/ projects.
+    const pool = from ? stored.filter((x) => x.name.toLowerCase() === from || x.name.toLowerCase() === from + '.osprey') : stored.filter((x) => !x.used);
+    if (from && !pool.length) {
+      error('subcircuit', 'subcircuit ' + s.name + ': no subcircuits project ' + s.from + ' (' + (stored.map((x) => x.name).join(', ') || 'none') + ')', s.line);
+      continue;
+    }
+    const found = pool.filter(has);
+    if (!found.length) {
+      const all = [...new Set(stored.filter((x) => !x.used).flatMap((x) => blocksIn(x).map((b) => b.name)))];
+      error('subcircuit', 'No subcircuit ' + s.name + ' (' + (stored.some((x) => !x.used) ? 'the blocks are ' + all.join(', ') : "no subcircuits projects: the user directory's subcircuits/, or use x.osprey") + ')', s.line);
+      continue;
+    }
+    if (found.length > 1) {
+      error('subcircuit', 'subcircuit ' + s.name + ' is in ' + found.map((x) => x.name).join(' and ') + ': say which with from=', s.line);
+      continue;
+    }
+    const info = blocksIn(found[0]!).find((b) => b.name.toLowerCase() === s.name.toLowerCase())!;
+    let ok = true;
+    for (const p of Object.keys(s.ports)) {
+      if (info.ports.includes(p)) continue;
+      error('subcircuit', 'subcircuit ' + info.name + ' has no port ' + p + ' (its ports: ' + (info.ports.join(', ') || 'none') + ')', s.line);
+      ok = false;
+    }
+    for (const p of Object.keys(s.values)) {
+      if (info.parts.some((x) => x.name === p)) continue;
+      error('subcircuit', 'subcircuit ' + info.name + ' has no part ' + p + ' (its parts: ' + info.parts.map((x) => x.name).join(', ') + ')', s.line);
+      ok = false;
+    }
+    if (!ok) continue;
+    for (const port of info.ports) portNets.add((s.ports[port] ?? port).toUpperCase());
+    // Alone in its block, the copy takes the block's name; else a sub-block of it.
+    const alone = !d.parts.some((p) => p.block === s.block) && d.subcircuits.filter((x) => x.block === s.block).length === 1;
+    subs.push({ name: info.name, as: alone ? s.block : s.block + '/' + info.name, ports: s.ports, values: s.values, project: found[0]!.project, line: s.line });
+  }
   for (const n of nets.values()) {
+    if (portNets.has(n.name.toUpperCase())) continue;
     if (!n.supply && n.pins.length === 1) warn('single-pin', `Net ${n.named ? n.name : `with ${n.pins[0]!.part}.${n.pins[0]!.pin}`} has only one pin`);
   }
 
@@ -327,7 +410,7 @@ export function resolveDescription(d: Description, sources: Source[], fallbackNa
     n.name = `N$${next++}`;
   }
   return {
-    resolved: { name: d.name || fallbackName, blocks: d.blocks, parts, nets: [...nets.values()].filter((n) => n.pins.length), supplies },
+    resolved: { name: d.name || fallbackName, blocks: d.blocks, parts, ...(subs.length ? { subcircuits: subs } : {}), nets: [...nets.values()].filter((n) => n.pins.length), supplies },
     problems,
   };
 }

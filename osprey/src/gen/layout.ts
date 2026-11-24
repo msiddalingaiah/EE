@@ -14,6 +14,7 @@
 // group; a pin the router can't reach gets a label too (nets connect by name).
 
 import { labelFor } from '../edit/netlabels';
+import { copyBlock } from '../edit/subcircuit';
 import { Transaction } from '../edit/ops';
 import { addToLibrary, insertPart } from '../edit/place';
 import type * as O from '../model/types';
@@ -2116,7 +2117,7 @@ export function generateProject(design: Resolved): O.Project {
   const potential = netPotential(design, supplies);
   const rails = findRails(design, supplies);
   let rowBottom = 0;
-  {
+  if (design.parts.length) {
     // The sheet laid out in one piece and wired as one circuit.
     const { nodes, groupOf } = layoutSheet(design, supplies, potential, rails);
     const { router } = routeNodes(nodes, design.nets, supplies, (s) => `${s.component.prefix || 'SUPPLY'}${++supplyCount}`, groupOf, rails);
@@ -2162,5 +2163,10 @@ export function generateProject(design: Resolved): O.Project {
     }
   }
   project.nets = [...nets.values()].filter((n) => n.segments!.length);
+  // Stored blocks, as drawn, right of the rest; their ports join the nets by name.
+  for (const s of design.subcircuits ?? []) {
+    const r = copyBlock(project, s.project, s.name, { ports: s.ports, values: s.values, name: s.as }, new Transaction(''));
+    if (typeof r === 'string') throw new Error('subcircuit ' + s.name + ' (line ' + s.line + '): ' + r);
+  }
   return project;
 }

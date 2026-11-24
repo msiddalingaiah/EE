@@ -9,7 +9,9 @@ import { runSteps, type StepEnv } from '../src/cli/steps';
 import { subcircuitBlocks } from '../src/edit/subcircuit';
 import { blockOf } from '../src/model/blocks';
 import { erc } from '../src/model/erc';
-import { readProject, writeProject } from '../src/model/file';
+import { readLibrary, readProject, writeProject } from '../src/model/file';
+import { parseDescription, resolveDescription } from '../src/gen/description';
+import { generateProject } from '../src/gen/layout';
 import type * as O from '../src/model/types';
 
 const text = readFileSync(join(__dirname, '..', 'samples', 'subcircuits', 'subcircuits.osprey'), 'utf8');
@@ -139,5 +141,47 @@ describe('subcircuits', () => {
     // A failure takes back the pins before it.
     expect(ed.connectPins(['U2.PA7', 'U2.ZZ'], 'X')).toBe('U2 has no pin ZZ');
     expect(netlist(p).has('X')).toBe(false);
+  });
+});
+
+describe('generation with subcircuits', () => {
+  const lib = (f: string) => join(__dirname, '..', 'samples', 'osprey', f);
+  const sources = [
+    { name: 'madhu.ospreylib', library: readLibrary(readFileSync(lib('madhu.ospreylib'), 'utf8')).library },
+    { name: 'wwvbfind2.osprey', library: readProject(readFileSync(lib('wwvbfind2.osprey'), 'utf8')).library },
+  ];
+  const stored = [{ name: 'subcircuits.osprey', project: source() }];
+  const head = 'supply VCC supply2/VCC\nsupply GND supply2/GND\n';
+  const run = (body: string) => resolveDescription(parseDescription(head + body).description, sources, 't', stored);
+
+  it('copies stored blocks in as drawn, their ports joining the described nets', () => {
+    const r = run([
+      'block Power', 'J1 madhu/BERG-2', 'net VBAT: J1.2', 'GND: J1.1',
+      'subcircuit PMOS-polarity VIN=VBAT', 'subcircuit Regulator VIN=VBAT C2.value=10u',
+      'block Clock', 'subcircuit Oscillator CLK=CLKIN',
+      'block MCU', 'U1 madhu/ATTINY412', 'VCC: U1.VDD', 'GND: U1.GND', 'net CLKIN: U1.PA3', 'nc: U1.PA6 U1.PA7 U1.PA1 U1.PA2 U1.PA0',
+    ].join('\n'));
+    // No "only one pin" warnings for VBAT and CLKIN: the stored blocks' ports join them.
+    expect(r.problems).toEqual([]);
+    expect(r.resolved!.subcircuits!.map((s) => [s.name, s.as])).toEqual([['PMOS-polarity', 'Power/PMOS-polarity'], ['Regulator', 'Power/Regulator'], ['Oscillator', 'Clock']]);
+    const p = generateProject(r.resolved!);
+    const blocks = new Map(p.parts.map((x) => [x.name, blockOf(x)]));
+    expect(blocks.get('Q1')).toBe('Power/PMOS-polarity');
+    expect(blocks.get('U3')).toBe('Clock');
+    const nets = netlist(p);
+    expect(nets.get('VBAT')).toEqual(expect.arrayContaining(['J1.2', 'Q1.D']));
+    expect(nets.get('VBAT')!.some((x) => /^D\d+\.A$/.test(x))).toBe(true);
+    expect(nets.get('CLKIN')).toEqual(['U1.PA3/EXTCLK', 'U3.O']);
+    expect(p.parts.find((x) => blocks.get(x.name) === 'Power/Regulator' && x.value === '10u')).toBeDefined();
+    expect(erc(p).problems.filter((x) => x.severity === 'error' || /no wire|only/.test(x.message))).toEqual([]);
+  });
+
+  it('says what is wrong with a subcircuit line', () => {
+    const msgs = (body: string) => run(body).problems.map((x) => x.message);
+    expect(msgs('block A\nsubcircuit Nope')).toEqual([expect.stringMatching(/^No subcircuit Nope \(the blocks are ATtiny412, /)]);
+    expect(msgs('block A\nsubcircuit LED OUT=X')).toEqual(['subcircuit LED has no port OUT (its ports: none)']);
+    expect(msgs('block A\nsubcircuit LED R9.value=1k')).toEqual(['subcircuit LED has no part R9 (its parts: R2, D2)']);
+    expect(msgs('block A\nsubcircuit LED from=other')).toEqual(['subcircuit LED: no subcircuits project other (subcircuits.osprey)']);
+    expect(parseDescription('subcircuit LED').problems.map((x) => x.message)).toEqual(['subcircuit LED comes before any block']);
   });
 });

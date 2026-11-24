@@ -275,7 +275,17 @@ async function generate(file: string, userdir: string | undefined, strict: boole
   const { sources, missing } = await librariesFor(file, description.uses, userdir);
   for (const m of missing) problems.push({ severity: 'error', kind: 'use', message: `No file ${m.path} (relative to the description)`, line: m.line });
   const stem = basename(file).replace(/\.blocks$/i, '');
-  const r = problems.some((p) => p.severity === 'error') ? { problems: [] } : resolveDescription(description, sources, stem);
+  // Subcircuits: the user directory's subcircuits/; a project the description uses, when from= names it.
+  const stored: { name: string; project: O.Project; used?: true }[] = [];
+  for (const u of description.uses) {
+    const path = resolve(dirname(file), u.path);
+    if (u.path.toLowerCase().endsWith('.osprey') && existsSync(path)) stored.push({ name: basename(path), project: readProject(readText(path)), used: true });
+  }
+  const subDir = userdir && join(userdir, 'subcircuits');
+  if (subDir && existsSync(subDir)) {
+    for (const n of readdirSync(subDir).filter((x) => x.toLowerCase().endsWith('.osprey')).sort()) stored.push({ name: n, project: readProject(readText(join(subDir, n))) });
+  }
+  const r = problems.some((p) => p.severity === 'error') ? { problems: [] } : resolveDescription(description, sources, stem, description.subcircuits.length ? stored : []);
   problems.push(...r.problems);
   const errors = problems.filter((p) => p.severity === 'error').length;
   const failed = errors > 0 || (strict && problems.length > 0);
@@ -283,7 +293,7 @@ async function generate(file: string, userdir: string | undefined, strict: boole
   const result: StepResult = {
     step: 'generate', ok: !failed, problems,
     summary: resolved && !failed
-      ? `${resolved.parts.length} parts in ${resolved.blocks.length} blocks, ${resolved.nets.length} nets${problems.length ? `; ${problems.length} warning(s)` : ''}`
+      ? `${resolved.parts.length} parts${resolved.subcircuits ? ` and ${resolved.subcircuits.length} subcircuit(s)` : ''} in ${resolved.blocks.length} blocks, ${resolved.nets.length} nets${problems.length ? `; ${problems.length} warning(s)` : ''}`
       : `${errors} error(s)${problems.length > errors ? `, ${problems.length - errors} warning(s)` : ''}: nothing written`,
   };
   return { ...(resolved && !failed ? { project: generateProject(resolved) } : {}), result };
