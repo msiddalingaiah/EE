@@ -34,11 +34,14 @@ describe('subcircuits', () => {
     const blocks = FILES.flatMap((f) => subcircuitBlocks(source(f))).sort((a, b) => a.name.localeCompare(b.name));
     expect(blocks.map((b) => [b.name, b.ports, b.supplies])).toEqual([
       ['ATtiny412', ['UPDI'], ['GND', 'VCC']],
+      ['Battery-monitor', ['ADC', 'VBATT'], ['GND', 'VCC']],
       ['Boost-MAX17225', ['VOUT'], ['GND', 'VCC']],
+      ['Boost-TPS61021A', ['POWER_EN', 'VBATT'], ['GND', 'VCC']],
       ['CE-amp', ['IN', 'OUT'], ['GND', 'VCC']],
       ['Colpitts-CB', ['DET', 'OUT', 'VIN'], ['GND', 'VCC']],
       ['Colpitts-CC', ['OUT', 'VIN'], ['GND', 'VCC']],
       ['Divider', ['OUT'], ['GND', 'VCC']],
+      ['ESP12F', ['ADC', 'SCL', 'SDA'], ['GND', 'VCC']],
       ['IF-amp', ['BIAS', 'IN', 'OUT'], ['GND', 'VCC']],
       ['Inverting-amp', ['IN', 'OUT'], ['GND', 'VCC']],
       ['JFET-preamp', ['IN', 'OUT'], ['GND', 'VCC']],
@@ -52,7 +55,10 @@ describe('subcircuits', () => {
       ['RC-lowpass', ['IN', 'OUT'], ['GND']],
       ['Regulator', ['VIN'], ['GND', 'VCC']],
       ['Reset-button', ['RESET'], ['GND', 'VCC']],
+      ['RTC-PCF85063A', ['INT', 'SCL', 'SDA', 'VBATT'], ['GND']],
+      ['Timer-TPL5010', ['POWER_EN', 'RST', 'VBATT'], ['GND']],
       ['Tuned-amp', ['IN', 'OUT'], ['GND', 'VCC']],
+      ['Wake-latch', ['INT', 'POWER_EN', 'RST', 'VBATT'], ['GND']],
     ]);
   });
 
@@ -64,8 +70,10 @@ describe('subcircuits', () => {
         const r = new Editor(p, () => {}).copyBlock(s, b.name);
         if (typeof r === 'string') throw new Error(`${b.name}: ${r}`);
         // Every pin of the block's parts on the same net as in the subcircuits project.
-        const want = netlist(s);
-        const got = netlist(p);
+        // Pins with their gate: a part can have two gates with a pin of one name (a JST header's + and -).
+        const gated = (q: O.Project) => new Map(q.nets.map((n) => [n.name, (n.segments ?? []).flatMap((sg) => sg.pins.map((x) => `${x.part}.${x.gate}.${x.pin}`))]));
+        const want = gated(s);
+        const got = gated(p);
         for (const part of b.parts) {
           const now = r.parts.get(part.name)!;
           for (const [net, pins] of want) for (const x of pins.filter((q) => q.startsWith(`${part.name}.`))) {
@@ -129,7 +137,7 @@ describe('subcircuits', () => {
 
   it('says what is wrong: no such block, port or part', () => {
     const ed = new Editor(empty(), () => {});
-    expect(ed.copyBlock(source('mcu'), 'Nope')).toBe('No block Nope (there are: ATtiny412, Reset-button)');
+    expect(ed.copyBlock(source('mcu'), 'Nope')).toBe('No block Nope (there are: ATtiny412, ESP12F, Reset-button)');
     expect(ed.copyBlock(source('indicators'), 'LED', { ports: { OUT: 'X' } })).toBe('LED has no port OUT (its ports: none)');
     expect(ed.copyBlock(source('indicators'), 'LED', { values: { R9: '1k' } })).toBe('LED has no part R9 (its parts: R2, D2)');
   });
@@ -215,7 +223,7 @@ describe('generation with subcircuits', () => {
 
   it('says what is wrong with a subcircuit line', () => {
     const msgs = (body: string) => run(body).problems.map((x) => x.message);
-    expect(msgs('block A\nsubcircuit Nope')).toEqual([expect.stringMatching(/^No subcircuit Nope \(the blocks are ATtiny412, Boost-MAX17225, CE-amp, .*, Tuned-amp\)$/)]);
+    expect(msgs('block A\nsubcircuit Nope')).toEqual([expect.stringMatching(/^No subcircuit Nope \(the blocks are ATtiny412, Battery-monitor, Boost-MAX17225, .*, Tuned-amp, Wake-latch\)$/)]);
     expect(msgs('block A\nsubcircuit LED OUT=X')).toEqual(['subcircuit LED has no port OUT (its ports: none)']);
     expect(msgs('block A\nsubcircuit LED R9.value=1k')).toEqual(['subcircuit LED has no part R9 (its parts: R2, D2)']);
     expect(msgs('block A\nsubcircuit LED from=other')).toEqual(['subcircuit LED: no subcircuits project other (analog.osprey, audio.osprey, clock.osprey, indicators.osprey, mcu.osprey, power.osprey, rf.osprey)']);

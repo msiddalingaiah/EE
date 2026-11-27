@@ -481,7 +481,13 @@
     { "name": "C10", "component": "madhu/CAPACITOR-NP", "variant": "0805", "value": "0.1u", "attributes": { "BLOCK": "Peak-detector" } },
     { "name": "R8", "component": "madhu/RESISTOR", "variant": "0805-RES", "value": "1M", "attributes": { "BLOCK": "Peak-detector" } },
     { "name": "SUPPLY78", "component": "supply2/GND", "variant": "" },
-    { "name": "SUPPLY80", "component": "supply2/VCC", "variant": "" }
+    { "name": "SUPPLY80", "component": "supply2/VCC", "variant": "" },
+    { "name": "U3", "component": "madhu/MCP6001", "variant": "-SOT23-5", "attributes": { "DIGIKEY_PART": "MCP6001T-I/OTCT-ND", "MFR": "Microchip Technology", "MFR_PART": "MCP6001T-I/OT", "BLOCK": "Battery-monitor" } },
+    { "name": "SUPPLY18", "component": "supply2/GND", "variant": "" },
+    { "name": "R9", "component": "madhu/RESISTOR", "variant": "0805-RES", "value": "2.43M", "attributes": { "TOL": "1%", "BLOCK": "Battery-monitor" } },
+    { "name": "R10", "component": "madhu/RESISTOR", "variant": "0805-RES", "value": "10M", "attributes": { "LCSC_PART": "C26108", "TOL": "1%", "BLOCK": "Battery-monitor" } },
+    { "name": "R11", "component": "madhu/RESISTOR", "variant": "0805-RES", "value": "1k", "attributes": { "LCSC_PART": "C17513", "BLOCK": "Battery-monitor" } },
+    { "name": "SUPPLY19", "component": "supply2/VCC", "variant": "" }
   ],
   "nets": [
     { "name": "VCC",
@@ -538,6 +544,15 @@
           ],
           "wires": [
             { "line": [[581.66, 25.4], [581.66, 20.32]], "width": 0.1524 }
+          ]
+        },
+        { "sheet": "1",
+          "pins": [
+            { "part": "U3", "gate": "G$1", "pin": "V+" },
+            { "part": "SUPPLY19", "gate": "G$1", "pin": "VCC" }
+          ],
+          "wires": [
+            { "line": [[640.08, 33.02], [640.08, 35.56]], "width": 0.1524 }
           ]
         }
       ]
@@ -626,6 +641,19 @@
             { "line": [[561.34, -7.62], [561.34, -2.54]], "width": 0.1524 },
             { "line": [[571.5, -5.08], [571.5, -7.62]], "width": 0.1524 },
             { "line": [[561.34, -10.16], [561.34, -7.62]], "width": 0.1524 }
+          ]
+        },
+        { "sheet": "1", "junctions": [[640.08, 7.62]],
+          "pins": [
+            { "part": "U3", "gate": "G$1", "pin": "V-" },
+            { "part": "SUPPLY18", "gate": "GND", "pin": "GND" },
+            { "part": "R9", "gate": "A", "pin": "1" }
+          ],
+          "wires": [
+            { "line": [[632.46, 7.62], [632.46, 10.16]], "width": 0.1524 },
+            { "line": [[632.46, 7.62], [640.08, 7.62]], "width": 0.1524 },
+            { "line": [[640.08, 7.62], [640.08, 17.78]], "width": 0.1524 },
+            { "line": [[640.08, 5.08], [640.08, 7.62]], "width": 0.1524 }
           ]
         }
       ]
@@ -793,6 +821,73 @@
           ]
         }
       ]
+    },
+    { "name": "VBATT",
+      "segments": [
+        { "sheet": "1",
+          "pins": [
+            { "part": "R10", "gate": "A", "pin": "1" }
+          ],
+          "labels": [
+            { "at": [622.3, -2.54], "rot": 180, "size": 1.778, "layer": "names", "xref": true }
+          ],
+          "wires": [
+            { "line": [[624.84, 10.16], [624.84, -2.54]], "width": 0.1524 },
+            { "line": [[624.84, -2.54], [622.3, -2.54]], "width": 0.1524 }
+          ]
+        }
+      ]
+    },
+    { "name": "N$20",
+      "segments": [
+        { "sheet": "1", "junctions": [[652.78, 25.4]],
+          "pins": [
+            { "part": "U3", "gate": "G$1", "pin": "OUT" },
+            { "part": "U3", "gate": "G$1", "pin": "-IN" },
+            { "part": "R11", "gate": "A", "pin": "2" }
+          ],
+          "wires": [
+            { "line": [[650.24, 25.4], [652.78, 25.4]], "width": 0.1524 },
+            { "line": [[635, 27.94], [632.46, 27.94]], "width": 0.1524 },
+            { "line": [[632.46, 27.94], [632.46, 35.56]], "width": 0.1524 },
+            { "line": [[632.46, 35.56], [652.78, 35.56]], "width": 0.1524 },
+            { "line": [[652.78, 35.56], [652.78, 25.4]], "width": 0.1524 },
+            { "line": [[673.1, 25.4], [652.78, 25.4]], "width": 0.1524 }
+          ]
+        }
+      ]
+    },
+    { "name": "N$21",
+      "segments": [
+        { "sheet": "1", "junctions": [[632.46, 22.86]],
+          "pins": [
+            { "part": "U3", "gate": "G$1", "pin": "+IN" },
+            { "part": "R9", "gate": "A", "pin": "2" },
+            { "part": "R10", "gate": "A", "pin": "2" }
+          ],
+          "wires": [
+            { "line": [[635, 22.86], [632.46, 22.86]], "width": 0.1524 },
+            { "line": [[632.46, 22.86], [632.46, 20.32]], "width": 0.1524 },
+            { "line": [[624.84, 20.32], [624.84, 22.86]], "width": 0.1524 },
+            { "line": [[624.84, 22.86], [632.46, 22.86]], "width": 0.1524 }
+          ]
+        }
+      ]
+    },
+    { "name": "ADC",
+      "segments": [
+        { "sheet": "1",
+          "pins": [
+            { "part": "R11", "gate": "A", "pin": "1" }
+          ],
+          "labels": [
+            { "at": [690.88, 25.4], "size": 1.778, "layer": "names" }
+          ],
+          "wires": [
+            { "line": [[683.26, 25.4], [690.88, 25.4]], "width": 0.1524 }
+          ]
+        }
+      ]
     }
   ],
   "schematic": { "grid": { "step": 2.54, "fine": 0.254, "unit": "inch" },
@@ -875,7 +970,44 @@
             "labels": [
               { "attr": "VALUE", "at": [579.755, 31.115], "size": 1.778, "layer": "values" }
             ]
-          }
+          },
+          { "part": "U3", "gate": "G$1", "at": [642.62, 25.4], "smashed": true,
+            "labels": [
+              { "attr": "NAME", "at": [645.16, 31.115], "size": 1.778, "layer": "names" },
+              { "attr": "VALUE", "at": [629.92, 38.1], "size": 1.778, "layer": "values" },
+              { "attr": "DIGIKEY_PART", "at": [642.62, 25.4], "size": 1.778, "layer": "values", "display": "none" },
+              { "attr": "MFR", "at": [642.62, 25.4], "size": 1.778, "layer": "values", "display": "none" },
+              { "attr": "MFR_PART", "at": [642.62, 25.4], "size": 1.778, "layer": "values", "display": "none" }
+            ]
+          },
+          { "part": "SUPPLY18", "gate": "GND", "at": [640.08, 2.54], "smashed": true,
+            "labels": [
+              { "attr": "VALUE", "at": [638.175, -0.635], "size": 1.778, "layer": "values" }
+            ]
+          },
+          { "part": "R9", "gate": "A", "at": [632.46, 15.24], "rot": 90, "smashed": true,
+            "labels": [
+              { "attr": "NAME", "at": [630.9614, 11.43], "rot": 90, "size": 1.778, "layer": "names" },
+              { "attr": "VALUE", "at": [635.762, 11.43], "rot": 90, "size": 1.778, "layer": "values" },
+              { "attr": "TOL", "at": [635.762, 18.796], "rot": 90, "size": 1.778, "layer": "values" }
+            ]
+          },
+          { "part": "R10", "gate": "A", "at": [624.84, 15.24], "rot": 90, "smashed": true,
+            "labels": [
+              { "attr": "NAME", "at": [623.3414, 11.43], "rot": 90, "size": 1.778, "layer": "names" },
+              { "attr": "VALUE", "at": [628.142, 11.43], "rot": 90, "size": 1.778, "layer": "values" },
+              { "attr": "TOL", "at": [628.142, 17.018], "rot": 90, "size": 1.778, "layer": "values" },
+              { "attr": "LCSC_PART", "at": [624.84, 15.24], "rot": 90, "size": 1.778, "layer": "values", "display": "none" }
+            ]
+          },
+          { "part": "R11", "gate": "A", "at": [678.18, 25.4], "rot": 180, "smashed": true,
+            "labels": [
+              { "attr": "NAME", "at": [681.99, 23.9014], "rot": 180, "size": 1.778, "layer": "names" },
+              { "attr": "VALUE", "at": [681.99, 28.702], "rot": 180, "size": 1.778, "layer": "values" },
+              { "attr": "LCSC_PART", "at": [678.18, 25.4], "rot": 180, "size": 1.778, "layer": "values", "display": "none" }
+            ]
+          },
+          { "part": "SUPPLY19", "gate": "G$1", "at": [640.08, 38.1] }
         ]
       }
     ]
@@ -898,7 +1030,11 @@
       { "part": "U2", "at": [-10.16, -50.8] },
       { "part": "D1", "at": [-10.16, -55.88] },
       { "part": "C10", "at": [-10.16, -60.96] },
-      { "part": "R8", "at": [-10.16, -66.04] }
+      { "part": "R8", "at": [-10.16, -66.04] },
+      { "part": "U3", "at": [-10.16, -71.12] },
+      { "part": "R9", "at": [-10.16, -76.2] },
+      { "part": "R10", "at": [-10.16, -81.28] },
+      { "part": "R11", "at": [-10.16, -86.36] }
     ]
   }
 }

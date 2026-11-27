@@ -92,10 +92,15 @@ export function supplySource(project: Project, net: Net, index = new ProjectInde
   for (const seg of net.segments ?? []) {
     for (const pr of seg.pins) if (pinOf(pr.part, pr.gate, pr.pin)?.direction === 'supply') return { part: pr.part, by: 'symbol' };
   }
+  // A power pin joins the net of its name only when nothing is wired to it (as in Eagle): a
+  // regulator's VIN wired to VBATT doesn't make a net VIN elsewhere a supply.
+  let wired: Set<string> | undefined;
   for (const part of project.parts) {
     for (const gate of index.components.get(part.component)?.gates ?? []) {
       for (const pin of index.symbols.get(gate.symbol)?.pins ?? []) {
-        if (pin.direction === 'power' && pin.name.replace(/@.*$/, '') === net.name) return { part: part.name, by: 'pin' };
+        if (pin.direction !== 'power' || pin.name.replace(/@.*$/, '') !== net.name) continue;
+        wired ??= new Set(project.nets.filter((n) => n !== net).flatMap((n) => (n.segments ?? []).flatMap((s) => s.pins.map((r) => `${r.part}\u0000${r.gate}\u0000${r.pin}`))));
+        if (!wired.has(`${part.name}\u0000${gate.name}\u0000${pin.name}`)) return { part: part.name, by: 'pin' };
       }
     }
   }

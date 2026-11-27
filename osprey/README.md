@@ -348,11 +348,16 @@ description, checked, turned into a schematic, placed, routed and given JLCPCB p
    in one project join there (a project's own ERC may flag that); a copy takes only its
    block's wiring. The samples in `samples/subcircuits/` (0805 passives), mostly hand drawings
    from old designs: `power` (Regulator, PMOS-polarity, Boost-MAX17225, MOSFET-switch,
-   Lowside-driver: FAN3227 and an N-MOSFET), `mcu` (ATtiny412, Reset-button), `clock` (20 MHz
-   Oscillator), `analog` (Divider, Inverting-amp, RC-lowpass, Peak-detector), `rf` (CE-amp,
+   Lowside-driver: FAN3227 and an N-MOSFET, Boost-TPS61021A from a battery, Wake-latch: a
+   PNP that turns the boost on from the RTC or the timer), `mcu` (ATtiny412, Reset-button,
+   ESP12F with its boot straps, I2C and UART headers), `clock` (20 MHz Oscillator,
+   RTC-PCF85063A, Timer-TPL5010), `analog` (Divider, Inverting-amp, RC-lowpass,
+   Peak-detector, Battery-monitor: a 10M/2.43M divider buffered to an ADC), `rf` (CE-amp,
    Tuned-amp, JFET-preamp, IF-amp, Colpitts-CC, Colpitts-CB), `audio` (LM386), `indicators`
-   (LED). A port is never named after a power pin in its project (MAX17225's IN makes a net
-   IN a supply). The command line's `copy` step copies one into a design and joins
+   (LED). The Foodbeacon blocks (ESP12F, Boost-TPS61021A, Wake-latch, RTC, Timer,
+   Battery-monitor) share VBATT, POWER_EN, INT, RST, ADC, SDA and SCL, so together they
+   make the Foodbeacon again. A power pin joins the net of its name only when nothing is
+   wired to it, as in Eagle, so a TPS61021A's VIN wired to VBATT leaves a VIN port alone. The command line's `copy` step copies one into a design and joins
    its ports to the design's nets (`osprey subcircuits` lists them). `connect` wires bare
    pins (an MCU's) to nets by name. Descriptions place one whole
    with `subcircuit Regulator VIN=VBAT`. Next: placing stored blocks among the generated ones
