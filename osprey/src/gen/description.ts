@@ -369,7 +369,7 @@ export function resolveDescription(d: Description, sources: Source[], fallbackNa
     }
     const found = pool.filter(has);
     if (!found.length) {
-      const all = [...new Set(stored.filter((x) => !x.used).flatMap((x) => blocksIn(x).map((b) => b.name)))];
+      const all = [...new Set(stored.filter((x) => !x.used).flatMap((x) => blocksIn(x).map((b) => b.name)))].sort((a, b) => a.localeCompare(b));
       error('subcircuit', 'No subcircuit ' + s.name + ' (' + (stored.some((x) => !x.used) ? 'the blocks are ' + all.join(', ') : "no subcircuits projects: the user directory's subcircuits/, or use x.osprey") + ')', s.line);
       continue;
     }

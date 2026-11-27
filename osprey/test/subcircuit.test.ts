@@ -14,8 +14,10 @@ import { parseDescription, resolveDescription } from '../src/gen/description';
 import { generateProject } from '../src/gen/layout';
 import type * as O from '../src/model/types';
 
-const text = readFileSync(join(__dirname, '..', 'samples', 'subcircuits', 'subcircuits.osprey'), 'utf8');
-const source = () => readProject(text);
+// The sample subcircuits: one project per function.
+const FILES = ['analog', 'clock', 'indicators', 'mcu', 'power'];
+const texts = new Map(FILES.map((f) => [`${f}.osprey`, readFileSync(join(__dirname, '..', 'samples', 'subcircuits', `${f}.osprey`), 'utf8')]));
+const source = (file: string) => readProject(texts.get(`${file}.osprey`)!);
 
 /** An empty design: one sheet and a board. */
 const empty = (): O.Project => readProject(JSON.stringify({
@@ -29,7 +31,7 @@ const netlist = (p: O.Project) => new Map(p.nets.map((n) => [n.name, (n.segments
 
 describe('subcircuits', () => {
   it('lists the sample blocks with their ports and supplies', () => {
-    const blocks = subcircuitBlocks(source());
+    const blocks = FILES.flatMap((f) => subcircuitBlocks(source(f))).sort((a, b) => a.name.localeCompare(b.name));
     expect(blocks.map((b) => [b.name, b.ports, b.supplies])).toEqual([
       ['ATtiny412', ['UPDI'], ['GND', 'VCC']],
       ['Divider', ['OUT'], ['GND', 'VCC']],
@@ -44,11 +46,11 @@ describe('subcircuits', () => {
   it('copies a block with its wiring, so its netlist is the same, and undo takes it out', () => {
     const p = empty();
     const ed = new Editor(p, () => {});
-    const r = ed.copyBlock(source(), 'Regulator');
+    const r = ed.copyBlock(source('power'), 'Regulator');
     if (typeof r === 'string') throw new Error(r);
     expect(r.block).toBe('Regulator');
     expect(p.parts.filter((x) => blockOf(x) === 'Regulator').map((x) => x.name).sort()).toEqual(['C1', 'C2', 'D1', 'U1']);
-    const s = source();
+    const s = source('power');
     const want = netlist(s);
     for (const [name, pins] of netlist(p)) {
       expect(pins.filter((x) => !x.startsWith('SUPPLY')), name).toEqual((want.get(name) ?? []).filter((x) => /^(C1|C2|D1|U1)\./.test(x)));
@@ -62,10 +64,10 @@ describe('subcircuits', () => {
   it('renames what the design has already, joins ports to its nets and sets values', () => {
     const p = empty();
     const ed = new Editor(p, () => {});
-    const a = ed.copyBlock(source(), 'PMOS-polarity', { ports: { VIN: 'VBAT' } });
-    const b = ed.copyBlock(source(), 'Regulator', { ports: { VIN: 'VBAT' }, values: { C2: '10u' } });
-    const c = ed.copyBlock(source(), 'LED');
-    const d = ed.copyBlock(source(), 'led');
+    const a = ed.copyBlock(source('power'), 'PMOS-polarity', { ports: { VIN: 'VBAT' } });
+    const b = ed.copyBlock(source('power'), 'Regulator', { ports: { VIN: 'VBAT' }, values: { C2: '10u' } });
+    const c = ed.copyBlock(source('indicators'), 'LED');
+    const d = ed.copyBlock(source('indicators'), 'led');
     if ([a, b, c, d].some((x) => typeof x === 'string')) throw new Error(String([a, b, c, d].find((x) => typeof x === 'string')));
     if (typeof b === 'string' || typeof d === 'string') return;
     // Names the design doesn't use stay (C2); taken ones get the next free number (the second LED).
@@ -92,24 +94,24 @@ describe('subcircuits', () => {
 
   it('says what is wrong: no such block, port or part', () => {
     const ed = new Editor(empty(), () => {});
-    expect(ed.copyBlock(source(), 'Nope')).toMatch(/^No block Nope \(there are: ATtiny412, /);
-    expect(ed.copyBlock(source(), 'LED', { ports: { OUT: 'X' } })).toBe('LED has no port OUT (its ports: none)');
-    expect(ed.copyBlock(source(), 'LED', { values: { R9: '1k' } })).toBe('LED has no part R9 (its parts: R2, D2)');
+    expect(ed.copyBlock(source('mcu'), 'Nope')).toBe('No block Nope (there are: ATtiny412, Reset-button)');
+    expect(ed.copyBlock(source('indicators'), 'LED', { ports: { OUT: 'X' } })).toBe('LED has no port OUT (its ports: none)');
+    expect(ed.copyBlock(source('indicators'), 'LED', { values: { R9: '1k' } })).toBe('LED has no part R9 (its parts: R2, D2)');
   });
 
   it('copies from the user directory with the copy step', () => {
     const saves: string[] = [];
     const env: StepEnv = {
-      listUserDir: (sub) => (sub === 'subcircuits' ? ['subcircuits.osprey'] : []),
-      readUserDir: () => text,
+      listUserDir: (sub) => (sub === 'subcircuits' ? [...texts.keys()] : []),
+      readUserDir: (_, name) => texts.get(name)!,
       readPath: () => undefined,
       writeOutput: (n) => n,
       save: (t) => (saves.push(t), 'saved.osprey'),
     };
     const r = runSteps(empty(), ['copy=Oscillator,CLK=CLKIN,R12.value=330', 'copy=Divider,OUT=VREF,at=100:50', 'copy=Nope'], env);
     expect(r.steps.map((s) => [s.ok, s.summary])).toEqual([
-      [true, 'Copied Oscillator from subcircuits.osprey: 7 parts; ports CLK→CLKIN'],
-      [true, 'Copied Divider from subcircuits.osprey: 3 parts; ports OUT→VREF'],
+      [true, 'Copied Oscillator from clock.osprey: 7 parts; ports CLK→CLKIN'],
+      [true, 'Copied Divider from analog.osprey: 3 parts; ports OUT→VREF'],
       [false, "No subcircuit Nope in the user directory's subcircuits/ (osprey subcircuits lists them; or give from=<file>)"],
     ]);
     const p = readProject(saves[0]!);
@@ -124,7 +126,7 @@ describe('subcircuits', () => {
   it('wires bare pins to nets with a labelled stub (connect step)', () => {
     const p = empty();
     const ed = new Editor(p, () => {});
-    for (const b of ['ATtiny412', 'Oscillator']) if (typeof ed.copyBlock(source(), b, b === 'Oscillator' ? { ports: { CLK: 'CLKIN' } } : {}) === 'string') throw new Error(b);
+    for (const b of ['ATtiny412', 'Oscillator']) if (typeof ed.copyBlock(source(b === 'Oscillator' ? 'clock' : 'mcu'), b, b === 'Oscillator' ? { ports: { CLK: 'CLKIN' } } : {}) === 'string') throw new Error(b);
     const r = ed.connectPins(['U2.PA3', 'U2.PA6'], 'CLKIN');
     expect(r).toEqual([{ pin: 'U2.PA3/EXTCLK', net: 'CLKIN' }, { pin: 'U2.PA6', net: 'CLKIN' }]);
     expect(netlist(p).get('CLKIN')).toEqual(['U2.PA3/EXTCLK', 'U2.PA6', 'U3.O']);
@@ -150,7 +152,7 @@ describe('generation with subcircuits', () => {
     { name: 'madhu.ospreylib', library: readLibrary(readFileSync(lib('madhu.ospreylib'), 'utf8')).library },
     { name: 'wwvbfind2.osprey', library: readProject(readFileSync(lib('wwvbfind2.osprey'), 'utf8')).library },
   ];
-  const stored = [{ name: 'subcircuits.osprey', project: source() }];
+  const stored = FILES.map((f) => ({ name: `${f}.osprey`, project: source(f) }));
   const head = 'supply VCC supply2/VCC\nsupply GND supply2/GND\n';
   const run = (body: string) => resolveDescription(parseDescription(head + body).description, sources, 't', stored);
 
@@ -178,10 +180,10 @@ describe('generation with subcircuits', () => {
 
   it('says what is wrong with a subcircuit line', () => {
     const msgs = (body: string) => run(body).problems.map((x) => x.message);
-    expect(msgs('block A\nsubcircuit Nope')).toEqual([expect.stringMatching(/^No subcircuit Nope \(the blocks are ATtiny412, /)]);
+    expect(msgs('block A\nsubcircuit Nope')).toEqual(['No subcircuit Nope (the blocks are ATtiny412, Divider, LED, Oscillator, PMOS-polarity, Regulator, Reset-button)']);
     expect(msgs('block A\nsubcircuit LED OUT=X')).toEqual(['subcircuit LED has no port OUT (its ports: none)']);
     expect(msgs('block A\nsubcircuit LED R9.value=1k')).toEqual(['subcircuit LED has no part R9 (its parts: R2, D2)']);
-    expect(msgs('block A\nsubcircuit LED from=other')).toEqual(['subcircuit LED: no subcircuits project other (subcircuits.osprey)']);
+    expect(msgs('block A\nsubcircuit LED from=other')).toEqual(['subcircuit LED: no subcircuits project other (analog.osprey, clock.osprey, indicators.osprey, mcu.osprey, power.osprey)']);
     expect(parseDescription('subcircuit LED').problems.map((x) => x.message)).toEqual(['subcircuit LED comes before any block']);
   });
 });
