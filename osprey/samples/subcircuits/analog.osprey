@@ -555,6 +555,15 @@
             { "line": [[640.08, 33.02], [640.08, 35.56]], "width": 0.1524 }
           ]
         }
+      ],
+      "traces": [
+        { "line": [[-29.751, -7.874], [-29.381, -8.244]], "width": 0.254, "layer": "copper.bottom", "group": "Battery-monitor" },
+        { "line": [[-29.381, -8.244], [-27.846, -8.244]], "width": 0.254, "layer": "copper.bottom", "group": "Battery-monitor" },
+        { "line": [[-28.451, -5.649], [-28.451, -7.639]], "width": 0.254, "layer": "copper.bottom", "group": "Battery-monitor" },
+        { "line": [[-28.451, -7.639], [-27.846, -8.244]], "width": 0.254, "layer": "copper.bottom", "group": "Battery-monitor" }
+      ],
+      "vias": [
+        { "at": [-29.751, -7.874], "drill": 0.35, "group": "Battery-monitor" }
       ]
     },
     { "name": "GND",
@@ -836,6 +845,15 @@
             { "line": [[624.84, -2.54], [622.3, -2.54]], "width": 0.1524 }
           ]
         }
+      ],
+      "traces": [
+        { "line": [[-17.94, -2.794], [-18.956, -1.778]], "width": 0.254, "layer": "copper.top", "group": "Battery-monitor" },
+        { "line": [[-18.956, -1.778], [-27.465, -1.778]], "width": 0.254, "layer": "copper.top", "group": "Battery-monitor" },
+        { "line": [[-27.465, -1.778], [-29.232, -1.778]], "width": 0.254, "layer": "copper.bottom", "group": "Battery-monitor" }
+      ],
+      "vias": [
+        { "at": [-17.94, -2.794], "drill": 0.35, "group": "Battery-monitor" },
+        { "at": [-27.465, -1.778], "drill": 0.35, "group": "Battery-monitor" }
       ]
     },
     { "name": "N$20",
@@ -855,6 +873,23 @@
             { "line": [[673.1, 25.4], [652.78, 25.4]], "width": 0.1524 }
           ]
         }
+      ],
+      "traces": [
+        { "line": [[-31.041, -5.649], [-30.066, -5.649]], "width": 0.254, "layer": "copper.bottom", "group": "Battery-monitor" },
+        { "line": [[-29.497, -5.08], [-30.066, -5.649]], "width": 0.254, "layer": "copper.bottom", "group": "Battery-monitor" },
+        { "line": [[-28.451, -3.749], [-29.055, -3.749]], "width": 0.254, "layer": "copper.bottom", "group": "Battery-monitor" },
+        { "line": [[-29.055, -3.749], [-29.497, -4.191]], "width": 0.254, "layer": "copper.bottom", "group": "Battery-monitor" },
+        { "line": [[-29.497, -4.191], [-29.497, -5.08]], "width": 0.254, "layer": "copper.bottom", "group": "Battery-monitor" },
+        { "line": [[-31.041, -5.649], [-31.041, -6.497]], "width": 0.254, "layer": "copper.bottom", "group": "Battery-monitor" },
+        { "line": [[-31.041, -6.497], [-31.275, -6.731]], "width": 0.254, "layer": "copper.bottom", "group": "Battery-monitor" },
+        { "line": [[-31.275, -6.731], [-31.275, -9.525]], "width": 0.254, "layer": "copper.top", "group": "Battery-monitor" },
+        { "line": [[-31.275, -9.525], [-30.767, -10.033]], "width": 0.254, "layer": "copper.top", "group": "Battery-monitor" },
+        { "line": [[-30.767, -10.033], [-29.751, -10.033]], "width": 0.254, "layer": "copper.top", "group": "Battery-monitor" },
+        { "line": [[-29.751, -10.033], [-29.751, -11.038]], "width": 0.254, "layer": "copper.bottom", "group": "Battery-monitor" }
+      ],
+      "vias": [
+        { "at": [-31.275, -6.731], "drill": 0.35, "group": "Battery-monitor" },
+        { "at": [-29.751, -10.033], "drill": 0.35, "group": "Battery-monitor" }
       ]
     },
     { "name": "N$21",
@@ -872,6 +907,11 @@
             { "line": [[624.84, 22.86], [632.46, 22.86]], "width": 0.1524 }
           ]
         }
+      ],
+      "traces": [
+        { "line": [[-31.032, 0], [-31.032, -1.778]], "width": 0.254, "layer": "copper.bottom", "group": "Battery-monitor" },
+        { "line": [[-31.032, -1.778], [-31.032, -3.74]], "width": 0.254, "layer": "copper.bottom", "group": "Battery-monitor" },
+        { "line": [[-31.032, -3.74], [-31.041, -3.749]], "width": 0.254, "layer": "copper.bottom", "group": "Battery-monitor" }
       ]
     },
     { "name": "ADC",
@@ -1012,7 +1052,7 @@
       }
     ]
   },
-  "board": { "layers": ["copper.top", "copper.bottom"], "grid": { "step": 0.635, "fine": 0.127, "unit": "mm" },
+  "board": { "layers": ["copper.top", "copper.bottom"], "grid": { "step": 0.635, "fine": 0.127, "unit": "mm" }, "drawing": [],
     "footprints": [
       { "part": "R3", "at": [55.88, -20] },
       { "part": "R4", "at": [60.96, -20] },
@@ -1031,10 +1071,10 @@
       { "part": "D1", "at": [-10.16, -55.88] },
       { "part": "C10", "at": [-10.16, -60.96] },
       { "part": "R8", "at": [-10.16, -66.04] },
-      { "part": "U3", "at": [-10.16, -71.12] },
-      { "part": "R9", "at": [-10.16, -76.2] },
-      { "part": "R10", "at": [-10.16, -81.28] },
-      { "part": "R11", "at": [-10.16, -86.36] }
+      { "part": "U3", "at": [-29.75, -4.7], "side": "bottom", "rot": 90, "group": "Battery-monitor" },
+      { "part": "R9", "at": [-30.13, 0], "side": "bottom", "group": "Battery-monitor" },
+      { "part": "R10", "at": [-30.13, -1.78], "side": "bottom", "group": "Battery-monitor" },
+      { "part": "R11", "at": [-29.75, -11.94], "side": "bottom", "rot": 90, "group": "Battery-monitor" }
     ]
   }
 }

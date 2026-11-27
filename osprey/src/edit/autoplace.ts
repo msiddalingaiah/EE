@@ -29,6 +29,9 @@ import type * as O from '../model/types';
 import type { Arrange } from './arrange';
 import { improve } from './improve';
 import { insert, remove } from './ops';
+import { copperBox, layoutGroups, type GroupContents } from '../model/groups';
+import type { Target } from '../scene/types';
+import { rotationAbout, transformTargets, translation } from './transform';
 
 export interface AutoplaceResult {
   /** Parts placed. */
@@ -79,9 +82,19 @@ export function autoplace(arr: Arrange): AutoplaceResult {
 
   // ---- footprint shapes, per rotation, relative to the origin ------------------
   const shapes = new Map<string, Shape>();
+  /** A layout group's copper: a box with no pads, under a key that is no part's name. */
+  const copperShapes = new Map<string, Rect>();
+  const isPart = (k: string) => !copperShapes.has(k);
   const shapeOf = (part: string, rot: number): Shape => {
     const key = `${part}\u0000${rot}`;
     let s = shapes.get(key);
+    const cb = copperShapes.get(part);
+    if (!s && cb) {
+      let b = cb;
+      for (let k = 0; k < (((rot / 90) % 4) + 4) % 4; k++) b = { minX: -b.maxY, minY: b.minX, maxX: -b.minY, maxY: b.maxX };
+      s = { box: b, pads: [], smd: true };
+      shapes.set(key, s);
+    }
     if (!s) {
       const i = footprintInfo(project, part, { at: [0, 0], rot }, arr.index)!;
       s = { box: i.box, pads: i.pads.map((q) => ({ name: q.name, ...(q.net ? { net: q.net } : {}), ...(q.power ? { power: true as const } : {}), x: q.at.x, y: q.at.y })), smd: i.smd };
@@ -110,6 +123,25 @@ export function autoplace(arr: Arrange): AutoplaceResult {
   const bottom = new Set(board.footprints.filter((f) => f.side === 'bottom').map((f) => f.part));
   const blockOfPart = new Map<string, string>();
   for (const p of project.parts) if (onBoard.has(p.name)) blockOfPart.set(p.name, blockOf(p) ?? '');
+
+  // ---- layout groups: each one piece, placed with the block of its first part ------------
+  interface Group { parts: string[]; home: string; unit: Layout; copper: GroupContents['copper'] }
+  const groups: Group[] = [];
+  const grouped = new Set<string>();
+  for (const [name, g] of layoutGroups(project)) {
+    // A group with a locked part stays where it is.
+    if (!g.footprints.length || g.footprints.some((f) => !onBoard.has(f.part))) continue;
+    const unit: Layout = new Map(g.footprints.map((f) => [f.part, { x: f.at[0], y: f.at[1], rot: f.rot ?? 0 }]));
+    const ref = g.footprints[0]!.at;
+    const box = copperBox(g.copper, (v) => Math.max(v.diameter ?? 0, v.drill * 1.6));
+    if (box) {
+      const key = `\u0001${name}`;
+      copperShapes.set(key, { minX: box.minX - ref[0], minY: box.minY - ref[1], maxX: box.maxX - ref[0], maxY: box.maxY - ref[1] });
+      unit.set(key, { x: ref[0], y: ref[1], rot: 0 });
+    }
+    groups.push({ parts: g.footprints.map((f) => f.part), home: blockOfPart.get(g.footprints[0]!.part) ?? '', unit, copper: g.copper });
+    for (const f of g.footprints) grouped.add(f.part);
+  }
 
   // ---- a block's own parts --------------------------------------------------------
   /** A block's own parts, the main part tried in each rotation: the layout with the best blockScore. */
@@ -253,7 +285,7 @@ export function autoplace(arr: Arrange): AutoplaceResult {
 
   // ---- blocks of blocks ------------------------------------------------------------
   const layoutBlock = (path: string): Layout => {
-    const own = [...blockOfPart].filter(([, b]) => b === path).map(([p]) => p).sort();
+    const own = [...blockOfPart].filter(([p, b]) => b === path && !grouped.has(p)).map(([p]) => p).sort();
     const children = new Set<string>();
     for (const b of blockOfPart.values()) {
       if (path === '' ? b && !b.includes('/') : b.startsWith(`${path}/`) && !b.slice(path.length + 1).includes('/')) children.add(b);
@@ -268,6 +300,7 @@ export function autoplace(arr: Arrange): AutoplaceResult {
       // Parts in no block are each a unit of their own at the top.
       for (const p of own) units.push(new Map([[p, { x: 0, y: 0, rot: 0 }]]));
     } else if (own.length) units.push(layoutParts(own));
+    for (const g of groups) if (g.home === path) units.push(new Map(g.unit));
     for (const c of [...children].sort(comparePaths)) units.push(layoutBlock(c));
     return arrangeUnits(units.filter((u) => u.size), path === '');
   };
@@ -434,7 +467,7 @@ export function autoplace(arr: Arrange): AutoplaceResult {
    * until none helps.
    */
   const alignRows = (u: Layout, byPads: boolean): void => {
-    const parts = [...u.keys()].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+    const parts = [...u.keys()].filter((p) => isPart(p) && !grouped.has(p)).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
     const centre = (p: string) => rectCenter(boxAt(p, u.get(p)!));
     const points = (p: string) => [centre(p), ...padsAt(p, u.get(p)!)];
     const score = () => blockScore(u) + SCORE_WEIGHTS.misalignment * misalignment(parts.map((p) => ({ center: centre(p), points: points(p) })))
@@ -541,7 +574,22 @@ export function autoplace(arr: Arrange): AutoplaceResult {
   const dx = r2(-o.minX + (width - (o.maxX - o.minX)) / 2);
   const dy = r2(-o.minY + (height - (o.maxY - o.minY)) / 2);
 
-  for (const [p, pose] of [...layout].sort(([a], [b]) => a.localeCompare(b))) arr.moveTo(p, [r2(pose.x + dx), r2(pose.y + dy)], pose.rot);
+  for (const [p, pose] of [...layout].sort(([a], [b]) => a.localeCompare(b))) if (isPart(p) && !grouped.has(p)) arr.moveTo(p, [r2(pose.x + dx), r2(pose.y + dy)], pose.rot);
+  // A group moves whole, its copper with it: turned about one of its parts, then moved.
+  for (const g of groups) {
+    const ref = g.parts.find((p) => !bottom.has(p)) ?? g.parts[0]!;
+    const f = board.footprints.find((x) => x.part === ref)!;
+    const pose = layout.get(ref)!;
+    const turn = (bottom.has(ref) ? (f.rot ?? 0) - pose.rot : pose.rot - (f.rot ?? 0)) / 90;
+    const quarters = ((Math.round(turn) % 4) + 4) % 4;
+    const targets: Target[] = [
+      ...g.parts.map((p): Target => ({ kind: 'footprint', footprint: board.footprints.find((x) => x.part === p)! })),
+      ...g.copper.map((c): Target => (c.kind === 'trace' ? { kind: 'trace', net: c.net, trace: c.trace } : { kind: 'via', net: c.net, via: c.via })),
+    ];
+    const from = { x: f.at[0], y: f.at[1] };
+    if (quarters) transformTargets(project, targets, rotationAbout(from, quarters), arr.tx, arr.index);
+    transformTargets(project, targets, translation(r2(pose.x + dx) - from.x, r2(pose.y + dy) - from.y), arr.tx, arr.index);
+  }
 
   const W = r3(width);
   const H = r3(height);
@@ -555,8 +603,8 @@ export function autoplace(arr: Arrange): AutoplaceResult {
   }
   // Last, turn parts and swap like parts within a block where that shortens the airwires and
   // uncrosses them (improve: no moves, so the rows and columns stay).
-  improve(arr, { move: false, sameBlock: true });
-  return { parts: layout.size, width: W, height: H };
+  improve(arr, { move: false, sameBlock: true, fixed: [...grouped] });
+  return { parts: [...layout.keys()].filter(isPart).length, width: W, height: H };
 }
 
 /** How much a mm² of the cluster's box counts against a mm of wiring when arranging blocks. */

@@ -27,7 +27,7 @@ const KEY_ORDER = [
   'size', 'width', 'layer', 'layers', 'curve', 'cap', 'style', 'ratio', 'align', 'font',
   'display', 'xref', 'pour', 'isolate', 'spacing', 'rank', 'orphans', 'columns', 'rows',
   'component', 'variant', 'technology', 'value', 'constant', 'prefix', 'userValue', 'symbol',
-  'footprint', 'addLevel', 'class', 'locked', 'smashed', 'step', 'fine', 'unit',
+  'footprint', 'addLevel', 'class', 'locked', 'group', 'smashed', 'step', 'fine', 'unit',
   'description', 'jlcpcbRotation', 'imported', 'from', 'date', 'eagleVersion', 'attributes', 'grid', 'approved',
   // collections
   'graphics', 'pins', 'pads', 'gates', 'variants', 'technologies', 'labels', 'segments', 'wires',
@@ -133,7 +133,17 @@ export function readProject(text: string): Project {
   need(Array.isArray(data.parts), 'missing parts');
   need(Array.isArray(data.nets), 'missing nets');
   need(data.schematic !== undefined || data.board !== undefined, 'neither a schematic nor a board');
-  return data as unknown as Project;
+  // Lists a board or sheet always has, empty when a file leaves them out.
+  const p = data as unknown as Project;
+  if (p.board) {
+    p.board.footprints ??= [];
+    p.board.drawing ??= [];
+  }
+  for (const s of p.schematic?.sheets ?? []) {
+    s.gates ??= [];
+    s.drawing ??= [];
+  }
+  return p;
 }
 
 /** Parse a library file (`.ospreylib`), checked as a project is. */

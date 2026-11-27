@@ -360,9 +360,11 @@ description, checked, turned into a schematic, placed, routed and given JLCPCB p
    wired to it, as in Eagle, so a TPS61021A's VIN wired to VBATT leaves a VIN port alone. The command line's `copy` step copies one into a design and joins
    its ports to the design's nets (`osprey subcircuits` lists them). `connect` wires bare
    pins (an MCU's) to nets by name. Descriptions place one whole
-   with `subcircuit Regulator VIN=VBAT`. Next: placing stored blocks among the generated ones
-   rather than to their right; later, each
-   block's tuned placement and routing, kept as one rigid piece by autoplace.
+   with `subcircuit Regulator VIN=VBAT`. A block can keep its board layout too: its footprints
+   and copper in a layout group (the Foodbeacon blocks, Lowside-driver and IF-amp, from their
+   routed boards). A copy brings the group along as one piece; autoplace moves and turns it
+   whole, copper and all, and autoroute routes around it. Next: placing stored blocks among
+   the generated ones rather than to their right.
 2. **Library parts from a datasheet, a description or an existing library,** run by an
    agent through the command line (`osprey lib …`), written into the user directory:
    - **Existing libraries first:** Eagle libraries are plentiful (SparkFun, Adafruit, and the
@@ -504,6 +506,13 @@ the block's top-left corner there, else it goes right of what the sheet holds. F
 `copy=Oscillator,CLK=CLKIN connect=U2.PA3,CLKIN`: a short wire out of each pin, away from
 its symbol, with the net's label. A pin already on a net, or a name matching two pins, is an
 error (name the gate: `U3.A.O`).
+
+A block whose footprints are in a layout group (see [format](docs/format.md), layout groups)
+is copied with its board layout: the footprints as arranged there and the group's traces and
+vias, on the nets its ports joined, as a new group left of everything on the board. `place`
+then moves and turns each group as one piece, copper and all, and `route` adds the rest
+around it (its ground vias and pads stay as routed). The pours a group relied on are the
+design's own, from `route`.
 
 #### Block descriptions
 

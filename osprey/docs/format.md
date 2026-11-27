@@ -250,8 +250,8 @@ routing are how it's drawn and built.
 | `name` | Net name. |
 | `class` | Net class number (default 0). |
 | `segments` | Schematic wiring, one per connected piece of wire on a sheet (Eagle "segment"): `sheet`, `pins` (the gate pins this piece touches), `wires`, `junctions` (`[x, y]` points), `labels`. |
-| `traces` | Board copper: lines and arcs with `width` and `layer`. |
-| `vias` | `{ "at": [x, y], "drill": 0.6, "diameter": 0, "layers": "1-16", "shape": "round" }`. |
+| `traces` | Board copper: lines and arcs with `width` and `layer` (and `group`, see layout groups). |
+| `vias` | `{ "at": [x, y], "drill": 0.6, "diameter": 0, "layers": "1-16", "shape": "round" }` (and `group`). |
 | `pours` | Copper pours, as polygon shapes: `{ "polygon": [[x, y], …], "width", "layer", "isolate", "spacing", "rank", "pour" (`hatch` \| `cutout`), "thermals", "orphans" }`. |
 | `pads` | **Board-only projects only:** `[{ "part", "pad" }]`. Without a schematic there are no pins to derive pads from, so they are stored. |
 
@@ -333,8 +333,11 @@ What is **derived, not stored**:
 ```
 
 - **Footprint placement:** `part`, `at`, `rot`, `side` (`top` | `bottom`, default `top`),
-  `locked`, `labels`/`smashed` (as for gates). The footprint comes from the part's variant.
+  `locked`, `group`, `labels`/`smashed` (as for gates). The footprint comes from the part's variant.
   Its pads' nets are derived from the part's pins.
+- **Layout groups:** footprints, traces and vias with the same `group` (a name) are one piece:
+  a subcircuit's tuned layout, copied in with it. Autoplace moves and turns the piece whole
+  (its copper with it) and autoroute leaves its copper as it is. Not exported to Eagle.
 - **`layers`:** the copper stack, top to bottom.
 - **`classes`:** net classes; clearances between classes are kept in the passthrough for now.
 - **Design rules** are not modelled yet: they stay in the board's passthrough (see below),

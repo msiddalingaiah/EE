@@ -223,7 +223,15 @@ export interface Wire extends Extensible {
   style?: 'longdash' | 'shortdash' | 'dashdot';
 }
 
-export interface Trace extends LineShape {}
+/**
+ * A layout group: footprints and copper that move together as one piece, like a subcircuit's
+ * tuned layout copied into a design (autoplace keeps it rigid; autoroute leaves its copper).
+ */
+export type LayoutGroup = string;
+
+export interface Trace extends LineShape {
+  group?: LayoutGroup;
+}
 
 export interface NetLabel extends TextStyle, Extensible {
   at: Pt;
@@ -245,6 +253,7 @@ export interface Via extends Extensible {
   /** Copper layer span as Eagle writes it, e.g. "1-16". Default "1-16". */
   layers?: string;
   shape?: 'square' | 'octagon';
+  group?: LayoutGroup;
 }
 
 export interface Net extends Extensible {
@@ -309,6 +318,7 @@ export interface FootprintPlacement extends Extensible {
   rot?: number;
   side?: 'bottom';
   locked?: true;
+  group?: LayoutGroup;
   smashed?: true;
   labels?: Label[];
 }

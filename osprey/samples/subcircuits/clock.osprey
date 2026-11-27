@@ -1204,6 +1204,9 @@
             { "line": [[276.86, -58.42], [276.86, -60.96]], "width": 0.1524 }
           ]
         }
+      ],
+      "traces": [
+        { "line": [[-114.9052, -15.52], [-115.9212, -15.52]], "width": 0.254, "layer": "copper.top", "group": "Timer-TPL5010" }
       ]
     },
     { "name": "CLK",
@@ -1294,6 +1297,18 @@
             { "line": [[167.64, -43.18], [187.96, -43.18]], "width": 0.1524 }
           ]
         }
+      ],
+      "traces": [
+        { "line": [[-100.9892, -2.566], [-100.9892, -3.709]], "width": 0.254, "layer": "copper.bottom", "group": "RTC-PCF85063A" },
+        { "line": [[-100.9892, -3.709], [-100.3542, -4.344]], "width": 0.254, "layer": "copper.bottom", "group": "RTC-PCF85063A" },
+        { "line": [[-96.1632, -8.9778], [-99.9224, -8.9778]], "width": 0.254, "layer": "copper.bottom", "group": "RTC-PCF85063A" },
+        { "line": [[-99.9224, -8.9778], [-101.7512, -7.149]], "width": 0.254, "layer": "copper.bottom", "group": "RTC-PCF85063A" },
+        { "line": [[-101.7512, -7.149], [-101.7512, -4.736]], "width": 0.254, "layer": "copper.bottom", "group": "RTC-PCF85063A" },
+        { "line": [[-101.3592, -4.344], [-100.3542, -4.344]], "width": 0.254, "layer": "copper.bottom", "group": "RTC-PCF85063A" },
+        { "line": [[-101.7512, -4.736], [-101.3592, -4.344]], "width": 0.254, "layer": "copper.bottom", "group": "RTC-PCF85063A" }
+      ],
+      "vias": [
+        { "at": [-100.9892, -2.566], "drill": 0.35, "group": "RTC-PCF85063A" }
       ]
     },
     { "name": "SCL",
@@ -1309,6 +1324,17 @@
             { "line": [[167.64, -40.64], [195.58, -40.64]], "width": 0.1524 }
           ]
         }
+      ],
+      "traces": [
+        { "line": [[-97.0522, -2.577], [-97.0522, -4.344]], "width": 0.254, "layer": "copper.bottom", "group": "RTC-PCF85063A" },
+        { "line": [[-97.0522, -4.344], [-96.8092, -4.344]], "width": 0.254, "layer": "copper.bottom", "group": "RTC-PCF85063A" },
+        { "line": [[-96.0362, -5.117], [-96.0362, -7.149]], "width": 0.254, "layer": "copper.bottom", "group": "RTC-PCF85063A" },
+        { "line": [[-96.0362, -7.149], [-94.8932, -7.149]], "width": 0.254, "layer": "copper.bottom", "group": "RTC-PCF85063A" },
+        { "line": [[-94.8932, -7.149], [-94.8932, -8.9778]], "width": 0.254, "layer": "copper.bottom", "group": "RTC-PCF85063A" },
+        { "line": [[-96.8092, -4.344], [-96.0362, -5.117]], "width": 0.254, "layer": "copper.bottom", "group": "RTC-PCF85063A" }
+      ],
+      "vias": [
+        { "at": [-97.0522, -2.577], "drill": 0.35, "group": "RTC-PCF85063A" }
       ]
     },
     { "name": "VBATT",
@@ -1337,6 +1363,34 @@
             { "line": [[325.12, -27.94], [327.66, -27.94]], "width": 0.1524 }
           ]
         }
+      ],
+      "traces": [
+        { "line": [[-93.2422, -7.149], [-94.2582, -6.133]], "width": 0.254, "layer": "copper.top", "group": "RTC-PCF85063A" },
+        { "line": [[-94.2582, -6.133], [-102.7672, -6.133]], "width": 0.254, "layer": "copper.top", "group": "RTC-PCF85063A" },
+        { "line": [[-88.9132, -9.562], [-88.9132, -7.668]], "width": 0.254, "layer": "copper.bottom", "group": "RTC-PCF85063A" },
+        { "line": [[-88.9132, -7.668], [-89.4322, -7.149]], "width": 0.254, "layer": "copper.bottom", "group": "RTC-PCF85063A" },
+        { "line": [[-89.4322, -7.149], [-93.2422, -7.149]], "width": 0.254, "layer": "copper.bottom", "group": "RTC-PCF85063A" },
+        { "line": [[-88.9132, -9.562], [-88.7752, -9.424]], "width": 0.254, "layer": "copper.bottom", "group": "RTC-PCF85063A" },
+        { "line": [[-121.3662, -5.807], [-121.4162, -5.857]], "width": 0.254, "layer": "copper.bottom", "group": "Timer-TPL5010" },
+        { "line": [[-121.4162, -5.857], [-123.0332, -5.857]], "width": 0.254, "layer": "copper.bottom", "group": "Timer-TPL5010" },
+        { "line": [[-121.3662, -5.807], [-116.9372, -5.807]], "width": 0.254, "layer": "copper.bottom", "group": "Timer-TPL5010" },
+        { "line": [[-130.2722, -3.582], [-131.2882, -2.566]], "width": 0.254, "layer": "copper.top", "group": "Timer-TPL5010" },
+        { "line": [[-131.2882, -2.566], [-139.7972, -2.566]], "width": 0.254, "layer": "copper.top", "group": "Timer-TPL5010" },
+        { "line": [[-116.9372, -9.816], [-115.1592, -9.816]], "width": 0.254, "layer": "copper.bottom", "group": "Timer-TPL5010" },
+        { "line": [[-116.9372, -5.807], [-116.9372, -9.816]], "width": 0.254, "layer": "copper.bottom", "group": "Timer-TPL5010" },
+        { "line": [[-116.2912, -11.075], [-115.1592, -9.943]], "width": 0.254, "layer": "copper.bottom", "group": "Timer-TPL5010" },
+        { "line": [[-115.1592, -9.943], [-115.1592, -9.816]], "width": 0.254, "layer": "copper.bottom", "group": "Timer-TPL5010" },
+        { "line": [[-125.9432, -5.995], [-125.9432, -4.101]], "width": 0.254, "layer": "copper.bottom", "group": "Timer-TPL5010" },
+        { "line": [[-125.9432, -4.101], [-126.4622, -3.582]], "width": 0.254, "layer": "copper.bottom", "group": "Timer-TPL5010" },
+        { "line": [[-126.4622, -3.582], [-130.2722, -3.582]], "width": 0.254, "layer": "copper.bottom", "group": "Timer-TPL5010" },
+        { "line": [[-125.9432, -5.995], [-125.8052, -5.857]], "width": 0.254, "layer": "copper.bottom", "group": "Timer-TPL5010" },
+        { "line": [[-125.8052, -5.857], [-123.0332, -5.857]], "width": 0.254, "layer": "copper.bottom", "group": "Timer-TPL5010" }
+      ],
+      "vias": [
+        { "at": [-93.2422, -7.149], "drill": 0.35, "group": "RTC-PCF85063A" },
+        { "at": [-102.7672, -6.133], "drill": 0.35, "group": "RTC-PCF85063A" },
+        { "at": [-130.2722, -3.582], "drill": 0.35, "group": "Timer-TPL5010" },
+        { "at": [-139.7972, -2.566], "drill": 0.35, "group": "Timer-TPL5010" }
       ]
     },
     { "name": "N$18",
@@ -1351,6 +1405,10 @@
             { "line": [[132.08, -35.56], [132.08, -38.1]], "width": 0.1524 }
           ]
         }
+      ],
+      "traces": [
+        { "line": [[-93.6232, -14.2102], [-93.6232, -15.678]], "width": 0.254, "layer": "copper.bottom", "group": "RTC-PCF85063A" },
+        { "line": [[-93.6232, -15.678], [-95.1272, -17.182]], "width": 0.254, "layer": "copper.bottom", "group": "RTC-PCF85063A" }
       ]
     },
     { "name": "N$19",
@@ -1367,6 +1425,10 @@
             { "line": [[137.16, -35.56], [139.7, -35.56]], "width": 0.1524 }
           ]
         }
+      ],
+      "traces": [
+        { "line": [[-92.3532, -14.2102], [-92.3532, -16.908]], "width": 0.254, "layer": "copper.bottom", "group": "RTC-PCF85063A" },
+        { "line": [[-92.3532, -16.908], [-92.6272, -17.182]], "width": 0.254, "layer": "copper.bottom", "group": "RTC-PCF85063A" }
       ]
     },
     { "name": "N$17",
@@ -1380,6 +1442,10 @@
             { "line": [[127, -40.64], [139.7, -40.64]], "width": 0.1524 }
           ]
         }
+      ],
+      "traces": [
+        { "line": [[-97.6872, -12.494], [-94.8932, -12.494]], "width": 0.254, "layer": "copper.bottom", "group": "RTC-PCF85063A" },
+        { "line": [[-94.8932, -12.494], [-94.8932, -14.2102]], "width": 0.254, "layer": "copper.bottom", "group": "RTC-PCF85063A" }
       ]
     },
     { "name": "N$24",
@@ -1397,6 +1463,17 @@
             { "line": [[180.34, -50.8], [180.34, -35.56]], "width": 0.1524 }
           ]
         }
+      ],
+      "traces": [
+        { "line": [[-92.3532, -8.9778], [-91.769, -9.562]], "width": 0.254, "layer": "copper.bottom", "group": "RTC-PCF85063A" },
+        { "line": [[-91.769, -9.562], [-90.7132, -9.562]], "width": 0.254, "layer": "copper.bottom", "group": "RTC-PCF85063A" },
+        { "line": [[-90.7132, -9.562], [-90.7132, -10.81]], "width": 0.254, "layer": "copper.bottom", "group": "RTC-PCF85063A" },
+        { "line": [[-90.7132, -10.81], [-90.3212, -11.202]], "width": 0.254, "layer": "copper.bottom", "group": "RTC-PCF85063A" },
+        { "line": [[-88.6702, -11.213], [-90.3102, -11.213]], "width": 0.254, "layer": "copper.bottom", "group": "RTC-PCF85063A" },
+        { "line": [[-90.3102, -11.213], [-90.3212, -11.202]], "width": 0.254, "layer": "copper.bottom", "group": "RTC-PCF85063A" }
+      ],
+      "vias": [
+        { "at": [-88.6702, -11.213], "drill": 0.35, "group": "RTC-PCF85063A" }
       ]
     },
     { "name": "INT",
@@ -1427,6 +1504,27 @@
             { "line": [[236.22, -33.02], [231.14, -33.02]], "width": 0.1524 }
           ]
         }
+      ],
+      "traces": [
+        { "line": [[-118.3342, -7.9], [-118.2072, -8.027]], "width": 0.254, "layer": "copper.top", "group": "Timer-TPL5010" },
+        { "line": [[-118.2072, -8.027], [-115.4132, -8.027]], "width": 0.254, "layer": "copper.top", "group": "Timer-TPL5010" },
+        { "line": [[-115.4132, -8.027], [-114.1432, -9.297]], "width": 0.254, "layer": "copper.top", "group": "Timer-TPL5010" },
+        { "line": [[-114.1432, -9.297], [-114.1432, -10.567]], "width": 0.254, "layer": "copper.top", "group": "Timer-TPL5010" },
+        { "line": [[-114.1432, -10.567], [-113.7622, -10.948]], "width": 0.254, "layer": "copper.top", "group": "Timer-TPL5010" },
+        { "line": [[-113.7622, -10.948], [-110.0792, -10.948]], "width": 0.254, "layer": "copper.top", "group": "Timer-TPL5010" },
+        { "line": [[-109.6982, -4.725], [-109.6982, -10.567]], "width": 0.254, "layer": "copper.top", "group": "Timer-TPL5010" },
+        { "line": [[-109.6982, -10.567], [-110.0792, -10.948]], "width": 0.254, "layer": "copper.top", "group": "Timer-TPL5010" },
+        { "line": [[-118.3342, -7.9], [-120.3662, -7.9]], "width": 0.254, "layer": "copper.top", "group": "Timer-TPL5010" },
+        { "line": [[-120.3662, -7.9], [-121.8902, -9.424]], "width": 0.254, "layer": "copper.top", "group": "Timer-TPL5010" },
+        { "line": [[-121.8902, -9.424], [-121.8902, -10.44]], "width": 0.254, "layer": "copper.top", "group": "Timer-TPL5010" },
+        { "line": [[-121.8902, -10.44], [-121.8902, -11.425]], "width": 0.254, "layer": "copper.bottom", "group": "Timer-TPL5010" },
+        { "line": [[-121.8902, -11.425], [-121.9872, -11.522]], "width": 0.254, "layer": "copper.bottom", "group": "Timer-TPL5010" }
+      ],
+      "vias": [
+        { "at": [-118.3342, -7.9], "drill": 0.35, "group": "Timer-TPL5010" },
+        { "at": [-110.0792, -10.948], "drill": 0.35, "group": "Timer-TPL5010" },
+        { "at": [-109.6982, -4.725], "drill": 0.35, "group": "Timer-TPL5010" },
+        { "at": [-121.8902, -10.44], "drill": 0.35, "group": "Timer-TPL5010" }
       ]
     },
     { "name": "N$25",
@@ -1444,6 +1542,13 @@
             { "line": [[284.48, -35.56], [269.24, -35.56]], "width": 0.1524 }
           ]
         }
+      ],
+      "traces": [
+        { "line": [[-126.2082, -12.461], [-126.2082, -12.091]], "width": 0.254, "layer": "copper.bottom", "group": "Timer-TPL5010" },
+        { "line": [[-125.6392, -11.522], [-124.5772, -11.522]], "width": 0.254, "layer": "copper.bottom", "group": "Timer-TPL5010" },
+        { "line": [[-126.2082, -12.091], [-125.6392, -11.522]], "width": 0.254, "layer": "copper.bottom", "group": "Timer-TPL5010" },
+        { "line": [[-124.5772, -11.522], [-124.5772, -10.598]], "width": 0.254, "layer": "copper.bottom", "group": "Timer-TPL5010" },
+        { "line": [[-124.5772, -10.598], [-123.9112, -9.932]], "width": 0.254, "layer": "copper.bottom", "group": "Timer-TPL5010" }
       ]
     },
     { "name": "RST",
@@ -1466,6 +1571,13 @@
             { "line": [[213.36, -17.78], [213.36, -15.24]], "width": 0.1524 }
           ]
         }
+      ],
+      "traces": [
+        { "line": [[-115.9212, -12.98], [-116.3132, -13.372]], "width": 0.254, "layer": "copper.bottom", "group": "Timer-TPL5010" },
+        { "line": [[-116.3132, -13.372], [-119.8582, -13.372]], "width": 0.254, "layer": "copper.bottom", "group": "Timer-TPL5010" },
+        { "line": [[-121.9872, -13.422], [-121.9372, -13.372]], "width": 0.254, "layer": "copper.bottom", "group": "Timer-TPL5010" },
+        { "line": [[-121.9372, -13.372], [-119.8582, -13.372]], "width": 0.254, "layer": "copper.bottom", "group": "Timer-TPL5010" },
+        { "line": [[-110.3332, -12.98], [-115.9212, -12.98]], "width": 0.254, "layer": "copper.top", "group": "Timer-TPL5010" }
       ]
     },
     { "name": "N$8",
@@ -1482,6 +1594,18 @@
             { "line": [[264.16, -27.94], [292.1, -27.94]], "width": 0.1524 }
           ]
         }
+      ],
+      "traces": [
+        { "line": [[-124.5772, -13.422], [-124.6272, -13.372]], "width": 0.254, "layer": "copper.bottom", "group": "Timer-TPL5010" },
+        { "line": [[-124.6272, -13.372], [-127.8592, -13.372]], "width": 0.254, "layer": "copper.bottom", "group": "Timer-TPL5010" },
+        { "line": [[-118.0802, -14.261], [-118.1962, -14.377]], "width": 0.254, "layer": "copper.bottom", "group": "Timer-TPL5010" },
+        { "line": [[-118.1962, -14.377], [-121.0012, -14.377]], "width": 0.254, "layer": "copper.bottom", "group": "Timer-TPL5010" },
+        { "line": [[-127.8592, -14.377], [-127.8592, -13.372]], "width": 0.254, "layer": "copper.bottom", "group": "Timer-TPL5010" },
+        { "line": [[-121.0012, -14.377], [-127.8592, -14.377]], "width": 0.254, "layer": "copper.top", "group": "Timer-TPL5010" }
+      ],
+      "vias": [
+        { "at": [-121.0012, -14.377], "drill": 0.35, "group": "Timer-TPL5010" },
+        { "at": [-127.8592, -14.377], "drill": 0.35, "group": "Timer-TPL5010" }
       ]
     },
     { "name": "N$27",
@@ -1495,6 +1619,10 @@
             { "line": [[309.88, -27.94], [307.34, -27.94]], "width": 0.1524 }
           ]
         }
+      ],
+      "traces": [
+        { "line": [[-118.0912, -11.075], [-118.0912, -12.45]], "width": 0.254, "layer": "copper.bottom", "group": "Timer-TPL5010" },
+        { "line": [[-118.0912, -12.45], [-118.0802, -12.461]], "width": 0.254, "layer": "copper.bottom", "group": "Timer-TPL5010" }
       ]
     }
   ],
@@ -1640,7 +1768,7 @@
       }
     ]
   },
-  "board": { "layers": ["copper.top", "copper.bottom"], "grid": { "step": 0.635, "fine": 0.127, "unit": "mm" },
+  "board": { "layers": ["copper.top", "copper.bottom"], "grid": { "step": 0.635, "fine": 0.127, "unit": "mm" }, "drawing": [],
     "footprints": [
       { "part": "U3", "at": [-65.56, -5.08] },
       { "part": "R11", "at": [-70.64, -5.08] },
@@ -1649,19 +1777,19 @@
       { "part": "C9", "at": [-35.08, -10.16] },
       { "part": "C10", "at": [-40.16, -10.16] },
       { "part": "C11", "at": [-45.24, -10.16] },
-      { "part": "U1", "at": [-10.16, 0] },
-      { "part": "X2", "at": [-10.16, -5.08] },
-      { "part": "R1", "at": [-10.16, -10.16] },
-      { "part": "R2", "at": [-10.16, -15.24] },
-      { "part": "C1", "at": [-10.16, -20.32] },
-      { "part": "J1", "at": [-10.16, -25.4] },
-      { "part": "U4", "at": [-10.16, -30.48] },
-      { "part": "R13", "at": [-10.16, -35.56] },
-      { "part": "L1", "at": [-10.16, -40.64] },
-      { "part": "C12", "at": [-10.16, -45.72] },
-      { "part": "R14", "at": [-10.16, -50.8] },
-      { "part": "R3", "at": [-10.16, -55.88] },
-      { "part": "J2", "at": [-10.16, -60.96] }
+      { "part": "U1", "at": [-94.26, -11.59], "side": "bottom", "group": "RTC-PCF85063A" },
+      { "part": "X2", "at": [-93.88, -17.18], "side": "bottom", "rot": 180, "group": "RTC-PCF85063A" },
+      { "part": "R1", "at": [-97.69, -11.59], "side": "bottom", "rot": 90, "group": "RTC-PCF85063A" },
+      { "part": "R2", "at": [-89.81, -9.56], "side": "bottom", "group": "RTC-PCF85063A" },
+      { "part": "C1", "at": [-90.32, -12.1], "side": "bottom", "rot": 270, "group": "RTC-PCF85063A" },
+      { "part": "J1", "at": [-115.92, -14.25], "rot": 90, "group": "Timer-TPL5010" },
+      { "part": "U4", "at": [-123.29, -12.47], "side": "bottom", "rot": 90, "group": "Timer-TPL5010" },
+      { "part": "R13", "at": [-126.21, -13.36], "side": "bottom", "rot": 270, "group": "Timer-TPL5010" },
+      { "part": "L1", "at": [-117.19, -11.07], "side": "bottom", "rot": 180, "group": "Timer-TPL5010" },
+      { "part": "C12", "at": [-127.86, -12.47], "side": "bottom", "rot": 90, "group": "Timer-TPL5010" },
+      { "part": "R14", "at": [-118.08, -13.36], "side": "bottom", "rot": 90, "group": "Timer-TPL5010" },
+      { "part": "R3", "at": [-124.81, -9.93], "side": "bottom", "group": "Timer-TPL5010" },
+      { "part": "J2", "at": [-112.62, -14.25], "rot": 90, "group": "Timer-TPL5010" }
     ]
   }
 }

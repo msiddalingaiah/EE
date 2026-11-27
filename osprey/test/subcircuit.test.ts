@@ -8,7 +8,9 @@ import { Editor } from '../src/app/editor';
 import { runSteps, type StepEnv } from '../src/cli/steps';
 import { subcircuitBlocks } from '../src/edit/subcircuit';
 import { blockOf } from '../src/model/blocks';
+import { drc } from '../src/model/drc';
 import { erc } from '../src/model/erc';
+import { layoutGroups } from '../src/model/groups';
 import { readLibrary, readProject, writeProject } from '../src/model/file';
 import { parseDescription, resolveDescription } from '../src/gen/description';
 import { generateProject } from '../src/gen/layout';
@@ -186,6 +188,75 @@ describe('subcircuits', () => {
     // A failure takes back the pins before it.
     expect(ed.connectPins(['U2.PA7', 'U2.ZZ'], 'X')).toBe('U2 has no pin ZZ');
     expect(netlist(p).has('X')).toBe(false);
+  });
+});
+
+describe('layout groups', () => {
+  /** A group's geometry as its pairwise distances (footprint origins, trace ends, vias): moving and turning keep them. */
+  const shape = (p: O.Project, group: string) => {
+    const g = layoutGroups(p).get(group)!;
+    const pts = [...g.footprints.map((f) => f.at), ...g.copper.flatMap((c) => (c.kind === 'trace' ? c.trace.line : [c.via.at]))];
+    const d: number[] = [];
+    for (let i = 0; i < pts.length; i++) for (let j = i + 1; j < pts.length; j++) d.push(Math.hypot(pts[i]![0] - pts[j]![0], pts[i]![1] - pts[j]![1]));
+    return d.sort((a, b) => a - b);
+  };
+  /** The largest difference between two shapes (mm). */
+  const drift = (a: number[], b: number[]) => (a.length === b.length ? Math.max(0, ...a.map((x, i) => Math.abs(x - b[i]!))) : Infinity);
+  /** The group of a DRC object (a footprint placement, trace or via), '' for none. */
+  const groupOf = (o: object) => ('group' in o ? String((o as { group?: string }).group ?? '') : '');
+
+  it('copies a block with its board layout, as a layout group on the design\'s nets', () => {
+    const s = source('power');
+    const p = empty();
+    const ed = new Editor(p, () => {});
+    const r = ed.copyBlock(s, 'Boost-TPS61021A', { ports: { VBATT: 'BATT' } });
+    if (typeof r === 'string') throw new Error(r);
+    expect(r.group).toBe('Boost-TPS61021A');
+    const want = layoutGroups(s).get('Boost-TPS61021A')!;
+    const got = layoutGroups(p).get('Boost-TPS61021A')!;
+    expect(got.footprints).toHaveLength(want.footprints.length);
+    expect(got.copper).toHaveLength(want.copper.length);
+    expect(drift(shape(p, 'Boost-TPS61021A'), shape(s, 'Boost-TPS61021A'))).toBeLessThan(1e-6);
+    // The port's copper is on the net it joined.
+    expect(p.nets.find((n) => n.name === 'BATT')!.traces!.length).toBe(s.nets.find((n) => n.name === 'VBATT')!.traces!.filter((t) => t.group === 'Boost-TPS61021A').length);
+    // A second copy is a group of its own, clear of the first.
+    const r2 = ed.copyBlock(s, 'Boost-TPS61021A');
+    if (typeof r2 === 'string') throw new Error(r2);
+    expect(r2.group).toBe('Boost-TPS61021A2');
+    const between = drc(p).violations.filter((v) => v.kind !== 'unrouted' && new Set(v.objects.map(groupOf)).size > 1);
+    expect(between.map((v) => v.message)).toEqual([]);
+    ed.undo();
+    ed.undo();
+    expect(p.nets.flatMap((n) => [...(n.traces ?? []), ...(n.vias ?? [])])).toEqual([]);
+  });
+
+  it('autoplace moves each group whole, its copper with it, clear of the rest', () => {
+    const p = empty();
+    const ed = new Editor(p, () => {});
+    for (const [file, block, ports] of [
+      ['power', 'Boost-TPS61021A', { VBATT: 'VBATT', POWER_EN: 'POWER_EN' }],
+      ['power', 'Wake-latch', { VBATT: 'VBATT', POWER_EN: 'POWER_EN' }],
+      ['analog', 'Battery-monitor', { VBATT: 'VBATT' }],
+      ['indicators', 'LED', {}],
+    ] as const) {
+      const r = ed.copyBlock(source(file), block, { ports });
+      if (typeof r === 'string') throw new Error(r);
+    }
+    const groups = [...layoutGroups(p).keys()].sort();
+    expect(groups).toEqual(['Battery-monitor', 'Boost-TPS61021A', 'Wake-latch']);
+    const before = new Map(groups.map((g) => [g, shape(p, g)]));
+    const internal = (q: O.Project) => drc(q).violations.filter((v) => v.kind !== 'unrouted' && new Set(v.objects.map(groupOf)).size === 1 && groupOf(v.objects[0]!)).length;
+    const inside = internal(p);
+    ed.autoplace();
+    for (const g of groups) expect(drift(shape(p, g), before.get(g)!), g).toBeLessThan(1e-6);
+    // Nothing new: no violation between groups or with the other parts, and the groups' own
+    // (pads closer than the default rules allow) as many as before.
+    // (The board edge is kept by autoplace's own margin, not the default DRC edge rule: left aside.)
+    expect(drc(p).violations.filter((v) => v.kind !== 'unrouted' && v.kind !== 'dimension' && new Set(v.objects.map(groupOf)).size > 1).map((v) => v.message)).toEqual([]);
+    expect(internal(p)).toBe(inside);
+    // Every group's copper still meets its pads: no airwire inside a group.
+    const unroutedInside = drc(p).violations.filter((v) => v.kind === 'unrouted' && v.objects.length && new Set(v.objects.map(groupOf)).size === 1 && groupOf(v.objects[0]!));
+    expect(unroutedInside).toEqual([]);
   });
 });
 
