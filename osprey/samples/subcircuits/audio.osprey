@@ -1,0 +1,787 @@
+{
+  "osprey": 1,
+  "project": { "name": "audio" },
+  "library": {
+    "symbols": [
+      { "id": "madhu/AMP_GND_GAIN_BYP",
+        "graphics": [
+          { "line": [[-2.54, 5.08], [-2.54, 4.1402]], "width": 0.1524, "layer": "symbols" },
+          { "line": [[-5.08, 5.08], [-5.08, -5.08]], "width": 0.4064, "layer": "symbols" },
+          { "line": [[-5.08, -5.08], [2.54, -2.032]], "width": 0.4064, "layer": "symbols" },
+          { "line": [[2.54, -2.032], [7.62, 0]], "width": 0.4064, "layer": "symbols" },
+          { "line": [[7.62, 0], [5.08, 1.016]], "width": 0.4064, "layer": "symbols" },
+          { "line": [[5.08, 1.016], [2.54, 2.032]], "width": 0.4064, "layer": "symbols" },
+          { "line": [[2.54, 2.032], [-5.08, 5.08]], "width": 0.4064, "layer": "symbols" },
+          { "line": [[-3.81, 3.175], [-3.81, 1.905]], "width": 0.1524, "layer": "symbols" },
+          { "line": [[-4.445, 2.54], [-3.175, 2.54]], "width": 0.1524, "layer": "symbols" },
+          { "line": [[-4.445, -2.54], [-3.175, -2.54]], "width": 0.1524, "layer": "symbols" },
+          { "line": [[-2.54, -4.1402], [-2.54, -5.08]], "width": 0.1524, "layer": "symbols" },
+          { "line": [[5.08, 2.54], [5.08, 1.016]], "width": 0.1524, "layer": "symbols" },
+          { "line": [[2.54, -2.54], [2.54, -2.032]], "width": 0.1524, "layer": "symbols" },
+          { "line": [[2.54, 2.54], [2.54, 2.032]], "width": 0.1524, "layer": "symbols" },
+          { "text": ">NAME", "at": [-5.08, 7.62], "rot": 180, "size": 1.778, "layer": "names" },
+          { "text": ">VALUE", "at": [5.08, -3.81], "size": 1.778, "layer": "values" },
+          { "text": "GAIN", "at": [6.096, 2.286], "rot": 90, "size": 0.6096, "layer": "pins" },
+          { "text": "GAIN", "at": [3.556, 2.54], "rot": 90, "size": 0.6096, "layer": "pins" },
+          { "text": "VS", "at": [-1.27, 4.826], "rot": 90, "size": 0.6096, "layer": "pins" },
+          { "text": "GND", "at": [-1.27, -6.858], "rot": 90, "size": 0.6096, "layer": "pins" },
+          { "text": "BYP", "at": [3.556, -4.318], "rot": 90, "size": 0.6096, "layer": "pins" }
+        ],
+        "pins": [
+          { "name": "GAIN@1", "at": [2.54, 5.08], "rot": 270, "length": "short", "direction": "passive", "visible": "pad" },
+          { "name": "-IN", "at": [-7.62, -2.54], "length": "short", "direction": "in", "visible": "pad" },
+          { "name": "+IN", "at": [-7.62, 2.54], "length": "short", "direction": "in", "visible": "pad" },
+          { "name": "GAIN@2", "at": [5.08, 5.08], "rot": 270, "length": "short", "direction": "passive", "visible": "pad" },
+          { "name": "OUT", "at": [10.16, 0], "rot": 180, "length": "short", "direction": "out", "visible": "pad" },
+          { "name": "VS", "at": [-2.54, 7.62], "rot": 270, "length": "short", "direction": "power", "visible": "pad" },
+          { "name": "GND", "at": [-2.54, -7.62], "rot": 90, "length": "short", "direction": "power", "visible": "pad" },
+          { "name": "BYPASS", "at": [2.54, -5.08], "rot": 90, "length": "short", "direction": "passive", "visible": "pad" }
+        ]
+      },
+      { "id": "madhu/BERG-2", "description": "2-pin header connector",
+        "graphics": [
+          { "line": [[-1.27, -1.27], [1.905, -1.27]], "width": 0.254, "layer": "symbols" },
+          { "line": [[1.905, 3.81], [1.905, -1.27]], "width": 0.254, "layer": "symbols" },
+          { "line": [[1.905, 3.81], [-1.27, 3.81]], "width": 0.254, "layer": "symbols" },
+          { "line": [[-1.27, -1.27], [-1.27, 3.81]], "width": 0.254, "layer": "symbols" },
+          { "circle": [0, 0], "radius": 0.635, "width": 0.254, "layer": "symbols" },
+          { "circle": [0, 2.54], "radius": 0.635, "width": 0.254, "layer": "symbols" },
+          { "text": ">NAME", "at": [3.556, 6.604], "rot": 180, "size": 1.778, "layer": "names" },
+          { "text": "1", "at": [1.27, -2.54], "rot": 90, "size": 1.27, "layer": "names" }
+        ],
+        "pins": [
+          { "name": "1", "at": [2.54, 0], "rot": 180, "length": "short", "direction": "passive", "visible": "none" },
+          { "name": "2", "at": [2.54, 2.54], "rot": 180, "length": "short", "direction": "passive", "visible": "none" }
+        ]
+      },
+      { "id": "madhu/CAPACITOR-NP", "description": "Non-polarized capacitor",
+        "graphics": [
+          { "line": [[0, 2.54], [0, 2.032]], "width": 0.1524, "layer": "symbols" },
+          { "line": [[0, 0], [0, 0.508]], "width": 0.1524, "layer": "symbols" },
+          { "text": ">NAME", "at": [1.524, 2.921], "size": 1.778, "layer": "names" },
+          { "text": ">VALUE", "at": [1.524, -2.159], "size": 1.778, "layer": "values" },
+          { "rect": [[-2.032, 0.508], [2.032, 1.016]], "layer": "symbols" },
+          { "rect": [[-2.032, 1.524], [2.032, 2.032]], "layer": "symbols" }
+        ],
+        "pins": [
+          { "name": "1", "at": [0, 5.08], "rot": 270, "length": "short", "direction": "passive", "visible": "none", "swap": 1 },
+          { "name": "2", "at": [0, -2.54], "rot": 90, "length": "short", "direction": "passive", "visible": "none", "swap": 1 }
+        ]
+      },
+      { "id": "madhu/CAPACITOR-POL", "description": "Polarized capacitor",
+        "graphics": [
+          { "line": [[-2.54, 0], [2.54, 0]], "width": 0.254, "layer": "symbols" },
+          { "line": [[0, -1.016], [0, -2.54]], "width": 0.1524, "layer": "symbols" },
+          { "line": [[0, -1], [2.4892, -1.8542]], "width": 0.254, "layer": "symbols", "curve": -37.878202, "cap": "flat" },
+          { "line": [[-2.4669, -1.8504], [0, -1.0161]], "width": 0.254, "layer": "symbols", "curve": -37.376341, "cap": "flat" },
+          { "text": ">NAME", "at": [1.016, 0.635], "size": 1.778, "layer": "names" },
+          { "text": ">VALUE", "at": [1.016, -4.191], "size": 1.778, "layer": "values" },
+          { "rect": [[-2.253, 0.668], [-1.364, 0.795]], "layer": "symbols" },
+          { "rect": [[-1.872, 0.287], [-1.745, 1.176]], "layer": "symbols" }
+        ],
+        "pins": [
+          { "name": "+", "at": [0, 2.54], "rot": 270, "length": "short", "direction": "passive", "visible": "none", "swap": 1 },
+          { "name": "-", "at": [0, -5.08], "rot": 90, "length": "short", "direction": "passive", "visible": "none", "swap": 1 }
+        ]
+      },
+      { "id": "madhu/RESISTOR", "description": "Fixed resistor",
+        "graphics": [
+          { "line": [[-2.54, 0], [-2.159, 1.016]], "width": 0.1524, "layer": "symbols" },
+          { "line": [[-2.159, 1.016], [-1.524, -1.016]], "width": 0.1524, "layer": "symbols" },
+          { "line": [[-1.524, -1.016], [-0.889, 1.016]], "width": 0.1524, "layer": "symbols" },
+          { "line": [[-0.889, 1.016], [-0.254, -1.016]], "width": 0.1524, "layer": "symbols" },
+          { "line": [[-0.254, -1.016], [0.381, 1.016]], "width": 0.1524, "layer": "symbols" },
+          { "line": [[0.381, 1.016], [1.016, -1.016]], "width": 0.1524, "layer": "symbols" },
+          { "line": [[1.016, -1.016], [1.651, 1.016]], "width": 0.1524, "layer": "symbols" },
+          { "line": [[1.651, 1.016], [2.286, -1.016]], "width": 0.1524, "layer": "symbols" },
+          { "line": [[2.286, -1.016], [2.54, 0]], "width": 0.1524, "layer": "symbols" },
+          { "text": ">NAME", "at": [-3.81, 1.4986], "size": 1.778, "layer": "names" },
+          { "text": ">VALUE", "at": [-3.81, -3.302], "size": 1.778, "layer": "values" }
+        ],
+        "pins": [
+          { "name": "2", "at": [5.08, 0], "rot": 180, "length": "short", "direction": "passive", "visible": "none", "swap": 1 },
+          { "name": "1", "at": [-5.08, 0], "length": "short", "direction": "passive", "visible": "none", "swap": 1 }
+        ]
+      },
+      { "id": "supply2/GND", "eagle": { "attrs": { "urn": "urn:adsk.eagle:symbol:26990/1", "library_version": "2" } },
+        "graphics": [
+          { "line": [[-1.27, 0], [1.27, 0]], "width": 0.254, "layer": "symbols" },
+          { "line": [[1.27, 0], [0, -1.27]], "width": 0.254, "layer": "symbols" },
+          { "line": [[0, -1.27], [-1.27, 0]], "width": 0.254, "layer": "symbols" },
+          { "text": ">VALUE", "at": [-1.905, -3.175], "size": 1.778, "layer": "values" }
+        ],
+        "pins": [
+          { "name": "GND", "at": [0, 2.54], "rot": 270, "length": "short", "direction": "supply", "visible": "none" }
+        ]
+      },
+      { "id": "supply2/VCC", "eagle": { "attrs": { "urn": "urn:adsk.eagle:symbol:26997/1", "library_version": "2" } },
+        "graphics": [
+          { "circle": [0, 1.27], "radius": 1.27, "width": 0.254, "layer": "symbols" },
+          { "text": ">VALUE", "at": [-1.905, 3.175], "size": 1.778, "layer": "values" }
+        ],
+        "pins": [
+          { "name": "VCC", "at": [0, -2.54], "rot": 90, "length": "short", "direction": "supply", "visible": "none" }
+        ]
+      }
+    ],
+    "footprints": [
+      { "id": "madhu/0402-RES", "description": "<b>CAPACITOR</b><p>\nchip",
+        "graphics": [
+          { "line": [[-0.245, 0.224], [0.245, 0.224]], "width": 0.1524, "layer": "fab.top" },
+          { "line": [[0.245, -0.224], [-0.245, -0.224]], "width": 0.1524, "layer": "fab.top" },
+          { "line": [[-1.473, 0.483], [1.473, 0.483]], "width": 0.0508, "layer": "keepout.top" },
+          { "line": [[1.473, 0.483], [1.473, -0.483]], "width": 0.0508, "layer": "keepout.top" },
+          { "line": [[1.473, -0.483], [-1.473, -0.483]], "width": 0.0508, "layer": "keepout.top" },
+          { "line": [[-1.473, -0.483], [-1.473, 0.483]], "width": 0.0508, "layer": "keepout.top" },
+          { "text": ">NAME", "at": [-0.889, 0.6985], "size": 0.4064, "layer": "names.top" },
+          { "text": ">VALUE", "at": [-1.0795, -1.143], "size": 0.4064, "layer": "silk.top" },
+          { "rect": [[-0.554, -0.3048], [-0.254, 0.2951]], "layer": "fab.top" },
+          { "rect": [[0.2588, -0.3048], [0.5588, 0.2951]], "layer": "fab.top" },
+          { "rect": [[-0.1999, -0.3], [0.1999, 0.3]], "layer": "glue.top" },
+          { "rect": [[-0.2032, -0.3556], [0.2032, 0.3556]], "layer": "silk.top" }
+        ],
+        "pads": [
+          { "name": "1", "smd": [0.7, 0.9], "at": [-0.65, 0] },
+          { "name": "2", "smd": [0.7, 0.9], "at": [0.65, 0] }
+        ]
+      },
+      { "id": "madhu/0603-CAP", "description": "0603 SMT",
+        "graphics": [
+          { "line": [[-1.473, 0.983], [1.473, 0.983]], "width": 0.0508, "layer": "keepout.top" },
+          { "line": [[1.473, 0.983], [1.473, -0.983]], "width": 0.0508, "layer": "keepout.top" },
+          { "line": [[1.473, -0.983], [-1.473, -0.983]], "width": 0.0508, "layer": "keepout.top" },
+          { "line": [[-1.473, -0.983], [-1.473, 0.983]], "width": 0.0508, "layer": "keepout.top" },
+          { "line": [[-0.356, 0.432], [0.356, 0.432]], "width": 0.1016, "layer": "silk.top" },
+          { "line": [[-0.356, -0.419], [0.356, -0.419]], "width": 0.1016, "layer": "silk.top" },
+          { "text": ">NAME", "at": [-0.889, 0.762], "size": 0.4064, "layer": "names.top", "font": "vector" },
+          { "text": ">VALUE", "at": [-1.016, -1.143], "size": 0.4064, "layer": "silk.top", "font": "vector" },
+          { "rect": [[-0.2286, -0.381], [0.2286, 0.381]], "layer": "silk.top" }
+        ],
+        "pads": [
+          { "name": "1", "smd": [1.1, 1], "at": [-0.85, 0] },
+          { "name": "2", "smd": [1.1, 1], "at": [0.85, 0] }
+        ]
+      },
+      { "id": "madhu/0603-RES", "description": "0603 SMT",
+        "graphics": [
+          { "line": [[-1.473, 0.983], [1.473, 0.983]], "width": 0.0508, "layer": "keepout.top" },
+          { "line": [[1.473, 0.983], [1.473, -0.983]], "width": 0.0508, "layer": "keepout.top" },
+          { "line": [[1.473, -0.983], [-1.473, -0.983]], "width": 0.0508, "layer": "keepout.top" },
+          { "line": [[-1.473, -0.983], [-1.473, 0.983]], "width": 0.0508, "layer": "keepout.top" },
+          { "line": [[-0.356, 0.432], [0.356, 0.432]], "width": 0.1016, "layer": "silk.top" },
+          { "line": [[-0.356, -0.419], [0.356, -0.419]], "width": 0.1016, "layer": "silk.top" },
+          { "text": ">NAME", "at": [-0.889, 0.762], "size": 0.4064, "layer": "names.top", "font": "vector" },
+          { "text": ">VALUE", "at": [-1.016, -1.143], "size": 0.4064, "layer": "silk.top", "font": "vector" },
+          { "rect": [[-0.2286, -0.381], [0.2286, 0.381]], "layer": "silk.top" }
+        ],
+        "pads": [
+          { "name": "1", "smd": [1.1, 1], "at": [-0.85, 0] },
+          { "name": "2", "smd": [1.1, 1], "at": [0.85, 0] }
+        ]
+      },
+      { "id": "madhu/0805", "description": "0805 SMT",
+        "graphics": [
+          { "text": ">NAME", "at": [1.9685, -0.889], "rot": 90, "size": 0.6096, "layer": "names.top" },
+          { "text": ">VALUE", "at": [0.127, -1.016], "rot": 90, "size": 0.6096, "layer": "silk.top" },
+          { "line": [[-1.524, -0.3], [-1.524, 0.3]], "width": 0.4064, "layer": "silk.top" }
+        ],
+        "pads": [
+          { "name": "1", "smd": [0.8, 1.2], "at": [-0.9, 0] },
+          { "name": "2", "smd": [0.8, 1.2], "at": [0.9, 0] }
+        ]
+      },
+      { "id": "madhu/1206", "description": "1206 SMT",
+        "graphics": [
+          { "line": [[-2.473, 0.983], [2.473, 0.983]], "width": 0.0508, "layer": "keepout.top" },
+          { "line": [[2.473, -0.983], [-2.473, -0.983]], "width": 0.0508, "layer": "keepout.top" },
+          { "line": [[-2.473, -0.983], [-2.473, 0.983]], "width": 0.0508, "layer": "keepout.top" },
+          { "line": [[2.473, 0.983], [2.473, -0.983]], "width": 0.0508, "layer": "keepout.top" },
+          { "line": [[-0.965, 0.787], [0.965, 0.787]], "width": 0.1016, "layer": "fab.top" },
+          { "line": [[-0.965, -0.787], [0.965, -0.787]], "width": 0.1016, "layer": "fab.top" },
+          { "text": ">NAME", "at": [3.302, -1.27], "rot": 90, "size": 0.6096, "layer": "names.top" },
+          { "text": ">VALUE", "at": [0.254, -1.524], "rot": 90, "size": 0.6096, "layer": "silk.top" },
+          { "rect": [[-1.7018, -0.8509], [-0.9517, 0.8491]], "layer": "fab.top" },
+          { "rect": [[0.9517, -0.8491], [1.7018, 0.8509]], "layer": "fab.top" },
+          { "rect": [[-0.1999, -0.4001], [0.1999, 0.4001]], "layer": "glue.top" }
+        ],
+        "pads": [
+          { "name": "1", "smd": [1.6, 1.8], "at": [-1.4, 0] },
+          { "name": "2", "smd": [1.6, 1.8], "at": [1.4, 0] }
+        ]
+      },
+      { "id": "madhu/1411", "description": "1411 SMT",
+        "graphics": [
+          { "line": [[-1.7, 1.4], [1.7, 1.4]], "width": 0.0508, "layer": "keepout.top" },
+          { "line": [[1.7, -1.4], [-1.7, -1.4]], "width": 0.0508, "layer": "keepout.top" },
+          { "line": [[-1.7, -1.4], [-1.7, 1.4]], "width": 0.0508, "layer": "keepout.top" },
+          { "line": [[1.7, 1.4], [1.7, -1.4]], "width": 0.0508, "layer": "keepout.top" },
+          { "line": [[-1.7, 1.4], [1.7, 1.4]], "width": 0.1016, "layer": "fab.top" },
+          { "line": [[-1.7, -1.4], [1.7, -1.4]], "width": 0.1016, "layer": "fab.top" },
+          { "text": ">NAME", "at": [-1.27, 1.778], "size": 0.4064, "layer": "names.top" },
+          { "text": ">VALUE", "at": [-1.27, -2.032], "size": 0.4064, "layer": "values.top" },
+          { "line": [[1.7, -1.4], [1.7, 1.4]], "width": 0.1016, "layer": "fab.top" },
+          { "line": [[-1.7, -1.4], [-1.7, 1.4]], "width": 0.1016, "layer": "fab.top" },
+          { "text": "+", "at": [-2.921, -0.508], "size": 1.27, "layer": "fab.top" }
+        ],
+        "pads": [
+          { "name": "1", "smd": [0.8, 2.2], "at": [-1.2, 0] },
+          { "name": "2", "smd": [0.8, 2.2], "at": [1.2, 0] }
+        ]
+      },
+      { "id": "madhu/AXIAL-0.3", "description": "0.3\" pads",
+        "graphics": [
+          { "line": [[-2.54, 0.762], [2.54, 0.762]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[2.54, 0.762], [2.54, 0]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[2.54, 0], [2.54, -0.762]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[2.54, -0.762], [-2.54, -0.762]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[-2.54, -0.762], [-2.54, 0]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[-2.54, 0], [-2.54, 0.762]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[2.54, 0], [2.794, 0]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[-2.54, 0], [-2.794, 0]], "width": 0.2032, "layer": "silk.top" },
+          { "text": ">Name", "at": [-2.54, 1.27], "size": 0.4064, "layer": "names.top", "font": "vector" },
+          { "text": ">Value", "at": [-2.032, -0.381], "size": 1.016, "layer": "silk.top", "ratio": 15 }
+        ],
+        "pads": [
+          { "name": "1", "at": [-3.81, 0], "drill": 0.8128 },
+          { "name": "2", "at": [3.81, 0], "drill": 0.8128 }
+        ]
+      },
+      { "id": "madhu/AXIAL-0.4", "description": "1/4W Resistor, 0.4\" wide",
+        "graphics": [
+          { "line": [[-3.15, -1.2], [-3.15, 1.2]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[-3.15, 1.2], [3.15, 1.2]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[3.15, 1.2], [3.15, -1.2]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[3.15, -1.2], [-3.15, -1.2]], "width": 0.2032, "layer": "silk.top" },
+          { "text": ">NAME", "at": [0.762, -0.381], "size": 0.8128, "layer": "names.top", "ratio": 15 },
+          { "text": ">VALUE", "at": [-2.794, -0.381], "size": 0.8128, "layer": "names.top", "ratio": 15 }
+        ],
+        "pads": [
+          { "name": "1", "at": [-5.08, 0], "drill": 0.9, "diameter": 1.8796 },
+          { "name": "2", "at": [5.08, 0], "drill": 0.9, "diameter": 1.8796 }
+        ]
+      },
+      { "id": "madhu/AXIAL-0.5", "description": "1/2W Resistor, 0.5\" wide",
+        "graphics": [
+          { "line": [[-4.5, -1.65], [-4.5, 1.65]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[-4.5, 1.65], [4.5, 1.65]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[4.5, 1.65], [4.5, -1.65]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[4.5, -1.65], [-4.5, -1.65]], "width": 0.2032, "layer": "silk.top" },
+          { "text": ">Name", "at": [-3.683, 0.381], "size": 0.8128, "layer": "names.top", "ratio": 15 },
+          { "text": ">Value", "at": [-3.81, -1.143], "size": 0.8128, "layer": "silk.top", "ratio": 15 }
+        ],
+        "pads": [
+          { "name": "1", "at": [-6.35, 0], "drill": 0.9, "diameter": 1.8796 },
+          { "name": "2", "at": [6.35, 0], "drill": 0.9, "diameter": 1.8796 }
+        ]
+      },
+      { "id": "madhu/AXIAL-0.6", "description": "1W Resistor, 0.6\" wide",
+        "graphics": [
+          { "line": [[-5.75, -2.25], [-5.75, 2.25]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[-5.75, 2.25], [5.75, 2.25]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[5.75, 2.25], [5.75, -2.25]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[5.75, -2.25], [-5.75, -2.25]], "width": 0.2032, "layer": "silk.top" },
+          { "text": ">Name", "at": [-4.064, 0], "size": 0.8128, "layer": "names.top", "ratio": 15 },
+          { "text": ">Value", "at": [-4.064, -1.651], "size": 0.8128, "layer": "silk.top", "ratio": 15 }
+        ],
+        "pads": [
+          { "name": "1", "at": [-7.62, 0], "drill": 1.2, "diameter": 1.8796 },
+          { "name": "2", "at": [7.62, 0], "drill": 1.2, "diameter": 1.8796 }
+        ]
+      },
+      { "id": "madhu/AXIAL-0.8", "description": "2W Resistor, 0.8\" wide",
+        "graphics": [
+          { "line": [[-7.75, -2.5], [-7.75, 2.5]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[-7.75, 2.5], [7.75, 2.5]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[7.75, 2.5], [7.75, -2.5]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[7.75, -2.5], [-7.75, -2.5]], "width": 0.2032, "layer": "silk.top" },
+          { "text": ">Name", "at": [-5.969, 0], "size": 0.8128, "layer": "names.top", "ratio": 15 },
+          { "text": ">Value", "at": [-5.969, -1.651], "size": 0.8128, "layer": "silk.top", "ratio": 15 }
+        ],
+        "pads": [
+          { "name": "1", "at": [-10.16, 0], "drill": 1.2, "diameter": 1.8796 },
+          { "name": "2", "at": [10.16, 0], "drill": 1.2, "diameter": 1.8796 }
+        ]
+      },
+      { "id": "madhu/BERG-2", "description": "<b>Two pin Berg connector</b><p>\ngrid 2.5 mm, outline 2.4 x 4.4 mm",
+        "graphics": [
+          { "line": [[-2.54, -1.27], [-2.54, 1.27]], "width": 0.1524, "layer": "silk.top" },
+          { "line": [[2.54, 1.27], [-2.54, 1.27]], "width": 0.1524, "layer": "silk.top" },
+          { "line": [[2.54, -1.27], [2.54, 1.27]], "width": 0.1524, "layer": "silk.top" },
+          { "line": [[2.54, -1.27], [-2.54, -1.27]], "width": 0.1524, "layer": "silk.top" },
+          { "text": ">NAME", "at": [-2.413, 1.397], "size": 0.8128, "layer": "names.top", "ratio": 10 }
+        ],
+        "pads": [
+          { "name": "1", "at": [-1.27, 0], "drill": 1.016, "shape": "square" },
+          { "name": "2", "at": [1.27, 0], "drill": 1.016 }
+        ]
+      },
+      { "id": "madhu/C1206", "description": "<b>CAPACITOR</b>",
+        "graphics": [
+          { "line": [[-2.473, 0.983], [2.473, 0.983]], "width": 0.0508, "layer": "keepout.top" },
+          { "line": [[2.473, -0.983], [-2.473, -0.983]], "width": 0.0508, "layer": "keepout.top" },
+          { "line": [[-2.473, -0.983], [-2.473, 0.983]], "width": 0.0508, "layer": "keepout.top" },
+          { "line": [[2.473, 0.983], [2.473, -0.983]], "width": 0.0508, "layer": "keepout.top" },
+          { "line": [[-0.965, 0.787], [0.965, 0.787]], "width": 0.1016, "layer": "fab.top" },
+          { "line": [[-0.965, -0.787], [0.965, -0.787]], "width": 0.1016, "layer": "fab.top" },
+          { "text": ">NAME", "at": [-1.27, 1.27], "size": 0.6096, "layer": "names.top" },
+          { "text": ">VALUE", "at": [-1.27, -1.905], "size": 0.6096, "layer": "values.top" },
+          { "rect": [[-1.7018, -0.8509], [-0.9517, 0.8491]], "layer": "fab.top" },
+          { "rect": [[0.9517, -0.8491], [1.7018, 0.8509]], "layer": "fab.top" },
+          { "rect": [[-0.1999, -0.4001], [0.1999, 0.4001]], "layer": "glue.top" }
+        ],
+        "pads": [
+          { "name": "1", "smd": [1.6, 1.8], "at": [-1.4, 0] },
+          { "name": "2", "smd": [1.6, 1.8], "at": [1.4, 0] }
+        ]
+      },
+      { "id": "madhu/CAP-0.1", "description": "0.1\" spacing",
+        "graphics": [
+          { "line": [[-1.27, -0.371975], [-1.27, 0.371975]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[-1.27, 0.371975], [-0.371975, 1.27]], "width": 0.2032, "layer": "silk.top", "curve": -90 },
+          { "line": [[-0.371975, 1.27], [2.911975, 1.27]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[2.911975, 1.27], [3.81, 0.371975]], "width": 0.2032, "layer": "silk.top", "curve": -90 },
+          { "line": [[3.81, 0.371975], [3.81, -0.371975]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[3.81, -0.371975], [2.911975, -1.27]], "width": 0.2032, "layer": "silk.top", "curve": -90 },
+          { "line": [[2.911975, -1.27], [-0.371975, -1.27]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[-0.371975, -1.27], [-1.27, -0.371975]], "width": 0.2032, "layer": "silk.top", "curve": -90 },
+          { "text": ">Name", "at": [0.508, 1.905], "size": 0.6096, "layer": "names.top" },
+          { "text": ">Value", "at": [0.254, -2.159], "size": 0.6096, "layer": "values.top" }
+        ],
+        "pads": [
+          { "name": "1", "at": [0, 0], "drill": 0.8128 },
+          { "name": "2", "at": [2.54, 0], "drill": 0.8128 }
+        ]
+      },
+      { "id": "madhu/CAP-0.2", "description": "0.2\" spacing",
+        "graphics": [
+          { "line": [[-3.81, 0.371975], [-3.81, -0.371975]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[-3.81, -0.371975], [-2.911975, -1.27]], "width": 0.2032, "layer": "silk.top", "curve": 90 },
+          { "line": [[3.81, 0.371975], [3.81, -0.371975]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[3.81, -0.371975], [2.911975, -1.27]], "width": 0.2032, "layer": "silk.top", "curve": -90 },
+          { "line": [[2.911975, -1.27], [-2.911975, -1.27]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[-3.81, 0.371975], [-2.911975, 1.27]], "width": 0.2032, "layer": "silk.top", "curve": -90 },
+          { "line": [[-2.911975, 1.27], [2.911975, 1.27]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[2.911975, 1.27], [3.81, 0.371975]], "width": 0.2032, "layer": "silk.top", "curve": -90 },
+          { "text": ">NAME", "at": [-1.397, 0.254], "size": 0.8128, "layer": "names.top" },
+          { "text": ">VALUE", "at": [-1.397, -0.889], "size": 0.8128, "layer": "names.top" }
+        ],
+        "pads": [
+          { "name": "1", "at": [-2.5, 0], "drill": 0.8128 },
+          { "name": "2", "at": [2.5, 0], "drill": 0.8128 }
+        ]
+      },
+      { "id": "madhu/CAP-0.3", "description": "0.3\" spacing",
+        "graphics": [
+          { "line": [[-5.08, 0.371975], [-5.08, -0.371975]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[-5.08, -0.371975], [-4.064, -1.27]], "width": 0.2032, "layer": "silk.top", "curve": 90 },
+          { "line": [[5.08, 0.371975], [5.08, -0.371975]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[5.08, -0.371975], [4.064, -1.27]], "width": 0.2032, "layer": "silk.top", "curve": -90 },
+          { "line": [[4.064, -1.27], [-4.064, -1.27]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[-5.08, 0.371975], [-4.064, 1.27]], "width": 0.2032, "layer": "silk.top", "curve": -90 },
+          { "line": [[-4.064, 1.27], [4.064, 1.27]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[4.064, 1.27], [5.08, 0.371975]], "width": 0.2032, "layer": "silk.top", "curve": -90 },
+          { "text": ">Name", "at": [-1.397, 0.254], "size": 0.8128, "layer": "names.top" },
+          { "text": ">Value", "at": [-1.397, -0.889], "size": 0.8128, "layer": "values.top" }
+        ],
+        "pads": [
+          { "name": "1", "at": [-3.77, 0], "drill": 0.8128 },
+          { "name": "2", "at": [3.77, 0], "drill": 0.8128 }
+        ]
+      },
+      { "id": "madhu/CPOL-RADIAL-0.1-0.2", "description": "Radial polarized capacitor, 0.1\" spacing, 0.2\" diameter",
+        "graphics": [
+          { "line": [[-0.762, 1.397], [-1.778, 1.397]], "width": 0.2032, "layer": "silk.top" },
+          { "circle": [0, 0], "radius": 2.5, "width": 0.2032, "layer": "silk.top" },
+          { "text": ">Name", "at": [-1.397, -1.905], "size": 0.8128, "layer": "names.top" },
+          { "line": [[1.778, 1.397], [0.762, 1.397]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[1.27, 1.778], [1.27, 1.016]], "width": 0.2032, "layer": "silk.top" }
+        ],
+        "pads": [
+          { "name": "+", "at": [1.27, 0], "drill": 0.9 },
+          { "name": "-", "at": [-1.27, 0], "drill": 0.9, "shape": "square" }
+        ]
+      },
+      { "id": "madhu/CPOL-RADIAL-0.2-0.43", "description": "Radial polarized capacitor, 0.2\" pin spacing, 0.43\" diameter\n5mm pin spacing, 10mm diameter",
+        "graphics": [
+          { "line": [[-1.905, 1.778], [-3.175, 1.778]], "width": 0.2032, "layer": "silk.top" },
+          { "circle": [0, 0], "radius": 5.461, "width": 0.2032, "layer": "silk.top" },
+          { "text": ">Value", "at": [-1.905, -3.048], "size": 0.8128, "layer": "values.top" },
+          { "text": ">Name", "at": [-2.667, 2.921], "size": 0.8128, "layer": "names.top" },
+          { "line": [[3.175, 1.905], [1.905, 1.905]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[2.54, 2.54], [2.54, 1.27]], "width": 0.2032, "layer": "silk.top" }
+        ],
+        "pads": [
+          { "name": "-", "at": [-2.54, 0], "drill": 1.016, "shape": "square" },
+          { "name": "+", "at": [2.54, 0], "drill": 1.016 }
+        ]
+      },
+      { "id": "madhu/DIL08", "description": "<b>Dual In Line Package</b>",
+        "graphics": [
+          { "line": [[5.08, 2.921], [-5.08, 2.921]], "width": 0.1524, "layer": "silk.top" },
+          { "line": [[-5.08, -2.921], [5.08, -2.921]], "width": 0.1524, "layer": "silk.top" },
+          { "line": [[5.08, 2.921], [5.08, -2.921]], "width": 0.1524, "layer": "silk.top" },
+          { "line": [[-5.08, 2.921], [-5.08, 1.016]], "width": 0.1524, "layer": "silk.top" },
+          { "line": [[-5.08, -2.921], [-5.08, -1.016]], "width": 0.1524, "layer": "silk.top" },
+          { "line": [[-5.08, 1.016], [-5.08, -1.016]], "width": 0.1524, "layer": "silk.top", "curve": -180 },
+          { "text": ">NAME", "at": [-5.334, -2.921], "rot": 90, "size": 1.27, "layer": "names.top", "ratio": 10 },
+          { "text": ">VALUE", "at": [-3.556, -0.635], "size": 1.27, "layer": "values.top", "ratio": 10 }
+        ],
+        "pads": [
+          { "name": "1", "at": [-3.81, -3.81], "drill": 0.8128, "diameter": 1.27, "rot": 90 },
+          { "name": "2", "at": [-1.27, -3.81], "drill": 0.8128, "diameter": 1.27, "rot": 90 },
+          { "name": "7", "at": [-1.27, 3.81], "drill": 0.8128, "diameter": 1.27, "rot": 90 },
+          { "name": "8", "at": [-3.81, 3.81], "drill": 0.8128, "diameter": 1.27, "rot": 90 },
+          { "name": "3", "at": [1.27, -3.81], "drill": 0.8128, "diameter": 1.27, "rot": 90 },
+          { "name": "4", "at": [3.81, -3.81], "drill": 0.8128, "diameter": 1.27, "rot": 90 },
+          { "name": "6", "at": [1.27, 3.81], "drill": 0.8128, "diameter": 1.27, "rot": 90 },
+          { "name": "5", "at": [3.81, 3.81], "drill": 0.8128, "diameter": 1.27, "rot": 90 }
+        ]
+      },
+      { "id": "madhu/SOIC-8", "description": "<b>Small Outline Package</b> Fits JEDEC packages (narrow SOIC-8)",
+        "graphics": [
+          { "line": [[-2.362, -1.803], [2.362, -1.803]], "width": 0.1524, "layer": "fab.top" },
+          { "line": [[2.362, -1.803], [2.362, 1.803]], "width": 0.1524, "layer": "silk.top" },
+          { "line": [[2.362, 1.803], [-2.362, 1.803]], "width": 0.1524, "layer": "fab.top" },
+          { "line": [[-2.362, 1.803], [-2.362, -1.803]], "width": 0.1524, "layer": "silk.top" },
+          { "circle": [-1.8034, -0.9906], "radius": 0.1436, "width": 0.2032, "layer": "silk.top" },
+          { "text": ">NAME", "at": [-2.032, -0.254], "size": 0.8128, "layer": "names.top" },
+          { "rect": [[-2.0828, -2.8702], [-1.7272, -1.8542]], "layer": "fab.top" },
+          { "rect": [[-0.8128, -2.8702], [-0.4572, -1.8542]], "layer": "fab.top" },
+          { "rect": [[0.4572, -2.8702], [0.8128, -1.8542]], "layer": "fab.top" },
+          { "rect": [[1.7272, -2.8702], [2.0828, -1.8542]], "layer": "fab.top" },
+          { "rect": [[-2.0828, 1.8542], [-1.7272, 2.8702]], "layer": "fab.top" },
+          { "rect": [[-0.8128, 1.8542], [-0.4572, 2.8702]], "layer": "fab.top" },
+          { "rect": [[0.4572, 1.8542], [0.8128, 2.8702]], "layer": "fab.top" },
+          { "rect": [[1.7272, 1.8542], [2.0828, 2.8702]], "layer": "fab.top" },
+          { "text": ">VALUE", "at": [-2.794, -2.159], "rot": 90, "size": 0.8128, "layer": "names.top" }
+        ],
+        "pads": [
+          { "name": "1", "smd": [0.6096, 2.2098], "at": [-1.905, -2.6162] },
+          { "name": "2", "smd": [0.6096, 2.2098], "at": [-0.635, -2.6162] },
+          { "name": "3", "smd": [0.6096, 2.2098], "at": [0.635, -2.6162] },
+          { "name": "4", "smd": [0.6096, 2.2098], "at": [1.905, -2.6162] },
+          { "name": "5", "smd": [0.6096, 2.2098], "at": [1.905, 2.6162] },
+          { "name": "6", "smd": [0.6096, 2.2098], "at": [0.635, 2.6162] },
+          { "name": "7", "smd": [0.6096, 2.2098], "at": [-0.635, 2.6162] },
+          { "name": "8", "smd": [0.6096, 2.2098], "at": [-1.905, 2.6162] }
+        ]
+      },
+      { "id": "madhu/VERTICAL-0.1", "description": "0.1\" 2-pin vertical through hole device",
+        "graphics": [
+          { "line": [[0, 0], [2.54, 0]], "width": 0.2032, "layer": "silk.top" },
+          { "circle": [0, 0], "radius": 1.27, "width": 0.254, "layer": "silk.top" },
+          { "text": ">Name", "at": [-0.635, 1.905], "size": 0.8128, "layer": "names.top" },
+          { "text": ">Value", "at": [-0.762, -2.921], "size": 0.8128, "layer": "silk.top" }
+        ],
+        "pads": [
+          { "name": "1", "at": [0, 0], "drill": 0.9, "diameter": 1.8796 },
+          { "name": "2", "at": [2.54, 0], "drill": 0.9, "diameter": 1.8796 }
+        ]
+      }
+    ],
+    "components": [
+      { "id": "madhu/BERG-2", "prefix": "P", "description": "Two pin Berg connector",
+        "gates": [
+          { "name": "A", "at": [0, 0], "symbol": "madhu/BERG-2" }
+        ],
+        "variants": [
+          { "name": "", "footprint": "madhu/BERG-2", "pads": { "A.1": ["1"], "A.2": ["2"] } }
+        ]
+      },
+      { "id": "madhu/CAPACITOR-NP", "prefix": "C", "userValue": true, "description": "<b>Non-polarized capacitor</b>\n0.1\", 0.2\" leaded capacitor.",
+        "gates": [
+          { "name": "A", "at": [0, 0], "symbol": "madhu/CAPACITOR-NP" }
+        ],
+        "variants": [
+          { "name": "0.1\"", "footprint": "madhu/CAP-0.1", "pads": { "A.1": ["1"], "A.2": ["2"] } },
+          { "name": "0.2\"", "footprint": "madhu/CAP-0.2", "pads": { "A.1": ["1"], "A.2": ["2"] } },
+          { "name": "0805", "footprint": "madhu/0805", "pads": { "A.1": ["1"], "A.2": ["2"] } },
+          { "name": "1206", "footprint": "madhu/C1206", "pads": { "A.1": ["1"], "A.2": ["2"] } },
+          { "name": "0603", "footprint": "madhu/0603-CAP", "pads": { "A.1": ["1"], "A.2": ["2"] } },
+          { "name": "0.3\"", "footprint": "madhu/CAP-0.3", "pads": { "A.1": ["1"], "A.2": ["2"] } }
+        ]
+      },
+      { "id": "madhu/CAPACITOR-POL", "prefix": "C", "description": "Polarized capacitors",
+        "gates": [
+          { "name": "A", "at": [0, 0], "symbol": "madhu/CAPACITOR-POL" }
+        ],
+        "variants": [
+          { "name": "-2", "footprint": "madhu/CPOL-RADIAL-0.1-0.2", "pads": { "A.+": ["+"], "A.-": ["-"] } },
+          { "name": "-4", "footprint": "madhu/CPOL-RADIAL-0.2-0.43", "pads": { "A.+": ["+"], "A.-": ["-"] } },
+          { "name": "-1411", "footprint": "madhu/1411", "pads": { "A.+": ["1"], "A.-": ["2"] } }
+        ]
+      },
+      { "id": "madhu/LM386?-*", "prefix": "U", "description": "<b>Low Voltage Audio Power Amplifier</b><p>\nSource: http://cache.national.com/ds/LM/LM386.pdf",
+        "gates": [
+          { "name": "G$1", "at": [0, 0], "symbol": "madhu/AMP_GND_GAIN_BYP" }
+        ],
+        "variants": [
+          { "name": "N", "footprint": "madhu/DIL08", "pads": { "G$1.+IN": ["3"], "G$1.-IN": ["2"], "G$1.BYPASS": ["7"], "G$1.GAIN@1": ["1"], "G$1.GAIN@2": ["8"], "G$1.GND": ["4"], "G$1.OUT": ["5"], "G$1.VS": ["6"] }, "technologies": { "1": {}, "3": {}, "4": {} } },
+          { "name": "M", "footprint": "madhu/SOIC-8", "pads": { "G$1.+IN": ["3"], "G$1.-IN": ["2"], "G$1.BYPASS": ["7"], "G$1.GAIN@1": ["1"], "G$1.GAIN@2": ["8"], "G$1.GND": ["4"], "G$1.OUT": ["5"], "G$1.VS": ["6"] }, "technologies": { "1": {} } }
+        ]
+      },
+      { "id": "madhu/RESISTOR", "prefix": "R", "userValue": true, "description": "<b>Resistor</b>\nBasic schematic elements and footprints for 0603, 1206, and PTH resistors.",
+        "gates": [
+          { "name": "A", "at": [0, 0], "symbol": "madhu/RESISTOR" }
+        ],
+        "variants": [
+          { "name": "1206", "footprint": "madhu/1206", "pads": { "A.1": ["1"], "A.2": ["2"] } },
+          { "name": "AXIAL-0.3", "footprint": "madhu/AXIAL-0.3", "pads": { "A.1": ["1"], "A.2": ["2"] } },
+          { "name": "VERTICAL-0.1", "footprint": "madhu/VERTICAL-0.1", "pads": { "A.1": ["1"], "A.2": ["2"] } },
+          { "name": "0805-RES", "footprint": "madhu/0805", "pads": { "A.1": ["1"], "A.2": ["2"] } },
+          { "name": "0603-RES", "footprint": "madhu/0603-RES", "pads": { "A.1": ["1"], "A.2": ["2"] } },
+          { "name": "0402-RES", "footprint": "madhu/0402-RES", "pads": { "A.1": ["1"], "A.2": ["2"] } },
+          { "name": "PTH-1/4W", "footprint": "madhu/AXIAL-0.4", "pads": { "A.1": ["1"], "A.2": ["2"] } },
+          { "name": "PTH-1/2W", "footprint": "madhu/AXIAL-0.5", "pads": { "A.1": ["1"], "A.2": ["2"] } },
+          { "name": "PTH-1W", "footprint": "madhu/AXIAL-0.6", "pads": { "A.1": ["1"], "A.2": ["2"] } },
+          { "name": "PTH-2W", "footprint": "madhu/AXIAL-0.8", "pads": { "A.1": ["1"], "A.2": ["2"] } }
+        ]
+      },
+      { "id": "supply2/GND", "prefix": "SUPPLY", "description": "<b>SUPPLY SYMBOL</b>", "eagle": { "attrs": { "urn": "urn:adsk.eagle:component:27037/1", "library_version": "2" } },
+        "gates": [
+          { "name": "GND", "at": [0, 0], "symbol": "supply2/GND" }
+        ],
+        "variants": [
+          { "name": "", "pads": {} }
+        ]
+      },
+      { "id": "supply2/VCC", "prefix": "SUPPLY", "description": "<b>SUPPLY SYMBOL</b>", "eagle": { "attrs": { "urn": "urn:adsk.eagle:component:27060/1", "library_version": "2" } },
+        "gates": [
+          { "name": "G$1", "at": [0, 0], "symbol": "supply2/VCC" }
+        ],
+        "variants": [
+          { "name": "", "pads": {} }
+        ]
+      }
+    ]
+  },
+  "parts": [
+    { "name": "U1", "component": "madhu/LM386?-*", "variant": "M", "attributes": { "BLOCK": "LM386" } },
+    { "name": "C1", "component": "madhu/CAPACITOR-NP", "variant": "0805", "value": "10u", "attributes": { "BLOCK": "LM386" } },
+    { "name": "C2", "component": "madhu/CAPACITOR-POL", "variant": "-1411", "value": "220u", "attributes": { "BLOCK": "LM386" } },
+    { "name": "R1", "component": "madhu/RESISTOR", "variant": "0805-RES", "value": "10", "attributes": { "BLOCK": "LM386" } },
+    { "name": "C3", "component": "madhu/CAPACITOR-NP", "variant": "0805", "value": "47n", "attributes": { "BLOCK": "LM386" } },
+    { "name": "C4", "component": "madhu/CAPACITOR-NP", "variant": "0805", "value": "100n", "attributes": { "BLOCK": "LM386" } },
+    { "name": "C5", "component": "madhu/CAPACITOR-NP", "variant": "0805", "value": "10u", "attributes": { "BLOCK": "LM386" } },
+    { "name": "J1", "component": "madhu/BERG-2", "variant": "", "attributes": { "BLOCK": "LM386" } },
+    { "name": "SUPPLY1", "component": "supply2/GND", "variant": "" },
+    { "name": "SUPPLY2", "component": "supply2/GND", "variant": "" },
+    { "name": "SUPPLY3", "component": "supply2/GND", "variant": "" },
+    { "name": "SUPPLY4", "component": "supply2/VCC", "variant": "" },
+    { "name": "SUPPLY5", "component": "supply2/VCC", "variant": "" },
+    { "name": "SUPPLY6", "component": "supply2/GND", "variant": "" },
+    { "name": "SUPPLY7", "component": "supply2/VCC", "variant": "" },
+    { "name": "SUPPLY8", "component": "supply2/GND", "variant": "" },
+    { "name": "SUPPLY9", "component": "supply2/GND", "variant": "" },
+    { "name": "SUPPLY10", "component": "supply2/GND", "variant": "" }
+  ],
+  "nets": [
+    { "name": "IN",
+      "segments": [
+        { "sheet": "1",
+          "pins": [
+            { "part": "U1", "gate": "G$1", "pin": "+IN" }
+          ],
+          "labels": [
+            { "at": [7.62, -27.94], "size": 1.778, "layer": "names" }
+          ],
+          "wires": [
+            { "line": [[7.62, -27.94], [17.78, -27.94]], "width": 0.1524 }
+          ]
+        }
+      ]
+    },
+    { "name": "GND",
+      "segments": [
+        { "sheet": "1",
+          "pins": [
+            { "part": "U1", "gate": "G$1", "pin": "-IN" },
+            { "part": "SUPPLY1", "gate": "GND", "pin": "GND" }
+          ],
+          "wires": [
+            { "line": [[17.78, -33.02], [15.24, -33.02]], "width": 0.1524 },
+            { "line": [[15.24, -33.02], [15.24, -38.1]], "width": 0.1524 }
+          ]
+        },
+        { "sheet": "1",
+          "pins": [
+            { "part": "U1", "gate": "G$1", "pin": "GND" },
+            { "part": "SUPPLY2", "gate": "GND", "pin": "GND" }
+          ],
+          "wires": [
+            { "line": [[22.86, -38.1], [22.86, -40.64]], "width": 0.1524 }
+          ]
+        },
+        { "sheet": "1",
+          "pins": [
+            { "part": "C1", "gate": "A", "pin": "2" },
+            { "part": "SUPPLY3", "gate": "GND", "pin": "GND" }
+          ],
+          "wires": [
+            { "line": [[27.94, -48.26], [27.94, -50.8]], "width": 0.1524 }
+          ]
+        },
+        { "sheet": "1",
+          "pins": [
+            { "part": "C4", "gate": "A", "pin": "2" },
+            { "part": "SUPPLY6", "gate": "GND", "pin": "GND" }
+          ],
+          "wires": [
+            { "line": [[2.54, -17.78], [2.54, -20.32]], "width": 0.1524 }
+          ]
+        },
+        { "sheet": "1",
+          "pins": [
+            { "part": "C5", "gate": "A", "pin": "2" },
+            { "part": "SUPPLY8", "gate": "GND", "pin": "GND" }
+          ],
+          "wires": [
+            { "line": [[10.16, -17.78], [10.16, -20.32]], "width": 0.1524 }
+          ]
+        },
+        { "sheet": "1",
+          "pins": [
+            { "part": "C3", "gate": "A", "pin": "2" },
+            { "part": "SUPPLY9", "gate": "GND", "pin": "GND" }
+          ],
+          "wires": [
+            { "line": [[45.72, -50.8], [45.72, -53.34]], "width": 0.1524 }
+          ]
+        },
+        { "sheet": "1",
+          "pins": [
+            { "part": "J1", "gate": "A", "pin": "1" },
+            { "part": "SUPPLY10", "gate": "GND", "pin": "GND" }
+          ],
+          "wires": [
+            { "line": [[66.04, -33.02], [63.5, -33.02]], "width": 0.1524 },
+            { "line": [[63.5, -33.02], [63.5, -35.56]], "width": 0.1524 }
+          ]
+        }
+      ]
+    },
+    { "name": "N$1",
+      "segments": [
+        { "sheet": "1",
+          "pins": [
+            { "part": "U1", "gate": "G$1", "pin": "BYPASS" },
+            { "part": "C1", "gate": "A", "pin": "1" }
+          ],
+          "wires": [
+            { "line": [[27.94, -35.56], [27.94, -40.64]], "width": 0.1524 }
+          ]
+        }
+      ]
+    },
+    { "name": "VCC",
+      "segments": [
+        { "sheet": "1",
+          "pins": [
+            { "part": "U1", "gate": "G$1", "pin": "VS" },
+            { "part": "SUPPLY4", "gate": "G$1", "pin": "VCC" }
+          ],
+          "wires": [
+            { "line": [[22.86, -22.86], [22.86, -17.78]], "width": 0.1524 }
+          ]
+        },
+        { "sheet": "1",
+          "pins": [
+            { "part": "C4", "gate": "A", "pin": "1" },
+            { "part": "SUPPLY5", "gate": "G$1", "pin": "VCC" }
+          ],
+          "wires": [
+            { "line": [[2.54, -10.16], [2.54, -7.62]], "width": 0.1524 }
+          ]
+        },
+        { "sheet": "1",
+          "pins": [
+            { "part": "C5", "gate": "A", "pin": "1" },
+            { "part": "SUPPLY7", "gate": "G$1", "pin": "VCC" }
+          ],
+          "wires": [
+            { "line": [[10.16, -10.16], [10.16, -7.62]], "width": 0.1524 }
+          ]
+        }
+      ]
+    },
+    { "name": "N$2",
+      "segments": [
+        { "sheet": "1",
+          "pins": [
+            { "part": "U1", "gate": "G$1", "pin": "OUT" },
+            { "part": "R1", "gate": "A", "pin": "2" },
+            { "part": "C2", "gate": "A", "pin": "+" }
+          ],
+          "wires": [
+            { "line": [[35.56, -30.48], [45.72, -30.48]], "width": 0.1524 },
+            { "line": [[45.72, -30.48], [50.8, -30.48]], "width": 0.1524 }
+          ]
+        }
+      ]
+    },
+    { "name": "N$3",
+      "segments": [
+        { "sheet": "1",
+          "pins": [
+            { "part": "R1", "gate": "A", "pin": "1" },
+            { "part": "C3", "gate": "A", "pin": "1" }
+          ],
+          "wires": [
+            { "line": [[45.72, -40.64], [45.72, -43.18]], "width": 0.1524 }
+          ]
+        }
+      ]
+    },
+    { "name": "N$4",
+      "segments": [
+        { "sheet": "1",
+          "pins": [
+            { "part": "C2", "gate": "A", "pin": "-" },
+            { "part": "J1", "gate": "A", "pin": "2" }
+          ],
+          "wires": [
+            { "line": [[58.42, -30.48], [66.04, -30.48]], "width": 0.1524 }
+          ]
+        }
+      ]
+    }
+  ],
+  "schematic": { "grid": { "step": 2.54, "fine": 0.254, "unit": "inch" },
+    "sheets": [
+      { "id": "1", "drawing": [],
+        "gates": [
+          { "part": "U1", "gate": "G$1", "at": [25.4, -30.48] },
+          { "part": "C1", "gate": "A", "at": [27.94, -45.72] },
+          { "part": "R1", "gate": "A", "at": [45.72, -35.56], "rot": 90 },
+          { "part": "C3", "gate": "A", "at": [45.72, -48.26] },
+          { "part": "C2", "gate": "A", "at": [53.34, -30.48], "rot": 90 },
+          { "part": "J1", "gate": "A", "at": [68.58, -33.02], "mirror": true },
+          { "part": "C4", "gate": "A", "at": [2.54, -15.24] },
+          { "part": "C5", "gate": "A", "at": [10.16, -15.24] },
+          { "part": "SUPPLY1", "gate": "GND", "at": [15.24, -40.64] },
+          { "part": "SUPPLY2", "gate": "GND", "at": [22.86, -43.18] },
+          { "part": "SUPPLY3", "gate": "GND", "at": [27.94, -53.34] },
+          { "part": "SUPPLY4", "gate": "G$1", "at": [22.86, -15.24] },
+          { "part": "SUPPLY5", "gate": "G$1", "at": [2.54, -5.08] },
+          { "part": "SUPPLY6", "gate": "GND", "at": [2.54, -22.86] },
+          { "part": "SUPPLY7", "gate": "G$1", "at": [10.16, -5.08] },
+          { "part": "SUPPLY8", "gate": "GND", "at": [10.16, -22.86] },
+          { "part": "SUPPLY9", "gate": "GND", "at": [45.72, -55.88] },
+          { "part": "SUPPLY10", "gate": "GND", "at": [63.5, -38.1] }
+        ]
+      }
+    ]
+  },
+  "board": { "layers": ["copper.top", "copper.bottom"], "grid": { "step": 0.635, "fine": 0.127, "unit": "mm" }, "drawing": [],
+    "footprints": [
+      { "part": "U1", "at": [-10.16, 0] },
+      { "part": "C1", "at": [-10.16, -5.08] },
+      { "part": "C2", "at": [-10.16, -10.16] },
+      { "part": "R1", "at": [-10.16, -15.24] },
+      { "part": "C3", "at": [-10.16, -20.32] },
+      { "part": "C4", "at": [-10.16, -25.4] },
+      { "part": "C5", "at": [-10.16, -30.48] },
+      { "part": "J1", "at": [-10.16, -35.56] }
+    ]
+  }
+}

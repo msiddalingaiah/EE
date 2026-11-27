@@ -15,7 +15,7 @@ import { generateProject } from '../src/gen/layout';
 import type * as O from '../src/model/types';
 
 // The sample subcircuits: one project per function.
-const FILES = ['analog', 'clock', 'indicators', 'mcu', 'power'];
+const FILES = ['analog', 'audio', 'clock', 'indicators', 'mcu', 'power', 'rf'];
 const texts = new Map(FILES.map((f) => [`${f}.osprey`, readFileSync(join(__dirname, '..', 'samples', 'subcircuits', `${f}.osprey`), 'utf8')]));
 const source = (file: string) => readProject(texts.get(`${file}.osprey`)!);
 
@@ -34,13 +34,48 @@ describe('subcircuits', () => {
     const blocks = FILES.flatMap((f) => subcircuitBlocks(source(f))).sort((a, b) => a.name.localeCompare(b.name));
     expect(blocks.map((b) => [b.name, b.ports, b.supplies])).toEqual([
       ['ATtiny412', ['UPDI'], ['GND', 'VCC']],
+      ['Boost-MAX17225', ['VOUT'], ['GND', 'VCC']],
+      ['CE-amp', ['IN', 'OUT'], ['GND', 'VCC']],
+      ['Colpitts-CB', ['DET', 'OUT', 'VIN'], ['GND', 'VCC']],
+      ['Colpitts-CC', ['OUT', 'VIN'], ['GND', 'VCC']],
       ['Divider', ['OUT'], ['GND', 'VCC']],
+      ['IF-amp', ['BIAS', 'IN', 'OUT'], ['GND', 'VCC']],
+      ['Inverting-amp', ['IN', 'OUT'], ['GND', 'VCC']],
+      ['JFET-preamp', ['IN', 'OUT'], ['GND', 'VCC']],
       ['LED', [], ['GND', 'VCC']],
+      ['LM386', ['IN'], ['GND', 'VCC']],
+      ['Lowside-driver', ['CTRL'], ['+12V', 'GND', 'V+']],
+      ['MOSFET-switch', ['CTRL'], ['GND', 'VCC']],
       ['Oscillator', ['CLK'], ['GND', 'VCC']],
+      ['Peak-detector', ['IN', 'OUT'], ['GND', 'VCC']],
       ['PMOS-polarity', ['VIN'], ['GND', 'VCC']],
+      ['RC-lowpass', ['IN', 'OUT'], ['GND']],
       ['Regulator', ['VIN'], ['GND', 'VCC']],
       ['Reset-button', ['RESET'], ['GND', 'VCC']],
+      ['Tuned-amp', ['IN', 'OUT'], ['GND', 'VCC']],
     ]);
+  });
+
+  it('copies every sample block on its own, wired as in its project, with no ERC errors', () => {
+    for (const f of FILES) {
+      const s = source(f);
+      for (const b of subcircuitBlocks(s)) {
+        const p = empty();
+        const r = new Editor(p, () => {}).copyBlock(s, b.name);
+        if (typeof r === 'string') throw new Error(`${b.name}: ${r}`);
+        // Every pin of the block's parts on the same net as in the subcircuits project.
+        const want = netlist(s);
+        const got = netlist(p);
+        for (const part of b.parts) {
+          const now = r.parts.get(part.name)!;
+          for (const [net, pins] of want) for (const x of pins.filter((q) => q.startsWith(`${part.name}.`))) {
+            const n = [...got].find(([, ps]) => ps.includes(`${now}.${x.slice(part.name.length + 1)}`));
+            expect(n?.[0] === net || /^N\$/.test(net), `${b.name} ${x} on ${net}, now ${n?.[0]}`).toBe(true);
+          }
+        }
+        expect(erc(p).problems.filter((x) => x.severity === 'error').map((x) => x.message), b.name).toEqual([]);
+      }
+    }
   });
 
   it('copies a block with its wiring, so its netlist is the same, and undo takes it out', () => {
@@ -180,10 +215,10 @@ describe('generation with subcircuits', () => {
 
   it('says what is wrong with a subcircuit line', () => {
     const msgs = (body: string) => run(body).problems.map((x) => x.message);
-    expect(msgs('block A\nsubcircuit Nope')).toEqual(['No subcircuit Nope (the blocks are ATtiny412, Divider, LED, Oscillator, PMOS-polarity, Regulator, Reset-button)']);
+    expect(msgs('block A\nsubcircuit Nope')).toEqual([expect.stringMatching(/^No subcircuit Nope \(the blocks are ATtiny412, Boost-MAX17225, CE-amp, .*, Tuned-amp\)$/)]);
     expect(msgs('block A\nsubcircuit LED OUT=X')).toEqual(['subcircuit LED has no port OUT (its ports: none)']);
     expect(msgs('block A\nsubcircuit LED R9.value=1k')).toEqual(['subcircuit LED has no part R9 (its parts: R2, D2)']);
-    expect(msgs('block A\nsubcircuit LED from=other')).toEqual(['subcircuit LED: no subcircuits project other (analog.osprey, clock.osprey, indicators.osprey, mcu.osprey, power.osprey)']);
+    expect(msgs('block A\nsubcircuit LED from=other')).toEqual(['subcircuit LED: no subcircuits project other (analog.osprey, audio.osprey, clock.osprey, indicators.osprey, mcu.osprey, power.osprey, rf.osprey)']);
     expect(parseDescription('subcircuit LED').problems.map((x) => x.message)).toEqual(['subcircuit LED comes before any block']);
   });
 });

@@ -3,6 +3,37 @@
   "project": { "name": "power" },
   "library": {
     "symbols": [
+      { "id": "madhu/BERG-2", "description": "2-pin header connector",
+        "graphics": [
+          { "line": [[-1.27, -1.27], [1.905, -1.27]], "width": 0.254, "layer": "symbols" },
+          { "line": [[1.905, 3.81], [1.905, -1.27]], "width": 0.254, "layer": "symbols" },
+          { "line": [[1.905, 3.81], [-1.27, 3.81]], "width": 0.254, "layer": "symbols" },
+          { "line": [[-1.27, -1.27], [-1.27, 3.81]], "width": 0.254, "layer": "symbols" },
+          { "circle": [0, 0], "radius": 0.635, "width": 0.254, "layer": "symbols" },
+          { "circle": [0, 2.54], "radius": 0.635, "width": 0.254, "layer": "symbols" },
+          { "text": ">NAME", "at": [3.556, 6.604], "rot": 180, "size": 1.778, "layer": "names" },
+          { "text": "1", "at": [1.27, -2.54], "rot": 90, "size": 1.27, "layer": "names" }
+        ],
+        "pins": [
+          { "name": "1", "at": [2.54, 0], "rot": 180, "length": "short", "direction": "passive", "visible": "none" },
+          { "name": "2", "at": [2.54, 2.54], "rot": 180, "length": "short", "direction": "passive", "visible": "none" }
+        ]
+      },
+      { "id": "madhu/BUFFER_EN", "description": "Buffer with enable",
+        "graphics": [
+          { "line": [[-5.08, -5.08], [-5.08, 5.08]], "width": 0.4064, "layer": "symbols" },
+          { "line": [[0, 5.08], [0, 2.54]], "width": 0.1524, "layer": "symbols" },
+          { "line": [[5.08, 0], [-5.08, 5.08]], "width": 0.4064, "layer": "symbols" },
+          { "line": [[5.08, 0], [-5.08, -5.08]], "width": 0.4064, "layer": "symbols" },
+          { "text": ">NAME", "at": [2.54, 3.175], "size": 1.778, "layer": "names" },
+          { "text": ">VALUE", "at": [2.54, -5.08], "size": 1.778, "layer": "values" }
+        ],
+        "pins": [
+          { "name": "OE", "at": [0, 10.16], "rot": 270, "length": "middle", "direction": "in", "visible": "pad" },
+          { "name": "I", "at": [-10.16, 0], "length": "middle", "direction": "in", "visible": "pad" },
+          { "name": "O", "at": [10.16, 0], "rot": 180, "length": "middle", "direction": "out", "visible": "pad" }
+        ]
+      },
       { "id": "madhu/DIODE", "description": "Standard diode",
         "graphics": [
           { "line": [[-1.27, -1.27], [1.27, 0]], "width": 0.254, "layer": "symbols" },
@@ -48,6 +79,178 @@
           { "name": "VO", "at": [10.16, 0], "rot": 180, "length": "short", "direction": "passive" }
         ]
       },
+      { "id": "madhu/DIODE-SCHOTTKY", "description": "Schottky diode",
+        "graphics": [
+          { "line": [[-1.27, -1.27], [1.27, 0]], "width": 0.254, "layer": "symbols" },
+          { "line": [[1.27, 0], [-1.27, 1.27]], "width": 0.254, "layer": "symbols" },
+          { "line": [[1.27, 1.27], [1.27, 0]], "width": 0.254, "layer": "symbols" },
+          { "line": [[-1.27, 1.27], [-1.27, -1.27]], "width": 0.254, "layer": "symbols" },
+          { "line": [[1.27, 0], [1.27, -1.27]], "width": 0.254, "layer": "symbols" },
+          { "line": [[1.27, 1.27], [1.778, 1.524]], "width": 0.254, "layer": "symbols" },
+          { "line": [[1.27, -1.27], [0.762, -1.524]], "width": 0.254, "layer": "symbols" },
+          { "text": ">NAME", "at": [2.54, 0.4826], "size": 1.778, "layer": "names" },
+          { "text": ">VALUE", "at": [2.54, -2.3114], "size": 1.778, "layer": "values" }
+        ],
+        "pins": [
+          { "name": "A", "at": [-2.54, 0], "length": "short", "direction": "passive", "visible": "none" },
+          { "name": "C", "at": [2.54, 0], "rot": 180, "length": "short", "direction": "passive", "visible": "none" }
+        ]
+      },
+      { "id": "madhu/INDUCTOR", "description": "Air core inductor",
+        "graphics": [
+          { "line": [[0, 5.08], [1.27, 3.81]], "width": 0.254, "layer": "symbols", "curve": -90, "cap": "flat" },
+          { "line": [[0, 2.54], [1.27, 3.81]], "width": 0.254, "layer": "symbols", "curve": 90, "cap": "flat" },
+          { "line": [[0, 2.54], [1.27, 1.27]], "width": 0.254, "layer": "symbols", "curve": -90, "cap": "flat" },
+          { "line": [[0, 0], [1.27, 1.27]], "width": 0.254, "layer": "symbols", "curve": 90, "cap": "flat" },
+          { "line": [[0, 0], [1.27, -1.27]], "width": 0.254, "layer": "symbols", "curve": -90, "cap": "flat" },
+          { "line": [[0, -2.54], [1.27, -1.27]], "width": 0.254, "layer": "symbols", "curve": 90, "cap": "flat" },
+          { "line": [[0, -2.54], [1.27, -3.81]], "width": 0.254, "layer": "symbols", "curve": -90, "cap": "flat" },
+          { "line": [[0, -5.08], [1.27, -3.81]], "width": 0.254, "layer": "symbols", "curve": 90, "cap": "flat" },
+          { "text": ">NAME", "at": [2.54, 5.08], "size": 1.778, "layer": "names" },
+          { "text": ">VALUE", "at": [2.54, -5.08], "size": 1.778, "layer": "values" }
+        ],
+        "pins": [
+          { "name": "1", "at": [0, 7.62], "rot": 270, "length": "short", "direction": "passive", "visible": "none", "swap": 1 },
+          { "name": "2", "at": [0, -7.62], "rot": 90, "length": "short", "direction": "passive", "visible": "none", "swap": 1 }
+        ]
+      },
+      { "id": "madhu/MAX17225", "description": "Digital temperature sensor",
+        "graphics": [
+          { "line": [[-15.24, 7.62], [-15.24, -2.54]], "width": 0.254, "layer": "symbols" },
+          { "line": [[-15.24, -2.54], [2.54, -2.54]], "width": 0.254, "layer": "symbols" },
+          { "line": [[2.54, -2.54], [2.54, 7.62]], "width": 0.254, "layer": "symbols" },
+          { "line": [[2.54, 7.62], [-15.24, 7.62]], "width": 0.254, "layer": "symbols" },
+          { "text": ">NAME", "at": [-12.7, 10.16], "size": 1.778, "layer": "names", "align": "top-left" },
+          { "text": ">VALUE", "at": [-12.7, -5.08], "size": 1.778, "layer": "values" }
+        ],
+        "pins": [
+          { "name": "OUT", "at": [-17.78, 5.08], "length": "short" },
+          { "name": "LX", "at": [-17.78, 2.54], "length": "short" },
+          { "name": "EN", "at": [5.08, 5.08], "rot": 180, "length": "short" },
+          { "name": "GND", "at": [-17.78, 0], "length": "short", "direction": "power" },
+          { "name": "SEL", "at": [5.08, 0], "rot": 180, "length": "short" },
+          { "name": "IN", "at": [5.08, 2.54], "rot": 180, "length": "short", "direction": "power" }
+        ]
+      },
+      { "id": "madhu/N-MOSFET", "description": "N-channel MOSFET",
+        "graphics": [
+          { "line": [[0.762, 0.762], [0.762, 0]], "width": 0.254, "layer": "symbols" },
+          { "line": [[0.762, 0], [0.762, -0.762]], "width": 0.254, "layer": "symbols" },
+          { "line": [[0.762, 3.175], [0.762, 2.54]], "width": 0.254, "layer": "symbols" },
+          { "line": [[0.762, 2.54], [0.762, 1.905]], "width": 0.254, "layer": "symbols" },
+          { "line": [[0.762, 0], [2.54, 0]], "width": 0.1524, "layer": "symbols" },
+          { "line": [[2.54, 0], [2.54, -2.54]], "width": 0.1524, "layer": "symbols" },
+          { "line": [[0.762, -1.905], [0.762, -2.54]], "width": 0.254, "layer": "symbols" },
+          { "line": [[0.762, -2.54], [0.762, -3.175]], "width": 0.254, "layer": "symbols" },
+          { "line": [[0, 2.54], [0, -2.54]], "width": 0.254, "layer": "symbols" },
+          { "line": [[2.54, -2.54], [0.762, -2.54]], "width": 0.1524, "layer": "symbols" },
+          { "line": [[3.81, 2.54], [3.81, 0.508]], "width": 0.1524, "layer": "symbols" },
+          { "line": [[3.81, 0.508], [3.81, -2.54]], "width": 0.1524, "layer": "symbols" },
+          { "line": [[2.54, -2.54], [3.81, -2.54]], "width": 0.1524, "layer": "symbols" },
+          { "line": [[0.762, 2.54], [3.81, 2.54]], "width": 0.1524, "layer": "symbols" },
+          { "line": [[4.572, 0.762], [4.318, 0.508]], "width": 0.1524, "layer": "symbols" },
+          { "line": [[4.318, 0.508], [3.81, 0.508]], "width": 0.1524, "layer": "symbols" },
+          { "line": [[3.81, 0.508], [3.302, 0.508]], "width": 0.1524, "layer": "symbols" },
+          { "line": [[3.302, 0.508], [3.048, 0.254]], "width": 0.1524, "layer": "symbols" },
+          { "circle": [2.54, -2.54], "radius": 0.3592, "width": 0, "layer": "symbols" },
+          { "circle": [2.54, 2.54], "radius": 0.3592, "width": 0, "layer": "symbols" },
+          { "text": ">VALUE", "at": [6.35, -2.54], "size": 1.778, "layer": "values" },
+          { "text": ">NAME", "at": [6.35, 2.54], "size": 1.778, "layer": "names" },
+          { "polygon": [[3.81, 0.508], [3.302, -0.254], [4.318, -0.254]], "width": 0.1524, "layer": "symbols" },
+          { "polygon": [[1.016, 0], [2.032, 0.762], [2.032, -0.762]], "width": 0.1524, "layer": "symbols" }
+        ],
+        "pins": [
+          { "name": "S", "at": [2.54, -5.08], "rot": 90, "length": "short", "direction": "passive", "visible": "none" },
+          { "name": "G", "at": [-2.54, -2.54], "length": "short", "direction": "passive", "visible": "none" },
+          { "name": "D", "at": [2.54, 5.08], "rot": 270, "length": "short", "direction": "passive", "visible": "none" }
+        ]
+      },
+      { "id": "madhu/PWRN", "description": "Power/ground lines",
+        "graphics": [
+          { "text": ">NAME", "at": [-0.635, -0.635], "size": 1.778, "layer": "names" },
+          { "text": "GND", "at": [1.905, -7.62], "rot": 90, "size": 1.27, "layer": "names" },
+          { "text": "VCC", "at": [1.905, 5.08], "rot": 90, "size": 1.27, "layer": "names" }
+        ],
+        "pins": [
+          { "name": "GND", "at": [0, -10.16], "rot": 90, "direction": "power", "visible": "pad" },
+          { "name": "VCC", "at": [0, 10.16], "rot": 270, "direction": "power", "visible": "pad" }
+        ]
+      },
+      { "id": "madhu/RESISTOR", "description": "Fixed resistor",
+        "graphics": [
+          { "line": [[-2.54, 0], [-2.159, 1.016]], "width": 0.1524, "layer": "symbols" },
+          { "line": [[-2.159, 1.016], [-1.524, -1.016]], "width": 0.1524, "layer": "symbols" },
+          { "line": [[-1.524, -1.016], [-0.889, 1.016]], "width": 0.1524, "layer": "symbols" },
+          { "line": [[-0.889, 1.016], [-0.254, -1.016]], "width": 0.1524, "layer": "symbols" },
+          { "line": [[-0.254, -1.016], [0.381, 1.016]], "width": 0.1524, "layer": "symbols" },
+          { "line": [[0.381, 1.016], [1.016, -1.016]], "width": 0.1524, "layer": "symbols" },
+          { "line": [[1.016, -1.016], [1.651, 1.016]], "width": 0.1524, "layer": "symbols" },
+          { "line": [[1.651, 1.016], [2.286, -1.016]], "width": 0.1524, "layer": "symbols" },
+          { "line": [[2.286, -1.016], [2.54, 0]], "width": 0.1524, "layer": "symbols" },
+          { "text": ">NAME", "at": [-3.81, 1.4986], "size": 1.778, "layer": "names" },
+          { "text": ">VALUE", "at": [-3.81, -3.302], "size": 1.778, "layer": "values" }
+        ],
+        "pins": [
+          { "name": "2", "at": [5.08, 0], "rot": 180, "length": "short", "direction": "passive", "visible": "none", "swap": 1 },
+          { "name": "1", "at": [-5.08, 0], "length": "short", "direction": "passive", "visible": "none", "swap": 1 }
+        ]
+      },
+      { "id": "SparkFun-DiscreteSemi/MOSFET-NCHANNEL",
+        "graphics": [
+          { "line": [[-3.6576, 2.413], [-3.6576, -2.54]], "width": 0.254, "layer": "symbols" },
+          { "line": [[0, 1.905], [-2.0066, 1.905]], "width": 0.1524, "layer": "symbols" },
+          { "line": [[0, 0], [0, -1.905]], "width": 0.1524, "layer": "symbols" },
+          { "line": [[-2.032, -1.905], [0, -1.905]], "width": 0.1524, "layer": "symbols" },
+          { "line": [[0, 2.54], [0, 1.905]], "width": 0.1524, "layer": "symbols" },
+          { "line": [[0, 1.905], [2.54, 1.905]], "width": 0.1524, "layer": "symbols" },
+          { "line": [[2.54, -1.905], [0, -1.905]], "width": 0.1524, "layer": "symbols" },
+          { "line": [[0, -1.905], [0, -2.54]], "width": 0.1524, "layer": "symbols" },
+          { "line": [[-3.81, 0], [-5.08, 0]], "width": 0.1524, "layer": "symbols" },
+          { "line": [[-2.032, 0], [-0.762, -0.508]], "width": 0.1524, "layer": "symbols" },
+          { "line": [[-0.762, -0.508], [-0.762, 0.508]], "width": 0.1524, "layer": "symbols" },
+          { "line": [[-0.762, 0.508], [-2.032, 0]], "width": 0.1524, "layer": "symbols" },
+          { "line": [[-0.889, 0], [0, 0]], "width": 0.1524, "layer": "symbols" },
+          { "line": [[-0.889, 0.254], [-1.778, 0]], "width": 0.3048, "layer": "symbols" },
+          { "line": [[-1.778, 0], [-0.889, -0.254]], "width": 0.3048, "layer": "symbols" },
+          { "line": [[-0.889, -0.254], [-0.889, 0]], "width": 0.3048, "layer": "symbols" },
+          { "line": [[-0.889, 0], [-1.143, 0]], "width": 0.3048, "layer": "symbols" },
+          { "line": [[2.54, 1.905], [2.54, 0.762]], "width": 0.1524, "layer": "symbols" },
+          { "line": [[2.54, 0.762], [2.54, -1.905]], "width": 0.1524, "layer": "symbols" },
+          { "line": [[2.54, 0.762], [1.905, -0.635]], "width": 0.1524, "layer": "symbols" },
+          { "line": [[1.905, -0.635], [3.175, -0.635]], "width": 0.1524, "layer": "symbols" },
+          { "line": [[3.175, -0.635], [2.54, 0.762]], "width": 0.1524, "layer": "symbols" },
+          { "line": [[1.905, 0.762], [2.54, 0.762]], "width": 0.1524, "layer": "symbols" },
+          { "line": [[2.54, 0.762], [3.175, 0.762]], "width": 0.1524, "layer": "symbols" },
+          { "line": [[3.175, 0.762], [3.429, 1.016]], "width": 0.1524, "layer": "symbols" },
+          { "line": [[1.905, 0.762], [1.651, 0.508]], "width": 0.1524, "layer": "symbols" },
+          { "circle": [0, -1.905], "radius": 0.127, "width": 0.4064, "layer": "symbols" },
+          { "circle": [0, 1.905], "radius": 0.127, "width": 0.4064, "layer": "symbols" },
+          { "text": ">NAME", "at": [5.08, 2.54], "size": 1.778, "layer": "names" },
+          { "text": ">VALUE", "at": [5.08, 0], "size": 1.778, "layer": "values" },
+          { "text": "D", "at": [-1.27, 2.54], "size": 0.8128, "layer": "pins" },
+          { "text": "S", "at": [-1.27, -3.556], "size": 0.8128, "layer": "pins" },
+          { "text": "G", "at": [-5.08, -1.27], "size": 0.8128, "layer": "pins" },
+          { "rect": [[-2.794, -2.54], [-2.032, -1.27]], "layer": "symbols" },
+          { "rect": [[-2.794, 1.27], [-2.032, 2.54]], "layer": "symbols" },
+          { "rect": [[-2.794, -0.889], [-2.032, 0.889]], "layer": "symbols" }
+        ],
+        "pins": [
+          { "name": "G", "at": [-7.62, 0], "length": "short", "direction": "passive", "visible": "none" },
+          { "name": "D", "at": [0, 5.08], "rot": 270, "length": "short", "direction": "passive", "visible": "none" },
+          { "name": "S", "at": [0, -5.08], "rot": 90, "length": "short", "direction": "passive", "visible": "none" }
+        ]
+      },
+      { "id": "supply2/+12V", "eagle": { "attrs": { "urn": "urn:adsk.eagle:symbol:26985/1", "library_version": "2" } },
+        "graphics": [
+          { "line": [[0, 1.905], [0, 0.635]], "width": 0.1524, "layer": "symbols" },
+          { "line": [[-0.635, 1.27], [0.635, 1.27]], "width": 0.1524, "layer": "symbols" },
+          { "circle": [0, 1.27], "radius": 1.27, "width": 0.254, "layer": "symbols" },
+          { "text": ">VALUE", "at": [-2.54, 3.175], "size": 1.778, "layer": "values" }
+        ],
+        "pins": [
+          { "name": "+12V", "at": [0, -2.54], "rot": 90, "length": "short", "direction": "supply", "visible": "none" }
+        ]
+      },
       { "id": "supply2/GND", "eagle": { "attrs": { "urn": "urn:adsk.eagle:symbol:26990/1", "library_version": "2" } },
         "graphics": [
           { "line": [[-1.27, 0], [1.27, 0]], "width": 0.254, "layer": "symbols" },
@@ -57,6 +260,16 @@
         ],
         "pins": [
           { "name": "GND", "at": [0, 2.54], "rot": 270, "length": "short", "direction": "supply", "visible": "none" }
+        ]
+      },
+      { "id": "supply2/V+", "eagle": { "attrs": { "urn": "urn:adsk.eagle:symbol:27026/1", "library_version": "2" } },
+        "graphics": [
+          { "line": [[1.27, -1.905], [0, 0]], "width": 0.254, "layer": "symbols" },
+          { "line": [[0, 0], [-1.27, -1.905]], "width": 0.254, "layer": "symbols" },
+          { "text": ">VALUE", "at": [-1.27, 1.27], "size": 1.778, "layer": "values" }
+        ],
+        "pins": [
+          { "name": "V+", "at": [0, -2.54], "rot": 90, "length": "short", "direction": "supply", "visible": "none" }
         ]
       },
       { "id": "supply2/VCC", "eagle": { "attrs": { "urn": "urn:adsk.eagle:symbol:26997/1", "library_version": "2" } },
@@ -103,6 +316,185 @@
       }
     ],
     "footprints": [
+      { "id": "madhu/0402-RES", "description": "<b>CAPACITOR</b><p>\nchip",
+        "graphics": [
+          { "line": [[-0.245, 0.224], [0.245, 0.224]], "width": 0.1524, "layer": "fab.top" },
+          { "line": [[0.245, -0.224], [-0.245, -0.224]], "width": 0.1524, "layer": "fab.top" },
+          { "line": [[-1.473, 0.483], [1.473, 0.483]], "width": 0.0508, "layer": "keepout.top" },
+          { "line": [[1.473, 0.483], [1.473, -0.483]], "width": 0.0508, "layer": "keepout.top" },
+          { "line": [[1.473, -0.483], [-1.473, -0.483]], "width": 0.0508, "layer": "keepout.top" },
+          { "line": [[-1.473, -0.483], [-1.473, 0.483]], "width": 0.0508, "layer": "keepout.top" },
+          { "text": ">NAME", "at": [-0.889, 0.6985], "size": 0.4064, "layer": "names.top" },
+          { "text": ">VALUE", "at": [-1.0795, -1.143], "size": 0.4064, "layer": "silk.top" },
+          { "rect": [[-0.554, -0.3048], [-0.254, 0.2951]], "layer": "fab.top" },
+          { "rect": [[0.2588, -0.3048], [0.5588, 0.2951]], "layer": "fab.top" },
+          { "rect": [[-0.1999, -0.3], [0.1999, 0.3]], "layer": "glue.top" },
+          { "rect": [[-0.2032, -0.3556], [0.2032, 0.3556]], "layer": "silk.top" }
+        ],
+        "pads": [
+          { "name": "1", "smd": [0.7, 0.9], "at": [-0.65, 0] },
+          { "name": "2", "smd": [0.7, 0.9], "at": [0.65, 0] }
+        ]
+      },
+      { "id": "madhu/0603-RES", "description": "0603 SMT",
+        "graphics": [
+          { "line": [[-1.473, 0.983], [1.473, 0.983]], "width": 0.0508, "layer": "keepout.top" },
+          { "line": [[1.473, 0.983], [1.473, -0.983]], "width": 0.0508, "layer": "keepout.top" },
+          { "line": [[1.473, -0.983], [-1.473, -0.983]], "width": 0.0508, "layer": "keepout.top" },
+          { "line": [[-1.473, -0.983], [-1.473, 0.983]], "width": 0.0508, "layer": "keepout.top" },
+          { "line": [[-0.356, 0.432], [0.356, 0.432]], "width": 0.1016, "layer": "silk.top" },
+          { "line": [[-0.356, -0.419], [0.356, -0.419]], "width": 0.1016, "layer": "silk.top" },
+          { "text": ">NAME", "at": [-0.889, 0.762], "size": 0.4064, "layer": "names.top", "font": "vector" },
+          { "text": ">VALUE", "at": [-1.016, -1.143], "size": 0.4064, "layer": "silk.top", "font": "vector" },
+          { "rect": [[-0.2286, -0.381], [0.2286, 0.381]], "layer": "silk.top" }
+        ],
+        "pads": [
+          { "name": "1", "smd": [1.1, 1], "at": [-0.85, 0] },
+          { "name": "2", "smd": [1.1, 1], "at": [0.85, 0] }
+        ]
+      },
+      { "id": "madhu/1206", "description": "1206 SMT",
+        "graphics": [
+          { "line": [[-2.473, 0.983], [2.473, 0.983]], "width": 0.0508, "layer": "keepout.top" },
+          { "line": [[2.473, -0.983], [-2.473, -0.983]], "width": 0.0508, "layer": "keepout.top" },
+          { "line": [[-2.473, -0.983], [-2.473, 0.983]], "width": 0.0508, "layer": "keepout.top" },
+          { "line": [[2.473, 0.983], [2.473, -0.983]], "width": 0.0508, "layer": "keepout.top" },
+          { "line": [[-0.965, 0.787], [0.965, 0.787]], "width": 0.1016, "layer": "fab.top" },
+          { "line": [[-0.965, -0.787], [0.965, -0.787]], "width": 0.1016, "layer": "fab.top" },
+          { "text": ">NAME", "at": [3.302, -1.27], "rot": 90, "size": 0.6096, "layer": "names.top" },
+          { "text": ">VALUE", "at": [0.254, -1.524], "rot": 90, "size": 0.6096, "layer": "silk.top" },
+          { "rect": [[-1.7018, -0.8509], [-0.9517, 0.8491]], "layer": "fab.top" },
+          { "rect": [[0.9517, -0.8491], [1.7018, 0.8509]], "layer": "fab.top" },
+          { "rect": [[-0.1999, -0.4001], [0.1999, 0.4001]], "layer": "glue.top" }
+        ],
+        "pads": [
+          { "name": "1", "smd": [1.6, 1.8], "at": [-1.4, 0] },
+          { "name": "2", "smd": [1.6, 1.8], "at": [1.4, 0] }
+        ]
+      },
+      { "id": "madhu/AXIAL-0.2", "description": "0.2\" TH pads, 0.15\" wide body",
+        "graphics": [
+          { "line": [[-2.54, 2.032], [2.54, 2.032]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[2.54, 2.032], [2.54, 0]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[2.54, 0], [2.54, -2.032]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[2.54, -2.032], [-2.54, -2.032]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[-2.54, -2.032], [-2.54, 0]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[-2.54, 0], [-2.54, 2.032]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[2.54, 0], [2.794, 0]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[-2.54, 0], [-2.794, 0]], "width": 0.2032, "layer": "silk.top" },
+          { "text": ">Name", "at": [-1.27, 1.27], "size": 0.4064, "layer": "names.top", "font": "vector" },
+          { "text": ">Value", "at": [-2.032, -1.651], "size": 1.016, "layer": "silk.top", "ratio": 15, "font": "vector" }
+        ],
+        "pads": [
+          { "name": "1", "at": [-2.54, 0], "drill": 0.8128 },
+          { "name": "2", "at": [2.54, 0], "drill": 0.8128 }
+        ]
+      },
+      { "id": "madhu/AXIAL-0.3", "description": "0.3\" pads",
+        "graphics": [
+          { "line": [[-2.54, 0.762], [2.54, 0.762]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[2.54, 0.762], [2.54, 0]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[2.54, 0], [2.54, -0.762]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[2.54, -0.762], [-2.54, -0.762]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[-2.54, -0.762], [-2.54, 0]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[-2.54, 0], [-2.54, 0.762]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[2.54, 0], [2.794, 0]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[-2.54, 0], [-2.794, 0]], "width": 0.2032, "layer": "silk.top" },
+          { "text": ">Name", "at": [-2.54, 1.27], "size": 0.4064, "layer": "names.top", "font": "vector" },
+          { "text": ">Value", "at": [-2.032, -0.381], "size": 1.016, "layer": "silk.top", "ratio": 15 }
+        ],
+        "pads": [
+          { "name": "1", "at": [-3.81, 0], "drill": 0.8128 },
+          { "name": "2", "at": [3.81, 0], "drill": 0.8128 }
+        ]
+      },
+      { "id": "madhu/AXIAL-0.4", "description": "1/4W Resistor, 0.4\" wide",
+        "graphics": [
+          { "line": [[-3.15, -1.2], [-3.15, 1.2]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[-3.15, 1.2], [3.15, 1.2]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[3.15, 1.2], [3.15, -1.2]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[3.15, -1.2], [-3.15, -1.2]], "width": 0.2032, "layer": "silk.top" },
+          { "text": ">NAME", "at": [0.762, -0.381], "size": 0.8128, "layer": "names.top", "ratio": 15 },
+          { "text": ">VALUE", "at": [-2.794, -0.381], "size": 0.8128, "layer": "names.top", "ratio": 15 }
+        ],
+        "pads": [
+          { "name": "1", "at": [-5.08, 0], "drill": 0.9, "diameter": 1.8796 },
+          { "name": "2", "at": [5.08, 0], "drill": 0.9, "diameter": 1.8796 }
+        ]
+      },
+      { "id": "madhu/AXIAL-0.5", "description": "1/2W Resistor, 0.5\" wide",
+        "graphics": [
+          { "line": [[-4.5, -1.65], [-4.5, 1.65]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[-4.5, 1.65], [4.5, 1.65]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[4.5, 1.65], [4.5, -1.65]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[4.5, -1.65], [-4.5, -1.65]], "width": 0.2032, "layer": "silk.top" },
+          { "text": ">Name", "at": [-3.683, 0.381], "size": 0.8128, "layer": "names.top", "ratio": 15 },
+          { "text": ">Value", "at": [-3.81, -1.143], "size": 0.8128, "layer": "silk.top", "ratio": 15 }
+        ],
+        "pads": [
+          { "name": "1", "at": [-6.35, 0], "drill": 0.9, "diameter": 1.8796 },
+          { "name": "2", "at": [6.35, 0], "drill": 0.9, "diameter": 1.8796 }
+        ]
+      },
+      { "id": "madhu/AXIAL-0.6", "description": "1W Resistor, 0.6\" wide",
+        "graphics": [
+          { "line": [[-5.75, -2.25], [-5.75, 2.25]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[-5.75, 2.25], [5.75, 2.25]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[5.75, 2.25], [5.75, -2.25]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[5.75, -2.25], [-5.75, -2.25]], "width": 0.2032, "layer": "silk.top" },
+          { "text": ">Name", "at": [-4.064, 0], "size": 0.8128, "layer": "names.top", "ratio": 15 },
+          { "text": ">Value", "at": [-4.064, -1.651], "size": 0.8128, "layer": "silk.top", "ratio": 15 }
+        ],
+        "pads": [
+          { "name": "1", "at": [-7.62, 0], "drill": 1.2, "diameter": 1.8796 },
+          { "name": "2", "at": [7.62, 0], "drill": 1.2, "diameter": 1.8796 }
+        ]
+      },
+      { "id": "madhu/AXIAL-0.8", "description": "2W Resistor, 0.8\" wide",
+        "graphics": [
+          { "line": [[-7.75, -2.5], [-7.75, 2.5]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[-7.75, 2.5], [7.75, 2.5]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[7.75, 2.5], [7.75, -2.5]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[7.75, -2.5], [-7.75, -2.5]], "width": 0.2032, "layer": "silk.top" },
+          { "text": ">Name", "at": [-5.969, 0], "size": 0.8128, "layer": "names.top", "ratio": 15 },
+          { "text": ">Value", "at": [-5.969, -1.651], "size": 0.8128, "layer": "silk.top", "ratio": 15 }
+        ],
+        "pads": [
+          { "name": "1", "at": [-10.16, 0], "drill": 1.2, "diameter": 1.8796 },
+          { "name": "2", "at": [10.16, 0], "drill": 1.2, "diameter": 1.8796 }
+        ]
+      },
+      { "id": "madhu/BERG-2", "description": "<b>Two pin Berg connector</b><p>\ngrid 2.5 mm, outline 2.4 x 4.4 mm",
+        "graphics": [
+          { "line": [[-2.54, -1.27], [-2.54, 1.27]], "width": 0.1524, "layer": "silk.top" },
+          { "line": [[2.54, 1.27], [-2.54, 1.27]], "width": 0.1524, "layer": "silk.top" },
+          { "line": [[2.54, -1.27], [2.54, 1.27]], "width": 0.1524, "layer": "silk.top" },
+          { "line": [[2.54, -1.27], [-2.54, -1.27]], "width": 0.1524, "layer": "silk.top" },
+          { "text": ">NAME", "at": [-2.413, 1.397], "size": 0.8128, "layer": "names.top", "ratio": 10 }
+        ],
+        "pads": [
+          { "name": "1", "at": [-1.27, 0], "drill": 1.016, "shape": "square" },
+          { "name": "2", "at": [1.27, 0], "drill": 1.016 }
+        ]
+      },
+      { "id": "madhu/DFN6", "description": "<b>Maxim 2mm DFN6</b> https://pdfserv.maximintegrated.com/land_patterns/90-0004.PDF",
+        "graphics": [
+          { "line": [[-1.092, -1.803], [1.092, -1.803]], "width": 0.1524, "layer": "fab.top" },
+          { "line": [[1.092, -1.803], [1.092, 1.803]], "width": 0.1524, "layer": "silk.top" },
+          { "line": [[1.092, 1.803], [-1.092, 1.803]], "width": 0.1524, "layer": "fab.top" },
+          { "line": [[-1.092, 1.803], [-1.092, -1.803]], "width": 0.1524, "layer": "silk.top" },
+          { "circle": [-1.5494, -0.9906], "radius": 0.1436, "width": 0.2032, "layer": "silk.top" },
+          { "text": ">NAME", "at": [-1.905, 2.54], "size": 0.8128, "layer": "names.top" }
+        ],
+        "pads": [
+          { "name": "1", "smd": [0.35, 0.8], "at": [-0.65, -0.915] },
+          { "name": "2", "smd": [0.35, 0.8], "at": [0, -0.915] },
+          { "name": "3", "smd": [0.35, 0.8], "at": [0.65, -0.915] },
+          { "name": "4", "smd": [0.35, 0.8], "at": [0.65, 0.915] },
+          { "name": "5", "smd": [0.35, 0.8], "at": [0, 0.915] },
+          { "name": "6", "smd": [0.35, 0.8], "at": [-0.65, 0.915] }
+        ]
+      },
       { "id": "madhu/SOD-123FL", "description": "Surface mount diode",
         "graphics": [
           { "text": ">NAME", "at": [0.6985, -0.762], "rot": 90, "size": 0.4064, "layer": "names.top" },
@@ -221,6 +613,35 @@
           { "name": "2", "at": [3.77, 0], "drill": 0.8128 }
         ]
       },
+      { "id": "madhu/SOIC-8", "description": "<b>Small Outline Package</b> Fits JEDEC packages (narrow SOIC-8)",
+        "graphics": [
+          { "line": [[-2.362, -1.803], [2.362, -1.803]], "width": 0.1524, "layer": "fab.top" },
+          { "line": [[2.362, -1.803], [2.362, 1.803]], "width": 0.1524, "layer": "silk.top" },
+          { "line": [[2.362, 1.803], [-2.362, 1.803]], "width": 0.1524, "layer": "fab.top" },
+          { "line": [[-2.362, 1.803], [-2.362, -1.803]], "width": 0.1524, "layer": "silk.top" },
+          { "circle": [-1.8034, -0.9906], "radius": 0.1436, "width": 0.2032, "layer": "silk.top" },
+          { "text": ">NAME", "at": [-2.032, -0.254], "size": 0.8128, "layer": "names.top" },
+          { "rect": [[-2.0828, -2.8702], [-1.7272, -1.8542]], "layer": "fab.top" },
+          { "rect": [[-0.8128, -2.8702], [-0.4572, -1.8542]], "layer": "fab.top" },
+          { "rect": [[0.4572, -2.8702], [0.8128, -1.8542]], "layer": "fab.top" },
+          { "rect": [[1.7272, -2.8702], [2.0828, -1.8542]], "layer": "fab.top" },
+          { "rect": [[-2.0828, 1.8542], [-1.7272, 2.8702]], "layer": "fab.top" },
+          { "rect": [[-0.8128, 1.8542], [-0.4572, 2.8702]], "layer": "fab.top" },
+          { "rect": [[0.4572, 1.8542], [0.8128, 2.8702]], "layer": "fab.top" },
+          { "rect": [[1.7272, 1.8542], [2.0828, 2.8702]], "layer": "fab.top" },
+          { "text": ">VALUE", "at": [-2.794, -2.159], "rot": 90, "size": 0.8128, "layer": "names.top" }
+        ],
+        "pads": [
+          { "name": "1", "smd": [0.6096, 2.2098], "at": [-1.905, -2.6162] },
+          { "name": "2", "smd": [0.6096, 2.2098], "at": [-0.635, -2.6162] },
+          { "name": "3", "smd": [0.6096, 2.2098], "at": [0.635, -2.6162] },
+          { "name": "4", "smd": [0.6096, 2.2098], "at": [1.905, -2.6162] },
+          { "name": "5", "smd": [0.6096, 2.2098], "at": [1.905, 2.6162] },
+          { "name": "6", "smd": [0.6096, 2.2098], "at": [0.635, 2.6162] },
+          { "name": "7", "smd": [0.6096, 2.2098], "at": [-0.635, 2.6162] },
+          { "name": "8", "smd": [0.6096, 2.2098], "at": [-1.905, 2.6162] }
+        ]
+      },
       { "id": "madhu/TO-92", "description": "<b>TO 92</b>",
         "graphics": [
           { "line": [[-2.0946, -1.651], [-0.7863, 2.5485]], "width": 0.2032, "layer": "silk.top", "curve": -111.098957, "cap": "flat" },
@@ -303,9 +724,215 @@
           { "name": "2", "smd": [0.8, 0.9], "at": [0.95, -1] },
           { "name": "1", "smd": [0.8, 0.9], "at": [-0.95, -1] }
         ]
+      },
+      { "id": "madhu/TO220ACV", "description": "<b>TO 220AC Vertical</b> Package works with various parts including N-Channel MOSFET SparkFun SKU: COM-10213",
+        "graphics": [
+          { "line": [[-5.08, 2.032], [-5.08, -0.381]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[5.08, 2.032], [5.08, -0.381]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[5.08, 2.032], [-5.08, 2.032]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[-5.08, 2.032], [-5.08, 3.048]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[-5.08, 3.048], [5.08, 3.048]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[5.08, 3.048], [5.08, 2.032]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[-5.08, -0.381], [-4.191, -1.27]], "width": 0.2032, "layer": "silk.top", "curve": 92.798868 },
+          { "line": [[5.08, -0.381], [4.191, -1.27]], "width": 0.2032, "layer": "silk.top", "curve": -92.798868 },
+          { "line": [[-4.191, -1.27], [-3.81, -1.27]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[4.191, -1.27], [3.81, -1.27]], "width": 0.2032, "layer": "silk.top" },
+          { "text": ">NAME", "at": [-2.794, 3.429], "size": 1.27, "layer": "names.top", "ratio": 10 },
+          { "text": ">VALUE", "at": [-3.302, -3.302], "size": 1.27, "layer": "values.top", "ratio": 10 },
+          { "rect": [[-5.08, 2.032], [5.08, 3.048]], "layer": "silk.top" }
+        ],
+        "pads": [
+          { "name": "1", "at": [-2.54, 0], "drill": 1.016, "shape": "long", "rot": 90 },
+          { "name": "3", "at": [2.54, 0], "drill": 1.016, "shape": "long", "rot": 90 }
+        ]
+      },
+      { "id": "madhu/VERTICAL-0.1", "description": "0.1\" 2-pin vertical through hole device",
+        "graphics": [
+          { "line": [[0, 0], [2.54, 0]], "width": 0.2032, "layer": "silk.top" },
+          { "circle": [0, 0], "radius": 1.27, "width": 0.254, "layer": "silk.top" },
+          { "text": ">Name", "at": [-0.635, 1.905], "size": 0.8128, "layer": "names.top" },
+          { "text": ">Value", "at": [-0.762, -2.921], "size": 0.8128, "layer": "silk.top" }
+        ],
+        "pads": [
+          { "name": "1", "at": [0, 0], "drill": 0.9, "diameter": 1.8796 },
+          { "name": "2", "at": [2.54, 0], "drill": 0.9, "diameter": 1.8796 }
+        ]
+      },
+      { "id": "madhu/XFL4020", "description": "<b>Inductor</b>\n\nCoilcraft XFL4020 series inductors\nhttps://www.coilcraft.com/getmedia/50632d43-da1b-4cdb-8ab4-3029cab51df3/xfl4020.pdf",
+        "graphics": [
+          { "line": [[-2.0066, 2.0066], [2.0066, 2.0066]], "width": 0.0508, "layer": "keepout.top" },
+          { "line": [[2.0066, -2.0066], [-2.0066, -2.0066]], "width": 0.0508, "layer": "keepout.top" },
+          { "line": [[-2.0066, -2.0066], [-2.0066, 2.0066]], "width": 0.0508, "layer": "keepout.top" },
+          { "line": [[2.0066, 2.0066], [2.0066, -2.0066]], "width": 0.0508, "layer": "keepout.top" },
+          { "text": ">NAME", "at": [-2.54, 2.54], "size": 1.27, "layer": "names.top" },
+          { "text": ">VALUE", "at": [-2.54, -3.81], "size": 1.27, "layer": "values.top" },
+          { "line": [[-2.0066, 2.0066], [2.0066, 2.0066]], "width": 0.127, "layer": "silk.top" },
+          { "line": [[2.0066, 2.0066], [2.0066, -2.0066]], "width": 0.127, "layer": "silk.top" },
+          { "line": [[2.0066, -2.0066], [-2.0066, -2.0066]], "width": 0.127, "layer": "silk.top" },
+          { "line": [[-2.0066, -2.0066], [-2.0066, 2.0066]], "width": 0.127, "layer": "silk.top" }
+        ],
+        "pads": [
+          { "name": "1", "smd": [0.9652, 3.4036], "at": [-1.1811, 0] },
+          { "name": "2", "smd": [0.9652, 3.4036], "at": [1.1811, 0] }
+        ]
+      },
+      { "id": "SparkFun-DiscreteSemi/DPAK",
+        "graphics": [
+          { "line": [[3.2766, 2.4654], [3.277, -3.729]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[3.277, -3.729], [-3.277, -3.729]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[-3.277, -3.729], [-3.2766, 2.4654]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[-3.277, 2.465], [3.2774, 2.4646]], "width": 0.2032, "layer": "fab.top" },
+          { "line": [[-2.5654, 2.567], [-2.5654, 3.2782]], "width": 0.2032, "layer": "fab.top" },
+          { "line": [[-2.5654, 3.2782], [-2.1082, 3.7354]], "width": 0.2032, "layer": "fab.top" },
+          { "line": [[-2.1082, 3.7354], [2.1082, 3.7354]], "width": 0.2032, "layer": "fab.top" },
+          { "line": [[2.1082, 3.7354], [2.5654, 3.2782]], "width": 0.2032, "layer": "fab.top" },
+          { "line": [[2.5654, 3.2782], [2.5654, 2.567]], "width": 0.2032, "layer": "fab.top" },
+          { "line": [[2.5654, 2.567], [-2.5654, 2.567]], "width": 0.2032, "layer": "fab.top" },
+          { "text": ">NAME", "at": [-3.683, -3.702], "rot": 90, "size": 0.4064, "layer": "names.top" },
+          { "text": ">VALUE", "at": [3.937, -3.702], "rot": 90, "size": 0.4064, "layer": "values.top" },
+          { "rect": [[-2.7178, -6.7262], [-1.8542, -3.8306]], "layer": "fab.top" },
+          { "rect": [[1.8542, -6.7262], [2.7178, -3.8306]], "layer": "fab.top" },
+          { "rect": [[-0.4318, -4.5926], [0.4318, -3.8306]], "layer": "silk.top" },
+          { "polygon": [[-2.5654, 2.567], [-2.5654, 3.2782], [-2.1082, 3.7354], [2.1082, 3.7354], [2.5654, 3.2782], [2.5654, 2.567]], "width": 0.1998, "layer": "fab.top" }
+        ],
+        "pads": [
+          { "name": "1", "smd": [1.6, 3], "at": [-2.28, -5.31] },
+          { "name": "3", "smd": [1.6, 3], "at": [2.28, -5.31] },
+          { "name": "4", "smd": [4.826, 5.715], "at": [0, 1.588] }
+        ]
+      },
+      { "id": "SparkFun-DiscreteSemi/SOT23-3",
+        "graphics": [
+          { "line": [[1.4224, 0.6604], [1.4224, -0.6604]], "width": 0.1524, "layer": "fab.top" },
+          { "line": [[1.4224, -0.6604], [-1.4224, -0.6604]], "width": 0.1524, "layer": "fab.top" },
+          { "line": [[-1.4224, -0.6604], [-1.4224, 0.6604]], "width": 0.1524, "layer": "fab.top" },
+          { "line": [[-1.4224, 0.6604], [1.4224, 0.6604]], "width": 0.1524, "layer": "fab.top" },
+          { "line": [[-0.8, 0.7], [-1.4, 0.7]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[-1.4, 0.7], [-1.4, -0.1]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[0.8, 0.7], [1.4, 0.7]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[1.4, 0.7], [1.4, -0.1]], "width": 0.2032, "layer": "silk.top" },
+          { "text": ">NAME", "at": [-0.8255, 1.778], "size": 0.4064, "layer": "names.top" },
+          { "text": ">VALUE", "at": [-1.016, -0.1905], "size": 0.4064, "layer": "values.top" }
+        ],
+        "pads": [
+          { "name": "3", "smd": [0.8, 0.9], "at": [0, 1.1] },
+          { "name": "2", "smd": [0.8, 0.9], "at": [0.95, -1] },
+          { "name": "1", "smd": [0.8, 0.9], "at": [-0.95, -1] }
+        ]
+      },
+      { "id": "SparkFun-DiscreteSemi/TO-92", "description": "<b>TO 92</b>",
+        "graphics": [
+          { "line": [[-2.0946, -1.651], [-0.7863, 2.5485]], "width": 0.2032, "layer": "silk.top", "curve": -111.098957, "cap": "flat" },
+          { "line": [[0.7863, 2.5484], [2.0945, -1.651]], "width": 0.2032, "layer": "silk.top", "curve": -111.09954, "cap": "flat" },
+          { "line": [[-2.0945, -1.651], [2.0945, -1.651]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[-2.6549, -0.254], [-2.2537, -0.254]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[-0.2863, -0.254], [0.2863, -0.254]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[2.2537, -0.254], [2.6549, -0.254]], "width": 0.2032, "layer": "silk.top" },
+          { "text": ">NAME", "at": [3.175, 0.635], "size": 0.4064, "layer": "names.top", "ratio": 10 },
+          { "text": ">VALUE", "at": [3.175, -1.27], "size": 0.4064, "layer": "values.top", "ratio": 10 }
+        ],
+        "pads": [
+          { "name": "3", "at": [1.27, 0], "drill": 0.8128, "diameter": 1.8796 },
+          { "name": "2", "at": [0, 1.905], "drill": 0.8128, "diameter": 1.8796 },
+          { "name": "1", "at": [-1.27, 0], "drill": 0.8128, "diameter": 1.8796 }
+        ]
+      },
+      { "id": "SparkFun-DiscreteSemi/TO220V", "description": "<b>TO 220 Vertical</b> Package works with various parts including N-Channel MOSFET SparkFun SKU: COM-10213",
+        "graphics": [
+          { "line": [[-5.08, 2.032], [-5.08, -0.381]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[5.08, 2.032], [5.08, -0.381]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[5.08, 2.032], [-5.08, 2.032]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[-5.08, 2.032], [-5.08, 3.048]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[-5.08, 3.048], [5.08, 3.048]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[5.08, 3.048], [5.08, 2.032]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[-5.08, -0.381], [-4.191, -1.27]], "width": 0.2032, "layer": "silk.top", "curve": 92.798868 },
+          { "line": [[5.08, -0.381], [4.191, -1.27]], "width": 0.2032, "layer": "silk.top", "curve": -92.798868 },
+          { "line": [[-4.191, -1.27], [-3.81, -1.27]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[4.191, -1.27], [3.81, -1.27]], "width": 0.2032, "layer": "silk.top" },
+          { "text": ">NAME", "at": [-2.794, 3.429], "size": 1.27, "layer": "names.top", "ratio": 10 },
+          { "text": ">VALUE", "at": [-3.302, -3.302], "size": 1.27, "layer": "values.top", "ratio": 10 },
+          { "rect": [[-5.08, 2.032], [5.08, 3.048]], "layer": "silk.top" }
+        ],
+        "pads": [
+          { "name": "1", "at": [-2.54, 0], "drill": 1.016, "shape": "long", "rot": 90 },
+          { "name": "2", "at": [0, 0], "drill": 1.016, "shape": "long", "rot": 90 },
+          { "name": "3", "at": [2.54, 0], "drill": 1.016, "shape": "long", "rot": 90 }
+        ]
       }
     ],
     "components": [
+      { "id": "madhu/20TQ040PBF", "prefix": "D", "description": "20 Amp, 40 Volt Schottky diode",
+        "gates": [
+          { "name": "A", "at": [0, 0], "symbol": "madhu/DIODE-SCHOTTKY" }
+        ],
+        "variants": [
+          { "name": "", "footprint": "madhu/TO220ACV", "pads": { "A.A": ["3"], "A.C": ["1"] } }
+        ]
+      },
+      { "id": "madhu/2N7002", "prefix": "U", "description": "N-Channel Enhancement Mode Field Effect Transistor",
+        "gates": [
+          { "name": "A", "at": [0, 0], "symbol": "madhu/N-MOSFET" }
+        ],
+        "variants": [
+          { "name": "", "footprint": "madhu/SOT23-3", "pads": { "A.D": ["3"], "A.G": ["1"], "A.S": ["2"] } }
+        ]
+      },
+      { "id": "madhu/BERG-2", "prefix": "P", "description": "Two pin Berg connector",
+        "gates": [
+          { "name": "A", "at": [0, 0], "symbol": "madhu/BERG-2" }
+        ],
+        "variants": [
+          { "name": "", "footprint": "madhu/BERG-2", "pads": { "A.1": ["1"], "A.2": ["2"] } }
+        ]
+      },
+      { "id": "madhu/FAN3227", "prefix": "U", "description": "Dual Non-inverting Power MOSFET Driver",
+        "gates": [
+          { "name": "A", "at": [0, 17.78], "swap": 1, "symbol": "madhu/BUFFER_EN" },
+          { "name": "B", "at": [0, -20.32], "swap": 1, "symbol": "madhu/BUFFER_EN" },
+          { "name": "P", "at": [-35.56, 0], "symbol": "madhu/PWRN", "addLevel": "request" }
+        ],
+        "variants": [
+          { "name": "", "footprint": "madhu/SOIC-8", "pads": { "A.I": ["2"], "A.O": ["7"], "A.OE": ["1"], "B.I": ["4"], "B.O": ["5"], "B.OE": ["8"], "P.GND": ["3"], "P.VCC": ["6"] } }
+        ]
+      },
+      { "id": "madhu/INDUCTOR", "prefix": "L", "userValue": true, "description": "Coil",
+        "gates": [
+          { "name": "A", "at": [0, 0], "symbol": "madhu/INDUCTOR" }
+        ],
+        "variants": [
+          { "name": "1.1UHV", "footprint": "madhu/VERTICAL-0.1", "pads": { "A.1": ["1"], "A.2": ["2"] } },
+          { "name": "7.2UH", "footprint": "madhu/AXIAL-0.2", "pads": { "A.1": ["1"], "A.2": ["2"] } },
+          { "name": "0.125UH", "footprint": "madhu/AXIAL-0.2", "pads": { "A.1": ["1"], "A.2": ["2"] } },
+          { "name": "-0805", "footprint": "madhu/0805", "pads": { "A.1": ["1"], "A.2": ["2"] } },
+          { "name": "-1206", "footprint": "madhu/1206", "pads": { "A.1": ["1"], "A.2": ["2"] } },
+          { "name": "-XFL4020", "footprint": "madhu/XFL4020", "pads": { "A.1": ["1"], "A.2": ["2"] } }
+        ]
+      },
+      { "id": "madhu/MAX17225", "prefix": "U", "description": "400mV to 5.5V Input, nanoPower Synchronous\nBoost Converter with True Shutdown",
+        "gates": [
+          { "name": "G$1", "at": [7.62, -2.54], "symbol": "madhu/MAX17225" }
+        ],
+        "variants": [
+          { "name": "ELT", "footprint": "madhu/DFN6", "pads": { "G$1.EN": ["6"], "G$1.GND": ["3"], "G$1.IN": ["5"], "G$1.LX": ["2"], "G$1.OUT": ["1"], "G$1.SEL": ["4"] } }
+        ]
+      },
+      { "id": "madhu/RESISTOR", "prefix": "R", "userValue": true, "description": "<b>Resistor</b>\nBasic schematic elements and footprints for 0603, 1206, and PTH resistors.",
+        "gates": [
+          { "name": "A", "at": [0, 0], "symbol": "madhu/RESISTOR" }
+        ],
+        "variants": [
+          { "name": "1206", "footprint": "madhu/1206", "pads": { "A.1": ["1"], "A.2": ["2"] } },
+          { "name": "AXIAL-0.3", "footprint": "madhu/AXIAL-0.3", "pads": { "A.1": ["1"], "A.2": ["2"] } },
+          { "name": "VERTICAL-0.1", "footprint": "madhu/VERTICAL-0.1", "pads": { "A.1": ["1"], "A.2": ["2"] } },
+          { "name": "0805-RES", "footprint": "madhu/0805", "pads": { "A.1": ["1"], "A.2": ["2"] } },
+          { "name": "0603-RES", "footprint": "madhu/0603-RES", "pads": { "A.1": ["1"], "A.2": ["2"] } },
+          { "name": "0402-RES", "footprint": "madhu/0402-RES", "pads": { "A.1": ["1"], "A.2": ["2"] } },
+          { "name": "PTH-1/4W", "footprint": "madhu/AXIAL-0.4", "pads": { "A.1": ["1"], "A.2": ["2"] } },
+          { "name": "PTH-1/2W", "footprint": "madhu/AXIAL-0.5", "pads": { "A.1": ["1"], "A.2": ["2"] } },
+          { "name": "PTH-1W", "footprint": "madhu/AXIAL-0.6", "pads": { "A.1": ["1"], "A.2": ["2"] } },
+          { "name": "PTH-2W", "footprint": "madhu/AXIAL-0.8", "pads": { "A.1": ["1"], "A.2": ["2"] } }
+        ]
+      },
       { "id": "madhu/SM4007PL", "prefix": "D", "description": "1000 V / 1 A general purpose diode. JLC PCB basic part.\n\nhttps://datasheet.lcsc.com/szlcsc/1903051030_MDD-Jiangsu-Yutai-Elec-SM4007PL_C64898.pdf",
         "gates": [
           { "name": "A", "at": [0, 0], "symbol": "madhu/DIODE" }
@@ -338,9 +965,36 @@
           { "name": "G-AB3-R", "footprint": "madhu/SOT89", "pads": { "A.VI": ["3"], "A.GND": ["2"], "A.VO": ["1"] }, "technologies": { "": { "LCSC": "C71136" } } }
         ]
       },
+      { "id": "SparkFun-DiscreteSemi/MOSFET-NCHANNEL", "prefix": "Q", "description": "Generic NMOS footprint",
+        "gates": [
+          { "name": "G$1", "at": [0, 0], "symbol": "SparkFun-DiscreteSemi/MOSFET-NCHANNEL" }
+        ],
+        "variants": [
+          { "name": "SMD", "footprint": "SparkFun-DiscreteSemi/SOT23-3", "pads": { "G$1.D": ["3"], "G$1.G": ["1"], "G$1.S": ["2"] } },
+          { "name": "PTH", "footprint": "SparkFun-DiscreteSemi/TO-92", "pads": { "G$1.D": ["1"], "G$1.G": ["3"], "G$1.S": ["2"] } },
+          { "name": "FDD8580", "footprint": "SparkFun-DiscreteSemi/DPAK", "pads": { "G$1.D": ["4"], "G$1.G": ["1"], "G$1.S": ["3"] } },
+          { "name": "PTH2", "footprint": "SparkFun-DiscreteSemi/TO220V", "pads": { "G$1.D": ["2"], "G$1.G": ["1"], "G$1.S": ["3"] } }
+        ]
+      },
+      { "id": "supply2/+12V", "prefix": "SUPPLY", "description": "<b>SUPPLY SYMBOL</b>", "eagle": { "attrs": { "urn": "urn:adsk.eagle:component:27033/1", "library_version": "2" } },
+        "gates": [
+          { "name": "+12V", "at": [0, 0], "symbol": "supply2/+12V" }
+        ],
+        "variants": [
+          { "name": "", "pads": {} }
+        ]
+      },
       { "id": "supply2/GND", "prefix": "SUPPLY", "description": "<b>SUPPLY SYMBOL</b>", "eagle": { "attrs": { "urn": "urn:adsk.eagle:component:27037/1", "library_version": "2" } },
         "gates": [
           { "name": "GND", "at": [0, 0], "symbol": "supply2/GND" }
+        ],
+        "variants": [
+          { "name": "", "pads": {} }
+        ]
+      },
+      { "id": "supply2/V+", "prefix": "SUPPLY", "description": "<b>SUPPLY SYMBOL</b>", "eagle": { "attrs": { "urn": "urn:adsk.eagle:component:27074/1", "library_version": "2" } },
+        "gates": [
+          { "name": "1", "at": [0, 0], "symbol": "supply2/V+" }
         ],
         "variants": [
           { "name": "", "pads": {} }
@@ -377,7 +1031,30 @@
     { "name": "Q1", "component": "madhu/DMG2305UX", "variant": "", "attributes": { "BLOCK": "PMOS-polarity" } },
     { "name": "C4", "component": "madhu/CAPACITOR-NP", "variant": "0805", "value": "100n", "attributes": { "BLOCK": "PMOS-polarity" } },
     { "name": "SUPPLY5", "component": "supply2/GND", "variant": "" },
-    { "name": "SUPPLY6", "component": "supply2/VCC", "variant": "" }
+    { "name": "SUPPLY6", "component": "supply2/VCC", "variant": "" },
+    { "name": "U2", "component": "madhu/MAX17225", "variant": "ELT", "attributes": { "BLOCK": "Boost-MAX17225" } },
+    { "name": "R1", "component": "madhu/RESISTOR", "variant": "0805-RES", "value": "80.6k", "attributes": { "BLOCK": "Boost-MAX17225" } },
+    { "name": "SUPPLY50", "component": "supply2/GND", "variant": "" },
+    { "name": "SUPPLY51", "component": "supply2/VCC", "variant": "" },
+    { "name": "L1", "component": "madhu/INDUCTOR", "variant": "-XFL4020", "value": "2.2u", "attributes": { "BLOCK": "Boost-MAX17225" } },
+    { "name": "C5", "component": "madhu/CAPACITOR-NP", "variant": "0805", "value": "10u", "attributes": { "BLOCK": "Boost-MAX17225" } },
+    { "name": "C6", "component": "madhu/CAPACITOR-NP", "variant": "0805", "value": "10u", "attributes": { "BLOCK": "Boost-MAX17225" } },
+    { "name": "R2", "component": "madhu/RESISTOR", "variant": "0805-RES", "value": "33M", "attributes": { "BLOCK": "Boost-MAX17225" } },
+    { "name": "Q2", "component": "madhu/2N7002", "variant": "", "attributes": { "BLOCK": "MOSFET-switch" } },
+    { "name": "D2", "component": "madhu/SM4007PL", "variant": "", "attributes": { "BLOCK": "MOSFET-switch" } },
+    { "name": "SUPPLY53", "component": "supply2/GND", "variant": "" },
+    { "name": "SUPPLY54", "component": "supply2/VCC", "variant": "" },
+    { "name": "J1", "component": "madhu/BERG-2", "variant": "", "attributes": { "BLOCK": "MOSFET-switch" } },
+    { "name": "U3", "component": "madhu/FAN3227", "variant": "", "attributes": { "BLOCK": "Lowside-driver" } },
+    { "name": "Q3", "component": "SparkFun-DiscreteSemi/MOSFET-NCHANNEL", "variant": "PTH2", "value": "20A 30V", "attributes": { "BLOCK": "Lowside-driver" } },
+    { "name": "SUPPLY55", "component": "supply2/GND", "variant": "" },
+    { "name": "SUPPLY56", "component": "supply2/GND", "variant": "" },
+    { "name": "SUPPLY15", "component": "supply2/+12V", "variant": "" },
+    { "name": "J2", "component": "madhu/BERG-2", "variant": "", "attributes": { "BLOCK": "Lowside-driver" } },
+    { "name": "J3", "component": "madhu/BERG-2", "variant": "", "attributes": { "BLOCK": "Lowside-driver" } },
+    { "name": "SUPPLY14", "component": "supply2/V+", "variant": "" },
+    { "name": "D3", "component": "madhu/20TQ040PBF", "variant": "", "attributes": { "BLOCK": "Lowside-driver" } },
+    { "name": "C7", "component": "madhu/CAPACITOR-NP", "variant": "0805", "value": "100n", "attributes": { "LCSC_PART": "C14663", "MFR": "YAGEO", "MFR_PART": "CC0603KRX7R9BB104", "BLOCK": "Lowside-driver" } }
   ],
   "nets": [
     { "name": "VIN",
@@ -448,6 +1125,41 @@
             { "line": [[124.46, 20.32], [124.46, 17.78]], "width": 0.1524 },
             { "line": [[124.46, 20.32], [124.46, 22.86]], "width": 0.1524 }
           ]
+        },
+        { "sheet": "1", "junctions": [[147.32, 17.78], [185.42, 17.78], [172.72, 17.78]],
+          "pins": [
+            { "part": "U2", "gate": "G$1", "pin": "IN" },
+            { "part": "L1", "gate": "A", "pin": "1" },
+            { "part": "C5", "gate": "A", "pin": "1" },
+            { "part": "R2", "gate": "A", "pin": "2" },
+            { "part": "SUPPLY51", "gate": "G$1", "pin": "VCC" }
+          ],
+          "wires": [
+            { "line": [[139.7, 17.78], [147.32, 17.78]], "width": 0.1524 },
+            { "line": [[147.32, 17.78], [172.72, 17.78]], "width": 0.1524 },
+            { "line": [[172.72, 17.78], [185.42, 17.78]], "width": 0.1524 },
+            { "line": [[185.42, 17.78], [185.42, -7.62]], "width": 0.1524 },
+            { "line": [[185.42, -7.62], [182.88, -7.62]], "width": 0.1524 },
+            { "line": [[139.7, -2.54], [139.7, 17.78]], "width": 0.1524 },
+            { "line": [[147.32, 12.7], [147.32, 17.78]], "width": 0.1524 },
+            { "line": [[193.04, 7.62], [193.04, 17.78]], "width": 0.1524 },
+            { "line": [[193.04, 17.78], [185.42, 17.78]], "width": 0.1524 },
+            { "line": [[172.72, 22.86], [172.72, 17.78]], "width": 0.1524 }
+          ]
+        },
+        { "sheet": "1", "junctions": [[233.68, 17.78]],
+          "pins": [
+            { "part": "D2", "gate": "A", "pin": "C" },
+            { "part": "J1", "gate": "A", "pin": "2" },
+            { "part": "SUPPLY54", "gate": "G$1", "pin": "VCC" }
+          ],
+          "wires": [
+            { "line": [[233.68, 22.86], [233.68, 17.78]], "width": 0.1524 },
+            { "line": [[233.68, 17.78], [233.68, 12.7]], "width": 0.1524 },
+            { "line": [[246.38, 12.7], [241.3, 12.7]], "width": 0.1524 },
+            { "line": [[241.3, 12.7], [241.3, 17.78]], "width": 0.1524 },
+            { "line": [[241.3, 17.78], [233.68, 17.78]], "width": 0.1524 }
+          ]
         }
       ]
     },
@@ -483,6 +1195,243 @@
             { "line": [[124.46, 10.16], [124.46, 7.62]], "width": 0.1524 },
             { "line": [[93.98, 7.62], [93.98, 5.08]], "width": 0.1524 }
           ]
+        },
+        { "sheet": "1", "junctions": [[157.48, -27.94], [185.42, -27.94], [170.18, -27.94]],
+          "pins": [
+            { "part": "U2", "gate": "G$1", "pin": "GND" },
+            { "part": "R1", "gate": "A", "pin": "1" },
+            { "part": "C5", "gate": "A", "pin": "2" },
+            { "part": "C6", "gate": "A", "pin": "2" },
+            { "part": "SUPPLY50", "gate": "GND", "pin": "GND" }
+          ],
+          "wires": [
+            { "line": [[139.7, -27.94], [157.48, -27.94]], "width": 0.1524 },
+            { "line": [[160.02, -10.16], [157.48, -10.16]], "width": 0.1524 },
+            { "line": [[157.48, -10.16], [157.48, -27.94]], "width": 0.1524 },
+            { "line": [[139.7, -10.16], [139.7, -27.94]], "width": 0.1524 },
+            { "line": [[157.48, -27.94], [170.18, -27.94]], "width": 0.1524 },
+            { "line": [[170.18, -27.94], [185.42, -27.94]], "width": 0.1524 },
+            { "line": [[185.42, -27.94], [203.2, -27.94]], "width": 0.1524 },
+            { "line": [[185.42, -25.4], [185.42, -27.94]], "width": 0.1524 },
+            { "line": [[203.2, -10.16], [203.2, -27.94]], "width": 0.1524 },
+            { "line": [[170.18, -30.48], [170.18, -27.94]], "width": 0.1524 }
+          ]
+        },
+        { "sheet": "1",
+          "pins": [
+            { "part": "Q2", "gate": "A", "pin": "S" },
+            { "part": "SUPPLY53", "gate": "GND", "pin": "GND" }
+          ],
+          "wires": [
+            { "line": [[233.68, -12.7], [233.68, -17.78]], "width": 0.1524 }
+          ]
+        },
+        { "sheet": "1", "junctions": [[279.4, -12.7]],
+          "pins": [
+            { "part": "U3", "gate": "P", "pin": "GND" },
+            { "part": "SUPPLY55", "gate": "GND", "pin": "GND" },
+            { "part": "C7", "gate": "A", "pin": "2" }
+          ],
+          "wires": [
+            { "line": [[279.4, -15.24], [279.4, -12.7]], "width": 0.1524 },
+            { "line": [[279.4, -12.7], [279.4, -10.16]], "width": 0.1524 },
+            { "line": [[261.62, 5.08], [261.62, -12.7]], "width": 0.1524 },
+            { "line": [[261.62, -12.7], [279.4, -12.7]], "width": 0.1524 }
+          ]
+        },
+        { "sheet": "1",
+          "pins": [
+            { "part": "Q3", "gate": "G$1", "pin": "S" },
+            { "part": "SUPPLY56", "gate": "GND", "pin": "GND" }
+          ],
+          "wires": [
+            { "line": [[317.5, -15.24], [317.5, -12.7]], "width": 0.1524 }
+          ]
+        }
+      ]
+    },
+    { "name": "VOUT",
+      "segments": [
+        { "sheet": "1", "junctions": [[203.2, 12.7]],
+          "pins": [
+            { "part": "U2", "gate": "G$1", "pin": "OUT" },
+            { "part": "C6", "gate": "A", "pin": "1" }
+          ],
+          "labels": [
+            { "at": [213.36, -5.08], "rot": 180, "size": 1.778, "layer": "names" }
+          ],
+          "wires": [
+            { "line": [[160.02, -5.08], [157.48, -5.08]], "width": 0.1524 },
+            { "line": [[157.48, -5.08], [157.48, 12.7]], "width": 0.1524 },
+            { "line": [[157.48, 12.7], [203.2, 12.7]], "width": 0.1524 },
+            { "line": [[203.2, -2.54], [203.2, 12.7]], "width": 0.1524 },
+            { "line": [[210.82, 12.7], [210.82, -5.08]], "width": 0.1524 },
+            { "line": [[210.82, -5.08], [213.36, -5.08]], "width": 0.1524 },
+            { "line": [[203.2, 12.7], [210.82, 12.7]], "width": 0.1524 }
+          ]
+        }
+      ]
+    },
+    { "name": "N$117",
+      "segments": [
+        { "sheet": "1",
+          "pins": [
+            { "part": "U2", "gate": "G$1", "pin": "LX" },
+            { "part": "L1", "gate": "A", "pin": "2" }
+          ],
+          "wires": [
+            { "line": [[147.32, -2.54], [147.32, -7.62]], "width": 0.1524 },
+            { "line": [[147.32, -7.62], [160.02, -7.62]], "width": 0.1524 }
+          ]
+        }
+      ]
+    },
+    { "name": "N$118",
+      "segments": [
+        { "sheet": "1",
+          "pins": [
+            { "part": "R1", "gate": "A", "pin": "2" },
+            { "part": "U2", "gate": "G$1", "pin": "SEL" }
+          ],
+          "wires": [
+            { "line": [[185.42, -15.24], [185.42, -10.16]], "width": 0.1524 },
+            { "line": [[185.42, -10.16], [182.88, -10.16]], "width": 0.1524 }
+          ]
+        }
+      ]
+    },
+    { "name": "N$119",
+      "segments": [
+        { "sheet": "1",
+          "pins": [
+            { "part": "U2", "gate": "G$1", "pin": "EN" },
+            { "part": "R2", "gate": "A", "pin": "1" }
+          ],
+          "wires": [
+            { "line": [[182.88, -5.08], [193.04, -5.08]], "width": 0.1524 },
+            { "line": [[193.04, -5.08], [193.04, -2.54]], "width": 0.1524 }
+          ]
+        }
+      ]
+    },
+    { "name": "N$122",
+      "segments": [
+        { "sheet": "1", "junctions": [[233.68, 2.54]],
+          "pins": [
+            { "part": "D2", "gate": "A", "pin": "A" },
+            { "part": "Q2", "gate": "A", "pin": "D" },
+            { "part": "J1", "gate": "A", "pin": "1" }
+          ],
+          "wires": [
+            { "line": [[233.68, 7.62], [233.68, 2.54]], "width": 0.1524 },
+            { "line": [[233.68, 2.54], [233.68, -2.54]], "width": 0.1524 },
+            { "line": [[246.38, 10.16], [241.3, 10.16]], "width": 0.1524 },
+            { "line": [[241.3, 10.16], [241.3, 2.54]], "width": 0.1524 },
+            { "line": [[241.3, 2.54], [233.68, 2.54]], "width": 0.1524 }
+          ]
+        }
+      ]
+    },
+    { "name": "CTRL",
+      "segments": [
+        { "sheet": "1",
+          "pins": [
+            { "part": "Q2", "gate": "A", "pin": "G" }
+          ],
+          "labels": [
+            { "at": [220.98, -10.16], "size": 1.778, "layer": "names", "align": "bottom-right" }
+          ],
+          "wires": [
+            { "line": [[228.6, -10.16], [220.98, -10.16]], "width": 0.1524 }
+          ]
+        },
+        { "sheet": "1",
+          "pins": [
+            { "part": "U3", "gate": "A", "pin": "I" }
+          ],
+          "labels": [
+            { "at": [259.08, 0], "size": 1.778, "layer": "names", "align": "bottom-right" }
+          ],
+          "wires": [
+            { "line": [[266.7, 0], [259.08, 0]], "width": 0.1524 }
+          ]
+        }
+      ]
+    },
+    { "name": "N$3",
+      "segments": [
+        { "sheet": "1",
+          "pins": [
+            { "part": "U3", "gate": "A", "pin": "O" },
+            { "part": "Q3", "gate": "G$1", "pin": "G" }
+          ],
+          "wires": [
+            { "line": [[304.8, 0], [307.34, 0]], "width": 0.1524 },
+            { "line": [[307.34, 0], [307.34, -7.62]], "width": 0.1524 },
+            { "line": [[307.34, -7.62], [309.88, -7.62]], "width": 0.1524 },
+            { "line": [[287.02, 0], [304.8, 0]], "width": 0.1524 }
+          ]
+        }
+      ]
+    },
+    { "name": "+12V",
+      "segments": [
+        { "sheet": "1", "junctions": [[317.5, 17.78], [335.28, 17.78]],
+          "pins": [
+            { "part": "SUPPLY15", "gate": "+12V", "pin": "+12V" },
+            { "part": "J3", "gate": "A", "pin": "2" },
+            { "part": "J2", "gate": "A", "pin": "2" },
+            { "part": "D3", "gate": "A", "pin": "C" }
+          ],
+          "wires": [
+            { "line": [[317.5, 15.24], [317.5, 17.78]], "width": 0.1524 },
+            { "line": [[317.5, 17.78], [317.5, 22.86]], "width": 0.1524 },
+            { "line": [[350.52, 12.7], [347.98, 12.7]], "width": 0.1524 },
+            { "line": [[347.98, 12.7], [347.98, 17.78]], "width": 0.1524 },
+            { "line": [[347.98, 17.78], [335.28, 17.78]], "width": 0.1524 },
+            { "line": [[335.28, 17.78], [317.5, 17.78]], "width": 0.1524 },
+            { "line": [[337.82, 12.7], [335.28, 12.7]], "width": 0.1524 },
+            { "line": [[335.28, 12.7], [335.28, 17.78]], "width": 0.1524 }
+          ]
+        }
+      ]
+    },
+    { "name": "N$11",
+      "segments": [
+        { "sheet": "1", "junctions": [[317.5, 2.54], [335.28, 2.54]],
+          "pins": [
+            { "part": "Q3", "gate": "G$1", "pin": "D" },
+            { "part": "J2", "gate": "A", "pin": "1" },
+            { "part": "J3", "gate": "A", "pin": "1" },
+            { "part": "D3", "gate": "A", "pin": "A" }
+          ],
+          "wires": [
+            { "line": [[317.5, 10.16], [317.5, 2.54]], "width": 0.1524 },
+            { "line": [[317.5, 2.54], [317.5, -2.54]], "width": 0.1524 },
+            { "line": [[337.82, 10.16], [335.28, 10.16]], "width": 0.1524 },
+            { "line": [[335.28, 10.16], [335.28, 2.54]], "width": 0.1524 },
+            { "line": [[335.28, 2.54], [317.5, 2.54]], "width": 0.1524 },
+            { "line": [[350.52, 10.16], [347.98, 10.16]], "width": 0.1524 },
+            { "line": [[347.98, 10.16], [347.98, 2.54]], "width": 0.1524 },
+            { "line": [[347.98, 2.54], [335.28, 2.54]], "width": 0.1524 }
+          ]
+        }
+      ]
+    },
+    { "name": "V+",
+      "segments": [
+        { "sheet": "1", "junctions": [[279.4, 17.78]],
+          "pins": [
+            { "part": "U3", "gate": "P", "pin": "VCC" },
+            { "part": "SUPPLY14", "gate": "1", "pin": "V+" },
+            { "part": "C7", "gate": "A", "pin": "1" }
+          ],
+          "wires": [
+            { "line": [[279.4, 10.16], [279.4, 17.78]], "width": 0.1524 },
+            { "line": [[279.4, 17.78], [279.4, 25.4]], "width": 0.1524 },
+            { "line": [[261.62, 12.7], [261.62, 17.78]], "width": 0.1524 },
+            { "line": [[261.62, 17.78], [279.4, 17.78]], "width": 0.1524 }
+          ]
         }
       ]
     }
@@ -508,7 +1457,122 @@
           },
           { "part": "C4", "gate": "A", "at": [124.46, 12.7] },
           { "part": "SUPPLY5", "gate": "GND", "at": [93.98, 2.54] },
-          { "part": "SUPPLY6", "gate": "G$1", "at": [124.46, 25.4] }
+          { "part": "SUPPLY6", "gate": "G$1", "at": [124.46, 25.4] },
+          { "part": "U2", "gate": "G$1", "at": [177.8, -10.16], "smashed": true,
+            "labels": [
+              { "attr": "NAME", "at": [165.1, 0], "size": 1.778, "layer": "names", "align": "top-left" },
+              { "attr": "VALUE", "at": [165.1, -15.24], "size": 1.778, "layer": "values" }
+            ]
+          },
+          { "part": "R1", "gate": "A", "at": [185.42, -20.32], "rot": 90, "smashed": true,
+            "labels": [
+              { "attr": "NAME", "at": [183.921, -24.13], "rot": 90, "size": 1.778, "layer": "names" },
+              { "attr": "VALUE", "at": [188.722, -24.13], "rot": 90, "size": 1.778, "layer": "values" }
+            ]
+          },
+          { "part": "SUPPLY50", "gate": "GND", "at": [170.18, -33.02], "smashed": true,
+            "labels": [
+              { "attr": "VALUE", "at": [168.275, -36.195], "size": 1.778, "layer": "values" }
+            ]
+          },
+          { "part": "SUPPLY51", "gate": "G$1", "at": [172.72, 25.4], "smashed": true,
+            "labels": [
+              { "attr": "VALUE", "at": [170.815, 28.575], "size": 1.778, "layer": "values" }
+            ]
+          },
+          { "part": "L1", "gate": "A", "at": [147.32, 5.08], "smashed": true,
+            "labels": [
+              { "attr": "NAME", "at": [149.86, 10.16], "size": 1.778, "layer": "names" },
+              { "attr": "VALUE", "at": [149.86, 0], "size": 1.778, "layer": "values" }
+            ]
+          },
+          { "part": "C5", "gate": "A", "at": [139.7, -7.62], "smashed": true,
+            "labels": [
+              { "attr": "NAME", "at": [141.224, -4.699], "size": 1.778, "layer": "names" },
+              { "attr": "VALUE", "at": [141.224, -9.779], "size": 1.778, "layer": "values" }
+            ]
+          },
+          { "part": "C6", "gate": "A", "at": [203.2, -7.62], "smashed": true,
+            "labels": [
+              { "attr": "NAME", "at": [204.724, -4.699], "size": 1.778, "layer": "names" },
+              { "attr": "VALUE", "at": [204.724, -9.779], "size": 1.778, "layer": "values" }
+            ]
+          },
+          { "part": "R2", "gate": "A", "at": [193.04, 2.54], "rot": 90, "smashed": true,
+            "labels": [
+              { "attr": "NAME", "at": [191.541, -1.27], "rot": 90, "size": 1.778, "layer": "names" },
+              { "attr": "VALUE", "at": [196.342, -1.27], "rot": 90, "size": 1.778, "layer": "values" }
+            ]
+          },
+          { "part": "Q2", "gate": "A", "at": [231.14, -7.62] },
+          { "part": "D2", "gate": "A", "at": [233.68, 10.16], "rot": 90 },
+          { "part": "SUPPLY53", "gate": "GND", "at": [233.68, -20.32] },
+          { "part": "SUPPLY54", "gate": "G$1", "at": [233.68, 25.4] },
+          { "part": "J1", "gate": "A", "at": [248.92, 10.16], "mirror": true },
+          { "part": "U3", "gate": "A", "at": [276.86, 0], "smashed": true,
+            "labels": [
+              { "attr": "NAME", "at": [279.4, 3.175], "size": 1.778, "layer": "names" },
+              { "attr": "VALUE", "at": [279.4, -5.08], "size": 1.778, "layer": "values" }
+            ]
+          },
+          { "part": "U3", "gate": "P", "at": [279.4, 0], "smashed": true,
+            "labels": [
+              { "attr": "NAME", "at": [278.765, -0.635], "size": 1.778, "layer": "names" }
+            ]
+          },
+          { "part": "Q3", "gate": "G$1", "at": [317.5, -7.62], "smashed": true,
+            "labels": [
+              { "attr": "NAME", "at": [322.58, -5.08], "size": 1.778, "layer": "names" },
+              { "attr": "VALUE", "at": [322.58, -7.62], "size": 1.778, "layer": "values" }
+            ]
+          },
+          { "part": "SUPPLY55", "gate": "GND", "at": [279.4, -17.78], "smashed": true,
+            "labels": [
+              { "attr": "VALUE", "at": [277.495, -20.955], "size": 1.778, "layer": "values" }
+            ]
+          },
+          { "part": "SUPPLY56", "gate": "GND", "at": [317.5, -17.78], "smashed": true,
+            "labels": [
+              { "attr": "VALUE", "at": [315.595, -20.955], "size": 1.778, "layer": "values" }
+            ]
+          },
+          { "part": "SUPPLY15", "gate": "+12V", "at": [317.5, 25.4], "smashed": true,
+            "labels": [
+              { "attr": "VALUE", "at": [314.96, 28.575], "size": 1.778, "layer": "values" }
+            ]
+          },
+          { "part": "J2", "gate": "A", "at": [340.36, 10.16], "mirror": true, "smashed": true,
+            "labels": [
+              { "attr": "NAME", "at": [336.804, 16.764], "rot": 180, "mirror": true, "size": 1.778, "layer": "names" },
+              { "attr": "VALUE", "at": [336.55, 7.62], "rot": 180, "mirror": true, "size": 1.778, "layer": "values" }
+            ]
+          },
+          { "part": "J3", "gate": "A", "at": [353.06, 10.16], "mirror": true, "smashed": true,
+            "labels": [
+              { "attr": "NAME", "at": [349.504, 16.764], "rot": 180, "mirror": true, "size": 1.778, "layer": "names" },
+              { "attr": "VALUE", "at": [349.25, 7.62], "rot": 180, "mirror": true, "size": 1.778, "layer": "values" }
+            ]
+          },
+          { "part": "SUPPLY14", "gate": "1", "at": [279.4, 27.94], "smashed": true,
+            "labels": [
+              { "attr": "VALUE", "at": [278.13, 29.21], "size": 1.778, "layer": "values" }
+            ]
+          },
+          { "part": "D3", "gate": "A", "at": [317.5, 12.7], "rot": 90, "smashed": true,
+            "labels": [
+              { "attr": "NAME", "at": [317.0174, 15.24], "rot": 90, "size": 1.778, "layer": "names" },
+              { "attr": "VALUE", "at": [319.8114, 15.24], "rot": 90, "size": 1.778, "layer": "values" }
+            ]
+          },
+          { "part": "C7", "gate": "A", "at": [261.62, 7.62], "smashed": true,
+            "labels": [
+              { "attr": "NAME", "at": [263.144, 10.541], "size": 1.778, "layer": "names" },
+              { "attr": "VALUE", "at": [263.144, 5.461], "size": 1.778, "layer": "values" },
+              { "attr": "MFR", "at": [261.62, 7.62], "size": 1.778, "layer": "values", "display": "none" },
+              { "attr": "MFR_PART", "at": [261.62, 7.62], "size": 1.778, "layer": "values", "display": "none" },
+              { "attr": "LCSC_PART", "at": [261.62, 7.62], "size": 1.778, "layer": "values", "display": "none" }
+            ]
+          }
         ]
       }
     ]
@@ -521,7 +1585,22 @@
       { "part": "C2", "at": [15.24, -20] },
       { "part": "C3", "at": [20.32, -20] },
       { "part": "Q1", "at": [25.4, -20] },
-      { "part": "C4", "at": [30.48, -20] }
+      { "part": "C4", "at": [30.48, -20] },
+      { "part": "U2", "at": [-10.16, 0] },
+      { "part": "R1", "at": [-10.16, -5.08] },
+      { "part": "L1", "at": [-10.16, -10.16] },
+      { "part": "C5", "at": [-10.16, -15.24] },
+      { "part": "C6", "at": [-10.16, -20.32] },
+      { "part": "R2", "at": [-10.16, -25.4] },
+      { "part": "Q2", "at": [-10.16, -30.48] },
+      { "part": "D2", "at": [-10.16, -35.56] },
+      { "part": "J1", "at": [-10.16, -40.64] },
+      { "part": "U3", "at": [-10.16, -45.72] },
+      { "part": "Q3", "at": [-10.16, -50.8] },
+      { "part": "J2", "at": [-10.16, -55.88] },
+      { "part": "J3", "at": [-10.16, -60.96] },
+      { "part": "D3", "at": [-10.16, -66.04] },
+      { "part": "C7", "at": [-10.16, -71.12] }
     ]
   }
 }

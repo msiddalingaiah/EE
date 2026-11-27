@@ -121,7 +121,7 @@ export function insertPart(project: O.Project, part: O.Part, component: O.Compon
 function parkingSpot(board: O.Board): O.Pt {
   const xs: number[] = [];
   const ys: number[] = [];
-  for (const g of board.drawing) {
+  for (const g of board.drawing ?? []) {
     if ('line' in g && g.layer === 'outline') for (const [x, y] of g.line) (xs.push(x), ys.push(y));
   }
   const left = xs.length ? Math.min(...xs) : 0;

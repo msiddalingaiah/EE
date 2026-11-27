@@ -1,0 +1,2246 @@
+{
+  "osprey": 1,
+  "project": { "name": "rf" },
+  "library": {
+    "symbols": [
+      { "id": "madhu/CAPACITOR-NP", "description": "Non-polarized capacitor",
+        "graphics": [
+          { "line": [[0, 2.54], [0, 2.032]], "width": 0.1524, "layer": "symbols" },
+          { "line": [[0, 0], [0, 0.508]], "width": 0.1524, "layer": "symbols" },
+          { "text": ">NAME", "at": [1.524, 2.921], "size": 1.778, "layer": "names" },
+          { "text": ">VALUE", "at": [1.524, -2.159], "size": 1.778, "layer": "values" },
+          { "rect": [[-2.032, 0.508], [2.032, 1.016]], "layer": "symbols" },
+          { "rect": [[-2.032, 1.524], [2.032, 2.032]], "layer": "symbols" }
+        ],
+        "pins": [
+          { "name": "1", "at": [0, 5.08], "rot": 270, "length": "short", "direction": "passive", "visible": "none", "swap": 1 },
+          { "name": "2", "at": [0, -2.54], "rot": 90, "length": "short", "direction": "passive", "visible": "none", "swap": 1 }
+        ]
+      },
+      { "id": "madhu/DIODE", "description": "Standard diode",
+        "graphics": [
+          { "line": [[-1.27, -1.27], [1.27, 0]], "width": 0.254, "layer": "symbols" },
+          { "line": [[1.27, 0], [-1.27, 1.27]], "width": 0.254, "layer": "symbols" },
+          { "line": [[1.27, 1.27], [1.27, 0]], "width": 0.254, "layer": "symbols" },
+          { "line": [[-1.27, 1.27], [-1.27, -1.27]], "width": 0.254, "layer": "symbols" },
+          { "line": [[1.27, 0], [1.27, -1.27]], "width": 0.254, "layer": "symbols" },
+          { "text": ">NAME", "at": [2.54, 0.4826], "size": 1.778, "layer": "names" },
+          { "text": ">VALUE", "at": [2.54, -2.3114], "size": 1.778, "layer": "values" }
+        ],
+        "pins": [
+          { "name": "A", "at": [-2.54, 0], "length": "short", "direction": "passive", "visible": "none" },
+          { "name": "C", "at": [2.54, 0], "rot": 180, "length": "short", "direction": "passive", "visible": "none" }
+        ]
+      },
+      { "id": "madhu/JFET-N",
+        "graphics": [
+          { "line": [[0, -3.81], [0, 3.81]], "width": 0.254, "layer": "symbols" },
+          { "line": [[-2.54, -1.905], [-1.27, -2.54]], "width": 0.254, "layer": "symbols" },
+          { "line": [[-1.27, -2.54], [-2.54, -3.175]], "width": 0.254, "layer": "symbols" },
+          { "text": ">NAME", "at": [-10.16, 7.62], "size": 1.778, "layer": "names" },
+          { "text": ">VALUE", "at": [-10.16, 5.08], "size": 1.778, "layer": "values" }
+        ],
+        "pins": [
+          { "name": "G", "at": [-5.08, -2.54], "length": "middle", "direction": "passive", "visible": "none" },
+          { "name": "D", "at": [5.08, 2.54], "rot": 180, "length": "middle", "direction": "passive", "visible": "none" },
+          { "name": "S", "at": [5.08, -2.54], "rot": 180, "length": "middle", "direction": "passive", "visible": "none" }
+        ]
+      },
+      { "id": "madhu/NPN", "description": "NPN transistor",
+        "graphics": [
+          { "line": [[2.54, 2.54], [0.508, 1.524]], "width": 0.1524, "layer": "symbols" },
+          { "line": [[1.778, -1.524], [2.54, -2.54]], "width": 0.1524, "layer": "symbols" },
+          { "line": [[2.54, -2.54], [1.27, -2.54]], "width": 0.1524, "layer": "symbols" },
+          { "line": [[1.27, -2.54], [1.778, -1.524]], "width": 0.1524, "layer": "symbols" },
+          { "line": [[1.54, -2.04], [0.308, -1.424]], "width": 0.1524, "layer": "symbols" },
+          { "line": [[1.524, -2.413], [2.286, -2.413]], "width": 0.254, "layer": "symbols" },
+          { "line": [[2.286, -2.413], [1.778, -1.778]], "width": 0.254, "layer": "symbols" },
+          { "line": [[1.778, -1.778], [1.524, -2.286]], "width": 0.254, "layer": "symbols" },
+          { "line": [[1.524, -2.286], [1.905, -2.286]], "width": 0.254, "layer": "symbols" },
+          { "line": [[1.905, -2.286], [1.778, -2.032]], "width": 0.254, "layer": "symbols" },
+          { "text": ">NAME", "at": [-10.16, 7.62], "size": 1.778, "layer": "names" },
+          { "text": ">VALUE", "at": [-10.16, 5.08], "size": 1.778, "layer": "values" },
+          { "rect": [[-0.254, -2.54], [0.508, 2.54]], "layer": "symbols" }
+        ],
+        "pins": [
+          { "name": "B", "at": [-2.54, 0], "length": "short", "direction": "passive", "visible": "none", "swap": 1 },
+          { "name": "E", "at": [2.54, -5.08], "rot": 90, "length": "short", "direction": "passive", "visible": "none", "swap": 3 },
+          { "name": "C", "at": [2.54, 5.08], "rot": 270, "length": "short", "direction": "passive", "visible": "none", "swap": 2 }
+        ]
+      },
+      { "id": "madhu/RESISTOR", "description": "Fixed resistor",
+        "graphics": [
+          { "line": [[-2.54, 0], [-2.159, 1.016]], "width": 0.1524, "layer": "symbols" },
+          { "line": [[-2.159, 1.016], [-1.524, -1.016]], "width": 0.1524, "layer": "symbols" },
+          { "line": [[-1.524, -1.016], [-0.889, 1.016]], "width": 0.1524, "layer": "symbols" },
+          { "line": [[-0.889, 1.016], [-0.254, -1.016]], "width": 0.1524, "layer": "symbols" },
+          { "line": [[-0.254, -1.016], [0.381, 1.016]], "width": 0.1524, "layer": "symbols" },
+          { "line": [[0.381, 1.016], [1.016, -1.016]], "width": 0.1524, "layer": "symbols" },
+          { "line": [[1.016, -1.016], [1.651, 1.016]], "width": 0.1524, "layer": "symbols" },
+          { "line": [[1.651, 1.016], [2.286, -1.016]], "width": 0.1524, "layer": "symbols" },
+          { "line": [[2.286, -1.016], [2.54, 0]], "width": 0.1524, "layer": "symbols" },
+          { "text": ">NAME", "at": [-3.81, 1.4986], "size": 1.778, "layer": "names" },
+          { "text": ">VALUE", "at": [-3.81, -3.302], "size": 1.778, "layer": "values" }
+        ],
+        "pins": [
+          { "name": "2", "at": [5.08, 0], "rot": 180, "length": "short", "direction": "passive", "visible": "none", "swap": 1 },
+          { "name": "1", "at": [-5.08, 0], "length": "short", "direction": "passive", "visible": "none", "swap": 1 }
+        ]
+      },
+      { "id": "madhu/SHIELD-2", "description": "Shield",
+        "graphics": [
+          { "line": [[-5.08, -10.16], [-4.318, -10.16]], "width": 0.254, "layer": "symbols" },
+          { "line": [[-5.08, -10.16], [-5.08, -9.398]], "width": 0.254, "layer": "symbols" },
+          { "line": [[-5.08, -8.636], [-5.08, -8.128]], "width": 0.254, "layer": "symbols" },
+          { "line": [[-5.08, -7.112], [-5.08, -6.604]], "width": 0.254, "layer": "symbols" },
+          { "line": [[-3.556, -10.16], [-2.794, -10.16]], "width": 0.254, "layer": "symbols" },
+          { "line": [[-5.08, 2.032], [-4.318, 2.032]], "width": 0.254, "layer": "symbols" },
+          { "line": [[-3.556, 2.032], [-2.794, 2.032]], "width": 0.254, "layer": "symbols" },
+          { "line": [[-5.08, -6.096], [-5.08, -5.588]], "width": 0.254, "layer": "symbols" },
+          { "line": [[-5.08, -4.572], [-5.08, -4.064]], "width": 0.254, "layer": "symbols" },
+          { "line": [[-5.08, -3.556], [-5.08, -3.048]], "width": 0.254, "layer": "symbols" },
+          { "line": [[-5.08, -2.032], [-5.08, -1.524]], "width": 0.254, "layer": "symbols" },
+          { "line": [[-5.08, -1.016], [-5.08, -0.508]], "width": 0.254, "layer": "symbols" },
+          { "line": [[-5.08, 0.508], [-5.08, 1.016]], "width": 0.254, "layer": "symbols" },
+          { "line": [[-5.08, 1.524], [-5.08, 2.032]], "width": 0.254, "layer": "symbols" },
+          { "line": [[5.08, -10.16], [4.318, -10.16]], "width": 0.254, "layer": "symbols" },
+          { "line": [[5.08, -10.16], [5.08, -9.398]], "width": 0.254, "layer": "symbols" },
+          { "line": [[5.08, -8.636], [5.08, -8.128]], "width": 0.254, "layer": "symbols" },
+          { "line": [[5.08, -7.112], [5.08, -6.604]], "width": 0.254, "layer": "symbols" },
+          { "line": [[3.556, -10.16], [2.794, -10.16]], "width": 0.254, "layer": "symbols" },
+          { "line": [[5.08, 2.032], [4.318, 2.032]], "width": 0.254, "layer": "symbols" },
+          { "line": [[3.556, 2.032], [2.794, 2.032]], "width": 0.254, "layer": "symbols" },
+          { "line": [[5.08, -6.096], [5.08, -5.588]], "width": 0.254, "layer": "symbols" },
+          { "line": [[5.08, -4.572], [5.08, -4.064]], "width": 0.254, "layer": "symbols" },
+          { "line": [[5.08, -3.556], [5.08, -3.048]], "width": 0.254, "layer": "symbols" },
+          { "line": [[5.08, -2.032], [5.08, -1.524]], "width": 0.254, "layer": "symbols" },
+          { "line": [[5.08, -1.016], [5.08, -0.508]], "width": 0.254, "layer": "symbols" },
+          { "line": [[5.08, 0.508], [5.08, 1.016]], "width": 0.254, "layer": "symbols" },
+          { "line": [[5.08, 1.524], [5.08, 2.032]], "width": 0.254, "layer": "symbols" },
+          { "line": [[-0.508, -10.16], [-1.016, -10.16]], "width": 0.254, "layer": "symbols" },
+          { "line": [[-1.524, -10.16], [-2.032, -10.16]], "width": 0.254, "layer": "symbols" },
+          { "line": [[2.032, -10.16], [1.524, -10.16]], "width": 0.254, "layer": "symbols" },
+          { "line": [[1.016, -10.16], [0.508, -10.16]], "width": 0.254, "layer": "symbols" },
+          { "line": [[-1.016, 2.032], [-0.254, 2.032]], "width": 0.254, "layer": "symbols" },
+          { "line": [[1.016, 2.032], [0.254, 2.032]], "width": 0.254, "layer": "symbols" },
+          { "line": [[1.524, 2.032], [2.286, 2.032]], "width": 0.254, "layer": "symbols" },
+          { "line": [[-1.524, 2.032], [-2.286, 2.032]], "width": 0.254, "layer": "symbols" }
+        ],
+        "pins": [
+          { "name": "S1", "at": [-5.08, -12.7], "rot": 90, "length": "short", "direction": "passive", "visible": "none" },
+          { "name": "S2", "at": [5.08, -12.7], "rot": 90, "length": "short", "direction": "passive", "visible": "none" }
+        ]
+      },
+      { "id": "madhu/SMF51-1", "description": "Variable inductor",
+        "graphics": [
+          { "line": [[0, 3.556], [0, 5.08]], "width": 0.254, "layer": "symbols", "curve": 180, "cap": "flat" },
+          { "line": [[0, 2.032], [0, 3.556]], "width": 0.254, "layer": "symbols", "curve": 180, "cap": "flat" },
+          { "line": [[0, 0.508], [0, 2.032]], "width": 0.254, "layer": "symbols", "curve": 180, "cap": "flat" },
+          { "line": [[0, -1.016], [0, 0.508]], "width": 0.254, "layer": "symbols", "curve": 180, "cap": "flat" },
+          { "line": [[0, -2.54], [0, -1.016]], "width": 0.254, "layer": "symbols", "curve": 180, "cap": "flat" },
+          { "line": [[1.524, 4.572], [1.524, 3.81]], "width": 0.1016, "layer": "symbols" },
+          { "line": [[1.524, 3.048], [1.524, 2.286]], "width": 0.1016, "layer": "symbols" },
+          { "line": [[1.524, 1.524], [1.524, 0.762]], "width": 0.1016, "layer": "symbols" },
+          { "line": [[1.524, 0], [1.524, -0.762]], "width": 0.1016, "layer": "symbols" },
+          { "line": [[1.524, -1.524], [1.524, -2.286]], "width": 0.1016, "layer": "symbols" },
+          { "line": [[-1.27, -0.254], [2.54, 3.556]], "width": 0.1524, "layer": "symbols" },
+          { "line": [[2.032, 4.064], [2.54, 3.556]], "width": 0.1524, "layer": "symbols" },
+          { "line": [[2.54, 3.556], [3.048, 3.048]], "width": 0.1524, "layer": "symbols" },
+          { "text": ">NAME", "at": [-5.08, 10.16], "size": 1.778, "layer": "names" },
+          { "text": ">VALUE", "at": [-5.08, 7.62], "size": 1.778, "layer": "values" }
+        ],
+        "pins": [
+          { "name": "E", "at": [-2.54, -2.54], "length": "short", "direction": "passive", "visible": "pad", "swap": 1 },
+          { "name": "A", "at": [-2.54, 5.08], "length": "short", "direction": "passive", "visible": "pad", "swap": 1 }
+        ]
+      },
+      { "id": "madhu/SMF51-1X", "description": "Variable inductor",
+        "graphics": [
+          { "line": [[0, 3.556], [0, 5.08]], "width": 0.254, "layer": "symbols", "curve": 180, "cap": "flat" },
+          { "line": [[0, 2.032], [0, 3.556]], "width": 0.254, "layer": "symbols", "curve": 180, "cap": "flat" },
+          { "line": [[0, 0.508], [0, 2.032]], "width": 0.254, "layer": "symbols", "curve": 180, "cap": "flat" },
+          { "line": [[0, -1.016], [0, 0.508]], "width": 0.254, "layer": "symbols", "curve": 180, "cap": "flat" },
+          { "line": [[0, -2.54], [0, -1.016]], "width": 0.254, "layer": "symbols", "curve": 180, "cap": "flat" },
+          { "line": [[1.524, 4.572], [1.524, 3.81]], "width": 0.1016, "layer": "symbols" },
+          { "line": [[1.524, 3.048], [1.524, 2.286]], "width": 0.1016, "layer": "symbols" },
+          { "line": [[1.524, 1.524], [1.524, 0.762]], "width": 0.1016, "layer": "symbols" },
+          { "line": [[1.524, 0], [1.524, -0.762]], "width": 0.1016, "layer": "symbols" },
+          { "line": [[1.524, -1.524], [1.524, -2.286]], "width": 0.1016, "layer": "symbols" },
+          { "line": [[-1.27, -0.254], [2.54, 3.556]], "width": 0.1524, "layer": "symbols" },
+          { "line": [[2.032, 4.064], [2.54, 3.556]], "width": 0.1524, "layer": "symbols" },
+          { "line": [[2.54, 3.556], [3.048, 3.048]], "width": 0.1524, "layer": "symbols" },
+          { "text": ">NAME", "at": [-5.08, 10.16], "size": 1.778, "layer": "names" },
+          { "text": ">VALUE", "at": [-5.08, 7.62], "size": 1.778, "layer": "values" },
+          { "line": [[0, -5.08], [0, -2.54]], "width": 0.254, "layer": "symbols" }
+        ],
+        "pins": [
+          { "name": "E", "at": [-2.54, -2.54], "length": "short", "direction": "passive", "visible": "pad", "swap": 1 },
+          { "name": "A", "at": [-2.54, 5.08], "length": "short", "direction": "passive", "visible": "pad", "swap": 1 },
+          { "name": "E1", "at": [-2.54, -5.08], "length": "short", "direction": "passive", "visible": "pad", "swap": 1 }
+        ]
+      },
+      { "id": "supply2/GND", "eagle": { "attrs": { "urn": "urn:adsk.eagle:symbol:26990/1", "library_version": "2" } },
+        "graphics": [
+          { "line": [[-1.27, 0], [1.27, 0]], "width": 0.254, "layer": "symbols" },
+          { "line": [[1.27, 0], [0, -1.27]], "width": 0.254, "layer": "symbols" },
+          { "line": [[0, -1.27], [-1.27, 0]], "width": 0.254, "layer": "symbols" },
+          { "text": ">VALUE", "at": [-1.905, -3.175], "size": 1.778, "layer": "values" }
+        ],
+        "pins": [
+          { "name": "GND", "at": [0, 2.54], "rot": 270, "length": "short", "direction": "supply", "visible": "none" }
+        ]
+      },
+      { "id": "supply2/VCC", "eagle": { "attrs": { "urn": "urn:adsk.eagle:symbol:26997/1", "library_version": "2" } },
+        "graphics": [
+          { "circle": [0, 1.27], "radius": 1.27, "width": 0.254, "layer": "symbols" },
+          { "text": ">VALUE", "at": [-1.905, 3.175], "size": 1.778, "layer": "values" }
+        ],
+        "pins": [
+          { "name": "VCC", "at": [0, -2.54], "rot": 90, "length": "short", "direction": "supply", "visible": "none" }
+        ]
+      }
+    ],
+    "footprints": [
+      { "id": "madhu/0402-RES", "description": "<b>CAPACITOR</b><p>\nchip",
+        "graphics": [
+          { "line": [[-0.245, 0.224], [0.245, 0.224]], "width": 0.1524, "layer": "fab.top" },
+          { "line": [[0.245, -0.224], [-0.245, -0.224]], "width": 0.1524, "layer": "fab.top" },
+          { "line": [[-1.473, 0.483], [1.473, 0.483]], "width": 0.0508, "layer": "keepout.top" },
+          { "line": [[1.473, 0.483], [1.473, -0.483]], "width": 0.0508, "layer": "keepout.top" },
+          { "line": [[1.473, -0.483], [-1.473, -0.483]], "width": 0.0508, "layer": "keepout.top" },
+          { "line": [[-1.473, -0.483], [-1.473, 0.483]], "width": 0.0508, "layer": "keepout.top" },
+          { "text": ">NAME", "at": [-0.889, 0.6985], "size": 0.4064, "layer": "names.top" },
+          { "text": ">VALUE", "at": [-1.0795, -1.143], "size": 0.4064, "layer": "silk.top" },
+          { "rect": [[-0.554, -0.3048], [-0.254, 0.2951]], "layer": "fab.top" },
+          { "rect": [[0.2588, -0.3048], [0.5588, 0.2951]], "layer": "fab.top" },
+          { "rect": [[-0.1999, -0.3], [0.1999, 0.3]], "layer": "glue.top" },
+          { "rect": [[-0.2032, -0.3556], [0.2032, 0.3556]], "layer": "silk.top" }
+        ],
+        "pads": [
+          { "name": "1", "smd": [0.7, 0.9], "at": [-0.65, 0] },
+          { "name": "2", "smd": [0.7, 0.9], "at": [0.65, 0] }
+        ]
+      },
+      { "id": "madhu/0603-CAP", "description": "0603 SMT",
+        "graphics": [
+          { "line": [[-1.473, 0.983], [1.473, 0.983]], "width": 0.0508, "layer": "keepout.top" },
+          { "line": [[1.473, 0.983], [1.473, -0.983]], "width": 0.0508, "layer": "keepout.top" },
+          { "line": [[1.473, -0.983], [-1.473, -0.983]], "width": 0.0508, "layer": "keepout.top" },
+          { "line": [[-1.473, -0.983], [-1.473, 0.983]], "width": 0.0508, "layer": "keepout.top" },
+          { "line": [[-0.356, 0.432], [0.356, 0.432]], "width": 0.1016, "layer": "silk.top" },
+          { "line": [[-0.356, -0.419], [0.356, -0.419]], "width": 0.1016, "layer": "silk.top" },
+          { "text": ">NAME", "at": [-0.889, 0.762], "size": 0.4064, "layer": "names.top", "font": "vector" },
+          { "text": ">VALUE", "at": [-1.016, -1.143], "size": 0.4064, "layer": "silk.top", "font": "vector" },
+          { "rect": [[-0.2286, -0.381], [0.2286, 0.381]], "layer": "silk.top" }
+        ],
+        "pads": [
+          { "name": "1", "smd": [1.1, 1], "at": [-0.85, 0] },
+          { "name": "2", "smd": [1.1, 1], "at": [0.85, 0] }
+        ]
+      },
+      { "id": "madhu/0603-RES", "description": "0603 SMT",
+        "graphics": [
+          { "line": [[-1.473, 0.983], [1.473, 0.983]], "width": 0.0508, "layer": "keepout.top" },
+          { "line": [[1.473, 0.983], [1.473, -0.983]], "width": 0.0508, "layer": "keepout.top" },
+          { "line": [[1.473, -0.983], [-1.473, -0.983]], "width": 0.0508, "layer": "keepout.top" },
+          { "line": [[-1.473, -0.983], [-1.473, 0.983]], "width": 0.0508, "layer": "keepout.top" },
+          { "line": [[-0.356, 0.432], [0.356, 0.432]], "width": 0.1016, "layer": "silk.top" },
+          { "line": [[-0.356, -0.419], [0.356, -0.419]], "width": 0.1016, "layer": "silk.top" },
+          { "text": ">NAME", "at": [-0.889, 0.762], "size": 0.4064, "layer": "names.top", "font": "vector" },
+          { "text": ">VALUE", "at": [-1.016, -1.143], "size": 0.4064, "layer": "silk.top", "font": "vector" },
+          { "rect": [[-0.2286, -0.381], [0.2286, 0.381]], "layer": "silk.top" }
+        ],
+        "pads": [
+          { "name": "1", "smd": [1.1, 1], "at": [-0.85, 0] },
+          { "name": "2", "smd": [1.1, 1], "at": [0.85, 0] }
+        ]
+      },
+      { "id": "madhu/0805", "description": "0805 SMT",
+        "graphics": [
+          { "text": ">NAME", "at": [1.9685, -0.889], "rot": 90, "size": 0.6096, "layer": "names.top" },
+          { "text": ">VALUE", "at": [0.127, -1.016], "rot": 90, "size": 0.6096, "layer": "silk.top" },
+          { "line": [[-1.524, -0.3], [-1.524, 0.3]], "width": 0.4064, "layer": "silk.top" }
+        ],
+        "pads": [
+          { "name": "1", "smd": [0.8, 1.2], "at": [-0.9, 0] },
+          { "name": "2", "smd": [0.8, 1.2], "at": [0.9, 0] }
+        ]
+      },
+      { "id": "madhu/1206", "description": "1206 SMT",
+        "graphics": [
+          { "line": [[-2.473, 0.983], [2.473, 0.983]], "width": 0.0508, "layer": "keepout.top" },
+          { "line": [[2.473, -0.983], [-2.473, -0.983]], "width": 0.0508, "layer": "keepout.top" },
+          { "line": [[-2.473, -0.983], [-2.473, 0.983]], "width": 0.0508, "layer": "keepout.top" },
+          { "line": [[2.473, 0.983], [2.473, -0.983]], "width": 0.0508, "layer": "keepout.top" },
+          { "line": [[-0.965, 0.787], [0.965, 0.787]], "width": 0.1016, "layer": "fab.top" },
+          { "line": [[-0.965, -0.787], [0.965, -0.787]], "width": 0.1016, "layer": "fab.top" },
+          { "text": ">NAME", "at": [3.302, -1.27], "rot": 90, "size": 0.6096, "layer": "names.top" },
+          { "text": ">VALUE", "at": [0.254, -1.524], "rot": 90, "size": 0.6096, "layer": "silk.top" },
+          { "rect": [[-1.7018, -0.8509], [-0.9517, 0.8491]], "layer": "fab.top" },
+          { "rect": [[0.9517, -0.8491], [1.7018, 0.8509]], "layer": "fab.top" },
+          { "rect": [[-0.1999, -0.4001], [0.1999, 0.4001]], "layer": "glue.top" }
+        ],
+        "pads": [
+          { "name": "1", "smd": [1.6, 1.8], "at": [-1.4, 0] },
+          { "name": "2", "smd": [1.6, 1.8], "at": [1.4, 0] }
+        ]
+      },
+      { "id": "madhu/71K", "description": "<b>RF COIL ASSEMBLY</b><p>\n1 winding, 5 pads, grid 2.25 mm",
+        "graphics": [
+          { "line": [[-3.65, -3.65], [-3.65, -1.25]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[-3.65, 1.25], [-3.65, 3.65]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[-3.65, 3.65], [3.65, 3.65]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[3.65, -3.65], [-3.65, -3.65]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[-3.65, -1.4], [-3.65, 1.4]], "width": 0.2032, "layer": "fab.top" },
+          { "line": [[3.65, 1.4], [3.65, -1.4]], "width": 0.2032, "layer": "fab.top" },
+          { "line": [[3.65, -1.25], [3.65, -3.65]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[3.65, 3.65], [3.65, 1.25]], "width": 0.2032, "layer": "silk.top" },
+          { "text": ">NAME", "at": [-3.5, 4], "size": 1.27, "layer": "names.top" },
+          { "text": ">VALUE", "at": [-3.643, -5.326], "size": 1.27, "layer": "values.top" }
+        ],
+        "pads": [
+          { "name": "1", "at": [-2.25, -2.25], "drill": 0.8128 },
+          { "name": "2", "at": [-2.25, 2.25], "drill": 0.8128 },
+          { "name": "4", "at": [2.25, 2.25], "drill": 0.8128 },
+          { "name": "5", "at": [2.25, -2.25], "drill": 0.8128 },
+          { "name": "S1", "at": [-3.75, 0], "drill": 1.3 },
+          { "name": "S2", "at": [3.75, 0], "drill": 1.3 },
+          { "name": "3", "at": [0, 2.25], "drill": 0.8128 }
+        ]
+      },
+      { "id": "madhu/71K2", "description": "<b>RF COIL ASSEMBLY</b><p>\n1 winding, 5 pads, grid 2.25 mm<br/>\nNo mounting holes.",
+        "graphics": [
+          { "line": [[-3.65, -3.65], [-3.65, -1.25]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[-3.65, 1.25], [-3.65, 3.65]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[-3.65, 3.65], [3.65, 3.65]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[3.65, -3.65], [-3.65, -3.65]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[-3.65, -1.4], [-3.65, 1.4]], "width": 0.2032, "layer": "fab.top" },
+          { "line": [[3.65, 1.4], [3.65, -1.4]], "width": 0.2032, "layer": "fab.top" },
+          { "line": [[3.65, -1.25], [3.65, -3.65]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[3.65, 3.65], [3.65, 1.25]], "width": 0.2032, "layer": "silk.top" },
+          { "text": ">NAME", "at": [-3.5, 4], "size": 1.27, "layer": "names.top" },
+          { "text": ">VALUE", "at": [-3.643, -5.326], "size": 1.27, "layer": "values.top" }
+        ],
+        "pads": [
+          { "name": "1", "at": [-2.25, -2.25], "drill": 0.8128 },
+          { "name": "2", "at": [-2.25, 2.25], "drill": 0.8128 },
+          { "name": "4", "at": [2.25, 2.25], "drill": 0.8128 },
+          { "name": "5", "at": [2.25, -2.25], "drill": 0.8128 },
+          { "name": "3", "at": [0, 2.25], "drill": 0.8128 }
+        ]
+      },
+      { "id": "madhu/AXIAL-0.3", "description": "0.3\" pads",
+        "graphics": [
+          { "line": [[-2.54, 0.762], [2.54, 0.762]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[2.54, 0.762], [2.54, 0]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[2.54, 0], [2.54, -0.762]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[2.54, -0.762], [-2.54, -0.762]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[-2.54, -0.762], [-2.54, 0]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[-2.54, 0], [-2.54, 0.762]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[2.54, 0], [2.794, 0]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[-2.54, 0], [-2.794, 0]], "width": 0.2032, "layer": "silk.top" },
+          { "text": ">Name", "at": [-2.54, 1.27], "size": 0.4064, "layer": "names.top", "font": "vector" },
+          { "text": ">Value", "at": [-2.032, -0.381], "size": 1.016, "layer": "silk.top", "ratio": 15 }
+        ],
+        "pads": [
+          { "name": "1", "at": [-3.81, 0], "drill": 0.8128 },
+          { "name": "2", "at": [3.81, 0], "drill": 0.8128 }
+        ]
+      },
+      { "id": "madhu/AXIAL-0.4", "description": "1/4W Resistor, 0.4\" wide",
+        "graphics": [
+          { "line": [[-3.15, -1.2], [-3.15, 1.2]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[-3.15, 1.2], [3.15, 1.2]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[3.15, 1.2], [3.15, -1.2]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[3.15, -1.2], [-3.15, -1.2]], "width": 0.2032, "layer": "silk.top" },
+          { "text": ">NAME", "at": [0.762, -0.381], "size": 0.8128, "layer": "names.top", "ratio": 15 },
+          { "text": ">VALUE", "at": [-2.794, -0.381], "size": 0.8128, "layer": "names.top", "ratio": 15 }
+        ],
+        "pads": [
+          { "name": "1", "at": [-5.08, 0], "drill": 0.9, "diameter": 1.8796 },
+          { "name": "2", "at": [5.08, 0], "drill": 0.9, "diameter": 1.8796 }
+        ]
+      },
+      { "id": "madhu/AXIAL-0.5", "description": "1/2W Resistor, 0.5\" wide",
+        "graphics": [
+          { "line": [[-4.5, -1.65], [-4.5, 1.65]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[-4.5, 1.65], [4.5, 1.65]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[4.5, 1.65], [4.5, -1.65]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[4.5, -1.65], [-4.5, -1.65]], "width": 0.2032, "layer": "silk.top" },
+          { "text": ">Name", "at": [-3.683, 0.381], "size": 0.8128, "layer": "names.top", "ratio": 15 },
+          { "text": ">Value", "at": [-3.81, -1.143], "size": 0.8128, "layer": "silk.top", "ratio": 15 }
+        ],
+        "pads": [
+          { "name": "1", "at": [-6.35, 0], "drill": 0.9, "diameter": 1.8796 },
+          { "name": "2", "at": [6.35, 0], "drill": 0.9, "diameter": 1.8796 }
+        ]
+      },
+      { "id": "madhu/AXIAL-0.6", "description": "1W Resistor, 0.6\" wide",
+        "graphics": [
+          { "line": [[-5.75, -2.25], [-5.75, 2.25]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[-5.75, 2.25], [5.75, 2.25]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[5.75, 2.25], [5.75, -2.25]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[5.75, -2.25], [-5.75, -2.25]], "width": 0.2032, "layer": "silk.top" },
+          { "text": ">Name", "at": [-4.064, 0], "size": 0.8128, "layer": "names.top", "ratio": 15 },
+          { "text": ">Value", "at": [-4.064, -1.651], "size": 0.8128, "layer": "silk.top", "ratio": 15 }
+        ],
+        "pads": [
+          { "name": "1", "at": [-7.62, 0], "drill": 1.2, "diameter": 1.8796 },
+          { "name": "2", "at": [7.62, 0], "drill": 1.2, "diameter": 1.8796 }
+        ]
+      },
+      { "id": "madhu/AXIAL-0.8", "description": "2W Resistor, 0.8\" wide",
+        "graphics": [
+          { "line": [[-7.75, -2.5], [-7.75, 2.5]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[-7.75, 2.5], [7.75, 2.5]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[7.75, 2.5], [7.75, -2.5]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[7.75, -2.5], [-7.75, -2.5]], "width": 0.2032, "layer": "silk.top" },
+          { "text": ">Name", "at": [-5.969, 0], "size": 0.8128, "layer": "names.top", "ratio": 15 },
+          { "text": ">Value", "at": [-5.969, -1.651], "size": 0.8128, "layer": "silk.top", "ratio": 15 }
+        ],
+        "pads": [
+          { "name": "1", "at": [-10.16, 0], "drill": 1.2, "diameter": 1.8796 },
+          { "name": "2", "at": [10.16, 0], "drill": 1.2, "diameter": 1.8796 }
+        ]
+      },
+      { "id": "madhu/C1206", "description": "<b>CAPACITOR</b>",
+        "graphics": [
+          { "line": [[-2.473, 0.983], [2.473, 0.983]], "width": 0.0508, "layer": "keepout.top" },
+          { "line": [[2.473, -0.983], [-2.473, -0.983]], "width": 0.0508, "layer": "keepout.top" },
+          { "line": [[-2.473, -0.983], [-2.473, 0.983]], "width": 0.0508, "layer": "keepout.top" },
+          { "line": [[2.473, 0.983], [2.473, -0.983]], "width": 0.0508, "layer": "keepout.top" },
+          { "line": [[-0.965, 0.787], [0.965, 0.787]], "width": 0.1016, "layer": "fab.top" },
+          { "line": [[-0.965, -0.787], [0.965, -0.787]], "width": 0.1016, "layer": "fab.top" },
+          { "text": ">NAME", "at": [-1.27, 1.27], "size": 0.6096, "layer": "names.top" },
+          { "text": ">VALUE", "at": [-1.27, -1.905], "size": 0.6096, "layer": "values.top" },
+          { "rect": [[-1.7018, -0.8509], [-0.9517, 0.8491]], "layer": "fab.top" },
+          { "rect": [[0.9517, -0.8491], [1.7018, 0.8509]], "layer": "fab.top" },
+          { "rect": [[-0.1999, -0.4001], [0.1999, 0.4001]], "layer": "glue.top" }
+        ],
+        "pads": [
+          { "name": "1", "smd": [1.6, 1.8], "at": [-1.4, 0] },
+          { "name": "2", "smd": [1.6, 1.8], "at": [1.4, 0] }
+        ]
+      },
+      { "id": "madhu/CAP-0.1", "description": "0.1\" spacing",
+        "graphics": [
+          { "line": [[-1.27, -0.371975], [-1.27, 0.371975]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[-1.27, 0.371975], [-0.371975, 1.27]], "width": 0.2032, "layer": "silk.top", "curve": -90 },
+          { "line": [[-0.371975, 1.27], [2.911975, 1.27]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[2.911975, 1.27], [3.81, 0.371975]], "width": 0.2032, "layer": "silk.top", "curve": -90 },
+          { "line": [[3.81, 0.371975], [3.81, -0.371975]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[3.81, -0.371975], [2.911975, -1.27]], "width": 0.2032, "layer": "silk.top", "curve": -90 },
+          { "line": [[2.911975, -1.27], [-0.371975, -1.27]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[-0.371975, -1.27], [-1.27, -0.371975]], "width": 0.2032, "layer": "silk.top", "curve": -90 },
+          { "text": ">Name", "at": [0.508, 1.905], "size": 0.6096, "layer": "names.top" },
+          { "text": ">Value", "at": [0.254, -2.159], "size": 0.6096, "layer": "values.top" }
+        ],
+        "pads": [
+          { "name": "1", "at": [0, 0], "drill": 0.8128 },
+          { "name": "2", "at": [2.54, 0], "drill": 0.8128 }
+        ]
+      },
+      { "id": "madhu/CAP-0.2", "description": "0.2\" spacing",
+        "graphics": [
+          { "line": [[-3.81, 0.371975], [-3.81, -0.371975]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[-3.81, -0.371975], [-2.911975, -1.27]], "width": 0.2032, "layer": "silk.top", "curve": 90 },
+          { "line": [[3.81, 0.371975], [3.81, -0.371975]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[3.81, -0.371975], [2.911975, -1.27]], "width": 0.2032, "layer": "silk.top", "curve": -90 },
+          { "line": [[2.911975, -1.27], [-2.911975, -1.27]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[-3.81, 0.371975], [-2.911975, 1.27]], "width": 0.2032, "layer": "silk.top", "curve": -90 },
+          { "line": [[-2.911975, 1.27], [2.911975, 1.27]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[2.911975, 1.27], [3.81, 0.371975]], "width": 0.2032, "layer": "silk.top", "curve": -90 },
+          { "text": ">NAME", "at": [-1.397, 0.254], "size": 0.8128, "layer": "names.top" },
+          { "text": ">VALUE", "at": [-1.397, -0.889], "size": 0.8128, "layer": "names.top" }
+        ],
+        "pads": [
+          { "name": "1", "at": [-2.5, 0], "drill": 0.8128 },
+          { "name": "2", "at": [2.5, 0], "drill": 0.8128 }
+        ]
+      },
+      { "id": "madhu/CAP-0.3", "description": "0.3\" spacing",
+        "graphics": [
+          { "line": [[-5.08, 0.371975], [-5.08, -0.371975]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[-5.08, -0.371975], [-4.064, -1.27]], "width": 0.2032, "layer": "silk.top", "curve": 90 },
+          { "line": [[5.08, 0.371975], [5.08, -0.371975]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[5.08, -0.371975], [4.064, -1.27]], "width": 0.2032, "layer": "silk.top", "curve": -90 },
+          { "line": [[4.064, -1.27], [-4.064, -1.27]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[-5.08, 0.371975], [-4.064, 1.27]], "width": 0.2032, "layer": "silk.top", "curve": -90 },
+          { "line": [[-4.064, 1.27], [4.064, 1.27]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[4.064, 1.27], [5.08, 0.371975]], "width": 0.2032, "layer": "silk.top", "curve": -90 },
+          { "text": ">Name", "at": [-1.397, 0.254], "size": 0.8128, "layer": "names.top" },
+          { "text": ">Value", "at": [-1.397, -0.889], "size": 0.8128, "layer": "values.top" }
+        ],
+        "pads": [
+          { "name": "1", "at": [-3.77, 0], "drill": 0.8128 },
+          { "name": "2", "at": [3.77, 0], "drill": 0.8128 }
+        ]
+      },
+      { "id": "madhu/COIL-RADIAL-0.25", "description": "Hosfelt radial inductor, 0.25\" spacing, 0.2\" diameter",
+        "graphics": [
+          { "circle": [0, 0], "radius": 2.54, "width": 0.2032, "layer": "silk.top" },
+          { "text": ">Name", "at": [-1.397, -1.905], "size": 0.8128, "layer": "names.top" }
+        ],
+        "pads": [
+          { "name": "2", "at": [3.175, 0], "drill": 0.9 },
+          { "name": "1", "at": [-3.175, 0], "drill": 0.9 }
+        ]
+      },
+      { "id": "madhu/MC-122", "description": "TOKO MC-122 coils\n\n<a href=\"https://datasheetz.com/data/Inductors,%20Coils,%20Chokes/Adjustable/TK2811-datasheetz.html\">E528DNAS-100082 0.226uH</a>",
+        "graphics": [
+          { "line": [[-4, 4], [4, 4]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[4, 4], [4, -4]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[4, -4], [-4, -4]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[-4, -4], [-4, 4]], "width": 0.2032, "layer": "silk.top" },
+          { "text": ">NAME", "at": [-2.54, -0.635], "size": 0.6096, "layer": "names.top" }
+        ],
+        "pads": [
+          { "name": "1", "at": [-2.25, 2.25], "drill": 0.8128 },
+          { "name": "2", "at": [2.25, -2.25], "drill": 0.8128 }
+        ]
+      },
+      { "id": "madhu/SOD-80", "description": "SMT diode, e.g. <a href=\"https://www.vishay.com/docs/85561/ls4148.pdf\">LS4148</a>",
+        "graphics": [
+          { "text": ">NAME", "at": [0.5715, -1.016], "rot": 90, "size": 0.6096, "layer": "names.top" },
+          { "text": ">VALUE", "at": [-0.254, -1.016], "rot": 90, "size": 0.6096, "layer": "silk.top" },
+          { "line": [[0.889, -0.3], [0.889, 0.3]], "width": 0.4064, "layer": "silk.top" },
+          { "text": "A", "at": [-1.27, 1.27], "rot": 90, "size": 1.016, "layer": "silk.top" },
+          { "text": "K", "at": [2.54, 1.27], "rot": 90, "size": 1.016, "layer": "silk.top" }
+        ],
+        "pads": [
+          { "name": "A", "smd": [1.25, 2], "at": [-1.875, 0] },
+          { "name": "K", "smd": [1.25, 2], "at": [1.875, 0] }
+        ]
+      },
+      { "id": "madhu/SOT23-3", "jlcpcbRotation": -90,
+        "graphics": [
+          { "line": [[1.4224, 0.6604], [1.4224, -0.6604]], "width": 0.1524, "layer": "fab.top" },
+          { "line": [[1.4224, -0.6604], [-1.4224, -0.6604]], "width": 0.1524, "layer": "fab.top" },
+          { "line": [[-1.4224, -0.6604], [-1.4224, 0.6604]], "width": 0.1524, "layer": "fab.top" },
+          { "line": [[-1.4224, 0.6604], [1.4224, 0.6604]], "width": 0.1524, "layer": "fab.top" },
+          { "line": [[-0.8, 0.7], [-1.4, 0.7]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[-1.4, 0.7], [-1.4, -0.1]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[0.8, 0.7], [1.4, 0.7]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[1.4, 0.7], [1.4, -0.1]], "width": 0.2032, "layer": "silk.top" },
+          { "text": ">NAME", "at": [-0.8255, 1.778], "size": 0.4064, "layer": "names.top" },
+          { "text": ">VALUE", "at": [-1.016, -0.1905], "size": 0.4064, "layer": "names.top" }
+        ],
+        "pads": [
+          { "name": "3", "smd": [0.8, 0.9], "at": [0, 1.1] },
+          { "name": "2", "smd": [0.8, 0.9], "at": [0.95, -1] },
+          { "name": "1", "smd": [0.8, 0.9], "at": [-0.95, -1] }
+        ]
+      },
+      { "id": "madhu/TO-92", "description": "<b>TO 92</b>",
+        "graphics": [
+          { "line": [[-2.0946, -1.651], [-0.7863, 2.5485]], "width": 0.2032, "layer": "silk.top", "curve": -111.098957, "cap": "flat" },
+          { "line": [[0.7863, 2.5484], [2.0945, -1.651]], "width": 0.2032, "layer": "silk.top", "curve": -111.09954, "cap": "flat" },
+          { "line": [[-2.0945, -1.651], [2.0945, -1.651]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[-2.6549, -0.254], [-2.2537, -0.254]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[-0.2863, -0.254], [0.2863, -0.254]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[2.2537, -0.254], [2.6549, -0.254]], "width": 0.2032, "layer": "silk.top" },
+          { "text": ">NAME", "at": [-1.905, -3.175], "size": 0.8128, "layer": "names.top", "ratio": 10 },
+          { "text": ">VALUE", "at": [-1.905, -4.445], "size": 0.8128, "layer": "names.top", "ratio": 10 }
+        ],
+        "pads": [
+          { "name": "3", "at": [1.27, 0], "drill": 0.8128 },
+          { "name": "2", "at": [0, 1.905], "drill": 0.8128 },
+          { "name": "1", "at": [-1.27, 0], "drill": 0.8128 }
+        ]
+      },
+      { "id": "madhu/TOKO5K", "description": "TOKO 5K coils\nhttp://media.digikey.com/pdf/Data%20Sheets/Toko%20PDFs/5K_5KM.pdf",
+        "graphics": [
+          { "line": [[-2.95, 2.95], [2.95, 2.95]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[2.95, 2.95], [2.95, -2.95]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[2.95, -2.95], [-2.95, -2.95]], "width": 0.2032, "layer": "silk.top" },
+          { "line": [[-2.95, -2.95], [-2.95, 2.95]], "width": 0.2032, "layer": "silk.top" },
+          { "text": ">NAME", "at": [-2.54, -0.635], "size": 0.6096, "layer": "names.top" }
+        ],
+        "pads": [
+          { "name": "1", "at": [-1.75, 1.75], "drill": 0.8128 },
+          { "name": "5", "at": [-1.75, -1.75], "drill": 0.8128 },
+          { "name": "2", "at": [1.75, 1.75], "drill": 0.8128 },
+          { "name": "3", "at": [1.75, 0], "drill": 0.8128 },
+          { "name": "4", "at": [1.75, -1.75], "drill": 0.8128 }
+        ]
+      },
+      { "id": "madhu/VERTICAL-0.1", "description": "0.1\" 2-pin vertical through hole device",
+        "graphics": [
+          { "line": [[0, 0], [2.54, 0]], "width": 0.2032, "layer": "silk.top" },
+          { "circle": [0, 0], "radius": 1.27, "width": 0.254, "layer": "silk.top" },
+          { "text": ">Name", "at": [-0.635, 1.905], "size": 0.8128, "layer": "names.top" },
+          { "text": ">Value", "at": [-0.762, -2.921], "size": 0.8128, "layer": "silk.top" }
+        ],
+        "pads": [
+          { "name": "1", "at": [0, 0], "drill": 0.9, "diameter": 1.8796 },
+          { "name": "2", "at": [2.54, 0], "drill": 0.9, "diameter": 1.8796 }
+        ]
+      }
+    ],
+    "components": [
+      { "id": "madhu/126T1028", "prefix": "L", "description": "<b>ADJUSTABLE COIL</b><p>\n4.7 mH",
+        "gates": [
+          { "name": "A", "at": [0, -2.54], "symbol": "madhu/SMF51-1" },
+          { "name": "B", "at": [0, 2.54], "symbol": "madhu/SHIELD-2", "addLevel": "request" }
+        ],
+        "variants": [
+          { "name": "", "footprint": "madhu/71K", "pads": { "A.A": ["2"], "A.E": ["4"], "B.S1": ["S1"], "B.S2": ["S2"] } },
+          { "name": "N", "footprint": "madhu/71K2", "pads": { "A.A": ["2"], "A.E": ["4"], "B.S1": ["1"], "B.S2": ["3"] } }
+        ]
+      },
+      { "id": "madhu/CAPACITOR-NP", "prefix": "C", "userValue": true, "description": "<b>Non-polarized capacitor</b>\n0.1\", 0.2\" leaded capacitor.",
+        "gates": [
+          { "name": "A", "at": [0, 0], "symbol": "madhu/CAPACITOR-NP" }
+        ],
+        "variants": [
+          { "name": "0.1\"", "footprint": "madhu/CAP-0.1", "pads": { "A.1": ["1"], "A.2": ["2"] } },
+          { "name": "0.2\"", "footprint": "madhu/CAP-0.2", "pads": { "A.1": ["1"], "A.2": ["2"] } },
+          { "name": "0805", "footprint": "madhu/0805", "pads": { "A.1": ["1"], "A.2": ["2"] } },
+          { "name": "1206", "footprint": "madhu/C1206", "pads": { "A.1": ["1"], "A.2": ["2"] } },
+          { "name": "0603", "footprint": "madhu/0603-CAP", "pads": { "A.1": ["1"], "A.2": ["2"] } },
+          { "name": "0.3\"", "footprint": "madhu/CAP-0.3", "pads": { "A.1": ["1"], "A.2": ["2"] } }
+        ]
+      },
+      { "id": "madhu/INDUCTOR-VAR", "prefix": "L", "description": "Variable inductors",
+        "gates": [
+          { "name": "A", "at": [0, -2.54], "symbol": "madhu/SMF51-1" }
+        ],
+        "variants": [
+          { "name": "-MC-122", "footprint": "madhu/MC-122", "pads": { "A.A": ["1"], "A.E": ["2"] } },
+          { "name": "-TOKO5K", "footprint": "madhu/TOKO5K", "pads": { "A.A": ["2"], "A.E": ["4"] } },
+          { "name": "-HOSFELT", "footprint": "madhu/COIL-RADIAL-0.25", "pads": { "A.A": ["1"], "A.E": ["2"] } },
+          { "name": "-T1041", "footprint": "madhu/71K2", "pads": { "A.A": ["2"], "A.E": ["4"] } },
+          { "name": "-T1022", "footprint": "madhu/71K2", "pads": { "A.A": ["2"], "A.E": ["4"] } },
+          { "name": "-T1028", "footprint": "madhu/71K2", "pads": { "A.A": ["2"], "A.E": ["4"] } }
+        ]
+      },
+      { "id": "madhu/INDUCTOR-VAR2", "prefix": "L", "userValue": true, "description": "7K and MC-122 combined inductor.\nExternally connect pins 1 and 2",
+        "gates": [
+          { "name": "A", "at": [0, -2.54], "symbol": "madhu/SMF51-1X" }
+        ],
+        "variants": [
+          { "name": "71K2", "footprint": "madhu/71K2", "pads": { "A.A": ["4"], "A.E": ["2"], "A.E1": ["1"] } }
+        ]
+      },
+      { "id": "madhu/LS4148", "prefix": "D", "description": "Small signal diode <a href=\"https://www.vishay.com/docs/85561/ls4148.pdf\">LS4148</a>",
+        "gates": [
+          { "name": "A", "at": [0, 0], "symbol": "madhu/DIODE" }
+        ],
+        "variants": [
+          { "name": "", "footprint": "madhu/SOD-80", "pads": { "A.A": ["A"], "A.C": ["K"] } }
+        ]
+      },
+      { "id": "madhu/MMBT3904", "prefix": "Q", "description": "NPN general purpose silicon transistor",
+        "gates": [
+          { "name": "A", "at": [0, 0], "symbol": "madhu/NPN" }
+        ],
+        "variants": [
+          { "name": "L", "footprint": "madhu/SOT23-3", "pads": { "A.B": ["1"], "A.C": ["3"], "A.E": ["2"] }, "technologies": { "": { "LCSC": "C20526" } } }
+        ]
+      },
+      { "id": "madhu/MPF102", "prefix": "Q", "description": "MPF102 N-channel JFET\nIdss: 2-20mA\n350 mW\ngfs: 2-7.5 mS\nCiss: 7pF\nCrss: 3pF",
+        "gates": [
+          { "name": "A", "at": [0, 0], "symbol": "madhu/JFET-N" }
+        ],
+        "variants": [
+          { "name": "", "footprint": "madhu/TO-92", "pads": { "A.D": ["1"], "A.G": ["3"], "A.S": ["2"] } }
+        ]
+      },
+      { "id": "madhu/RESISTOR", "prefix": "R", "userValue": true, "description": "<b>Resistor</b>\nBasic schematic elements and footprints for 0603, 1206, and PTH resistors.",
+        "gates": [
+          { "name": "A", "at": [0, 0], "symbol": "madhu/RESISTOR" }
+        ],
+        "variants": [
+          { "name": "1206", "footprint": "madhu/1206", "pads": { "A.1": ["1"], "A.2": ["2"] } },
+          { "name": "AXIAL-0.3", "footprint": "madhu/AXIAL-0.3", "pads": { "A.1": ["1"], "A.2": ["2"] } },
+          { "name": "VERTICAL-0.1", "footprint": "madhu/VERTICAL-0.1", "pads": { "A.1": ["1"], "A.2": ["2"] } },
+          { "name": "0805-RES", "footprint": "madhu/0805", "pads": { "A.1": ["1"], "A.2": ["2"] } },
+          { "name": "0603-RES", "footprint": "madhu/0603-RES", "pads": { "A.1": ["1"], "A.2": ["2"] } },
+          { "name": "0402-RES", "footprint": "madhu/0402-RES", "pads": { "A.1": ["1"], "A.2": ["2"] } },
+          { "name": "PTH-1/4W", "footprint": "madhu/AXIAL-0.4", "pads": { "A.1": ["1"], "A.2": ["2"] } },
+          { "name": "PTH-1/2W", "footprint": "madhu/AXIAL-0.5", "pads": { "A.1": ["1"], "A.2": ["2"] } },
+          { "name": "PTH-1W", "footprint": "madhu/AXIAL-0.6", "pads": { "A.1": ["1"], "A.2": ["2"] } },
+          { "name": "PTH-2W", "footprint": "madhu/AXIAL-0.8", "pads": { "A.1": ["1"], "A.2": ["2"] } }
+        ]
+      },
+      { "id": "supply2/GND", "prefix": "SUPPLY", "description": "<b>SUPPLY SYMBOL</b>", "eagle": { "attrs": { "urn": "urn:adsk.eagle:component:27037/1", "library_version": "2" } },
+        "gates": [
+          { "name": "GND", "at": [0, 0], "symbol": "supply2/GND" }
+        ],
+        "variants": [
+          { "name": "", "pads": {} }
+        ]
+      },
+      { "id": "supply2/VCC", "prefix": "SUPPLY", "description": "<b>SUPPLY SYMBOL</b>", "eagle": { "attrs": { "urn": "urn:adsk.eagle:component:27060/1", "library_version": "2" } },
+        "gates": [
+          { "name": "G$1", "at": [0, 0], "symbol": "supply2/VCC" }
+        ],
+        "variants": [
+          { "name": "", "pads": {} }
+        ]
+      }
+    ]
+  },
+  "parts": [
+    { "name": "C1", "component": "madhu/CAPACITOR-NP", "variant": "0805", "value": "1u", "attributes": { "BLOCK": "CE-amp" } },
+    { "name": "R1", "component": "madhu/RESISTOR", "variant": "0805-RES", "value": "47k", "attributes": { "BLOCK": "CE-amp" } },
+    { "name": "R2", "component": "madhu/RESISTOR", "variant": "0805-RES", "value": "10k", "attributes": { "BLOCK": "CE-amp" } },
+    { "name": "Q1", "component": "madhu/MMBT3904", "variant": "L", "attributes": { "BLOCK": "CE-amp" } },
+    { "name": "R3", "component": "madhu/RESISTOR", "variant": "0805-RES", "value": "4.7k", "attributes": { "BLOCK": "CE-amp" } },
+    { "name": "R4", "component": "madhu/RESISTOR", "variant": "0805-RES", "value": "1k", "attributes": { "BLOCK": "CE-amp" } },
+    { "name": "C2", "component": "madhu/CAPACITOR-NP", "variant": "0805", "value": "10u", "attributes": { "BLOCK": "CE-amp" } },
+    { "name": "C3", "component": "madhu/CAPACITOR-NP", "variant": "0805", "value": "1u", "attributes": { "BLOCK": "CE-amp" } },
+    { "name": "SUPPLY16", "component": "supply2/GND", "variant": "" },
+    { "name": "SUPPLY17", "component": "supply2/GND", "variant": "" },
+    { "name": "SUPPLY18", "component": "supply2/GND", "variant": "" },
+    { "name": "SUPPLY31", "component": "supply2/VCC", "variant": "" },
+    { "name": "SUPPLY32", "component": "supply2/VCC", "variant": "" },
+    { "name": "C4", "component": "madhu/CAPACITOR-NP", "variant": "0805", "value": "10n", "attributes": { "BLOCK": "Tuned-amp" } },
+    { "name": "R5", "component": "madhu/RESISTOR", "variant": "0805-RES", "value": "47k", "attributes": { "BLOCK": "Tuned-amp" } },
+    { "name": "R6", "component": "madhu/RESISTOR", "variant": "0805-RES", "value": "10k", "attributes": { "BLOCK": "Tuned-amp" } },
+    { "name": "Q2", "component": "madhu/MMBT3904", "variant": "L", "attributes": { "BLOCK": "Tuned-amp" } },
+    { "name": "L1", "component": "madhu/INDUCTOR-VAR2", "variant": "71K2", "attributes": { "BLOCK": "Tuned-amp" } },
+    { "name": "C5", "component": "madhu/CAPACITOR-NP", "variant": "0805", "value": "1.5n", "attributes": { "BLOCK": "Tuned-amp" } },
+    { "name": "R7", "component": "madhu/RESISTOR", "variant": "0805-RES", "value": "1k", "attributes": { "BLOCK": "Tuned-amp" } },
+    { "name": "C6", "component": "madhu/CAPACITOR-NP", "variant": "0805", "value": "10u", "attributes": { "BLOCK": "Tuned-amp" } },
+    { "name": "C7", "component": "madhu/CAPACITOR-NP", "variant": "0805", "value": "10n", "attributes": { "BLOCK": "Tuned-amp" } },
+    { "name": "SUPPLY11", "component": "supply2/GND", "variant": "" },
+    { "name": "SUPPLY12", "component": "supply2/GND", "variant": "" },
+    { "name": "SUPPLY13", "component": "supply2/GND", "variant": "" },
+    { "name": "SUPPLY27", "component": "supply2/VCC", "variant": "" },
+    { "name": "SUPPLY30", "component": "supply2/VCC", "variant": "" },
+    { "name": "SUPPLY1", "component": "supply2/GND", "variant": "" },
+    { "name": "SUPPLY2", "component": "supply2/GND", "variant": "" },
+    { "name": "Q3", "component": "madhu/MPF102", "variant": "", "attributes": { "BLOCK": "JFET-preamp" } },
+    { "name": "R8", "component": "madhu/RESISTOR", "variant": "0805-RES", "value": "4.7k", "attributes": { "BLOCK": "JFET-preamp" } },
+    { "name": "C8", "component": "madhu/CAPACITOR-NP", "variant": "0805", "value": "0.1u", "attributes": { "BLOCK": "JFET-preamp" } },
+    { "name": "L2", "component": "madhu/INDUCTOR-VAR2", "variant": "71K2", "attributes": { "BLOCK": "JFET-preamp" } },
+    { "name": "L3", "component": "madhu/INDUCTOR-VAR2", "variant": "71K2", "attributes": { "BLOCK": "JFET-preamp" } },
+    { "name": "L4", "component": "madhu/INDUCTOR-VAR", "variant": "-TOKO5K", "attributes": { "BLOCK": "JFET-preamp" } },
+    { "name": "L5", "component": "madhu/INDUCTOR-VAR", "variant": "-TOKO5K", "attributes": { "BLOCK": "JFET-preamp" } },
+    { "name": "C9", "component": "madhu/CAPACITOR-NP", "variant": "0805", "value": "TBD", "attributes": { "BLOCK": "JFET-preamp" } },
+    { "name": "C10", "component": "madhu/CAPACITOR-NP", "variant": "0805", "value": "TBD", "attributes": { "BLOCK": "JFET-preamp" } },
+    { "name": "C11", "component": "madhu/CAPACITOR-NP", "variant": "0805", "value": "TBD", "attributes": { "BLOCK": "JFET-preamp" } },
+    { "name": "C12", "component": "madhu/CAPACITOR-NP", "variant": "0805", "value": "TBD", "attributes": { "BLOCK": "JFET-preamp" } },
+    { "name": "SUPPLY3", "component": "supply2/GND", "variant": "" },
+    { "name": "SUPPLY4", "component": "supply2/VCC", "variant": "" },
+    { "name": "SUPPLY33", "component": "supply2/GND", "variant": "" },
+    { "name": "SUPPLY34", "component": "supply2/VCC", "variant": "" },
+    { "name": "L6", "component": "madhu/126T1028", "variant": "N", "attributes": { "BLOCK": "IF-amp" } },
+    { "name": "Q4", "component": "madhu/MMBT3904", "variant": "L", "attributes": { "BLOCK": "IF-amp" } },
+    { "name": "R9", "component": "madhu/RESISTOR", "variant": "0805-RES", "value": "10k", "attributes": { "BLOCK": "IF-amp" } },
+    { "name": "R10", "component": "madhu/RESISTOR", "variant": "0805-RES", "value": "100k", "attributes": { "BLOCK": "IF-amp" } },
+    { "name": "R11", "component": "madhu/RESISTOR", "variant": "0805-RES", "value": "100k", "attributes": { "BLOCK": "IF-amp" } },
+    { "name": "C13", "component": "madhu/CAPACITOR-NP", "variant": "0805", "value": "0.1u", "attributes": { "BLOCK": "IF-amp" } },
+    { "name": "C14", "component": "madhu/CAPACITOR-NP", "variant": "0805", "value": "0.1u", "attributes": { "BLOCK": "IF-amp" } },
+    { "name": "C15", "component": "madhu/CAPACITOR-NP", "variant": "0805", "value": "0.1u", "attributes": { "BLOCK": "IF-amp" } },
+    { "name": "C16", "component": "madhu/CAPACITOR-NP", "variant": "0805", "value": "0.1u", "attributes": { "BLOCK": "IF-amp" } },
+    { "name": "R12", "component": "madhu/RESISTOR", "variant": "0805-RES", "value": "10k", "attributes": { "BLOCK": "IF-amp" } },
+    { "name": "SUPPLY5", "component": "supply2/VCC", "variant": "" },
+    { "name": "SUPPLY60", "component": "supply2/GND", "variant": "" },
+    { "name": "SUPPLY64", "component": "supply2/VCC", "variant": "" },
+    { "name": "C17", "component": "madhu/CAPACITOR-NP", "variant": "0805", "value": "0.1u", "attributes": { "BLOCK": "Colpitts-CC" } },
+    { "name": "C18", "component": "madhu/CAPACITOR-NP", "variant": "0805", "value": "0.1u", "attributes": { "BLOCK": "Colpitts-CC" } },
+    { "name": "Q5", "component": "madhu/MMBT3904", "variant": "L", "attributes": { "BLOCK": "Colpitts-CC" } },
+    { "name": "SUPPLY62", "component": "supply2/GND", "variant": "" },
+    { "name": "SUPPLY65", "component": "supply2/VCC", "variant": "" },
+    { "name": "R13", "component": "madhu/RESISTOR", "variant": "0805-RES", "value": "100", "attributes": { "BLOCK": "Colpitts-CC" } },
+    { "name": "R14", "component": "madhu/RESISTOR", "variant": "0805-RES", "value": "10k", "attributes": { "BLOCK": "Colpitts-CC" } },
+    { "name": "R15", "component": "madhu/RESISTOR", "variant": "0805-RES", "value": "100", "attributes": { "BLOCK": "Colpitts-CC" } },
+    { "name": "C19", "component": "madhu/CAPACITOR-NP", "variant": "0805", "value": "0.1u", "attributes": { "BLOCK": "Colpitts-CC" } },
+    { "name": "R16", "component": "madhu/RESISTOR", "variant": "0805-RES", "value": "10k", "attributes": { "BLOCK": "Colpitts-CC" } },
+    { "name": "L7", "component": "madhu/INDUCTOR-VAR", "variant": "-T1028", "attributes": { "BLOCK": "Colpitts-CC" } },
+    { "name": "C20", "component": "madhu/CAPACITOR-NP", "variant": "0805", "value": "3300p", "attributes": { "BLOCK": "Colpitts-CC" } },
+    { "name": "C21", "component": "madhu/CAPACITOR-NP", "variant": "0805", "value": "3300p", "attributes": { "BLOCK": "Colpitts-CC" } },
+    { "name": "L8", "component": "madhu/INDUCTOR-VAR", "variant": "-HOSFELT", "attributes": { "BLOCK": "Colpitts-CC" } },
+    { "name": "SUPPLY63", "component": "supply2/GND", "variant": "" },
+    { "name": "SUPPLY66", "component": "supply2/GND", "variant": "" },
+    { "name": "SUPPLY70", "component": "supply2/VCC", "variant": "" },
+    { "name": "C22", "component": "madhu/CAPACITOR-NP", "variant": "0805", "value": "0.1u", "attributes": { "BLOCK": "Colpitts-CB" } },
+    { "name": "C23", "component": "madhu/CAPACITOR-NP", "variant": "0805", "value": "0.1u", "attributes": { "BLOCK": "Colpitts-CB" } },
+    { "name": "Q6", "component": "madhu/MMBT3904", "variant": "L", "attributes": { "BLOCK": "Colpitts-CB" } },
+    { "name": "Q7", "component": "madhu/MMBT3904", "variant": "L", "attributes": { "BLOCK": "Colpitts-CB" } },
+    { "name": "L9", "component": "madhu/INDUCTOR-VAR", "variant": "-HOSFELT", "attributes": { "BLOCK": "Colpitts-CB" } },
+    { "name": "SUPPLY68", "component": "supply2/GND", "variant": "" },
+    { "name": "SUPPLY71", "component": "supply2/VCC", "variant": "" },
+    { "name": "R17", "component": "madhu/RESISTOR", "variant": "0805-RES", "value": "100", "attributes": { "BLOCK": "Colpitts-CB" } },
+    { "name": "SUPPLY72", "component": "supply2/VCC", "variant": "" },
+    { "name": "SUPPLY69", "component": "supply2/GND", "variant": "" },
+    { "name": "R18", "component": "madhu/RESISTOR", "variant": "0805-RES", "value": "10k", "attributes": { "BLOCK": "Colpitts-CB" } },
+    { "name": "R19", "component": "madhu/RESISTOR", "variant": "0805-RES", "value": "10k", "attributes": { "BLOCK": "Colpitts-CB" } },
+    { "name": "R20", "component": "madhu/RESISTOR", "variant": "0805-RES", "value": "2.2k", "attributes": { "BLOCK": "Colpitts-CB" } },
+    { "name": "C24", "component": "madhu/CAPACITOR-NP", "variant": "0805", "value": "0.1u", "attributes": { "BLOCK": "Colpitts-CB" } },
+    { "name": "C25", "component": "madhu/CAPACITOR-NP", "variant": "0805", "value": "22p", "attributes": { "BLOCK": "Colpitts-CB" } },
+    { "name": "C26", "component": "madhu/CAPACITOR-NP", "variant": "0805", "value": "22p", "attributes": { "BLOCK": "Colpitts-CB" } },
+    { "name": "R21", "component": "madhu/RESISTOR", "variant": "0805-RES", "value": "10k", "attributes": { "BLOCK": "Colpitts-CB" } },
+    { "name": "R22", "component": "madhu/RESISTOR", "variant": "0805-RES", "value": "100", "attributes": { "BLOCK": "Colpitts-CB" } },
+    { "name": "C27", "component": "madhu/CAPACITOR-NP", "variant": "0805", "value": "0.1u", "attributes": { "BLOCK": "Colpitts-CB" } },
+    { "name": "C28", "component": "madhu/CAPACITOR-NP", "variant": "0805", "value": "0.1u", "attributes": { "BLOCK": "Colpitts-CB" } },
+    { "name": "D1", "component": "madhu/LS4148", "variant": "", "attributes": { "BLOCK": "Colpitts-CB" } },
+    { "name": "R23", "component": "madhu/RESISTOR", "variant": "0805-RES", "value": "10k", "attributes": { "BLOCK": "Colpitts-CB" } }
+  ],
+  "nets": [
+    { "name": "VCC",
+      "segments": [
+        { "sheet": "1",
+          "pins": [
+            { "part": "R1", "gate": "A", "pin": "2" },
+            { "part": "SUPPLY31", "gate": "G$1", "pin": "VCC" }
+          ],
+          "wires": [
+            { "line": [[17.78, -10.16], [17.78, -7.62]], "width": 0.1524 }
+          ]
+        },
+        { "sheet": "1",
+          "pins": [
+            { "part": "R3", "gate": "A", "pin": "2" },
+            { "part": "SUPPLY32", "gate": "G$1", "pin": "VCC" }
+          ],
+          "wires": [
+            { "line": [[33.02, -10.16], [33.02, -7.62]], "width": 0.1524 }
+          ]
+        },
+        { "sheet": "1",
+          "pins": [
+            { "part": "R5", "gate": "A", "pin": "2" },
+            { "part": "SUPPLY27", "gate": "G$1", "pin": "VCC" }
+          ],
+          "wires": [
+            { "line": [[93.98, -17.78], [93.98, -7.62]], "width": 0.1524 }
+          ]
+        },
+        { "sheet": "1", "junctions": [[114.3, -12.7]],
+          "pins": [
+            { "part": "C5", "gate": "A", "pin": "1" },
+            { "part": "SUPPLY30", "gate": "G$1", "pin": "VCC" },
+            { "part": "L1", "gate": "A", "pin": "E" },
+            { "part": "L1", "gate": "A", "pin": "E1" }
+          ],
+          "wires": [
+            { "line": [[106.68, -10.16], [106.68, -7.62]], "width": 0.1524 },
+            { "line": [[116.84, -15.24], [114.3, -15.24]], "width": 0.1524 },
+            { "line": [[114.3, -15.24], [114.3, -10.16]], "width": 0.1524 },
+            { "line": [[114.3, -10.16], [106.68, -10.16]], "width": 0.1524 },
+            { "line": [[116.84, -12.7], [114.3, -12.7]], "width": 0.1524 }
+          ]
+        },
+        { "sheet": "1", "junctions": [[208.28, -17.78]],
+          "pins": [
+            { "part": "L2", "gate": "A", "pin": "A" },
+            { "part": "L4", "gate": "A", "pin": "A" },
+            { "part": "SUPPLY4", "gate": "G$1", "pin": "VCC" }
+          ],
+          "wires": [
+            { "line": [[205.74, -17.78], [208.28, -17.78]], "width": 0.1524 },
+            { "line": [[208.28, -17.78], [210.82, -17.78]], "width": 0.1524 },
+            { "line": [[208.28, -7.62], [208.28, -17.78]], "width": 0.1524 }
+          ]
+        },
+        { "sheet": "1", "junctions": [[279.4, -35.56]],
+          "pins": [
+            { "part": "L6", "gate": "A", "pin": "A" },
+            { "part": "C14", "gate": "A", "pin": "1" },
+            { "part": "SUPPLY34", "gate": "G$1", "pin": "VCC" }
+          ],
+          "wires": [
+            { "line": [[281.94, -35.56], [279.4, -35.56]], "width": 0.1524 },
+            { "line": [[279.4, -35.56], [271.78, -35.56]], "width": 0.1524 },
+            { "line": [[271.78, -35.56], [271.78, -38.1]], "width": 0.1524 },
+            { "line": [[279.4, -30.48], [279.4, -35.56]], "width": 0.1524 }
+          ]
+        },
+        { "sheet": "1",
+          "pins": [
+            { "part": "R12", "gate": "A", "pin": "2" },
+            { "part": "SUPPLY5", "gate": "G$1", "pin": "VCC" }
+          ],
+          "wires": [
+            { "line": [[261.62, -25.4], [261.62, -27.94]], "width": 0.1524 }
+          ]
+        },
+        { "sheet": "1", "junctions": [[340.36, -25.4]],
+          "pins": [
+            { "part": "C18", "gate": "A", "pin": "1" },
+            { "part": "R13", "gate": "A", "pin": "1" },
+            { "part": "SUPPLY64", "gate": "G$1", "pin": "VCC" }
+          ],
+          "wires": [
+            { "line": [[340.36, -27.94], [340.36, -25.4]], "width": 0.1524 },
+            { "line": [[340.36, -25.4], [340.36, -15.24]], "width": 0.1524 },
+            { "line": [[347.98, -30.48], [347.98, -25.4]], "width": 0.1524 },
+            { "line": [[347.98, -25.4], [340.36, -25.4]], "width": 0.1524 },
+            { "line": [[335.28, -27.94], [340.36, -27.94]], "width": 0.1524 }
+          ]
+        },
+        { "sheet": "1", "junctions": [[406.4, -10.16]],
+          "pins": [
+            { "part": "R14", "gate": "A", "pin": "1" },
+            { "part": "Q5", "gate": "A", "pin": "C" },
+            { "part": "SUPPLY65", "gate": "G$1", "pin": "VCC" }
+          ],
+          "wires": [
+            { "line": [[406.4, -12.7], [406.4, -10.16]], "width": 0.1524 },
+            { "line": [[406.4, -10.16], [406.4, -7.62]], "width": 0.1524 },
+            { "line": [[419.1, -10.16], [406.4, -10.16]], "width": 0.1524 },
+            { "line": [[419.1, -10.16], [419.1, -25.4]], "width": 0.1524 }
+          ]
+        },
+        { "sheet": "1", "junctions": [[485.14, -33.02]],
+          "pins": [
+            { "part": "C23", "gate": "A", "pin": "1" },
+            { "part": "R17", "gate": "A", "pin": "1" },
+            { "part": "SUPPLY70", "gate": "G$1", "pin": "VCC" }
+          ],
+          "wires": [
+            { "line": [[485.14, -35.56], [485.14, -33.02]], "width": 0.1524 },
+            { "line": [[485.14, -33.02], [485.14, -22.86]], "width": 0.1524 },
+            { "line": [[492.76, -38.1], [492.76, -33.02]], "width": 0.1524 },
+            { "line": [[492.76, -33.02], [485.14, -33.02]], "width": 0.1524 },
+            { "line": [[480.06, -35.56], [485.14, -35.56]], "width": 0.1524 }
+          ]
+        },
+        { "sheet": "1", "junctions": [[530.86, -25.4]],
+          "pins": [
+            { "part": "L9", "gate": "A", "pin": "A" },
+            { "part": "R18", "gate": "A", "pin": "1" },
+            { "part": "SUPPLY71", "gate": "G$1", "pin": "VCC" }
+          ],
+          "wires": [
+            { "line": [[530.86, -33.02], [530.86, -25.4]], "width": 0.1524 },
+            { "line": [[530.86, -25.4], [530.86, -22.86]], "width": 0.1524 },
+            { "line": [[546.1, -25.4], [530.86, -25.4]], "width": 0.1524 }
+          ]
+        },
+        { "sheet": "1",
+          "pins": [
+            { "part": "Q7", "gate": "A", "pin": "C" },
+            { "part": "SUPPLY72", "gate": "G$1", "pin": "VCC" }
+          ],
+          "wires": [
+            { "line": [[601.98, -33.02], [601.98, -40.64]], "width": 0.1524 }
+          ]
+        }
+      ]
+    },
+    { "name": "GND",
+      "segments": [
+        { "sheet": "1",
+          "pins": [
+            { "part": "R2", "gate": "A", "pin": "1" },
+            { "part": "SUPPLY16", "gate": "GND", "pin": "GND" }
+          ],
+          "wires": [
+            { "line": [[17.78, -45.72], [17.78, -43.18]], "width": 0.1524 }
+          ]
+        },
+        { "sheet": "1",
+          "pins": [
+            { "part": "R4", "gate": "A", "pin": "1" },
+            { "part": "SUPPLY17", "gate": "GND", "pin": "GND" }
+          ],
+          "wires": [
+            { "line": [[33.02, -60.96], [33.02, -58.42]], "width": 0.1524 }
+          ]
+        },
+        { "sheet": "1",
+          "pins": [
+            { "part": "C2", "gate": "A", "pin": "2" },
+            { "part": "SUPPLY18", "gate": "GND", "pin": "GND" }
+          ],
+          "wires": [
+            { "line": [[40.64, -58.42], [40.64, -55.88]], "width": 0.1524 }
+          ]
+        },
+        { "sheet": "1",
+          "pins": [
+            { "part": "R6", "gate": "A", "pin": "1" },
+            { "part": "SUPPLY11", "gate": "GND", "pin": "GND" }
+          ],
+          "wires": [
+            { "line": [[93.98, -78.74], [93.98, -76.2]], "width": 0.1524 }
+          ]
+        },
+        { "sheet": "1",
+          "pins": [
+            { "part": "R7", "gate": "A", "pin": "1" },
+            { "part": "SUPPLY12", "gate": "GND", "pin": "GND" }
+          ],
+          "wires": [
+            { "line": [[106.68, -78.74], [106.68, -76.2]], "width": 0.1524 }
+          ]
+        },
+        { "sheet": "1",
+          "pins": [
+            { "part": "C6", "gate": "A", "pin": "2" },
+            { "part": "SUPPLY13", "gate": "GND", "pin": "GND" }
+          ],
+          "wires": [
+            { "line": [[114.3, -78.74], [114.3, -73.66]], "width": 0.1524 }
+          ]
+        },
+        { "sheet": "1", "junctions": [[203.2, -63.5], [208.28, -63.5]],
+          "pins": [
+            { "part": "R8", "gate": "A", "pin": "1" },
+            { "part": "C8", "gate": "A", "pin": "2" },
+            { "part": "SUPPLY1", "gate": "GND", "pin": "GND" },
+            { "part": "C10", "gate": "A", "pin": "2" }
+          ],
+          "wires": [
+            { "line": [[200.66, -60.96], [200.66, -63.5]], "width": 0.1524 },
+            { "line": [[200.66, -63.5], [203.2, -63.5]], "width": 0.1524 },
+            { "line": [[203.2, -63.5], [208.28, -63.5]], "width": 0.1524 },
+            { "line": [[208.28, -63.5], [208.28, -58.42]], "width": 0.1524 },
+            { "line": [[203.2, -66.04], [203.2, -63.5]], "width": 0.1524 },
+            { "line": [[223.52, -58.42], [223.52, -63.5]], "width": 0.1524 },
+            { "line": [[223.52, -63.5], [208.28, -63.5]], "width": 0.1524 }
+          ]
+        },
+        { "sheet": "1",
+          "pins": [
+            { "part": "C12", "gate": "A", "pin": "2" },
+            { "part": "SUPPLY2", "gate": "GND", "pin": "GND" }
+          ],
+          "wires": [
+            { "line": [[157.48, -73.66], [157.48, -78.74]], "width": 0.1524 },
+            { "line": [[157.48, -78.74], [157.48, -81.28]], "width": 0.1524 }
+          ]
+        },
+        { "sheet": "1", "junctions": [[177.8, -60.96], [177.8, -63.5]],
+          "pins": [
+            { "part": "L5", "gate": "A", "pin": "E" },
+            { "part": "L3", "gate": "A", "pin": "E" },
+            { "part": "L3", "gate": "A", "pin": "E1" },
+            { "part": "SUPPLY3", "gate": "GND", "pin": "GND" }
+          ],
+          "wires": [
+            { "line": [[182.88, -60.96], [177.8, -60.96]], "width": 0.1524 },
+            { "line": [[177.8, -60.96], [175.26, -60.96]], "width": 0.1524 },
+            { "line": [[175.26, -63.5], [177.8, -63.5]], "width": 0.1524 },
+            { "line": [[177.8, -63.5], [177.8, -60.96]], "width": 0.1524 },
+            { "line": [[177.8, -76.2], [177.8, -63.5]], "width": 0.1524 }
+          ]
+        },
+        { "sheet": "1", "junctions": [[279.4, -78.74], [271.78, -78.74]],
+          "pins": [
+            { "part": "R9", "gate": "A", "pin": "1" },
+            { "part": "C13", "gate": "A", "pin": "2" },
+            { "part": "R11", "gate": "A", "pin": "1" },
+            { "part": "SUPPLY33", "gate": "GND", "pin": "GND" }
+          ],
+          "wires": [
+            { "line": [[279.4, -76.2], [279.4, -78.74]], "width": 0.1524 },
+            { "line": [[287.02, -73.66], [287.02, -78.74]], "width": 0.1524 },
+            { "line": [[287.02, -78.74], [279.4, -78.74]], "width": 0.1524 },
+            { "line": [[261.62, -76.2], [261.62, -78.74]], "width": 0.1524 },
+            { "line": [[261.62, -78.74], [271.78, -78.74]], "width": 0.1524 },
+            { "line": [[271.78, -78.74], [279.4, -78.74]], "width": 0.1524 },
+            { "line": [[271.78, -81.28], [271.78, -78.74]], "width": 0.1524 }
+          ]
+        },
+        { "sheet": "1",
+          "pins": [
+            { "part": "C18", "gate": "A", "pin": "2" },
+            { "part": "SUPPLY60", "gate": "GND", "pin": "GND" }
+          ],
+          "wires": [
+            { "line": [[340.36, -43.18], [340.36, -58.42]], "width": 0.1524 },
+            { "line": [[347.98, -38.1], [347.98, -43.18]], "width": 0.1524 },
+            { "line": [[347.98, -43.18], [340.36, -43.18]], "width": 0.1524 }
+          ]
+        },
+        { "sheet": "1", "junctions": [[421.64, -68.58], [406.4, -68.58]],
+          "pins": [
+            { "part": "R15", "gate": "A", "pin": "2" },
+            { "part": "C21", "gate": "A", "pin": "2" },
+            { "part": "L7", "gate": "A", "pin": "E" },
+            { "part": "SUPPLY62", "gate": "GND", "pin": "GND" }
+          ],
+          "wires": [
+            { "line": [[436.88, -63.5], [436.88, -68.58]], "width": 0.1524 },
+            { "line": [[406.4, -60.96], [406.4, -68.58]], "width": 0.1524 },
+            { "line": [[406.4, -68.58], [421.64, -68.58]], "width": 0.1524 },
+            { "line": [[421.64, -68.58], [436.88, -68.58]], "width": 0.1524 },
+            { "line": [[421.64, -73.66], [421.64, -68.58]], "width": 0.1524 },
+            { "line": [[391.16, -68.58], [406.4, -68.58]], "width": 0.1524 }
+          ]
+        },
+        { "sheet": "1",
+          "pins": [
+            { "part": "L8", "gate": "A", "pin": "E" },
+            { "part": "SUPPLY63", "gate": "GND", "pin": "GND" }
+          ],
+          "wires": [
+            { "line": [[378.46, -73.66], [378.46, -68.58]], "width": 0.1524 }
+          ]
+        },
+        { "sheet": "1",
+          "pins": [
+            { "part": "C23", "gate": "A", "pin": "2" },
+            { "part": "SUPPLY66", "gate": "GND", "pin": "GND" }
+          ],
+          "wires": [
+            { "line": [[485.14, -50.8], [485.14, -66.04]], "width": 0.1524 },
+            { "line": [[492.76, -45.72], [492.76, -50.8]], "width": 0.1524 },
+            { "line": [[492.76, -50.8], [485.14, -50.8]], "width": 0.1524 }
+          ]
+        },
+        { "sheet": "1", "junctions": [[530.86, -81.28], [538.48, -81.28], [543.56, -81.28], [548.64, -81.28]],
+          "pins": [
+            { "part": "R19", "gate": "A", "pin": "2" },
+            { "part": "R20", "gate": "A", "pin": "2" },
+            { "part": "C24", "gate": "A", "pin": "2" },
+            { "part": "C26", "gate": "A", "pin": "2" },
+            { "part": "D1", "gate": "A", "pin": "A" },
+            { "part": "SUPPLY68", "gate": "GND", "pin": "GND" }
+          ],
+          "wires": [
+            { "line": [[520.7, -76.2], [520.7, -81.28]], "width": 0.1524 },
+            { "line": [[520.7, -81.28], [530.86, -81.28]], "width": 0.1524 },
+            { "line": [[530.86, -81.28], [538.48, -81.28]], "width": 0.1524 },
+            { "line": [[538.48, -81.28], [543.56, -81.28]], "width": 0.1524 },
+            { "line": [[543.56, -81.28], [543.56, -76.2]], "width": 0.1524 },
+            { "line": [[530.86, -76.2], [530.86, -81.28]], "width": 0.1524 },
+            { "line": [[538.48, -86.36], [538.48, -81.28]], "width": 0.1524 },
+            { "line": [[548.64, -76.2], [548.64, -81.28]], "width": 0.1524 },
+            { "line": [[548.64, -81.28], [543.56, -81.28]], "width": 0.1524 },
+            { "line": [[563.88, -78.74], [563.88, -81.28]], "width": 0.1524 },
+            { "line": [[563.88, -81.28], [548.64, -81.28]], "width": 0.1524 }
+          ]
+        },
+        { "sheet": "1",
+          "pins": [
+            { "part": "R22", "gate": "A", "pin": "2" },
+            { "part": "SUPPLY69", "gate": "GND", "pin": "GND" }
+          ],
+          "wires": [
+            { "line": [[601.98, -81.28], [601.98, -86.36]], "width": 0.1524 }
+          ]
+        }
+      ]
+    },
+    { "name": "IN",
+      "segments": [
+        { "sheet": "1",
+          "pins": [
+            { "part": "C1", "gate": "A", "pin": "1" }
+          ],
+          "labels": [
+            { "at": [0, -22.86], "size": 1.778, "layer": "names" }
+          ],
+          "wires": [
+            { "line": [[0, -22.86], [5.08, -22.86]], "width": 0.1524 }
+          ]
+        },
+        { "sheet": "1",
+          "pins": [
+            { "part": "C4", "gate": "A", "pin": "1" }
+          ],
+          "labels": [
+            { "at": [68.58, -68.58], "size": 1.778, "layer": "names" }
+          ],
+          "wires": [
+            { "line": [[68.58, -68.58], [71.12, -68.58]], "width": 0.1524 },
+            { "line": [[78.74, -53.34], [71.12, -53.34]], "width": 0.1524 },
+            { "line": [[71.12, -68.58], [71.12, -53.34]], "width": 0.1524 }
+          ]
+        },
+        { "sheet": "1", "junctions": [[157.48, -63.5]],
+          "pins": [
+            { "part": "C11", "gate": "A", "pin": "2" },
+            { "part": "C12", "gate": "A", "pin": "1" }
+          ],
+          "labels": [
+            { "at": [142.24, -68.58], "size": 1.778, "layer": "names" }
+          ],
+          "wires": [
+            { "line": [[157.48, -58.42], [157.48, -63.5]], "width": 0.1524 },
+            { "line": [[157.48, -63.5], [157.48, -66.04]], "width": 0.1524 },
+            { "line": [[142.24, -68.58], [147.32, -68.58]], "width": 0.1524 },
+            { "line": [[147.32, -68.58], [147.32, -63.5]], "width": 0.1524 },
+            { "line": [[147.32, -63.5], [157.48, -63.5]], "width": 0.1524 }
+          ]
+        },
+        { "sheet": "1",
+          "pins": [
+            { "part": "C15", "gate": "A", "pin": "1" }
+          ],
+          "labels": [
+            { "at": [274.32, -2.54], "rot": 90, "size": 1.778, "layer": "names" }
+          ],
+          "wires": [
+            { "line": [[274.32, -2.54], [274.32, -7.62]], "width": 0.1524 },
+            { "line": [[274.32, -7.62], [246.38, -7.62]], "width": 0.1524 },
+            { "line": [[246.38, -7.62], [246.38, -45.72]], "width": 0.1524 }
+          ]
+        }
+      ]
+    },
+    { "name": "N$6",
+      "segments": [
+        { "sheet": "1", "junctions": [[17.78, -22.86], [17.78, -30.48]],
+          "pins": [
+            { "part": "R1", "gate": "A", "pin": "1" },
+            { "part": "C1", "gate": "A", "pin": "2" },
+            { "part": "R2", "gate": "A", "pin": "2" },
+            { "part": "Q1", "gate": "A", "pin": "B" }
+          ],
+          "wires": [
+            { "line": [[17.78, -22.86], [17.78, -20.32]], "width": 0.1524 },
+            { "line": [[12.7, -22.86], [17.78, -22.86]], "width": 0.1524 },
+            { "line": [[17.78, -33.02], [17.78, -30.48]], "width": 0.1524 },
+            { "line": [[17.78, -30.48], [27.94, -30.48]], "width": 0.1524 },
+            { "line": [[17.78, -30.48], [17.78, -22.86]], "width": 0.1524 }
+          ]
+        }
+      ]
+    },
+    { "name": "N$7",
+      "segments": [
+        { "sheet": "1", "junctions": [[33.02, -22.86]],
+          "pins": [
+            { "part": "R3", "gate": "A", "pin": "1" },
+            { "part": "Q1", "gate": "A", "pin": "C" },
+            { "part": "C3", "gate": "A", "pin": "1" }
+          ],
+          "wires": [
+            { "line": [[33.02, -22.86], [40.64, -22.86]], "width": 0.1524 },
+            { "line": [[33.02, -22.86], [33.02, -20.32]], "width": 0.1524 },
+            { "line": [[33.02, -25.4], [33.02, -22.86]], "width": 0.1524 }
+          ]
+        }
+      ]
+    },
+    { "name": "N$8",
+      "segments": [
+        { "sheet": "1", "junctions": [[33.02, -45.72]],
+          "pins": [
+            { "part": "R4", "gate": "A", "pin": "2" },
+            { "part": "Q1", "gate": "A", "pin": "E" },
+            { "part": "C2", "gate": "A", "pin": "1" }
+          ],
+          "wires": [
+            { "line": [[33.02, -48.26], [33.02, -45.72]], "width": 0.1524 },
+            { "line": [[33.02, -45.72], [40.64, -45.72]], "width": 0.1524 },
+            { "line": [[33.02, -45.72], [33.02, -35.56]], "width": 0.1524 },
+            { "line": [[40.64, -48.26], [40.64, -45.72]], "width": 0.1524 }
+          ]
+        }
+      ]
+    },
+    { "name": "OUT",
+      "segments": [
+        { "sheet": "1",
+          "pins": [
+            { "part": "C3", "gate": "A", "pin": "2" }
+          ],
+          "labels": [
+            { "at": [60.96, -22.86], "rot": 180, "size": 1.778, "layer": "names" }
+          ],
+          "wires": [
+            { "line": [[48.26, -22.86], [60.96, -22.86]], "width": 0.1524 }
+          ]
+        },
+        { "sheet": "1",
+          "pins": [
+            { "part": "C7", "gate": "A", "pin": "2" }
+          ],
+          "labels": [
+            { "at": [132.08, -55.88], "rot": 180, "size": 1.778, "layer": "names" }
+          ],
+          "wires": [
+            { "line": [[121.92, -38.1], [129.54, -38.1]], "width": 0.1524 },
+            { "line": [[129.54, -38.1], [129.54, -55.88]], "width": 0.1524 },
+            { "line": [[129.54, -55.88], [132.08, -55.88]], "width": 0.1524 }
+          ]
+        },
+        { "sheet": "1", "junctions": [[223.52, -45.72]],
+          "pins": [
+            { "part": "C9", "gate": "A", "pin": "2" },
+            { "part": "C10", "gate": "A", "pin": "1" }
+          ],
+          "labels": [
+            { "at": [236.22, -50.8], "rot": 180, "size": 1.778, "layer": "names" }
+          ],
+          "wires": [
+            { "line": [[223.52, -40.64], [223.52, -45.72]], "width": 0.1524 },
+            { "line": [[223.52, -45.72], [223.52, -50.8]], "width": 0.1524 },
+            { "line": [[236.22, -50.8], [231.14, -50.8]], "width": 0.1524 },
+            { "line": [[231.14, -50.8], [231.14, -45.72]], "width": 0.1524 },
+            { "line": [[231.14, -45.72], [223.52, -45.72]], "width": 0.1524 }
+          ]
+        },
+        { "sheet": "1",
+          "pins": [
+            { "part": "C16", "gate": "A", "pin": "2" }
+          ],
+          "labels": [
+            { "at": [279.4, -2.54], "rot": 90, "size": 1.778, "layer": "names" }
+          ],
+          "wires": [
+            { "line": [[279.4, -2.54], [279.4, -7.62]], "width": 0.1524 },
+            { "line": [[279.4, -7.62], [307.34, -7.62]], "width": 0.1524 },
+            { "line": [[307.34, -7.62], [307.34, -45.72]], "width": 0.1524 },
+            { "line": [[307.34, -45.72], [302.26, -45.72]], "width": 0.1524 }
+          ]
+        },
+        { "sheet": "1",
+          "pins": [
+            { "part": "C17", "gate": "A", "pin": "1" }
+          ],
+          "labels": [
+            { "at": [444.5, -20.32], "rot": 90, "size": 1.778, "layer": "names" }
+          ],
+          "wires": [
+            { "line": [[444.5, -20.32], [444.5, -35.56]], "width": 0.1524 }
+          ]
+        },
+        { "sheet": "1",
+          "pins": [
+            { "part": "C22", "gate": "A", "pin": "1" }
+          ],
+          "labels": [
+            { "at": [622.3, -2.54], "rot": 90, "size": 1.778, "layer": "names" }
+          ],
+          "wires": [
+            { "line": [[622.3, -2.54], [622.3, -17.78]], "width": 0.1524 }
+          ]
+        }
+      ]
+    },
+    { "name": "N$15",
+      "segments": [
+        { "sheet": "1", "junctions": [[93.98, -48.26], [93.98, -53.34]],
+          "pins": [
+            { "part": "R5", "gate": "A", "pin": "1" },
+            { "part": "R6", "gate": "A", "pin": "2" },
+            { "part": "Q2", "gate": "A", "pin": "B" },
+            { "part": "C4", "gate": "A", "pin": "2" }
+          ],
+          "wires": [
+            { "line": [[93.98, -48.26], [96.52, -48.26]], "width": 0.1524 },
+            { "line": [[93.98, -48.26], [93.98, -27.94]], "width": 0.1524 },
+            { "line": [[93.98, -53.34], [93.98, -48.26]], "width": 0.1524 },
+            { "line": [[86.36, -53.34], [93.98, -53.34]], "width": 0.1524 },
+            { "line": [[93.98, -66.04], [93.98, -53.34]], "width": 0.1524 },
+            { "line": [[96.52, -48.26], [101.6, -48.26]], "width": 0.1524 }
+          ]
+        }
+      ]
+    },
+    { "name": "N$16",
+      "segments": [
+        { "sheet": "1", "junctions": [[106.68, -38.1], [106.68, -22.86]],
+          "pins": [
+            { "part": "Q2", "gate": "A", "pin": "C" },
+            { "part": "C7", "gate": "A", "pin": "1" },
+            { "part": "C5", "gate": "A", "pin": "2" },
+            { "part": "L1", "gate": "A", "pin": "A" }
+          ],
+          "wires": [
+            { "line": [[106.68, -43.18], [106.68, -33.02]], "width": 0.1524 },
+            { "line": [[114.3, -38.1], [106.68, -38.1]], "width": 0.1524 },
+            { "line": [[106.68, -33.02], [106.68, -17.78]], "width": 0.1524 },
+            { "line": [[116.84, -22.86], [106.68, -22.86]], "width": 0.1524 }
+          ]
+        }
+      ]
+    },
+    { "name": "N$17",
+      "segments": [
+        { "sheet": "1", "junctions": [[106.68, -63.5]],
+          "pins": [
+            { "part": "R7", "gate": "A", "pin": "2" },
+            { "part": "Q2", "gate": "A", "pin": "E" },
+            { "part": "C6", "gate": "A", "pin": "1" }
+          ],
+          "wires": [
+            { "line": [[106.68, -66.04], [106.68, -63.5]], "width": 0.1524 },
+            { "line": [[106.68, -63.5], [114.3, -63.5]], "width": 0.1524 },
+            { "line": [[106.68, -63.5], [106.68, -55.88]], "width": 0.1524 },
+            { "line": [[106.68, -55.88], [106.68, -53.34]], "width": 0.1524 },
+            { "line": [[114.3, -66.04], [114.3, -63.5]], "width": 0.1524 }
+          ]
+        }
+      ]
+    },
+    { "name": "N$1",
+      "segments": [
+        { "sheet": "1", "junctions": [[180.34, -53.34], [180.34, -43.18]],
+          "pins": [
+            { "part": "L5", "gate": "A", "pin": "A" },
+            { "part": "L3", "gate": "A", "pin": "A" },
+            { "part": "Q3", "gate": "A", "pin": "G" },
+            { "part": "C11", "gate": "A", "pin": "1" }
+          ],
+          "wires": [
+            { "line": [[182.88, -53.34], [180.34, -53.34]], "width": 0.1524 },
+            { "line": [[180.34, -53.34], [175.26, -53.34]], "width": 0.1524 },
+            { "line": [[185.42, -43.18], [180.34, -43.18]], "width": 0.1524 },
+            { "line": [[180.34, -43.18], [180.34, -53.34]], "width": 0.1524 },
+            { "line": [[157.48, -50.8], [157.48, -43.18]], "width": 0.1524 },
+            { "line": [[157.48, -43.18], [180.34, -43.18]], "width": 0.1524 }
+          ]
+        }
+      ]
+    },
+    { "name": "N$4",
+      "segments": [
+        { "sheet": "1", "junctions": [[208.28, -25.4], [208.28, -27.94], [208.28, -30.48]],
+          "pins": [
+            { "part": "L2", "gate": "A", "pin": "E" },
+            { "part": "L4", "gate": "A", "pin": "E" },
+            { "part": "L2", "gate": "A", "pin": "E1" },
+            { "part": "Q3", "gate": "A", "pin": "D" },
+            { "part": "C9", "gate": "A", "pin": "1" }
+          ],
+          "wires": [
+            { "line": [[205.74, -25.4], [208.28, -25.4]], "width": 0.1524 },
+            { "line": [[208.28, -25.4], [210.82, -25.4]], "width": 0.1524 },
+            { "line": [[205.74, -27.94], [208.28, -27.94]], "width": 0.1524 },
+            { "line": [[208.28, -27.94], [208.28, -25.4]], "width": 0.1524 },
+            { "line": [[195.58, -38.1], [208.28, -38.1]], "width": 0.1524 },
+            { "line": [[208.28, -38.1], [208.28, -30.48]], "width": 0.1524 },
+            { "line": [[208.28, -30.48], [208.28, -27.94]], "width": 0.1524 },
+            { "line": [[223.52, -33.02], [223.52, -30.48]], "width": 0.1524 },
+            { "line": [[223.52, -30.48], [208.28, -30.48]], "width": 0.1524 }
+          ]
+        }
+      ]
+    },
+    { "name": "N$18",
+      "segments": [
+        { "sheet": "1", "junctions": [[200.66, -48.26]],
+          "pins": [
+            { "part": "Q3", "gate": "A", "pin": "S" },
+            { "part": "R8", "gate": "A", "pin": "2" },
+            { "part": "C8", "gate": "A", "pin": "1" }
+          ],
+          "wires": [
+            { "line": [[195.58, -43.18], [200.66, -43.18]], "width": 0.1524 },
+            { "line": [[200.66, -43.18], [200.66, -48.26]], "width": 0.1524 },
+            { "line": [[200.66, -48.26], [200.66, -50.8]], "width": 0.1524 },
+            { "line": [[208.28, -50.8], [208.28, -48.26]], "width": 0.1524 },
+            { "line": [[208.28, -48.26], [200.66, -48.26]], "width": 0.1524 }
+          ]
+        }
+      ]
+    },
+    { "name": "N$19",
+      "segments": [
+        { "sheet": "1", "junctions": [[279.4, -63.5]],
+          "pins": [
+            { "part": "R9", "gate": "A", "pin": "2" },
+            { "part": "Q4", "gate": "A", "pin": "E" },
+            { "part": "C13", "gate": "A", "pin": "1" }
+          ],
+          "wires": [
+            { "line": [[279.4, -66.04], [279.4, -63.5]], "width": 0.1524 },
+            { "line": [[279.4, -63.5], [279.4, -60.96]], "width": 0.1524 },
+            { "line": [[287.02, -66.04], [287.02, -63.5]], "width": 0.1524 },
+            { "line": [[287.02, -63.5], [279.4, -63.5]], "width": 0.1524 }
+          ]
+        }
+      ]
+    },
+    { "name": "N$5",
+      "segments": [
+        { "sheet": "1", "junctions": [[279.4, -48.26], [279.4, -45.72]],
+          "pins": [
+            { "part": "L6", "gate": "A", "pin": "E" },
+            { "part": "Q4", "gate": "A", "pin": "C" },
+            { "part": "C14", "gate": "A", "pin": "2" },
+            { "part": "C16", "gate": "A", "pin": "1" }
+          ],
+          "wires": [
+            { "line": [[281.94, -43.18], [279.4, -43.18]], "width": 0.1524 },
+            { "line": [[279.4, -43.18], [279.4, -45.72]], "width": 0.1524 },
+            { "line": [[279.4, -45.72], [279.4, -48.26]], "width": 0.1524 },
+            { "line": [[279.4, -48.26], [279.4, -50.8]], "width": 0.1524 },
+            { "line": [[271.78, -45.72], [271.78, -48.26]], "width": 0.1524 },
+            { "line": [[271.78, -48.26], [279.4, -48.26]], "width": 0.1524 },
+            { "line": [[294.64, -45.72], [279.4, -45.72]], "width": 0.1524 }
+          ]
+        }
+      ]
+    },
+    { "name": "N$20",
+      "segments": [
+        { "sheet": "1", "junctions": [[261.62, -55.88], [261.62, -63.5]],
+          "pins": [
+            { "part": "Q4", "gate": "A", "pin": "B" },
+            { "part": "R11", "gate": "A", "pin": "2" },
+            { "part": "R10", "gate": "A", "pin": "1" },
+            { "part": "C15", "gate": "A", "pin": "2" }
+          ],
+          "wires": [
+            { "line": [[274.32, -55.88], [261.62, -55.88]], "width": 0.1524 },
+            { "line": [[261.62, -55.88], [261.62, -63.5]], "width": 0.1524 },
+            { "line": [[261.62, -63.5], [261.62, -66.04]], "width": 0.1524 },
+            { "line": [[261.62, -53.34], [261.62, -55.88]], "width": 0.1524 },
+            { "line": [[246.38, -53.34], [246.38, -63.5]], "width": 0.1524 },
+            { "line": [[246.38, -63.5], [261.62, -63.5]], "width": 0.1524 }
+          ]
+        }
+      ]
+    },
+    { "name": "BIAS",
+      "segments": [
+        { "sheet": "1", "junctions": [[261.62, -40.64]],
+          "pins": [
+            { "part": "R12", "gate": "A", "pin": "1" },
+            { "part": "R10", "gate": "A", "pin": "2" }
+          ],
+          "labels": [
+            { "at": [276.86, -2.54], "rot": 90, "size": 1.778, "layer": "names" }
+          ],
+          "wires": [
+            { "line": [[276.86, -2.54], [276.86, -12.7]], "width": 0.1524 },
+            { "line": [[276.86, -12.7], [254, -12.7]], "width": 0.1524 },
+            { "line": [[254, -12.7], [254, -40.64]], "width": 0.1524 },
+            { "line": [[254, -40.64], [261.62, -40.64]], "width": 0.1524 },
+            { "line": [[261.62, -40.64], [261.62, -38.1]], "width": 0.1524 },
+            { "line": [[261.62, -43.18], [261.62, -40.64]], "width": 0.1524 }
+          ]
+        }
+      ]
+    },
+    { "name": "N$141",
+      "segments": [
+        { "sheet": "1", "junctions": [[406.4, -30.48], [406.4, -35.56]],
+          "pins": [
+            { "part": "Q5", "gate": "A", "pin": "B" },
+            { "part": "R14", "gate": "A", "pin": "2" },
+            { "part": "C20", "gate": "A", "pin": "1" },
+            { "part": "C19", "gate": "A", "pin": "1" }
+          ],
+          "wires": [
+            { "line": [[406.4, -22.86], [406.4, -30.48]], "width": 0.1524 },
+            { "line": [[414.02, -30.48], [406.4, -30.48]], "width": 0.1524 },
+            { "line": [[406.4, -38.1], [406.4, -35.56]], "width": 0.1524 },
+            { "line": [[406.4, -35.56], [406.4, -30.48]], "width": 0.1524 },
+            { "line": [[391.16, -43.18], [391.16, -35.56]], "width": 0.1524 },
+            { "line": [[391.16, -35.56], [406.4, -35.56]], "width": 0.1524 }
+          ]
+        }
+      ]
+    },
+    { "name": "VIN",
+      "segments": [
+        { "sheet": "1",
+          "pins": [
+            { "part": "R13", "gate": "A", "pin": "2" }
+          ],
+          "labels": [
+            { "at": [314.96, -33.02], "size": 1.778, "layer": "names" }
+          ],
+          "wires": [
+            { "line": [[314.96, -33.02], [320.04, -33.02]], "width": 0.1524 },
+            { "line": [[320.04, -33.02], [320.04, -27.94]], "width": 0.1524 },
+            { "line": [[325.12, -27.94], [320.04, -27.94]], "width": 0.1524 }
+          ]
+        },
+        { "sheet": "1",
+          "pins": [
+            { "part": "R17", "gate": "A", "pin": "2" }
+          ],
+          "labels": [
+            { "at": [459.74, -40.64], "size": 1.778, "layer": "names" }
+          ],
+          "wires": [
+            { "line": [[459.74, -40.64], [464.82, -40.64]], "width": 0.1524 },
+            { "line": [[464.82, -40.64], [464.82, -35.56]], "width": 0.1524 },
+            { "line": [[469.9, -35.56], [464.82, -35.56]], "width": 0.1524 }
+          ]
+        }
+      ]
+    },
+    { "name": "N$143",
+      "segments": [
+        { "sheet": "1", "junctions": [[419.1, -48.26], [406.4, -48.26]],
+          "pins": [
+            { "part": "Q5", "gate": "A", "pin": "E" },
+            { "part": "R16", "gate": "A", "pin": "2" },
+            { "part": "C20", "gate": "A", "pin": "2" },
+            { "part": "C21", "gate": "A", "pin": "1" }
+          ],
+          "wires": [
+            { "line": [[419.1, -35.56], [419.1, -48.26]], "width": 0.1524 },
+            { "line": [[419.1, -48.26], [421.64, -48.26]], "width": 0.1524 },
+            { "line": [[406.4, -45.72], [406.4, -48.26]], "width": 0.1524 },
+            { "line": [[406.4, -48.26], [406.4, -53.34]], "width": 0.1524 },
+            { "line": [[419.1, -48.26], [406.4, -48.26]], "width": 0.1524 }
+          ]
+        }
+      ]
+    },
+    { "name": "N$144",
+      "segments": [
+        { "sheet": "1", "junctions": [[436.88, -48.26]],
+          "pins": [
+            { "part": "R16", "gate": "A", "pin": "1" },
+            { "part": "R15", "gate": "A", "pin": "1" },
+            { "part": "C17", "gate": "A", "pin": "2" }
+          ],
+          "wires": [
+            { "line": [[431.8, -48.26], [436.88, -48.26]], "width": 0.1524 },
+            { "line": [[436.88, -48.26], [436.88, -53.34]], "width": 0.1524 },
+            { "line": [[444.5, -43.18], [444.5, -48.26]], "width": 0.1524 },
+            { "line": [[436.88, -48.26], [444.5, -48.26]], "width": 0.1524 }
+          ]
+        }
+      ]
+    },
+    { "name": "N$145",
+      "segments": [
+        { "sheet": "1", "junctions": [[391.16, -55.88]],
+          "pins": [
+            { "part": "L7", "gate": "A", "pin": "A" },
+            { "part": "C19", "gate": "A", "pin": "2" },
+            { "part": "L8", "gate": "A", "pin": "A" }
+          ],
+          "wires": [
+            { "line": [[391.16, -60.96], [391.16, -55.88]], "width": 0.1524 },
+            { "line": [[391.16, -55.88], [391.16, -50.8]], "width": 0.1524 },
+            { "line": [[378.46, -60.96], [378.46, -55.88]], "width": 0.1524 },
+            { "line": [[378.46, -55.88], [391.16, -55.88]], "width": 0.1524 }
+          ]
+        }
+      ]
+    },
+    { "name": "N$147",
+      "segments": [
+        { "sheet": "1", "junctions": [[543.56, -45.72], [548.64, -45.72]],
+          "pins": [
+            { "part": "Q6", "gate": "A", "pin": "C" },
+            { "part": "L9", "gate": "A", "pin": "E" },
+            { "part": "Q7", "gate": "A", "pin": "B" },
+            { "part": "C25", "gate": "A", "pin": "1" }
+          ],
+          "wires": [
+            { "line": [[546.1, -33.02], [543.56, -33.02]], "width": 0.1524 },
+            { "line": [[543.56, -33.02], [543.56, -45.72]], "width": 0.1524 },
+            { "line": [[543.56, -45.72], [543.56, -50.8]], "width": 0.1524 },
+            { "line": [[596.9, -45.72], [548.64, -45.72]], "width": 0.1524 },
+            { "line": [[548.64, -45.72], [543.56, -45.72]], "width": 0.1524 },
+            { "line": [[548.64, -50.8], [548.64, -45.72]], "width": 0.1524 }
+          ]
+        }
+      ]
+    },
+    { "name": "N$148",
+      "segments": [
+        { "sheet": "1", "junctions": [[530.86, -55.88], [530.86, -63.5]],
+          "pins": [
+            { "part": "Q6", "gate": "A", "pin": "B" },
+            { "part": "R18", "gate": "A", "pin": "2" },
+            { "part": "R19", "gate": "A", "pin": "1" },
+            { "part": "C24", "gate": "A", "pin": "1" }
+          ],
+          "wires": [
+            { "line": [[530.86, -43.18], [530.86, -55.88]], "width": 0.1524 },
+            { "line": [[530.86, -55.88], [530.86, -63.5]], "width": 0.1524 },
+            { "line": [[530.86, -63.5], [530.86, -66.04]], "width": 0.1524 },
+            { "line": [[538.48, -55.88], [530.86, -55.88]], "width": 0.1524 },
+            { "line": [[520.7, -68.58], [520.7, -63.5]], "width": 0.1524 },
+            { "line": [[520.7, -63.5], [530.86, -63.5]], "width": 0.1524 }
+          ]
+        }
+      ]
+    },
+    { "name": "N$149",
+      "segments": [
+        { "sheet": "1", "junctions": [[543.56, -63.5], [548.64, -63.5], [548.64, -60.96]],
+          "pins": [
+            { "part": "Q6", "gate": "A", "pin": "E" },
+            { "part": "R20", "gate": "A", "pin": "1" },
+            { "part": "C25", "gate": "A", "pin": "2" },
+            { "part": "C26", "gate": "A", "pin": "1" },
+            { "part": "C28", "gate": "A", "pin": "1" }
+          ],
+          "wires": [
+            { "line": [[543.56, -60.96], [543.56, -63.5]], "width": 0.1524 },
+            { "line": [[543.56, -63.5], [543.56, -66.04]], "width": 0.1524 },
+            { "line": [[548.64, -58.42], [548.64, -60.96]], "width": 0.1524 },
+            { "line": [[548.64, -60.96], [548.64, -63.5]], "width": 0.1524 },
+            { "line": [[548.64, -63.5], [543.56, -63.5]], "width": 0.1524 },
+            { "line": [[548.64, -68.58], [548.64, -63.5]], "width": 0.1524 },
+            { "line": [[553.72, -60.96], [548.64, -60.96]], "width": 0.1524 }
+          ]
+        }
+      ]
+    },
+    { "name": "N$151",
+      "segments": [
+        { "sheet": "1", "junctions": [[601.98, -53.34]],
+          "pins": [
+            { "part": "Q7", "gate": "A", "pin": "E" },
+            { "part": "R21", "gate": "A", "pin": "1" },
+            { "part": "C27", "gate": "A", "pin": "1" }
+          ],
+          "wires": [
+            { "line": [[601.98, -50.8], [601.98, -53.34]], "width": 0.1524 },
+            { "line": [[601.98, -53.34], [601.98, -55.88]], "width": 0.1524 },
+            { "line": [[609.6, -55.88], [609.6, -53.34]], "width": 0.1524 },
+            { "line": [[609.6, -53.34], [601.98, -53.34]], "width": 0.1524 }
+          ]
+        }
+      ]
+    },
+    { "name": "N$152",
+      "segments": [
+        { "sheet": "1", "junctions": [[601.98, -68.58], [609.6, -68.58]],
+          "pins": [
+            { "part": "C22", "gate": "A", "pin": "2" },
+            { "part": "R21", "gate": "A", "pin": "2" },
+            { "part": "R22", "gate": "A", "pin": "1" },
+            { "part": "C27", "gate": "A", "pin": "2" }
+          ],
+          "wires": [
+            { "line": [[601.98, -66.04], [601.98, -68.58]], "width": 0.1524 },
+            { "line": [[601.98, -68.58], [601.98, -71.12]], "width": 0.1524 },
+            { "line": [[609.6, -63.5], [609.6, -68.58]], "width": 0.1524 },
+            { "line": [[609.6, -68.58], [601.98, -68.58]], "width": 0.1524 },
+            { "line": [[622.3, -25.4], [622.3, -68.58]], "width": 0.1524 },
+            { "line": [[622.3, -68.58], [609.6, -68.58]], "width": 0.1524 }
+          ]
+        }
+      ]
+    },
+    { "name": "N$153",
+      "segments": [
+        { "sheet": "1", "junctions": [[563.88, -60.96]],
+          "pins": [
+            { "part": "C28", "gate": "A", "pin": "2" },
+            { "part": "D1", "gate": "A", "pin": "C" },
+            { "part": "R23", "gate": "A", "pin": "2" }
+          ],
+          "wires": [
+            { "line": [[561.34, -60.96], [563.88, -60.96]], "width": 0.1524 },
+            { "line": [[563.88, -60.96], [563.88, -73.66]], "width": 0.1524 },
+            { "line": [[566.42, -60.96], [563.88, -60.96]], "width": 0.1524 }
+          ]
+        }
+      ]
+    },
+    { "name": "DET",
+      "segments": [
+        { "sheet": "1",
+          "pins": [
+            { "part": "R23", "gate": "A", "pin": "1" }
+          ],
+          "labels": [
+            { "at": [581.66, -68.58], "rot": 180, "size": 1.778, "layer": "names" }
+          ],
+          "wires": [
+            { "line": [[581.66, -68.58], [579.12, -68.58]], "width": 0.1524 },
+            { "line": [[579.12, -68.58], [579.12, -60.96]], "width": 0.1524 },
+            { "line": [[579.12, -60.96], [576.58, -60.96]], "width": 0.1524 }
+          ]
+        }
+      ]
+    }
+  ],
+  "schematic": { "grid": { "step": 2.54, "fine": 0.254, "unit": "inch" },
+    "sheets": [
+      { "id": "1", "drawing": [],
+        "gates": [
+          { "part": "C1", "gate": "A", "at": [10.16, -22.86], "rot": 90 },
+          { "part": "R1", "gate": "A", "at": [17.78, -15.24], "rot": 90 },
+          { "part": "R2", "gate": "A", "at": [17.78, -38.1], "rot": 90 },
+          { "part": "Q1", "gate": "A", "at": [30.48, -30.48], "smashed": true,
+            "labels": [
+              { "attr": "NAME", "at": [35.56, -27.94], "size": 1.778, "layer": "names" },
+              { "attr": "VALUE", "at": [35.56, -33.02], "size": 1.778, "layer": "values" }
+            ]
+          },
+          { "part": "R3", "gate": "A", "at": [33.02, -15.24], "rot": 90 },
+          { "part": "R4", "gate": "A", "at": [33.02, -53.34], "rot": 90 },
+          { "part": "C2", "gate": "A", "at": [40.64, -53.34] },
+          { "part": "C3", "gate": "A", "at": [45.72, -22.86], "rot": 90 },
+          { "part": "SUPPLY16", "gate": "GND", "at": [17.78, -48.26] },
+          { "part": "SUPPLY17", "gate": "GND", "at": [33.02, -63.5] },
+          { "part": "SUPPLY18", "gate": "GND", "at": [40.64, -60.96] },
+          { "part": "SUPPLY31", "gate": "G$1", "at": [17.78, -5.08] },
+          { "part": "SUPPLY32", "gate": "G$1", "at": [33.02, -5.08] },
+          { "part": "C4", "gate": "A", "at": [83.82, -53.34], "rot": 90 },
+          { "part": "R5", "gate": "A", "at": [93.98, -22.86], "rot": 90 },
+          { "part": "R6", "gate": "A", "at": [93.98, -71.12], "rot": 90 },
+          { "part": "Q2", "gate": "A", "at": [104.14, -48.26] },
+          { "part": "L1", "gate": "A", "at": [119.38, -17.78], "rot": 180, "mirror": true },
+          { "part": "C5", "gate": "A", "at": [106.68, -15.24] },
+          { "part": "R7", "gate": "A", "at": [106.68, -71.12], "rot": 90 },
+          { "part": "C6", "gate": "A", "at": [114.3, -71.12] },
+          { "part": "C7", "gate": "A", "at": [119.38, -38.1], "rot": 90 },
+          { "part": "SUPPLY11", "gate": "GND", "at": [93.98, -81.28] },
+          { "part": "SUPPLY12", "gate": "GND", "at": [106.68, -81.28] },
+          { "part": "SUPPLY13", "gate": "GND", "at": [114.3, -81.28] },
+          { "part": "SUPPLY27", "gate": "G$1", "at": [93.98, -5.08] },
+          { "part": "SUPPLY30", "gate": "G$1", "at": [106.68, -5.08] },
+          { "part": "SUPPLY1", "gate": "GND", "at": [203.2, -68.58], "smashed": true,
+            "labels": [
+              { "attr": "VALUE", "at": [201.295, -71.755], "size": 1.778, "layer": "values" }
+            ]
+          },
+          { "part": "SUPPLY2", "gate": "GND", "at": [157.48, -83.82], "smashed": true,
+            "labels": [
+              { "attr": "VALUE", "at": [155.575, -86.995], "size": 1.778, "layer": "values" }
+            ]
+          },
+          { "part": "Q3", "gate": "A", "at": [190.5, -40.64], "smashed": true,
+            "labels": [
+              { "attr": "NAME", "at": [180.34, -38.227], "size": 1.778, "layer": "names" },
+              { "attr": "VALUE", "at": [180.34, -40.64], "size": 1.778, "layer": "values" }
+            ]
+          },
+          { "part": "R8", "gate": "A", "at": [200.66, -55.88], "rot": 90, "smashed": true,
+            "labels": [
+              { "attr": "NAME", "at": [199.1614, -59.69], "rot": 90, "size": 1.778, "layer": "names" },
+              { "attr": "VALUE", "at": [203.962, -59.69], "rot": 90, "size": 1.778, "layer": "values" }
+            ]
+          },
+          { "part": "C8", "gate": "A", "at": [208.28, -55.88], "smashed": true,
+            "labels": [
+              { "attr": "NAME", "at": [209.804, -52.959], "size": 1.778, "layer": "names" },
+              { "attr": "VALUE", "at": [209.804, -58.039], "size": 1.778, "layer": "values" }
+            ]
+          },
+          { "part": "L2", "gate": "A", "at": [203.2, -22.86], "mirror": true, "smashed": true,
+            "labels": [
+              { "attr": "NAME", "at": [206.502, -14.986], "mirror": true, "size": 1.778, "layer": "names" }
+            ]
+          },
+          { "part": "L3", "gate": "A", "at": [172.72, -58.42], "mirror": true, "smashed": true,
+            "labels": [
+              { "attr": "NAME", "at": [176.784, -51.308], "mirror": true, "size": 1.778, "layer": "names" }
+            ]
+          },
+          { "part": "L4", "gate": "A", "at": [213.36, -22.86], "smashed": true,
+            "labels": [
+              { "attr": "NAME", "at": [209.55, -15.748], "size": 1.778, "layer": "names" }
+            ]
+          },
+          { "part": "L5", "gate": "A", "at": [185.42, -58.42], "smashed": true,
+            "labels": [
+              { "attr": "NAME", "at": [181.102, -51.308], "size": 1.778, "layer": "names" }
+            ]
+          },
+          { "part": "C9", "gate": "A", "at": [223.52, -38.1], "smashed": true,
+            "labels": [
+              { "attr": "NAME", "at": [225.044, -35.179], "size": 1.778, "layer": "names" },
+              { "attr": "VALUE", "at": [225.044, -40.259], "size": 1.778, "layer": "values" }
+            ]
+          },
+          { "part": "C10", "gate": "A", "at": [223.52, -55.88], "smashed": true,
+            "labels": [
+              { "attr": "NAME", "at": [225.044, -52.959], "size": 1.778, "layer": "names" },
+              { "attr": "VALUE", "at": [225.044, -58.039], "size": 1.778, "layer": "values" }
+            ]
+          },
+          { "part": "C11", "gate": "A", "at": [157.48, -55.88], "smashed": true,
+            "labels": [
+              { "attr": "NAME", "at": [159.004, -52.959], "size": 1.778, "layer": "names" },
+              { "attr": "VALUE", "at": [159.004, -58.039], "size": 1.778, "layer": "values" }
+            ]
+          },
+          { "part": "C12", "gate": "A", "at": [157.48, -71.12], "smashed": true,
+            "labels": [
+              { "attr": "NAME", "at": [159.004, -68.199], "size": 1.778, "layer": "names" },
+              { "attr": "VALUE", "at": [159.004, -73.279], "size": 1.778, "layer": "values" }
+            ]
+          },
+          { "part": "SUPPLY3", "gate": "GND", "at": [177.8, -78.74], "smashed": true,
+            "labels": [
+              { "attr": "VALUE", "at": [175.895, -81.915], "size": 1.778, "layer": "values" }
+            ]
+          },
+          { "part": "SUPPLY4", "gate": "G$1", "at": [208.28, -5.08], "smashed": true,
+            "labels": [
+              { "attr": "VALUE", "at": [206.375, -1.905], "size": 1.778, "layer": "values" }
+            ]
+          },
+          { "part": "SUPPLY33", "gate": "GND", "at": [271.78, -83.82], "smashed": true,
+            "labels": [
+              { "attr": "VALUE", "at": [269.875, -86.995], "size": 1.778, "layer": "values" }
+            ]
+          },
+          { "part": "SUPPLY34", "gate": "G$1", "at": [279.4, -27.94], "smashed": true,
+            "labels": [
+              { "attr": "VALUE", "at": [277.495, -24.765], "size": 1.778, "layer": "values" }
+            ]
+          },
+          { "part": "L6", "gate": "A", "at": [284.48, -40.64], "smashed": true,
+            "labels": [
+              { "attr": "NAME", "at": [279.4, -30.48], "size": 1.778, "layer": "names" },
+              { "attr": "VALUE", "at": [279.4, -33.02], "size": 1.778, "layer": "values" }
+            ]
+          },
+          { "part": "Q4", "gate": "A", "at": [276.86, -55.88], "smashed": true,
+            "labels": [
+              { "attr": "NAME", "at": [266.7, -48.26], "size": 1.778, "layer": "names" },
+              { "attr": "VALUE", "at": [266.7, -50.8], "size": 1.778, "layer": "values" }
+            ]
+          },
+          { "part": "R9", "gate": "A", "at": [279.4, -71.12], "rot": 90, "smashed": true,
+            "labels": [
+              { "attr": "NAME", "at": [277.9014, -74.93], "rot": 90, "size": 1.778, "layer": "names" },
+              { "attr": "VALUE", "at": [282.702, -74.93], "rot": 90, "size": 1.778, "layer": "values" }
+            ]
+          },
+          { "part": "R10", "gate": "A", "at": [261.62, -48.26], "rot": 90, "smashed": true,
+            "labels": [
+              { "attr": "NAME", "at": [260.1214, -52.07], "rot": 90, "size": 1.778, "layer": "names" },
+              { "attr": "VALUE", "at": [264.922, -52.07], "rot": 90, "size": 1.778, "layer": "values" }
+            ]
+          },
+          { "part": "R11", "gate": "A", "at": [261.62, -71.12], "rot": 90, "smashed": true,
+            "labels": [
+              { "attr": "NAME", "at": [260.1214, -74.93], "rot": 90, "size": 1.778, "layer": "names" },
+              { "attr": "VALUE", "at": [264.922, -74.93], "rot": 90, "size": 1.778, "layer": "values" }
+            ]
+          },
+          { "part": "C13", "gate": "A", "at": [287.02, -71.12], "smashed": true,
+            "labels": [
+              { "attr": "NAME", "at": [288.544, -68.199], "size": 1.778, "layer": "names" },
+              { "attr": "VALUE", "at": [288.544, -73.279], "size": 1.778, "layer": "values" }
+            ]
+          },
+          { "part": "C14", "gate": "A", "at": [271.78, -43.18], "smashed": true,
+            "labels": [
+              { "attr": "NAME", "at": [273.304, -40.259], "size": 1.778, "layer": "names" },
+              { "attr": "VALUE", "at": [273.304, -45.339], "size": 1.778, "layer": "values" }
+            ]
+          },
+          { "part": "C15", "gate": "A", "at": [246.38, -50.8], "smashed": true,
+            "labels": [
+              { "attr": "NAME", "at": [247.904, -47.879], "size": 1.778, "layer": "names" },
+              { "attr": "VALUE", "at": [247.904, -52.959], "size": 1.778, "layer": "values" }
+            ]
+          },
+          { "part": "C16", "gate": "A", "at": [299.72, -45.72], "rot": 90, "smashed": true,
+            "labels": [
+              { "attr": "NAME", "at": [296.799, -44.196], "rot": 90, "size": 1.778, "layer": "names" },
+              { "attr": "VALUE", "at": [301.879, -44.196], "rot": 90, "size": 1.778, "layer": "values" }
+            ]
+          },
+          { "part": "R12", "gate": "A", "at": [261.62, -33.02], "rot": 90, "smashed": true,
+            "labels": [
+              { "attr": "NAME", "at": [260.1214, -36.83], "rot": 90, "size": 1.778, "layer": "names" },
+              { "attr": "VALUE", "at": [264.922, -36.83], "rot": 90, "size": 1.778, "layer": "values" }
+            ]
+          },
+          { "part": "SUPPLY5", "gate": "G$1", "at": [261.62, -22.86], "smashed": true,
+            "labels": [
+              { "attr": "VALUE", "at": [259.715, -19.685], "size": 1.778, "layer": "values" }
+            ]
+          },
+          { "part": "SUPPLY60", "gate": "GND", "at": [340.36, -60.96], "smashed": true,
+            "labels": [
+              { "attr": "VALUE", "at": [338.455, -64.135], "size": 1.778, "layer": "values" }
+            ]
+          },
+          { "part": "SUPPLY64", "gate": "G$1", "at": [340.36, -12.7], "smashed": true,
+            "labels": [
+              { "attr": "VALUE", "at": [338.455, -9.525], "size": 1.778, "layer": "values" }
+            ]
+          },
+          { "part": "C17", "gate": "A", "at": [444.5, -40.64], "smashed": true,
+            "labels": [
+              { "attr": "NAME", "at": [446.024, -37.719], "size": 1.778, "layer": "names" },
+              { "attr": "VALUE", "at": [446.024, -42.799], "size": 1.778, "layer": "values" }
+            ]
+          },
+          { "part": "C18", "gate": "A", "at": [347.98, -35.56], "smashed": true,
+            "labels": [
+              { "attr": "NAME", "at": [349.504, -32.639], "size": 1.778, "layer": "names" },
+              { "attr": "VALUE", "at": [349.504, -37.719], "size": 1.778, "layer": "values" }
+            ]
+          },
+          { "part": "Q5", "gate": "A", "at": [416.56, -30.48], "smashed": true,
+            "labels": [
+              { "attr": "NAME", "at": [406.4, -22.86], "size": 1.778, "layer": "names" },
+              { "attr": "VALUE", "at": [406.4, -25.4], "size": 1.778, "layer": "values" }
+            ]
+          },
+          { "part": "SUPPLY62", "gate": "GND", "at": [421.64, -76.2], "smashed": true,
+            "labels": [
+              { "attr": "VALUE", "at": [419.735, -79.375], "size": 1.778, "layer": "values" }
+            ]
+          },
+          { "part": "SUPPLY65", "gate": "G$1", "at": [406.4, -5.08], "smashed": true,
+            "labels": [
+              { "attr": "VALUE", "at": [404.495, -1.905], "size": 1.778, "layer": "values" }
+            ]
+          },
+          { "part": "R13", "gate": "A", "at": [330.2, -27.94], "rot": 180, "smashed": true,
+            "labels": [
+              { "attr": "NAME", "at": [334.01, -29.439], "rot": 180, "size": 1.778, "layer": "names" },
+              { "attr": "VALUE", "at": [334.01, -24.638], "rot": 180, "size": 1.778, "layer": "values" }
+            ]
+          },
+          { "part": "R14", "gate": "A", "at": [406.4, -17.78], "rot": 270, "smashed": true,
+            "labels": [
+              { "attr": "NAME", "at": [407.899, -13.97], "rot": 270, "size": 1.778, "layer": "names" },
+              { "attr": "VALUE", "at": [403.098, -13.97], "rot": 270, "size": 1.778, "layer": "values" }
+            ]
+          },
+          { "part": "R15", "gate": "A", "at": [436.88, -58.42], "rot": 270, "smashed": true,
+            "labels": [
+              { "attr": "NAME", "at": [438.379, -54.61], "rot": 270, "size": 1.778, "layer": "names" },
+              { "attr": "VALUE", "at": [433.578, -54.61], "rot": 270, "size": 1.778, "layer": "values" }
+            ]
+          },
+          { "part": "C19", "gate": "A", "at": [391.16, -48.26], "smashed": true,
+            "labels": [
+              { "attr": "NAME", "at": [392.684, -45.339], "size": 1.778, "layer": "names" },
+              { "attr": "VALUE", "at": [392.684, -50.419], "size": 1.778, "layer": "values" }
+            ]
+          },
+          { "part": "R16", "gate": "A", "at": [426.72, -48.26], "rot": 180, "smashed": true,
+            "labels": [
+              { "attr": "NAME", "at": [430.53, -49.759], "rot": 180, "size": 1.778, "layer": "names" },
+              { "attr": "VALUE", "at": [430.53, -44.958], "rot": 180, "size": 1.778, "layer": "values" }
+            ]
+          },
+          { "part": "L7", "gate": "A", "at": [388.62, -66.04], "mirror": true, "smashed": true,
+            "labels": [
+              { "attr": "NAME", "at": [393.7, -55.88], "mirror": true, "size": 1.778, "layer": "names" },
+              { "attr": "VALUE", "at": [393.7, -58.42], "mirror": true, "size": 1.778, "layer": "values" }
+            ]
+          },
+          { "part": "C20", "gate": "A", "at": [406.4, -43.18], "smashed": true,
+            "labels": [
+              { "attr": "NAME", "at": [407.924, -40.259], "size": 1.778, "layer": "names" },
+              { "attr": "VALUE", "at": [407.924, -45.339], "size": 1.778, "layer": "values" }
+            ]
+          },
+          { "part": "C21", "gate": "A", "at": [406.4, -58.42], "smashed": true,
+            "labels": [
+              { "attr": "NAME", "at": [407.924, -55.499], "size": 1.778, "layer": "names" },
+              { "attr": "VALUE", "at": [407.924, -60.579], "size": 1.778, "layer": "values" }
+            ]
+          },
+          { "part": "L8", "gate": "A", "at": [375.92, -66.04], "mirror": true, "smashed": true,
+            "labels": [
+              { "attr": "NAME", "at": [381, -55.88], "mirror": true, "size": 1.778, "layer": "names" },
+              { "attr": "VALUE", "at": [381, -58.42], "mirror": true, "size": 1.778, "layer": "values" }
+            ]
+          },
+          { "part": "SUPPLY63", "gate": "GND", "at": [378.46, -76.2], "smashed": true,
+            "labels": [
+              { "attr": "VALUE", "at": [376.555, -79.375], "size": 1.778, "layer": "values" }
+            ]
+          },
+          { "part": "SUPPLY66", "gate": "GND", "at": [485.14, -68.58], "smashed": true,
+            "labels": [
+              { "attr": "VALUE", "at": [483.235, -71.755], "size": 1.778, "layer": "values" }
+            ]
+          },
+          { "part": "SUPPLY70", "gate": "G$1", "at": [485.14, -20.32], "smashed": true,
+            "labels": [
+              { "attr": "VALUE", "at": [483.235, -17.145], "size": 1.778, "layer": "values" }
+            ]
+          },
+          { "part": "C22", "gate": "A", "at": [622.3, -22.86], "smashed": true,
+            "labels": [
+              { "attr": "NAME", "at": [623.824, -19.939], "size": 1.778, "layer": "names" },
+              { "attr": "VALUE", "at": [623.824, -25.019], "size": 1.778, "layer": "values" }
+            ]
+          },
+          { "part": "C23", "gate": "A", "at": [492.76, -43.18], "smashed": true,
+            "labels": [
+              { "attr": "NAME", "at": [494.284, -40.259], "size": 1.778, "layer": "names" },
+              { "attr": "VALUE", "at": [494.284, -45.339], "size": 1.778, "layer": "values" }
+            ]
+          },
+          { "part": "Q6", "gate": "A", "at": [541.02, -55.88], "smashed": true,
+            "labels": [
+              { "attr": "NAME", "at": [530.86, -48.26], "size": 1.778, "layer": "names" },
+              { "attr": "VALUE", "at": [530.86, -50.8], "size": 1.778, "layer": "values" }
+            ]
+          },
+          { "part": "Q7", "gate": "A", "at": [599.44, -45.72], "smashed": true,
+            "labels": [
+              { "attr": "NAME", "at": [594.36, -38.1], "size": 1.778, "layer": "names" },
+              { "attr": "VALUE", "at": [594.36, -40.64], "size": 1.778, "layer": "values" }
+            ]
+          },
+          { "part": "L9", "gate": "A", "at": [548.64, -30.48], "smashed": true,
+            "labels": [
+              { "attr": "NAME", "at": [551.18, -30.48], "size": 1.778, "layer": "names" }
+            ]
+          },
+          { "part": "SUPPLY68", "gate": "GND", "at": [538.48, -88.9], "smashed": true,
+            "labels": [
+              { "attr": "VALUE", "at": [536.575, -92.075], "size": 1.778, "layer": "values" }
+            ]
+          },
+          { "part": "SUPPLY71", "gate": "G$1", "at": [530.86, -20.32], "smashed": true,
+            "labels": [
+              { "attr": "VALUE", "at": [528.955, -17.145], "size": 1.778, "layer": "values" }
+            ]
+          },
+          { "part": "R17", "gate": "A", "at": [474.98, -35.56], "rot": 180, "smashed": true,
+            "labels": [
+              { "attr": "NAME", "at": [478.79, -37.059], "rot": 180, "size": 1.778, "layer": "names" },
+              { "attr": "VALUE", "at": [478.79, -32.258], "rot": 180, "size": 1.778, "layer": "values" }
+            ]
+          },
+          { "part": "SUPPLY72", "gate": "G$1", "at": [601.98, -30.48], "smashed": true,
+            "labels": [
+              { "attr": "VALUE", "at": [600.075, -27.305], "size": 1.778, "layer": "values" }
+            ]
+          },
+          { "part": "SUPPLY69", "gate": "GND", "at": [601.98, -88.9], "smashed": true,
+            "labels": [
+              { "attr": "VALUE", "at": [600.075, -92.075], "size": 1.778, "layer": "values" }
+            ]
+          },
+          { "part": "R18", "gate": "A", "at": [530.86, -38.1], "rot": 270, "smashed": true,
+            "labels": [
+              { "attr": "NAME", "at": [532.359, -34.29], "rot": 270, "size": 1.778, "layer": "names" },
+              { "attr": "VALUE", "at": [527.558, -34.29], "rot": 270, "size": 1.778, "layer": "values" }
+            ]
+          },
+          { "part": "R19", "gate": "A", "at": [530.86, -71.12], "rot": 270, "smashed": true,
+            "labels": [
+              { "attr": "NAME", "at": [532.359, -67.31], "rot": 270, "size": 1.778, "layer": "names" },
+              { "attr": "VALUE", "at": [527.558, -67.31], "rot": 270, "size": 1.778, "layer": "values" }
+            ]
+          },
+          { "part": "R20", "gate": "A", "at": [543.56, -71.12], "rot": 270, "smashed": true,
+            "labels": [
+              { "attr": "NAME", "at": [545.059, -67.31], "rot": 270, "size": 1.778, "layer": "names" },
+              { "attr": "VALUE", "at": [540.258, -67.31], "rot": 270, "size": 1.778, "layer": "values" }
+            ]
+          },
+          { "part": "C24", "gate": "A", "at": [520.7, -73.66], "smashed": true,
+            "labels": [
+              { "attr": "NAME", "at": [522.224, -70.739], "size": 1.778, "layer": "names" },
+              { "attr": "VALUE", "at": [522.224, -75.819], "size": 1.778, "layer": "values" }
+            ]
+          },
+          { "part": "C25", "gate": "A", "at": [548.64, -55.88], "smashed": true,
+            "labels": [
+              { "attr": "NAME", "at": [550.164, -52.959], "size": 1.778, "layer": "names" },
+              { "attr": "VALUE", "at": [550.164, -58.039], "size": 1.778, "layer": "values" }
+            ]
+          },
+          { "part": "C26", "gate": "A", "at": [548.64, -73.66], "smashed": true,
+            "labels": [
+              { "attr": "NAME", "at": [550.164, -70.739], "size": 1.778, "layer": "names" },
+              { "attr": "VALUE", "at": [550.164, -75.819], "size": 1.778, "layer": "values" }
+            ]
+          },
+          { "part": "R21", "gate": "A", "at": [601.98, -60.96], "rot": 270, "smashed": true,
+            "labels": [
+              { "attr": "NAME", "at": [603.479, -57.15], "rot": 270, "size": 1.778, "layer": "names" },
+              { "attr": "VALUE", "at": [598.678, -57.15], "rot": 270, "size": 1.778, "layer": "values" }
+            ]
+          },
+          { "part": "R22", "gate": "A", "at": [601.98, -76.2], "rot": 270, "smashed": true,
+            "labels": [
+              { "attr": "NAME", "at": [603.479, -72.39], "rot": 270, "size": 1.778, "layer": "names" },
+              { "attr": "VALUE", "at": [598.678, -72.39], "rot": 270, "size": 1.778, "layer": "values" }
+            ]
+          },
+          { "part": "C27", "gate": "A", "at": [609.6, -60.96], "smashed": true,
+            "labels": [
+              { "attr": "NAME", "at": [611.124, -58.039], "size": 1.778, "layer": "names" },
+              { "attr": "VALUE", "at": [611.124, -63.119], "size": 1.778, "layer": "values" }
+            ]
+          },
+          { "part": "C28", "gate": "A", "at": [558.8, -60.96], "rot": 90, "smashed": true,
+            "labels": [
+              { "attr": "NAME", "at": [555.879, -59.436], "rot": 90, "size": 1.778, "layer": "names" },
+              { "attr": "VALUE", "at": [560.959, -59.436], "rot": 90, "size": 1.778, "layer": "values" }
+            ]
+          },
+          { "part": "D1", "gate": "A", "at": [563.88, -76.2], "rot": 90, "smashed": true,
+            "labels": [
+              { "attr": "NAME", "at": [563.397, -73.66], "rot": 90, "size": 1.778, "layer": "names" },
+              { "attr": "VALUE", "at": [566.191, -73.66], "rot": 90, "size": 1.778, "layer": "values" }
+            ]
+          },
+          { "part": "R23", "gate": "A", "at": [571.5, -60.96], "rot": 180, "smashed": true,
+            "labels": [
+              { "attr": "NAME", "at": [575.31, -62.459], "rot": 180, "size": 1.778, "layer": "names" },
+              { "attr": "VALUE", "at": [575.31, -57.658], "rot": 180, "size": 1.778, "layer": "values" }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "board": { "layers": ["copper.top", "copper.bottom"], "grid": { "step": 0.635, "fine": 0.127, "unit": "mm" }, "drawing": [],
+    "footprints": [
+      { "part": "C1", "at": [-10.16, 0] },
+      { "part": "R1", "at": [-10.16, -5.08] },
+      { "part": "R2", "at": [-10.16, -10.16] },
+      { "part": "Q1", "at": [-10.16, -15.24] },
+      { "part": "R3", "at": [-10.16, -20.32] },
+      { "part": "R4", "at": [-10.16, -25.4] },
+      { "part": "C2", "at": [-10.16, -30.48] },
+      { "part": "C3", "at": [-10.16, -35.56] },
+      { "part": "C4", "at": [-10.16, -40.64] },
+      { "part": "R5", "at": [-10.16, -45.72] },
+      { "part": "R6", "at": [-10.16, -50.8] },
+      { "part": "Q2", "at": [-10.16, -55.88] },
+      { "part": "L1", "at": [-10.16, -60.96] },
+      { "part": "C5", "at": [-10.16, -66.04] },
+      { "part": "R7", "at": [-10.16, -71.12] },
+      { "part": "C6", "at": [-10.16, -76.2] },
+      { "part": "C7", "at": [-10.16, -81.28] },
+      { "part": "Q3", "at": [-10.16, -86.36] },
+      { "part": "R8", "at": [-10.16, -91.44] },
+      { "part": "C8", "at": [-10.16, -96.52] },
+      { "part": "L2", "at": [-10.16, -101.6] },
+      { "part": "L3", "at": [-10.16, -106.68] },
+      { "part": "L4", "at": [-10.16, -111.76] },
+      { "part": "L5", "at": [-10.16, -116.84] },
+      { "part": "C9", "at": [-10.16, -121.92] },
+      { "part": "C10", "at": [-10.16, -127] },
+      { "part": "C11", "at": [-10.16, -132.08] },
+      { "part": "C12", "at": [-10.16, -137.16] },
+      { "part": "L6", "at": [-10.16, -142.24] },
+      { "part": "Q4", "at": [-10.16, -147.32] },
+      { "part": "R9", "at": [-10.16, -152.4] },
+      { "part": "R10", "at": [-10.16, -157.48] },
+      { "part": "R11", "at": [-10.16, -162.56] },
+      { "part": "C13", "at": [-10.16, -167.64] },
+      { "part": "C14", "at": [-10.16, -172.72] },
+      { "part": "C15", "at": [-10.16, -177.8] },
+      { "part": "C16", "at": [-10.16, -182.88] },
+      { "part": "R12", "at": [-10.16, -187.96] },
+      { "part": "C17", "at": [-10.16, -193.04] },
+      { "part": "C18", "at": [-10.16, -198.12] },
+      { "part": "Q5", "at": [-10.16, -203.2] },
+      { "part": "R13", "at": [-10.16, -208.28] },
+      { "part": "R14", "at": [-10.16, -213.36] },
+      { "part": "R15", "at": [-10.16, -218.44] },
+      { "part": "C19", "at": [-10.16, -223.52] },
+      { "part": "R16", "at": [-10.16, -228.6] },
+      { "part": "L7", "at": [-10.16, -233.68] },
+      { "part": "C20", "at": [-10.16, -238.76] },
+      { "part": "C21", "at": [-10.16, -243.84] },
+      { "part": "L8", "at": [-10.16, -248.92] },
+      { "part": "C22", "at": [-10.16, -254] },
+      { "part": "C23", "at": [-10.16, -259.08] },
+      { "part": "Q6", "at": [-10.16, -264.16] },
+      { "part": "Q7", "at": [-10.16, -269.24] },
+      { "part": "L9", "at": [-10.16, -274.32] },
+      { "part": "R17", "at": [-10.16, -279.4] },
+      { "part": "R18", "at": [-10.16, -284.48] },
+      { "part": "R19", "at": [-10.16, -289.56] },
+      { "part": "R20", "at": [-10.16, -294.64] },
+      { "part": "C24", "at": [-10.16, -299.72] },
+      { "part": "C25", "at": [-10.16, -304.8] },
+      { "part": "C26", "at": [-10.16, -309.88] },
+      { "part": "R21", "at": [-10.16, -314.96] },
+      { "part": "R22", "at": [-10.16, -320.04] },
+      { "part": "C27", "at": [-10.16, -325.12] },
+      { "part": "C28", "at": [-10.16, -330.2] },
+      { "part": "D1", "at": [-10.16, -335.28] },
+      { "part": "R23", "at": [-10.16, -340.36] }
+    ]
+  }
+}

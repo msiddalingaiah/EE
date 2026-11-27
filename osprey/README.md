@@ -344,9 +344,15 @@ description, checked, turned into a schematic, placed, routed and given JLCPCB p
    subcircuits project changes no design that used it. A block's ports are its labelled nets
    (VIN, OUT, RESET …) besides VCC and GND. Projects group blocks by function, a handful each;
    block names are unique across the folder (variants get their own: Regulator-78L05), so
-   nothing needs `from=` and files can be split or merged freely. The samples in
-   `samples/subcircuits/` (SMT parts): `power` (Regulator, PMOS-polarity), `mcu` (ATtiny412,
-   Reset-button), `clock` (20 MHz Oscillator), `analog` (Divider), `indicators` (LED). The command line's `copy` step copies one into a design and joins
+   nothing needs `from=` and files can be split or merged freely. Same-named ports of blocks
+   in one project join there (a project's own ERC may flag that); a copy takes only its
+   block's wiring. The samples in `samples/subcircuits/` (0805 passives), mostly hand drawings
+   from old designs: `power` (Regulator, PMOS-polarity, Boost-MAX17225, MOSFET-switch,
+   Lowside-driver: FAN3227 and an N-MOSFET), `mcu` (ATtiny412, Reset-button), `clock` (20 MHz
+   Oscillator), `analog` (Divider, Inverting-amp, RC-lowpass, Peak-detector), `rf` (CE-amp,
+   Tuned-amp, JFET-preamp, IF-amp, Colpitts-CC, Colpitts-CB), `audio` (LM386), `indicators`
+   (LED). A port is never named after a power pin in its project (MAX17225's IN makes a net
+   IN a supply). The command line's `copy` step copies one into a design and joins
    its ports to the design's nets (`osprey subcircuits` lists them). `connect` wires bare
    pins (an MCU's) to nets by name. Descriptions place one whole
    with `subcircuit Regulator VIN=VBAT`. Next: placing stored blocks among the generated ones

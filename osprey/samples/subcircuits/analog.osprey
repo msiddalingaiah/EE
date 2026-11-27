@@ -17,6 +17,44 @@
           { "name": "2", "at": [0, -2.54], "rot": 90, "length": "short", "direction": "passive", "visible": "none", "swap": 1 }
         ]
       },
+      { "id": "madhu/DIODE", "description": "Standard diode",
+        "graphics": [
+          { "line": [[-1.27, -1.27], [1.27, 0]], "width": 0.254, "layer": "symbols" },
+          { "line": [[1.27, 0], [-1.27, 1.27]], "width": 0.254, "layer": "symbols" },
+          { "line": [[1.27, 1.27], [1.27, 0]], "width": 0.254, "layer": "symbols" },
+          { "line": [[-1.27, 1.27], [-1.27, -1.27]], "width": 0.254, "layer": "symbols" },
+          { "line": [[1.27, 0], [1.27, -1.27]], "width": 0.254, "layer": "symbols" },
+          { "text": ">NAME", "at": [2.54, 0.4826], "size": 1.778, "layer": "names" },
+          { "text": ">VALUE", "at": [2.54, -2.3114], "size": 1.778, "layer": "values" }
+        ],
+        "pins": [
+          { "name": "A", "at": [-2.54, 0], "length": "short", "direction": "passive", "visible": "none" },
+          { "name": "C", "at": [2.54, 0], "rot": 180, "length": "short", "direction": "passive", "visible": "none" }
+        ]
+      },
+      { "id": "madhu/OPAMP1", "description": "Single op amp",
+        "graphics": [
+          { "line": [[-3.81, -1.905], [-3.81, -3.175]], "width": 0.1524, "layer": "symbols" },
+          { "line": [[-4.445, -2.54], [-3.175, -2.54]], "width": 0.1524, "layer": "symbols" },
+          { "line": [[-4.445, 2.54], [-3.175, 2.54]], "width": 0.1524, "layer": "symbols" },
+          { "line": [[-2.54, 5.08], [-2.54, 3.8862]], "width": 0.1524, "layer": "symbols" },
+          { "line": [[-2.54, -3.9116], [-2.54, -5.08]], "width": 0.1524, "layer": "symbols" },
+          { "line": [[5.08, 0], [-5.08, 5.08]], "width": 0.4064, "layer": "symbols" },
+          { "line": [[-5.08, 5.08], [-5.08, -5.08]], "width": 0.4064, "layer": "symbols" },
+          { "line": [[-5.08, -5.08], [5.08, 0]], "width": 0.4064, "layer": "symbols" },
+          { "text": ">NAME", "at": [2.54, 5.715], "size": 1.778, "layer": "names" },
+          { "text": ">VALUE", "at": [2.54, -5.08], "size": 1.778, "layer": "values" },
+          { "text": "V+", "at": [-1.27, 4.445], "rot": 90, "size": 0.8128, "layer": "pins" },
+          { "text": "V-", "at": [-1.27, -5.715], "rot": 90, "size": 0.8128, "layer": "pins" }
+        ],
+        "pins": [
+          { "name": "+IN", "at": [-7.62, -2.54], "length": "short", "direction": "in", "visible": "pad" },
+          { "name": "-IN", "at": [-7.62, 2.54], "length": "short", "direction": "in", "visible": "pad" },
+          { "name": "OUT", "at": [7.62, 0], "rot": 180, "length": "short", "direction": "out", "visible": "pad" },
+          { "name": "V+", "at": [-2.54, 7.62], "rot": 270, "length": "short", "direction": "power", "visible": "pad" },
+          { "name": "V-", "at": [-2.54, -7.62], "rot": 90, "length": "short", "direction": "power", "visible": "pad" }
+        ]
+      },
       { "id": "supply2/GND", "eagle": { "attrs": { "urn": "urn:adsk.eagle:symbol:26990/1", "library_version": "2" } },
         "graphics": [
           { "line": [[-1.27, 0], [1.27, 0]], "width": 0.254, "layer": "symbols" },
@@ -196,6 +234,50 @@
           { "name": "2", "at": [3.81, 0], "drill": 0.8128 }
         ]
       },
+      { "id": "madhu/SOD-80", "description": "SMT diode, e.g. <a href=\"https://www.vishay.com/docs/85561/ls4148.pdf\">LS4148</a>",
+        "graphics": [
+          { "text": ">NAME", "at": [0.5715, -1.016], "rot": 90, "size": 0.6096, "layer": "names.top" },
+          { "text": ">VALUE", "at": [-0.254, -1.016], "rot": 90, "size": 0.6096, "layer": "silk.top" },
+          { "line": [[0.889, -0.3], [0.889, 0.3]], "width": 0.4064, "layer": "silk.top" },
+          { "text": "A", "at": [-1.27, 1.27], "rot": 90, "size": 1.016, "layer": "silk.top" },
+          { "text": "K", "at": [2.54, 1.27], "rot": 90, "size": 1.016, "layer": "silk.top" }
+        ],
+        "pads": [
+          { "name": "A", "smd": [1.25, 2], "at": [-1.875, 0] },
+          { "name": "K", "smd": [1.25, 2], "at": [1.875, 0] }
+        ]
+      },
+      { "id": "madhu/SOT23-5", "description": "<b>Small Outline Transistor</b><p>\nSOT753 - Philips Semiconductors<br>\nSource: http://www.semiconductors.philips.com/acrobat_download/datasheets/74HC_HCT1G66_3.pdf", "eagle": { "attrs": { "urn": "urn:adsk.eagle:footprint:2364/1" } },
+        "graphics": [
+          { "line": [[0, -1.29], [0, -1.3]], "width": 0.01, "layer": "silk.top" },
+          { "line": [[1.42, 0.8], [1.42, -0.8]], "width": 0.127, "layer": "silk.top" },
+          { "line": [[1.42, -0.8], [-1.42, -0.8]], "width": 0.127, "layer": "fab.top" },
+          { "line": [[-1.42, -0.8], [-1.42, 0.8]], "width": 0.127, "layer": "silk.top" },
+          { "line": [[-1.42, 0.8], [1.42, 0.8]], "width": 0.127, "layer": "fab.top" },
+          { "line": [[-1.27, 0.65], [1.28, 0.65]], "width": 0.075, "layer": "silk.top" },
+          { "line": [[1.28, 0.65], [1.28, -0.66]], "width": 0.075, "layer": "silk.top" },
+          { "line": [[1.28, -0.66], [-1.27, -0.66]], "width": 0.075, "layer": "silk.top" },
+          { "line": [[-1.27, -0.66], [-1.27, 0.65]], "width": 0.075, "layer": "silk.top" },
+          { "line": [[-1.75, 2.25], [1.75, 2.25]], "width": 0.254, "layer": "keepout.top" },
+          { "line": [[1.75, 2.25], [1.75, -2.25]], "width": 0.254, "layer": "keepout.top" },
+          { "line": [[1.75, -2.25], [-1.75, -2.25]], "width": 0.254, "layer": "keepout.top" },
+          { "line": [[-1.75, -2.25], [-1.75, 2.25]], "width": 0.254, "layer": "keepout.top" },
+          { "text": ">NAME", "at": [-2.54, 2.54], "size": 1.27, "layer": "names.top" },
+          { "text": ">VALUE", "at": [-2.54, -3.81], "size": 1.27, "layer": "values.top" },
+          { "rect": [[-1.11, 0.68], [-0.78, 1.43]], "layer": "fab.top" },
+          { "rect": [[0.79, 0.67], [1.12, 1.42]], "layer": "fab.top" },
+          { "rect": [[-1.11, -1.42], [-0.78, -0.67]], "layer": "fab.top" },
+          { "rect": [[-0.16, -1.42], [0.17, -0.67]], "layer": "fab.top" },
+          { "rect": [[0.79, -1.42], [1.12, -0.67]], "layer": "fab.top" }
+        ],
+        "pads": [
+          { "name": "1", "smd": [0.69, 0.99], "at": [-0.95, -1.29] },
+          { "name": "2", "smd": [0.69, 0.99], "at": [0, -1.29] },
+          { "name": "3", "smd": [0.69, 0.99], "at": [0.95, -1.29] },
+          { "name": "4", "smd": [0.69, 0.99], "at": [0.95, 1.3] },
+          { "name": "5", "smd": [0.69, 0.99], "at": [-0.95, 1.3] }
+        ]
+      },
       { "id": "madhu/VERTICAL-0.1", "description": "0.1\" 2-pin vertical through hole device",
         "graphics": [
           { "line": [[0, 0], [2.54, 0]], "width": 0.2032, "layer": "silk.top" },
@@ -316,6 +398,22 @@
           { "name": "0.3\"", "footprint": "madhu/CAP-0.3", "pads": { "A.1": ["1"], "A.2": ["2"] } }
         ]
       },
+      { "id": "madhu/LS4148", "prefix": "D", "description": "Small signal diode <a href=\"https://www.vishay.com/docs/85561/ls4148.pdf\">LS4148</a>",
+        "gates": [
+          { "name": "A", "at": [0, 0], "symbol": "madhu/DIODE" }
+        ],
+        "variants": [
+          { "name": "", "footprint": "madhu/SOD-80", "pads": { "A.A": ["A"], "A.C": ["K"] } }
+        ]
+      },
+      { "id": "madhu/MCP6001", "prefix": "U", "description": "Microchip rail to rail input and output opamp.\n\nhttps://www.microchip.com/wwwproducts/en/MCP6001",
+        "gates": [
+          { "name": "G$1", "at": [2.54, 0], "symbol": "madhu/OPAMP1" }
+        ],
+        "variants": [
+          { "name": "-SOT23-5", "footprint": "madhu/SOT23-5", "pads": { "G$1.+IN": ["3"], "G$1.-IN": ["4"], "G$1.OUT": ["1"], "G$1.V+": ["5"], "G$1.V-": ["2"] } }
+        ]
+      },
       { "id": "supply2/GND", "prefix": "SUPPLY", "description": "<b>SUPPLY SYMBOL</b>", "eagle": { "attrs": { "urn": "urn:adsk.eagle:component:27037/1", "library_version": "2" } },
         "gates": [
           { "name": "GND", "at": [0, 0], "symbol": "supply2/GND" }
@@ -357,7 +455,33 @@
     { "name": "C7", "component": "madhu/CAPACITOR-NP", "variant": "0805", "value": "100n", "attributes": { "BLOCK": "Divider" } },
     { "name": "SUPPLY11", "component": "supply2/GND", "variant": "" },
     { "name": "SUPPLY12", "component": "supply2/GND", "variant": "" },
-    { "name": "SUPPLY13", "component": "supply2/VCC", "variant": "" }
+    { "name": "SUPPLY13", "component": "supply2/VCC", "variant": "" },
+    { "name": "R1", "component": "madhu/RESISTOR", "variant": "0805-RES", "value": "10k", "attributes": { "BLOCK": "Inverting-amp" } },
+    { "name": "U1", "component": "madhu/MCP6001", "variant": "-SOT23-5", "attributes": { "BLOCK": "Inverting-amp" } },
+    { "name": "R2", "component": "madhu/RESISTOR", "variant": "0805-RES", "value": "100k", "attributes": { "BLOCK": "Inverting-amp" } },
+    { "name": "R5", "component": "madhu/RESISTOR", "variant": "0805-RES", "value": "100k", "attributes": { "BLOCK": "Inverting-amp" } },
+    { "name": "R6", "component": "madhu/RESISTOR", "variant": "0805-RES", "value": "100k", "attributes": { "BLOCK": "Inverting-amp" } },
+    { "name": "C1", "component": "madhu/CAPACITOR-NP", "variant": "0805", "value": "1u", "attributes": { "BLOCK": "Inverting-amp" } },
+    { "name": "C2", "component": "madhu/CAPACITOR-NP", "variant": "0805", "value": "100n", "attributes": { "BLOCK": "Inverting-amp" } },
+    { "name": "SUPPLY5", "component": "supply2/GND", "variant": "" },
+    { "name": "SUPPLY6", "component": "supply2/GND", "variant": "" },
+    { "name": "SUPPLY7", "component": "supply2/GND", "variant": "" },
+    { "name": "SUPPLY8", "component": "supply2/GND", "variant": "" },
+    { "name": "SUPPLY24", "component": "supply2/VCC", "variant": "" },
+    { "name": "SUPPLY25", "component": "supply2/VCC", "variant": "" },
+    { "name": "SUPPLY26", "component": "supply2/VCC", "variant": "" },
+    { "name": "R7", "component": "madhu/RESISTOR", "variant": "0805-RES", "value": "1k", "attributes": { "BLOCK": "RC-lowpass" } },
+    { "name": "C8", "component": "madhu/CAPACITOR-NP", "variant": "0805", "value": "100n", "attributes": { "BLOCK": "RC-lowpass" } },
+    { "name": "SUPPLY2", "component": "supply2/GND", "variant": "" },
+    { "name": "SUPPLY77", "component": "supply2/GND", "variant": "" },
+    { "name": "C9", "component": "madhu/CAPACITOR-NP", "variant": "0805", "value": "0.1u", "attributes": { "BLOCK": "Peak-detector" } },
+    { "name": "SUPPLY79", "component": "supply2/VCC", "variant": "" },
+    { "name": "U2", "component": "madhu/MCP6001", "variant": "-SOT23-5", "attributes": { "BLOCK": "Peak-detector" } },
+    { "name": "D1", "component": "madhu/LS4148", "variant": "", "attributes": { "BLOCK": "Peak-detector" } },
+    { "name": "C10", "component": "madhu/CAPACITOR-NP", "variant": "0805", "value": "0.1u", "attributes": { "BLOCK": "Peak-detector" } },
+    { "name": "R8", "component": "madhu/RESISTOR", "variant": "0805-RES", "value": "1M", "attributes": { "BLOCK": "Peak-detector" } },
+    { "name": "SUPPLY78", "component": "supply2/GND", "variant": "" },
+    { "name": "SUPPLY80", "component": "supply2/VCC", "variant": "" }
   ],
   "nets": [
     { "name": "VCC",
@@ -369,6 +493,51 @@
           ],
           "wires": [
             { "line": [[304.8, 33.02], [304.8, 35.56]], "width": 0.1524 }
+          ]
+        },
+        { "sheet": "1",
+          "pins": [
+            { "part": "U1", "gate": "G$1", "pin": "V+" },
+            { "part": "SUPPLY24", "gate": "G$1", "pin": "VCC" }
+          ],
+          "wires": [
+            { "line": [[378.46, 30.48], [378.46, 35.56]], "width": 0.1524 }
+          ]
+        },
+        { "sheet": "1",
+          "pins": [
+            { "part": "C2", "gate": "A", "pin": "1" },
+            { "part": "SUPPLY26", "gate": "G$1", "pin": "VCC" }
+          ],
+          "wires": [
+            { "line": [[416.56, 25.4], [416.56, 27.94]], "width": 0.1524 }
+          ]
+        },
+        { "sheet": "1",
+          "pins": [
+            { "part": "SUPPLY25", "gate": "G$1", "pin": "VCC" },
+            { "part": "R5", "gate": "A", "pin": "2" }
+          ],
+          "wires": [
+            { "line": [[353.06, 10.16], [353.06, 7.62]], "width": 0.1524 }
+          ]
+        },
+        { "sheet": "1",
+          "pins": [
+            { "part": "C9", "gate": "A", "pin": "1" },
+            { "part": "SUPPLY79", "gate": "G$1", "pin": "VCC" }
+          ],
+          "wires": [
+            { "line": [[500.38, 27.94], [500.38, 35.56]], "width": 0.1524 }
+          ]
+        },
+        { "sheet": "1",
+          "pins": [
+            { "part": "U2", "gate": "G$1", "pin": "V+" },
+            { "part": "SUPPLY80", "gate": "G$1", "pin": "VCC" }
+          ],
+          "wires": [
+            { "line": [[581.66, 25.4], [581.66, 20.32]], "width": 0.1524 }
           ]
         }
       ]
@@ -385,6 +554,78 @@
           "wires": [
             { "line": [[304.8, 7.62], [304.8, 5.08]], "width": 0.1524 },
             { "line": [[317.5, 10.16], [317.5, 7.62]], "width": 0.1524 }
+          ]
+        },
+        { "sheet": "1",
+          "pins": [
+            { "part": "U1", "gate": "G$1", "pin": "V-" },
+            { "part": "SUPPLY5", "gate": "GND", "pin": "GND" }
+          ],
+          "wires": [
+            { "line": [[378.46, 12.7], [378.46, 15.24]], "width": 0.1524 }
+          ]
+        },
+        { "sheet": "1",
+          "pins": [
+            { "part": "R6", "gate": "A", "pin": "1" },
+            { "part": "SUPPLY6", "gate": "GND", "pin": "GND" }
+          ],
+          "wires": [
+            { "line": [[353.06, -20.32], [353.06, -17.78]], "width": 0.1524 }
+          ]
+        },
+        { "sheet": "1",
+          "pins": [
+            { "part": "C1", "gate": "A", "pin": "2" },
+            { "part": "SUPPLY7", "gate": "GND", "pin": "GND" }
+          ],
+          "wires": [
+            { "line": [[360.68, -17.78], [360.68, -15.24]], "width": 0.1524 }
+          ]
+        },
+        { "sheet": "1",
+          "pins": [
+            { "part": "C2", "gate": "A", "pin": "2" },
+            { "part": "SUPPLY8", "gate": "GND", "pin": "GND" }
+          ],
+          "wires": [
+            { "line": [[416.56, 15.24], [416.56, 17.78]], "width": 0.1524 }
+          ]
+        },
+        { "sheet": "1",
+          "pins": [
+            { "part": "C8", "gate": "A", "pin": "2" },
+            { "part": "SUPPLY2", "gate": "GND", "pin": "GND" }
+          ],
+          "wires": [
+            { "line": [[454.66, 20.32], [454.66, 22.86]], "width": 0.1524 }
+          ]
+        },
+        { "sheet": "1",
+          "pins": [
+            { "part": "C9", "gate": "A", "pin": "2" },
+            { "part": "SUPPLY77", "gate": "GND", "pin": "GND" }
+          ],
+          "wires": [
+            { "line": [[480.06, 17.78], [480.06, 15.24]], "width": 0.1524 },
+            { "line": [[500.38, 20.32], [500.38, 17.78]], "width": 0.1524 },
+            { "line": [[480.06, 17.78], [500.38, 17.78]], "width": 0.1524 }
+          ]
+        },
+        { "sheet": "1", "junctions": [[571.5, -7.62], [561.34, -7.62]],
+          "pins": [
+            { "part": "U2", "gate": "G$1", "pin": "V-" },
+            { "part": "C10", "gate": "A", "pin": "2" },
+            { "part": "R8", "gate": "A", "pin": "1" },
+            { "part": "SUPPLY78", "gate": "GND", "pin": "GND" }
+          ],
+          "wires": [
+            { "line": [[581.66, 5.08], [581.66, -7.62]], "width": 0.1524 },
+            { "line": [[581.66, -7.62], [571.5, -7.62]], "width": 0.1524 },
+            { "line": [[571.5, -7.62], [561.34, -7.62]], "width": 0.1524 },
+            { "line": [[561.34, -7.62], [561.34, -2.54]], "width": 0.1524 },
+            { "line": [[571.5, -5.08], [571.5, -7.62]], "width": 0.1524 },
+            { "line": [[561.34, -10.16], [561.34, -7.62]], "width": 0.1524 }
           ]
         }
       ]
@@ -407,6 +648,149 @@
             { "line": [[317.5, 20.32], [330.2, 20.32]], "width": 0.1524 },
             { "line": [[317.5, 17.78], [317.5, 20.32]], "width": 0.1524 }
           ]
+        },
+        { "sheet": "1", "junctions": [[393.7, 22.86]],
+          "pins": [
+            { "part": "R2", "gate": "A", "pin": "2" },
+            { "part": "U1", "gate": "G$1", "pin": "OUT" }
+          ],
+          "labels": [
+            { "at": [401.32, 22.86], "rot": 180, "size": 1.778, "layer": "names" }
+          ],
+          "wires": [
+            { "line": [[391.16, 33.02], [393.7, 33.02]], "width": 0.1524 },
+            { "line": [[393.7, 22.86], [401.32, 22.86]], "width": 0.1524 },
+            { "line": [[393.7, 22.86], [393.7, 33.02]], "width": 0.1524 },
+            { "line": [[386.08, 22.86], [393.7, 22.86]], "width": 0.1524 },
+            { "line": [[388.62, 22.86], [386.08, 22.86]], "width": 0.1524 }
+          ]
+        },
+        { "sheet": "1", "junctions": [[454.66, 35.56]],
+          "pins": [
+            { "part": "C8", "gate": "A", "pin": "1" },
+            { "part": "R7", "gate": "A", "pin": "2" }
+          ],
+          "labels": [
+            { "at": [464.82, 40.64], "rot": 90, "size": 1.778, "layer": "names" }
+          ],
+          "wires": [
+            { "line": [[454.66, 30.48], [454.66, 35.56]], "width": 0.1524 },
+            { "line": [[454.66, 35.56], [464.82, 35.56]], "width": 0.1524 },
+            { "line": [[449.58, 35.56], [454.66, 35.56]], "width": 0.1524 },
+            { "line": [[464.82, 40.64], [464.82, 35.56]], "width": 0.1524 }
+          ]
+        },
+        { "sheet": "1", "junctions": [[594.36, 12.7]],
+          "pins": [
+            { "part": "U2", "gate": "G$1", "pin": "-IN" },
+            { "part": "U2", "gate": "G$1", "pin": "OUT" }
+          ],
+          "labels": [
+            { "at": [601.98, 12.7], "rot": 180, "size": 1.778, "layer": "names" }
+          ],
+          "wires": [
+            { "line": [[576.58, 15.24], [574.04, 15.24]], "width": 0.1524 },
+            { "line": [[574.04, 15.24], [574.04, 22.86]], "width": 0.1524 },
+            { "line": [[574.04, 22.86], [594.36, 22.86]], "width": 0.1524 },
+            { "line": [[594.36, 22.86], [594.36, 12.7]], "width": 0.1524 },
+            { "line": [[594.36, 12.7], [591.82, 12.7]], "width": 0.1524 },
+            { "line": [[601.98, 12.7], [594.36, 12.7]], "width": 0.1524 }
+          ]
+        }
+      ]
+    },
+    { "name": "IN",
+      "segments": [
+        { "sheet": "1",
+          "pins": [
+            { "part": "R1", "gate": "A", "pin": "1" }
+          ],
+          "labels": [
+            { "at": [337.82, 25.4], "size": 1.778, "layer": "names" }
+          ],
+          "wires": [
+            { "line": [[337.82, 25.4], [345.44, 25.4]], "width": 0.1524 }
+          ]
+        },
+        { "sheet": "1",
+          "pins": [
+            { "part": "R7", "gate": "A", "pin": "1" }
+          ],
+          "labels": [
+            { "at": [431.8, 35.56], "size": 1.778, "layer": "names" }
+          ],
+          "wires": [
+            { "line": [[431.8, 35.56], [439.42, 35.56]], "width": 0.1524 }
+          ]
+        },
+        { "sheet": "1",
+          "pins": [
+            { "part": "D1", "gate": "A", "pin": "A" }
+          ],
+          "labels": [
+            { "at": [543.56, 10.16], "size": 1.778, "layer": "names", "align": "bottom-right" }
+          ],
+          "wires": [
+            { "line": [[551.18, 10.16], [543.56, 10.16]], "width": 0.1524 }
+          ]
+        }
+      ]
+    },
+    { "name": "N$11",
+      "segments": [
+        { "sheet": "1", "junctions": [[370.84, 25.4]],
+          "pins": [
+            { "part": "U1", "gate": "G$1", "pin": "-IN" },
+            { "part": "R1", "gate": "A", "pin": "2" },
+            { "part": "R2", "gate": "A", "pin": "1" }
+          ],
+          "wires": [
+            { "line": [[370.84, 25.4], [373.38, 25.4]], "width": 0.1524 },
+            { "line": [[370.84, 25.4], [370.84, 33.02]], "width": 0.1524 },
+            { "line": [[355.6, 25.4], [370.84, 25.4]], "width": 0.1524 },
+            { "line": [[381, 33.02], [370.84, 33.02]], "width": 0.1524 }
+          ]
+        }
+      ]
+    },
+    { "name": "N$13",
+      "segments": [
+        { "sheet": "1", "junctions": [[353.06, -5.08], [360.68, -5.08]],
+          "pins": [
+            { "part": "R5", "gate": "A", "pin": "1" },
+            { "part": "U1", "gate": "G$1", "pin": "+IN" },
+            { "part": "R6", "gate": "A", "pin": "2" },
+            { "part": "C1", "gate": "A", "pin": "1" }
+          ],
+          "wires": [
+            { "line": [[353.06, -2.54], [353.06, -5.08]], "width": 0.1524 },
+            { "line": [[353.06, -5.08], [360.68, -5.08]], "width": 0.1524 },
+            { "line": [[370.84, 20.32], [373.38, 20.32]], "width": 0.1524 },
+            { "line": [[353.06, -7.62], [353.06, -5.08]], "width": 0.1524 },
+            { "line": [[360.68, -7.62], [360.68, -5.08]], "width": 0.1524 },
+            { "line": [[370.84, 20.32], [368.3, 20.32]], "width": 0.1524 },
+            { "line": [[368.3, 20.32], [368.3, -5.08]], "width": 0.1524 },
+            { "line": [[368.3, -5.08], [360.68, -5.08]], "width": 0.1524 }
+          ]
+        }
+      ]
+    },
+    { "name": "N$168",
+      "segments": [
+        { "sheet": "1", "junctions": [[561.34, 10.16], [571.5, 10.16]],
+          "pins": [
+            { "part": "R8", "gate": "A", "pin": "2" },
+            { "part": "D1", "gate": "A", "pin": "C" },
+            { "part": "C10", "gate": "A", "pin": "1" },
+            { "part": "U2", "gate": "G$1", "pin": "+IN" }
+          ],
+          "wires": [
+            { "line": [[571.5, 5.08], [571.5, 10.16]], "width": 0.1524 },
+            { "line": [[571.5, 10.16], [561.34, 10.16]], "width": 0.1524 },
+            { "line": [[561.34, 10.16], [556.26, 10.16]], "width": 0.1524 },
+            { "line": [[561.34, 5.08], [561.34, 10.16]], "width": 0.1524 },
+            { "line": [[576.58, 10.16], [571.5, 10.16]], "width": 0.1524 }
+          ]
         }
       ]
     }
@@ -420,7 +804,78 @@
           { "part": "C7", "gate": "A", "at": [317.5, 12.7] },
           { "part": "SUPPLY11", "gate": "GND", "at": [304.8, 2.54] },
           { "part": "SUPPLY12", "gate": "GND", "at": [317.5, 5.08] },
-          { "part": "SUPPLY13", "gate": "G$1", "at": [304.8, 38.1] }
+          { "part": "SUPPLY13", "gate": "G$1", "at": [304.8, 38.1] },
+          { "part": "R1", "gate": "A", "at": [350.52, 25.4] },
+          { "part": "U1", "gate": "G$1", "at": [381, 22.86], "smashed": true,
+            "labels": [
+              { "attr": "NAME", "at": [378.46, 22.86], "size": 1.778, "layer": "names" },
+              { "attr": "VALUE", "at": [378.46, 17.78], "size": 1.778, "layer": "values" }
+            ]
+          },
+          { "part": "R2", "gate": "A", "at": [386.08, 33.02] },
+          { "part": "R5", "gate": "A", "at": [353.06, 2.54], "rot": 90 },
+          { "part": "R6", "gate": "A", "at": [353.06, -12.7], "rot": 90 },
+          { "part": "C1", "gate": "A", "at": [360.68, -12.7] },
+          { "part": "C2", "gate": "A", "at": [416.56, 20.32] },
+          { "part": "SUPPLY5", "gate": "GND", "at": [378.46, 10.16] },
+          { "part": "SUPPLY6", "gate": "GND", "at": [353.06, -22.86] },
+          { "part": "SUPPLY7", "gate": "GND", "at": [360.68, -20.32] },
+          { "part": "SUPPLY8", "gate": "GND", "at": [416.56, 12.7] },
+          { "part": "SUPPLY24", "gate": "G$1", "at": [378.46, 38.1] },
+          { "part": "SUPPLY25", "gate": "G$1", "at": [353.06, 12.7] },
+          { "part": "SUPPLY26", "gate": "G$1", "at": [416.56, 30.48] },
+          { "part": "R7", "gate": "A", "at": [444.5, 35.56] },
+          { "part": "C8", "gate": "A", "at": [454.66, 25.4] },
+          { "part": "SUPPLY2", "gate": "GND", "at": [454.66, 17.78] },
+          { "part": "SUPPLY77", "gate": "GND", "at": [480.06, 12.7], "smashed": true,
+            "labels": [
+              { "attr": "VALUE", "at": [478.155, 9.525], "size": 1.778, "layer": "values" }
+            ]
+          },
+          { "part": "C9", "gate": "A", "at": [500.38, 22.86], "smashed": true,
+            "labels": [
+              { "attr": "NAME", "at": [501.904, 25.781], "size": 1.778, "layer": "names" },
+              { "attr": "VALUE", "at": [501.904, 20.701], "size": 1.778, "layer": "values" }
+            ]
+          },
+          { "part": "SUPPLY79", "gate": "G$1", "at": [500.38, 38.1], "smashed": true,
+            "labels": [
+              { "attr": "VALUE", "at": [498.475, 41.275], "size": 1.778, "layer": "values" }
+            ]
+          },
+          { "part": "U2", "gate": "G$1", "at": [584.2, 12.7], "smashed": true,
+            "labels": [
+              { "attr": "NAME", "at": [586.74, 18.415], "size": 1.778, "layer": "names" },
+              { "attr": "VALUE", "at": [586.74, 7.62], "size": 1.778, "layer": "values" }
+            ]
+          },
+          { "part": "D1", "gate": "A", "at": [553.72, 10.16], "smashed": true,
+            "labels": [
+              { "attr": "NAME", "at": [556.26, 10.643], "size": 1.778, "layer": "names" }
+            ]
+          },
+          { "part": "C10", "gate": "A", "at": [561.34, 0], "smashed": true,
+            "labels": [
+              { "attr": "NAME", "at": [562.864, 2.921], "size": 1.778, "layer": "names" },
+              { "attr": "VALUE", "at": [562.864, -2.159], "size": 1.778, "layer": "values" }
+            ]
+          },
+          { "part": "R8", "gate": "A", "at": [571.5, 0], "rot": 90, "smashed": true,
+            "labels": [
+              { "attr": "NAME", "at": [570.001, -3.81], "rot": 90, "size": 1.778, "layer": "names" },
+              { "attr": "VALUE", "at": [574.802, -3.81], "rot": 90, "size": 1.778, "layer": "values" }
+            ]
+          },
+          { "part": "SUPPLY78", "gate": "GND", "at": [561.34, -12.7], "smashed": true,
+            "labels": [
+              { "attr": "VALUE", "at": [559.435, -15.875], "size": 1.778, "layer": "values" }
+            ]
+          },
+          { "part": "SUPPLY80", "gate": "G$1", "at": [581.66, 27.94], "smashed": true,
+            "labels": [
+              { "attr": "VALUE", "at": [579.755, 31.115], "size": 1.778, "layer": "values" }
+            ]
+          }
         ]
       }
     ]
@@ -429,7 +884,21 @@
     "footprints": [
       { "part": "R3", "at": [55.88, -20] },
       { "part": "R4", "at": [60.96, -20] },
-      { "part": "C7", "at": [66.04, -20] }
+      { "part": "C7", "at": [66.04, -20] },
+      { "part": "R1", "at": [-10.16, 0] },
+      { "part": "U1", "at": [-10.16, -5.08] },
+      { "part": "R2", "at": [-10.16, -10.16] },
+      { "part": "R5", "at": [-10.16, -15.24] },
+      { "part": "R6", "at": [-10.16, -20.32] },
+      { "part": "C1", "at": [-10.16, -25.4] },
+      { "part": "C2", "at": [-10.16, -30.48] },
+      { "part": "R7", "at": [-10.16, -35.56] },
+      { "part": "C8", "at": [-10.16, -40.64] },
+      { "part": "C9", "at": [-10.16, -45.72] },
+      { "part": "U2", "at": [-10.16, -50.8] },
+      { "part": "D1", "at": [-10.16, -55.88] },
+      { "part": "C10", "at": [-10.16, -60.96] },
+      { "part": "R8", "at": [-10.16, -66.04] }
     ]
   }
 }
